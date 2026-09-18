@@ -23,7 +23,7 @@ Available public pages include:
 - `/docs/quickstart` — quickstart
 - `/docs/api` — REST API reference
 - `/docs/telemetry` — run telemetry schema
-- `/github` — repository and release information
+- `/github` — repository, release history, and product roadmap
 - `/community` — support channels
 - `/changelog` — release history
 - `/login` and `/register` — auth UI shells
