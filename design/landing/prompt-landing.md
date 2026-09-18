@@ -185,7 +185,7 @@ anytime. Self-hosted — your data never leaves your infrastructure."
 
 **PENTING:** nominal Pro sudah ditetapkan `$5`/bulan. Tampilkan `$5` apa adanya, jangan mengganti dengan placeholder atau mengarang nominal lain.
 
-### 8. FAQ (4 item, accordion, semua TERTUTUP default)
+### 8. FAQ (8 item, accordion, semua TERTUTUP default)
 1. "Do I need Kubernetes?" → "No. One binary and a Postgres connection string."
 2. "Where does my agent code run?" → "On your machine. AgentDeck schedules and
    records; it does not execute your code."
@@ -193,6 +193,17 @@ anytime. Self-hosted — your data never leaves your infrastructure."
    require, auto, or off."
 4. "What happens when I hit a budget cap?" → "The run stops with outcome
    budget_exceeded and the task goes back to ready. Nothing is silently dropped."
+5. "Which providers and models can I use?" → "AgentDeck is designed to stay
+   provider-agnostic. Register the provider-backed worker you already run, then
+   track its runs, tool calls, and cost in one board."
+6. "Does my data leave my infrastructure?" → "No. AgentDeck is self-hosted by
+   design. The target deployment is one Go binary and PostgreSQL, so your board
+   data and ledger stay where you run them."
+7. "Can my team use one AgentDeck instance?" → "Yes. Pro is $5/month flat with
+   unlimited teammates, shared boards, role controls, webhooks, and audit history."
+8. "Is v0.1 ready for production?" → "v0.1 is a public preview of the frontend
+   and product contract. The Go runtime, auth API, dispatcher, ledger persistence,
+   and worker execution are shipping next across the roadmap."
 
 ### 9. CTA penutup (background tint teal `#e6f2f0`, padding 64px, border-top+bottom hairline)
 H2 Inter 32 "Ship the fleet. Keep the receipt." + satu tombol primary teal

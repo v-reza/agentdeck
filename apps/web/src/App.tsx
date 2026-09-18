@@ -17,6 +17,10 @@ const faqs = [
   ['Where does my agent code run?', 'On your machine. AgentDeck schedules and records; it does not execute your code.'],
   ['Can I gate only some tools?', 'Yes, per agent. Set the gate mode to require, auto, or off.'],
   ['What happens when I hit a budget cap?', 'The run stops with outcome budget_exceeded and the task goes back to ready. Nothing is silently dropped.'],
+  ['Which providers and models can I use?', 'AgentDeck is designed to stay provider-agnostic. Register the provider-backed worker you already run, then track its runs, tool calls, and cost in one board.'],
+  ['Does my data leave my infrastructure?', 'No. AgentDeck is self-hosted by design. The target deployment is one Go binary and PostgreSQL, so your board data and ledger stay where you run them.'],
+  ['Can my team use one AgentDeck instance?', 'Yes. Pro is $5/month flat with unlimited teammates, shared boards, role controls, webhooks, and audit history.'],
+  ['Is v0.1 ready for production?', 'v0.1 is a public preview of the frontend and product contract. The Go runtime, auth API, dispatcher, ledger persistence, and worker execution are shipping next across the roadmap.'],
 ]
 
 function Header({ active = '' }: { active?: string }) {

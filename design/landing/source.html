@@ -1196,6 +1196,26 @@
           <summary>What happens when I hit a budget cap?</summary>
           <p>The run stops with outcome budget_exceeded and the task goes back to ready. Nothing is silently dropped.</p>
         </details>
+
+        <details class="faq-item">
+          <summary>Which providers and models can I use?</summary>
+          <p>AgentDeck is designed to stay provider-agnostic. Register the provider-backed worker you already run, then track its runs, tool calls, and cost in one board.</p>
+        </details>
+
+        <details class="faq-item">
+          <summary>Does my data leave my infrastructure?</summary>
+          <p>No. AgentDeck is self-hosted by design. The target deployment is one Go binary and PostgreSQL, so your board data and ledger stay where you run them.</p>
+        </details>
+
+        <details class="faq-item">
+          <summary>Can my team use one AgentDeck instance?</summary>
+          <p>Yes. Pro is $5/month flat with unlimited teammates, shared boards, role controls, webhooks, and audit history.</p>
+        </details>
+
+        <details class="faq-item">
+          <summary>Is v0.1 ready for production?</summary>
+          <p>v0.1 is a public preview of the frontend and product contract. The Go runtime, auth API, dispatcher, ledger persistence, and worker execution are shipping next across the roadmap.</p>
+        </details>
       </div>
     </div>
   </section>
