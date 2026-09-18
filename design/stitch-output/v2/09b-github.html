@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Repositori &amp; Rilis (/github) - AgentDeck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            teal: {
+              DEFAULT: '#0d7a70',
+              hover: '#0a635b',
+              tint: '#eef7f5'
+            },
+            bg: '#f6f7f6',
+            surface: {
+              code: '#eef1f0',
+              panel: '#ffffff'
+            },
+            ink: {
+              primary: '#0e1110',
+              secondary: '#4d5553',
+              tertiary: '#6b7370',
+              muted: '#98a09d'
+            },
+            line: 'rgba(12,26,22,0.07)'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-bg text-ink-primary font-sans antialiased min-h-screen flex flex-col">
+
+  <!-- TOP NAV 64px STICKY (Blueprint P) -->
+  <header class="sticky top-0 z-50 h-16 bg-bg border-b border-line px-6">
+    <div class="max-w-[1120px] mx-auto h-full flex items-center justify-between">
+      <!-- Kiri: Brand Wordmark + Mark Aksen -->
+      <a href="/" class="flex items-center gap-2.5 text-decoration-none group">
+        <div class="w-6 h-6 rounded bg-teal text-white flex items-center justify-center font-mono font-bold text-xs shadow-sm">
+          AD
+        </div>
+        <span class="text-[15px] font-semibold text-ink-primary tracking-tight">AgentDeck</span>
+      </a>
+
+      <!-- Tengah: Link Navigasi Inter 14 -->
+      <nav class="hidden md:flex items-center gap-8 text-[14px]">
+        <a href="/product" class="text-ink-secondary hover:text-ink-primary transition-colors">Product</a>
+        <a href="/pricing" class="text-ink-secondary hover:text-ink-primary transition-colors">Pricing</a>
+        <a href="/docs" class="text-ink-secondary hover:text-ink-primary transition-colors">Docs</a>
+        <!-- AC2: Tautan aktif GitHub -->
+        <a href="/github" class="text-teal font-semibold flex items-center gap-1.5 border-b-2 border-teal py-1">
+          <span>GitHub</span>
+        </a>
+      </nav>
+
+      <!-- Kanan: Sign In + Get started free CTA -->
+      <div class="flex items-center gap-5 text-[14px]">
+        <a href="/login" class="text-ink-secondary hover:text-ink-primary font-medium transition-colors">Sign in</a>
+        <a href="/register" class="bg-teal hover:bg-teal-hover text-white font-medium px-3.5 py-1.5 rounded-[6px] transition-colors shadow-sm text-[13px]">
+          Get started free
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- KONTEN UTAMA (Max-width 1120px, margin auto, Scroll Normal) -->
+  <main class="max-w-[1120px] w-full mx-auto px-6 py-10 flex-1">
+
+    <!-- Header Judul Halaman -->
+    <div class="mb-10 pb-6 border-b border-line">
+      <div class="flex items-center gap-2 text-[12px] font-mono text-ink-muted mb-2">
+        <a href="/" class="hover:text-ink-secondary">AgentDeck</a>
+        <span>/</span>
+        <span class="text-teal font-semibold">Repositori &amp; Rilis</span>
+      </div>
+      <h1 class="text-3xl font-bold tracking-tight text-ink-primary">Repositori &amp; Rilis AgentDeck Core</h1>
+      <p class="mt-2 text-[15px] text-ink-secondary leading-relaxed max-w-3xl">
+        Kode sumber resmi, pelacakan rilis biner mandiri Go, dan spesifikasi protokol orkestrator agen otonom. Berlisensi terbuka dan dapat diaudit sepenuhnya.
+      </p>
+    </div>
+
+    <!-- Layout Grid Blueprint P-DOCS / Resource View -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+
+      <!-- Kolom Kiri: Metadata Utama Repositori (AC1 & AC2) -->
+      <div class="lg:col-span-4 space-y-6">
+        
+        <!-- Kartu Repositori Utama -->
+        <div class="bg-white rounded-xl border border-line p-6 shadow-sm">
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-10 h-10 rounded-lg bg-teal-tint flex items-center justify-center text-teal">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+              </svg>
+            </div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-teal-tint text-teal">
+              Public OSS
+            </span>
+          </div>
+
+          <h2 class="text-base font-semibold text-ink-primary">agentdeck/core</h2>
+          <p class="text-[13px] text-ink-secondary mt-1 mb-4 leading-relaxed">
+            Single-binary Go orchestrator &amp; telemetry ledger for autonomous AI agent fleets.
+          </p>
+
+          <!-- Tautan Repositori (AC1) -->
+          <a href="https://github.com/agentdeck/core" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center w-full gap-2 px-4 py-2 bg-teal hover:bg-teal-hover text-white rounded-[6px] text-[13px] font-medium transition-colors shadow-sm">
+            <span>Buka di GitHub</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+          </a>
+
+          <!-- Ringkasan AC1 Metadata -->
+          <div class="mt-6 pt-5 border-t border-line space-y-3 text-[13px]">
+            <div class="flex justify-between items-center">
+              <span class="text-ink-muted text-[12px]">Lisensi (AC1)</span>
+              <span class="font-mono text-ink-primary font-medium text-[12px] bg-bg px-2 py-0.5 rounded">Apache-2.0</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-ink-muted text-[12px]">Versi Terbaru (AC1)</span>
+              <span class="font-mono text-teal font-semibold text-[12px] bg-teal-tint px-2 py-0.5 rounded">v2.4.1</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-ink-muted text-[12px]">Tanggal Rilis (AC1)</span>
+              <span class="text-ink-primary text-[12px]">18 September 2026</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-ink-muted text-[12px]">Biner Mandiri</span>
+              <span class="font-mono text-ink-secondary text-[12px]">Go 1.22 (~28 MB)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- AC3: Kepatuhan Jalur Gagal (Direct Fallback Link) -->
+        <div class="bg-white rounded-xl border border-line p-5 shadow-sm">
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-md bg-bg flex items-center justify-center text-teal shrink-0 mt-0.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-[13px] font-semibold text-ink-primary">Tautan Langsung Repositori (AC3)</h3>
+              <p class="text-[12px] text-ink-secondary mt-1 leading-relaxed">
+                Bila sinkronisasi metadata rilis mengalami kendala jaringan atau batas API, pengguna diarahkan langsung ke tautan repositori resmi:
+              </p>
+              <a href="https://github.com/agentdeck/core" class="inline-block mt-2 font-mono text-[12px] text-teal hover:underline break-all">
+                github.com/agentdeck/core
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Blok Perintah Unduh Bepat -->
+        <div class="bg-white rounded-xl border border-line p-5 shadow-sm">
+          <div class="text-[11px] font-mono uppercase text-ink-muted font-semibold tracking-wider mb-2">Instalasi Satu Baris</div>
+          <div class="bg-surface-code rounded-[10px] p-3 font-mono text-[12px] text-ink-primary break-all border border-line">
+            curl -sSL https://get.agentdeck.dev/v2.4 | bash
+          </div>
+          <p class="text-[11px] text-ink-muted mt-2">
+            Mendeteksi arsitektur Linux x86_64, ARM64, dan macOS Darwin secara otomatis.
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Kolom Kanan: Daftar Rilis & Changelog Singkat (AC1) -->
+      <div class="lg:col-span-8 space-y-6">
+
+        <div class="flex items-center justify-between pb-2 border-b border-line">
+          <h2 class="text-lg font-bold text-ink-primary">Daftar Perubahan Singkat per Rilis</h2>
+          <span class="text-[12px] text-ink-muted font-mono">3 rilis terverifikasi</span>
+        </div>
+
+        <!-- Rilis 1: v2.4.1 (Terbaru) -->
+        <article class="bg-white rounded-xl border border-line p-6 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div class="flex items-center gap-3">
+              <span class="text-base font-bold font-mono text-teal">v2.4.1</span>
+              <span class="px-2 py-0.5 rounded text-[11px] font-medium bg-teal-tint text-teal font-mono">LATEST STABLE</span>
+            </div>
+            <time datetime="2026-09-18" class="text-[13px] text-ink-muted">18 September 2026</time>
+          </div>
+
+          <h3 class="text-[15px] font-semibold text-ink-primary mb-2">
+            Peningkatan Telemetri SSE &amp; Validasi Enkripsi Kredensial
+          </h3>
+
+          <p class="text-[13px] text-ink-secondary leading-relaxed mb-4">
+            Pembaruan pemeliharaan yang menstabilkan rekoneksi stream Server-Sent Events tanpa frame drop dan memperkuat enkripsi kunci provider LLM berbasis hardware AES-256-GCM.
+          </p>
+
+          <!-- Perubahan Singkat (AC1) -->
+          <div class="space-y-2 mb-5">
+            <div class="text-[12px] font-semibold text-ink-primary uppercase tracking-wider text-ink-muted">Sorotan Perubahan:</div>
+            <ul class="space-y-1.5 text-[13px] text-ink-secondary">
+              <li class="flex items-start gap-2">
+                <span class="text-teal font-bold select-none">•</span>
+                <span><strong class="text-ink-primary">Telemetri SSE Fixed-Point:</strong> Penjaminan kalkulasi mikro-USD ($0.000001) presisi integer mutlak tanpa distorsi IEEE-754.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-teal font-bold select-none">•</span>
+                <span><strong class="text-ink-primary">Enkripsi Kredensial Envelope:</strong> Integrasi nonces 12-byte dan auth tag 16-byte pada kolom internal Postgres.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-teal font-bold select-none">•</span>
+                <span><strong class="text-ink-primary">Ukuran Biner Ringkas:</strong> Kompilasi Go 1.22 dengan flags pangkas simbol menghasilkan footprint biner mandiri tetap ~28 MB.</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Code Snippet Biner -->
+          <div class="bg-surface-code rounded-[10px] p-3.5 font-mono text-[12px] text-ink-primary border border-line">
+            <div class="text-[11px] text-ink-muted mb-1 font-sans">Perintah update:</div>
+            <code>curl -sSL https://get.agentdeck.dev/v2.4.1 | bash &amp;&amp; agentdeck migrate</code>
+          </div>
+        </article>
+
+        <!-- Rilis 2: v2.4.0 -->
+        <article class="bg-white rounded-xl border border-line p-6 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div class="flex items-center gap-3">
+              <span class="text-base font-bold font-mono text-ink-primary">v2.4.0</span>
+              <span class="px-2 py-0.5 rounded text-[11px] font-medium bg-bg text-ink-secondary font-mono">STABLE</span>
+            </div>
+            <time datetime="2026-09-12" class="text-[13px] text-ink-muted">12 September 2026</time>
+          </div>
+
+          <h3 class="text-[15px] font-semibold text-ink-primary mb-2">
+            Pondasi Telemetri Mikro-Dolar &amp; Arsitektur Multi-Board
+          </h3>
+
+          <p class="text-[13px] text-ink-secondary leading-relaxed mb-4">
+            Peluncuran arsitektur orkestrasi mandiri yang mendukung multi-board Kanban dan Table view dengan ledger biaya presisi mikro-USD langsung ke database internal.
+          </p>
+
+          <!-- Perubahan Singkat (AC1) -->
+          <div class="space-y-2 mb-5">
+            <div class="text-[12px] font-semibold text-ink-primary uppercase tracking-wider text-ink-muted">Sorotan Perubahan:</div>
+            <ul class="space-y-1.5 text-[13px] text-ink-secondary">
+              <li class="flex items-start gap-2">
+                <span class="text-teal font-bold select-none">•</span>
+                <span><strong class="text-ink-primary">Inisialisasi 21 Tabel Relasional:</strong> Migrasi otomatis skema PostgreSQL internal tanpa ketergantungan Redis atau Kafka.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-teal font-bold select-none">•</span>
+                <span><strong class="text-ink-primary">Gerbang Approval Interaktif:</strong> Pencegahan tindakan destruktif armada seperti eksekusi skrip root sebelum otorisasi pengguna.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-teal font-bold select-none">•</span>
+                <span><strong class="text-ink-primary">Format Dokumentasi Publik:</strong> Akses mandiri bebas autentikasi untuk developer dan tim integrasi.</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Code Snippet Biner -->
+          <div class="bg-surface-code rounded-[10px] p-3.5 font-mono text-[12px] text-ink-primary border border-line">
+            <div class="text-[11px] text-ink-muted mb-1 font-sans">Menjalankan daemon:</div>
+            <code>agentdeck serve --port=8080 --config=./agentdeck.yaml</code>
+          </div>
+        </article>
+
+        <!-- Rilis 3: v2.3.9 -->
+        <article class="bg-white rounded-xl border border-line p-6 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div class="flex items-center gap-3">
+              <span class="text-base font-bold font-mono text-ink-primary">v2.3.9</span>
+              <span class="px-2 py-0.5 rounded text-[11px] font-medium bg-bg text-ink-muted font-mono">LEGACY</span>
+            </div>
+            <time datetime="2026-08-28" class="text-[13px] text-ink-muted">28 Agustus 2026</time>
+          </div>
+
+          <h3 class="text-[15px] font-semibold text-ink-primary mb-2">
+            Refactoring Driver Database &amp; Sinkronisasi Ingest gRPC
+          </h3>
+
+          <p class="text-[13px] text-ink-secondary leading-relaxed mb-3">
+            Optimalisasi connection pool PostgreSQL dan penambahan buffer ingest gRPC untuk skenario beban concurrency armada tinggi.
+          </p>
+
+          <ul class="space-y-1.5 text-[13px] text-ink-secondary">
+            <li class="flex items-start gap-2">
+              <span class="text-teal font-bold select-none">•</span>
+              <span>Penyesuaian batas idle connection pool daemon internal.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-teal font-bold select-none">•</span>
+              <span>Peningkatan penanganan timeout sinyal pembatalan run pada level driver biner.</span>
+            </li>
+          </ul>
+        </article>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- FOOTER (Blueprint P, 4 Kolom Link Inter 13, Border-top line, Padding 40px 0) -->
+  <footer class="border-t border-line bg-bg mt-16 py-10 px-6">
+    <div class="max-w-[1120px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 text-[13px]">
+      
+      <!-- Kolom 1: Produk -->
+      <div>
+        <div class="text-[11px] font-mono uppercase text-ink-muted font-semibold tracking-wider mb-3">Produk</div>
+        <ul class="space-y-2 text-ink-secondary">
+          <li><a href="/features" class="hover:text-ink-primary transition-colors">Fitur Inti</a></li>
+          <li><a href="/pricing" class="hover:text-ink-primary transition-colors">Harga Solo &amp; Pro</a></li>
+          <li><a href="/changelog" class="hover:text-ink-primary transition-colors">Catatan Rilis</a></li>
+        </ul>
+      </div>
+
+      <!-- Kolom 2: Dokumentasi -->
+      <div>
+        <div class="text-[11px] font-mono uppercase text-ink-muted font-semibold tracking-wider mb-3">Dokumentasi</div>
+        <ul class="space-y-2 text-ink-secondary">
+          <li><a href="/docs/quickstart" class="hover:text-ink-primary transition-colors">Mulai Cepat</a></li>
+          <li><a href="/docs/api" class="hover:text-ink-primary transition-colors">REST Endpoints</a></li>
+          <li><a href="/docs/telemetry" class="hover:text-ink-primary transition-colors">Skema Telemetri</a></li>
+          <li><a href="/docs/cli" class="hover:text-ink-primary transition-colors">CLI Reference</a></li>
+        </ul>
+      </div>
+
+      <!-- Kolom 3: Ekosistem -->
+      <div>
+        <div class="text-[11px] font-mono uppercase text-ink-muted font-semibold tracking-wider mb-3">Ekosistem</div>
+        <ul class="space-y-2 text-ink-secondary">
+          <li><a href="/github" class="text-teal font-semibold hover:underline">GitHub Repository</a></li>
+          <li><a href="/community" class="hover:text-ink-primary transition-colors">Komunitas Discord</a></li>
+          <li><a href="/security" class="hover:text-ink-primary transition-colors">Keamanan &amp; Lisensi</a></li>
+        </ul>
+      </div>
+
+      <!-- Kolom 4: Lisensi & Biner -->
+      <div>
+        <div class="text-[11px] font-mono uppercase text-ink-muted font-semibold tracking-wider mb-3">Lisensi &amp; Biner</div>
+        <p class="text-ink-secondary leading-relaxed mb-3">
+          Papan orkestrasi mandiri untuk armada agen AI otonom. Biner tunggal Go, presisi mikro-dolar.
+        </p>
+        <div class="inline-block font-mono text-[11px] bg-white border border-line px-2.5 py-1 rounded text-ink-muted">
+          v2.4.1-stable (Single Binary)
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Subfooter Hak Cipta -->
+    <div class="max-w-[1120px] mx-auto mt-10 pt-6 border-t border-line flex flex-col sm:flex-row items-center justify-between gap-4 text-[12px] text-ink-muted">
+      <div>&copy; 2026 AgentDeck Core. Lisensi Open-Source Apache-2.0.</div>
+      <div>Designed for autonomous AI agents fleet orchestration</div>
+    </div>
+  </footer>
+
+</body>
+</html>

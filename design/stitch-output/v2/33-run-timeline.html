@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — Run Timeline (Blueprint B)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    :root {
+      --bg-rail: #e8ecea;
+      --bg-sidebar: #f6f7f6;
+      --bg-canvas: #f6f7f6;
+      --bg-cost-rail: #eef1f0;
+      --bg-card: #ffffff;
+      --bg-topbar: #ffffff;
+
+      --accent: #0d7a70;
+      --accent-hover: #0b675e;
+      --accent-tint: #e6f3f1;
+
+      --ink-primary: #0e1110;
+      --ink-secondary: #4d5553;
+      --ink-tertiary: #6b7370;
+
+      --border-subtle: rgba(12, 26, 22, 0.07);
+      --border-standard: rgba(12, 26, 22, 0.12);
+
+      --status-success: #16a34a;
+      --status-success-tint: #f0fdf4;
+      --status-success-border: rgba(22, 163, 74, 0.25);
+
+      --status-failed: #dc2626;
+      --status-failed-tint: #fef2f2;
+      --status-failed-border: rgba(220, 38, 38, 0.25);
+
+      --status-running: #d97706;
+      --status-ready: #2563eb;
+      --status-backlog: #64748b;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--ink-primary);
+      background-color: var(--bg-canvas);
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* 1. RAIL (44px) */
+    .app-rail {
+      width: 44px;
+      background-color: var(--bg-rail);
+      border-right: 1px solid var(--border-subtle);
+      height: 100%;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 0;
+      justify-content: space-between;
+    }
+
+    .rail-top {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+    }
+
+    .rail-logo {
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-sm);
+      letter-spacing: -0.5px;
+    }
+
+    .rail-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      align-items: center;
+    }
+
+    .rail-icon-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink-secondary);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      transition: all 0.15s ease;
+    }
+
+    .rail-icon-btn:hover {
+      background: rgba(12, 26, 22, 0.06);
+      color: var(--ink-primary);
+    }
+
+    .rail-icon-btn.active {
+      background: var(--accent-tint);
+      color: var(--accent);
+    }
+
+    .rail-bottom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* 2. SIDEBAR (224px) */
+    .app-sidebar {
+      width: 224px;
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border-subtle);
+      height: 100%;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 12px;
+    }
+
+    .sidebar-header {
+      margin-bottom: 14px;
+    }
+
+    .sidebar-workspace-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--ink-tertiary);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .sidebar-workspace-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .scope-pill {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--accent);
+      background: var(--accent-tint);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .sidebar-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ink-tertiary);
+      margin: 14px 4px 6px 4px;
+    }
+
+    .sidebar-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      color: var(--ink-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .sidebar-item:hover {
+      background: rgba(12, 26, 22, 0.04);
+      color: var(--ink-primary);
+    }
+
+    .sidebar-item.active {
+      background: #ffffff;
+      color: var(--accent);
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+
+    .sidebar-item-count {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-tertiary);
+    }
+
+    .sidebar-user {
+      padding-top: 10px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .avatar-user {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #e2e8e5;
+      color: var(--ink-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .user-info {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .user-name {
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .user-role-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      background: rgba(12, 26, 22, 0.08);
+      color: var(--ink-secondary);
+      padding: 0 4px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    /* 3. MAIN PANE (Topbar + Content) */
+    .main-wrapper {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background-color: var(--bg-canvas);
+    }
+
+    /* Topbar 52px */
+    .topbar {
+      height: 52px;
+      background: var(--bg-topbar);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--ink-secondary);
+    }
+
+    .breadcrumb-sep {
+      color: var(--ink-tertiary);
+    }
+
+    .breadcrumb-current {
+      font-weight: 600;
+      color: var(--ink-primary);
+    }
+
+    .route-badge {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--ink-tertiary);
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      height: 30px;
+      padding: 0 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.15s ease;
+    }
+
+    .btn-secondary {
+      background: #ffffff;
+      border-color: var(--border-standard);
+      color: var(--ink-primary);
+    }
+
+    .btn-secondary:hover {
+      background: #f8faf9;
+    }
+
+    .btn-disabled {
+      background: #f1f3f2;
+      border-color: var(--border-subtle);
+      color: var(--ink-tertiary);
+      cursor: not-allowed;
+      opacity: 0.85;
+    }
+
+    .lock-hint {
+      font-size: 11px;
+      color: var(--ink-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Content Area: scrollable */
+    .content-pane {
+      flex: 1;
+      min-height: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Run Summary Header Strip */
+    .run-summary-bar {
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .run-id-block {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .agent-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-primary);
+    }
+
+    .avatar-agent {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent-tint);
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .meta-metrics {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--ink-secondary);
+    }
+
+    .metric-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .status-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .status-badge.failed {
+      background: var(--status-failed-tint);
+      color: var(--status-failed);
+      border: 1px solid var(--status-failed-border);
+    }
+
+    .status-badge.success {
+      background: var(--status-success-tint);
+      color: var(--status-success);
+      border: 1px solid var(--status-success-border);
+    }
+
+    /* Blueprint B: 5 columns x 268px, gap 8px */
+    .columns-container {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      align-items: stretch;
+    }
+
+    .board-column {
+      width: 268px;
+      flex-shrink: 0;
+      background: #ebefed;
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      border-top-width: 3px;
+      border-top-style: solid;
+      height: 100%;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+      overflow: hidden;
+    }
+
+    /* Top edge 3px warna status */
+    .col-success-init {
+      border-top-color: var(--status-success);
+    }
+    .col-success-tool {
+      border-top-color: var(--status-success);
+    }
+    .col-empty-payload {
+      border-top-color: var(--status-success);
+    }
+    .col-failed-gate {
+      border-top-color: var(--status-failed);
+    }
+    .col-inspect-drawer {
+      border-top-color: var(--accent);
+      background: #f2f5f4;
+    }
+
+    .column-header {
+      height: 30px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.4);
+      flex-shrink: 0;
+    }
+
+    .column-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--ink-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .column-badge {
+      font-size: 10px;
+      font-weight: 600;
+      background: rgba(0, 0, 0, 0.07);
+      padding: 1px 5px;
+      border-radius: 9999px;
+      color: var(--ink-secondary);
+    }
+
+    /* Column content scrolls itself */
+    .column-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Cards: padding 10px, radius 6/10px */
+    .step-card {
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .step-card:hover {
+      border-color: var(--border-standard);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      transform: translateY(-1px);
+    }
+
+    .step-card.active-selected {
+      border-color: var(--accent);
+      background: #ffffff;
+      box-shadow: 0 0 0 1px var(--accent), 0 2px 6px rgba(13, 122, 112, 0.15);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .step-number {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--ink-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .step-pill {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .step-pill.success {
+      background: var(--status-success-tint);
+      color: var(--status-success);
+      border: 1px solid var(--status-success-border);
+    }
+
+    .step-pill.failed {
+      background: var(--status-failed-tint);
+      color: var(--status-failed);
+      border: 1px solid var(--status-failed-border);
+    }
+
+    .step-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-primary);
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+
+    .step-desc {
+      font-size: 11px;
+      color: var(--ink-secondary);
+      margin-bottom: 8px;
+    }
+
+    .step-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--ink-tertiary);
+      border-top: 1px dashed var(--border-subtle);
+      padding-top: 6px;
+    }
+
+    /* Empty payload placeholder in column 3 (AC3) */
+    .empty-payload-card {
+      background: #ffffff;
+      border: 1px dashed var(--border-standard);
+      border-radius: var(--radius-sm);
+      padding: 12px 10px;
+      text-align: center;
+    }
+
+    .empty-payload-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--bg-canvas);
+      color: var(--ink-tertiary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 6px;
+    }
+
+    .empty-payload-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-primary);
+      margin-bottom: 2px;
+    }
+
+    .empty-payload-text {
+      font-size: 10px;
+      color: var(--ink-tertiary);
+      line-height: 1.35;
+    }
+
+    /* Column 5: Inspector / Drawer Pane in Blueprint B view */
+    .inspector-pane {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .inspector-header-card {
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+    }
+
+    .inspector-badge {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--accent-tint);
+      color: var(--accent);
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-bottom: 4px;
+    }
+
+    .inspector-section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--ink-secondary);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .code-box {
+      background: #0e1110;
+      color: #e5e7eb;
+      font-size: 10px;
+      line-height: 1.45;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      max-height: 150px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .code-box pre {
+      font-family: 'JetBrains Mono', monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .code-box-light {
+      background: #ffffff;
+      border: 1px solid var(--border-standard);
+      color: var(--ink-primary);
+      font-size: 11px;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      max-height: 110px;
+      overflow-y: auto;
+    }
+
+    /* 4. COST RAIL KANAN (264px) */
+    .app-cost-rail {
+      width: 264px;
+      background-color: var(--bg-cost-rail);
+      border-left: 1px solid var(--border-subtle);
+      height: 100%;
+      flex-shrink: 0;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow-y: auto;
+    }
+
+    .cost-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ink-tertiary);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .cost-today-val {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--ink-primary);
+      line-height: 1.1;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .cost-today-cap {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ink-tertiary);
+    }
+
+    .budget-meter-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(12, 26, 22, 0.1);
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .budget-meter-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 24.1%;
+      border-radius: 9999px;
+    }
+
+    .budget-meta-text {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--ink-tertiary);
+      margin-bottom: 18px;
+    }
+
+    /* 7-DAY Sparkline */
+    .sparkline-container {
+      margin-bottom: 20px;
+    }
+
+    .sparkline-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 40px;
+      margin-top: 8px;
+    }
+
+    .spark-bar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .spark-bar {
+      width: 100%;
+      background: var(--accent);
+      opacity: 0.55;
+      border-radius: 2px 2px 0 0;
+    }
+
+    .spark-bar.active {
+      opacity: 1;
+    }
+
+    .spark-label {
+      font-size: 9px;
+      color: var(--ink-tertiary);
+    }
+
+    /* TOP SPENDERS (3 baris) */
+    .top-spenders-section {
+      margin-bottom: 20px;
+    }
+
+    .spender-row {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .spender-row:last-child {
+      border-bottom: none;
+    }
+
+    .spender-row-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .spender-bar-bg {
+      height: 3px;
+      background: rgba(12, 26, 22, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .spender-bar-val {
+      height: 100%;
+      background: var(--accent);
+    }
+
+    /* RUNNING NOW */
+    .running-now-box {
+      background: rgba(255, 255, 255, 0.65);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+    }
+
+    .running-now-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-primary);
+      margin-bottom: 2px;
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #d97706;
+      box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2);
+    }
+
+    .running-now-sub {
+      font-size: 10px;
+      color: var(--ink-tertiary);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. APP RAIL (44px, background #e8ecea) -->
+  <aside class="app-rail">
+    <div class="rail-top">
+      <div class="rail-logo">AD</div>
+      <nav class="rail-nav">
+        <!-- Boards -->
+        <button class="rail-icon-btn" title="Kanban Boards">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+            <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+          </svg>
+        </button>
+        <!-- Tasks / Timeline (Active) -->
+        <button class="rail-icon-btn active" title="Runs & Timeline">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </button>
+        <!-- Agents -->
+        <button class="rail-icon-btn" title="Agent Registry">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+            <rect x="9" y="9" width="6" height="6"></rect>
+            <line x1="9" y1="1" x2="9" y2="4"></line>
+            <line x1="15" y1="1" x2="15" y2="4"></line>
+            <line x1="9" y1="20" x2="9" y2="23"></line>
+            <line x1="15" y1="20" x2="15" y2="23"></line>
+          </svg>
+        </button>
+        <!-- Cost & Telemetry -->
+        <button class="rail-icon-btn" title="Cost & Ledger">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+        </button>
+      </nav>
+    </div>
+    <div class="rail-bottom">
+      <button class="rail-icon-btn" title="Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- 2. SIDEBAR (224px, background #f6f7f6) -->
+  <aside class="app-sidebar">
+    <div>
+      <div class="sidebar-header">
+        <div class="sidebar-workspace-label">Workspace</div>
+        <div class="sidebar-workspace-name">
+          <span>ws_8f12a (isolated)</span>
+          <span class="scope-pill">org-scoped</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section-title">Navigasi Run</div>
+      <div class="sidebar-list">
+        <a class="sidebar-item" href="#">
+          <span>Semua Run</span>
+          <span class="sidebar-item-count font-mono">24</span>
+        </a>
+        <a class="sidebar-item active" href="#">
+          <span>Timeline Step</span>
+          <span class="sidebar-item-count font-mono">5 step</span>
+        </a>
+        <a class="sidebar-item" href="#">
+          <span>Log & Telemetri</span>
+          <span class="sidebar-item-count font-mono">148</span>
+        </a>
+        <a class="sidebar-item" href="#">
+          <span>Cost Ledger</span>
+          <span class="sidebar-item-count font-mono">$0.318</span>
+        </a>
+      </div>
+
+      <div class="sidebar-section-title">Filter Status Step</div>
+      <div class="sidebar-list">
+        <a class="sidebar-item" href="#">
+          <span style="display:flex; align-items:center; gap:6px;">
+            <span style="width:6px; height:6px; border-radius:50%; background:var(--status-success);"></span>
+            Sukses
+          </span>
+          <span class="sidebar-item-count font-mono">4</span>
+        </a>
+        <a class="sidebar-item" href="#">
+          <span style="display:flex; align-items:center; gap:6px;">
+            <span style="width:6px; height:6px; border-radius:50%; background:var(--status-failed);"></span>
+            Gagal
+          </span>
+          <span class="sidebar-item-count font-mono">1</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- User Profile with viewer badge (AC4) -->
+    <div class="sidebar-user">
+      <div class="avatar-user">RZ</div>
+      <div class="user-info">
+        <div class="user-name">Reza (Tamu)</div>
+        <span class="user-role-badge">viewer</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 3. MAIN PANE (Topbar + Blueprint B 5-column Content) -->
+  <main class="main-wrapper">
+    <!-- Topbar (52px, background #ffffff) -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="breadcrumb">
+          <span>Sprint 24</span>
+          <span class="breadcrumb-sep">/</span>
+          <span>run_9b42f1</span>
+          <span class="breadcrumb-sep">/</span>
+          <span class="breadcrumb-current">Timeline</span>
+        </div>
+        <span class="route-badge font-mono">/runs/run_9b42f1/timeline</span>
+      </div>
+
+      <!-- AC4: Permission Enforcement (viewer role) -->
+      <div class="topbar-right">
+        <div class="lock-hint" title="Peran viewer tidak memiliki akses mutasi execution daemon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>AC4: viewer tidak dapat memicu retry</span>
+        </div>
+        <button class="btn btn-disabled" disabled title="Akses ditolak: role viewer dilarang memicu retry">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+          </svg>
+          <span>Retry Run</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Content Pane (Scrollable, Blueprint B: 5 columns x 268px, gap 8px) -->
+    <div class="content-pane">
+      <!-- Run Summary Strip -->
+      <div class="run-summary-bar">
+        <div class="run-id-block">
+          <span class="status-badge failed font-mono">
+            <span style="width:6px; height:6px; border-radius:50%; background:var(--status-failed);"></span>
+            Terminated (Exit 1)
+          </span>
+          <div class="agent-tag">
+            <span class="avatar-agent">be</span>
+            <span>agent-backend</span>
+            <span class="font-mono" style="font-size:11px; color:var(--ink-tertiary); font-weight:normal;">(gpt-4o)</span>
+          </div>
+          <span style="color:var(--ink-tertiary); font-size:12px;">•</span>
+          <span style="font-weight:600; font-size:12px;">Task: Refactor auth module & telemetry pipeline</span>
+        </div>
+        <div class="meta-metrics font-mono">
+          <div class="metric-item">
+            <span style="color:var(--ink-tertiary);">Durasi:</span>
+            <span>4m 12s</span>
+          </div>
+          <div class="metric-item">
+            <span style="color:var(--ink-tertiary);">Tokens:</span>
+            <span>38,620</span>
+          </div>
+          <div class="metric-item">
+            <span style="color:var(--ink-tertiary);">Biaya:</span>
+            <span style="color:var(--accent); font-weight:600;">$0.3180</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Blueprint B: 5 columns x 268px, gap 8px, top edge 3px status color -->
+      <div class="columns-container">
+        
+        <!-- KOLOM 1: Phase 1 (Sukses - Hijau) -->
+        <section class="board-column col-success-init">
+          <div class="column-header">
+            <div class="column-title">
+              <span style="width:6px; height:6px; border-radius:50%; background:var(--status-success);"></span>
+              <span>1. Inisialisasi & Query</span>
+            </div>
+            <span class="column-badge font-mono">1</span>
+          </div>
+          <div class="column-scroll">
+            <div class="step-card" title="Klik untuk inspeksi">
+              <div class="card-top">
+                <span class="step-number font-mono">STEP 01</span>
+                <!-- AC1: Warna hijau = sukses -->
+                <span class="step-pill success font-mono">Sukses</span>
+              </div>
+              <div class="step-title">step_01_query</div>
+              <div class="step-desc">Audit sesi auth & parse file konfigurasi redis lama.</div>
+              <div class="step-footer font-mono">
+                <span>tool:read_file</span>
+                <span>18s • $0.0028</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- KOLOM 2: Phase 2 (Sukses - Hijau) -->
+        <section class="board-column col-success-tool">
+          <div class="column-header">
+            <div class="column-title">
+              <span style="width:6px; height:6px; border-radius:50%; background:var(--status-success);"></span>
+              <span>2. Analisis & Rancang</span>
+            </div>
+            <span class="column-badge font-mono">1</span>
+          </div>
+          <div class="column-scroll">
+            <div class="step-card" title="Klik untuk inspeksi">
+              <div class="card-top">
+                <span class="step-number font-mono">STEP 02</span>
+                <!-- AC1: Warna hijau = sukses -->
+                <span class="step-pill success font-mono">Sukses</span>
+              </div>
+              <div class="step-title">step_02_decompose</div>
+              <div class="step-desc">Analisis refactoring dependency & rancang skema SQL migrasi.</div>
+              <div class="step-footer font-mono">
+                <span>model:gpt-4o</span>
+                <span>46s • $0.0242</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- KOLOM 3: Phase 3 (AC3: Step dengan payload_json kosong) -->
+        <section class="board-column col-empty-payload">
+          <div class="column-header">
+            <div class="column-title">
+              <span style="width:6px; height:6px; border-radius:50%; background:var(--status-success);"></span>
+              <span>3. Sync Cache</span>
+            </div>
+            <span class="column-badge font-mono">1</span>
+          </div>
+          <div class="column-scroll">
+            <div class="step-card" title="Klik untuk inspeksi payload kosong">
+              <div class="card-top">
+                <span class="step-number font-mono">STEP 03</span>
+                <!-- AC1: Warna hijau = sukses -->
+                <span class="step-pill success font-mono">Sukses</span>
+              </div>
+              <div class="step-title">step_03_noop_sync</div>
+              <div class="step-desc">Sinkronisasi memori lokal tanpa mutasi I/O eksternal.</div>
+
+              <!-- AC3: Step dengan payload_json kosong menampilkan panel kosong bertanda jelas, bukan error -->
+              <div class="empty-payload-card">
+                <div class="empty-payload-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                    <path d="M7 15h10"></path>
+                  </svg>
+                </div>
+                <div class="empty-payload-title">payload_json Kosong</div>
+                <div class="empty-payload-text font-mono">
+                  [US-AD26 AC3] Payload tidak terdefinisi (bukan error eksekusi)
+                </div>
+              </div>
+
+              <div class="step-footer font-mono" style="margin-top:8px;">
+                <span>internal:sync</span>
+                <span>2s • $0.0000</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- KOLOM 4: Phase 4 (AC1: Merah = gagal) -->
+        <section class="board-column col-failed-gate">
+          <div class="column-header">
+            <div class="column-title">
+              <span style="width:6px; height:6px; border-radius:50%; background:var(--status-failed);"></span>
+              <span>4. Eksekusi Skrip</span>
+            </div>
+            <span class="column-badge font-mono">1</span>
+          </div>
+          <div class="column-scroll">
+            <!-- AC2: Selected Step untuk inspeksi drawer / payload -->
+            <div class="step-card active-selected" title="Step sedang aktif dibuka di drawer">
+              <div class="card-top">
+                <span class="step-number font-mono">STEP 04</span>
+                <!-- AC1: Warna merah = gagal -->
+                <span class="step-pill failed font-mono">Gagal</span>
+              </div>
+              <div class="step-title">step_04_apply_migration</div>
+              <div class="step-desc">Mengeksekusi berkas migrasi 004_auth_ledger.sql pada database.</div>
+              <div style="background:var(--status-failed-tint); border:1px solid var(--status-failed-border); padding:6px; border-radius:4px; font-size:10px; color:var(--status-failed); margin-bottom:6px;" class="font-mono">
+                Error: PermissionDenied (bash exec gated)
+              </div>
+              <div class="step-footer font-mono">
+                <span>tool:bash_exec</span>
+                <span>32s • $0.0512</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- KOLOM 5: Detail & Payload Inspector (AC2: Klik step → drawer menampilkan prompt, completion, tool call payload) -->
+        <section class="board-column col-inspect-drawer">
+          <div class="column-header">
+            <div class="column-title" style="color:var(--accent);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="4 17 10 11 4 5"></polyline>
+                <line x1="12" y1="19" x2="20" y2="19"></line>
+              </svg>
+              <span>5. Drawer: Step 04</span>
+            </div>
+            <span class="column-badge font-mono" style="background:var(--accent-tint); color:var(--accent);">AC2</span>
+          </div>
+          <div class="column-scroll inspector-pane">
+            
+            <div class="inspector-header-card">
+              <span class="inspector-badge">Inspeksi Step Aktif</span>
+              <div style="font-size:12px; font-weight:700; color:var(--ink-primary);">step_04_apply_migration</div>
+              <div class="font-mono" style="font-size:10px; color:var(--status-failed); margin-top:2px;">status: failed (Exit 1)</div>
+            </div>
+
+            <!-- AC2: Prompt -->
+            <div>
+              <div class="inspector-section-label">
+                <span>Prompt</span>
+                <span class="font-mono" style="font-size:9px; color:var(--ink-tertiary);">in: 1,840 tok</span>
+              </div>
+              <div class="code-box-light font-mono">
+"Jalankan skrip migrasi auth ledger pada host target menggunakan pg_migrate: /migrations/004_auth_ledger.sql"
+              </div>
+            </div>
+
+            <!-- AC2: Tool Call Payload (dari payload_json) -->
+            <div>
+              <div class="inspector-section-label">
+                <span>payload_json (Tool Call)</span>
+                <span class="font-mono" style="font-size:9px; color:var(--accent);">JSON</span>
+              </div>
+              <div class="code-box font-mono">
+<pre>{
+  "tool": "bash_exec",
+  "command": "psql $DATABASE_URL -f 004_auth_ledger.sql",
+  "timeout_sec": 60,
+  "requires_approval": true,
+  "sandbox": "isolated_tenant"
+}</pre>
+              </div>
+            </div>
+
+            <!-- AC2: Completion -->
+            <div>
+              <div class="inspector-section-label">
+                <span>Completion</span>
+                <span class="font-mono" style="font-size:9px; color:var(--ink-tertiary);">out: 412 tok</span>
+              </div>
+              <div class="code-box font-mono" style="background:#1a1111; border-color:var(--status-failed-border);">
+<pre style="color:#fca5a5;">{
+  "finish_reason": "gated_denied",
+  "stderr": "FATAL: approval signature rejected by security gate. Exit code 1.",
+  "exit_code": 1
+}</pre>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- 4. COST RAIL KANAN (264px, background #eef1f0) -->
+  <aside class="app-cost-rail">
+    <div>
+      <!-- TODAY (biaya + meter pagu) -->
+      <div class="cost-section-title">
+        <span>TODAY</span>
+        <span class="font-mono" style="font-size:10px; color:var(--ink-tertiary);">CAP $20.00</span>
+      </div>
+      <div class="cost-today-val font-mono">
+        <span>$4.82</span>
+        <span class="cost-today-cap">/ $20.00</span>
+      </div>
+      <div class="budget-meter-track">
+        <div class="budget-meter-fill"></div>
+      </div>
+      <div class="budget-meta-text font-mono">
+        <span>24.1% terpakai</span>
+        <span>Sisa $15.18</span>
+      </div>
+
+      <!-- 7-DAY (sparkline) -->
+      <div class="sparkline-container">
+        <div class="cost-section-title">
+          <span>7-DAY</span>
+          <span class="font-mono" style="font-size:9px; color:var(--ink-tertiary);">SEP 12 — SEP 18</span>
+        </div>
+        <div class="sparkline-bars">
+          <div class="spark-bar-col">
+            <div class="spark-bar" style="height: 18px;"></div>
+            <span class="spark-label font-mono">12</span>
+          </div>
+          <div class="spark-bar-col">
+            <div class="spark-bar" style="height: 28px;"></div>
+            <span class="spark-label font-mono">13</span>
+          </div>
+          <div class="spark-bar-col">
+            <div class="spark-bar" style="height: 14px;"></div>
+            <span class="spark-label font-mono">14</span>
+          </div>
+          <div class="spark-bar-col">
+            <div class="spark-bar" style="height: 32px;"></div>
+            <span class="spark-label font-mono">15</span>
+          </div>
+          <div class="spark-bar-col">
+            <div class="spark-bar" style="height: 36px;"></div>
+            <span class="spark-label font-mono">16</span>
+          </div>
+          <div class="spark-bar-col">
+            <div class="spark-bar" style="height: 24px;"></div>
+            <span class="spark-label font-mono">17</span>
+          </div>
+          <div class="spark-bar-col">
+            <div class="spark-bar active" style="height: 40px;"></div>
+            <span class="spark-label font-mono" style="font-weight:700; color:var(--accent);">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP SPENDERS (3 baris) -->
+      <div class="top-spenders-section">
+        <div class="cost-section-title">
+          <span>TOP SPENDERS</span>
+          <span class="font-mono" style="font-size:9px; color:var(--ink-tertiary);">TODAY</span>
+        </div>
+        <div class="spender-row">
+          <div class="spender-row-head">
+            <span style="font-weight:600;">agent-backend</span>
+            <span class="font-mono">$1.84</span>
+          </div>
+          <div class="spender-bar-bg">
+            <div class="spender-bar-val" style="width: 82%;"></div>
+          </div>
+        </div>
+        <div class="spender-row">
+          <div class="spender-row-head">
+            <span style="font-weight:600;">agent-data</span>
+            <span class="font-mono">$1.42</span>
+          </div>
+          <div class="spender-bar-bg">
+            <div class="spender-bar-val" style="width: 64%;"></div>
+          </div>
+        </div>
+        <div class="spender-row">
+          <div class="spender-row-head">
+            <span style="font-weight:600;">agent-docs</span>
+            <span class="font-mono">$0.91</span>
+          </div>
+          <div class="spender-bar-bg">
+            <div class="spender-bar-val" style="width: 41%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RUNNING NOW -->
+    <div class="running-now-box">
+      <div class="running-now-badge">
+        <span class="pulse-dot"></span>
+        <span>RUNNING NOW</span>
+      </div>
+      <div class="running-now-sub font-mono">2 agents active</div>
+    </div>
+  </aside>
+
+</body>
+</html>

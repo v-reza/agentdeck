@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+
+<html class="h-full bg-[#f6f7f6]" lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AgentDeck — Kanban Board (Sprint 24 - Empty)</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Fonts: Inter & JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            rail: '#e8ecea',
+            sidebar: '#f6f7f6',
+            costrail: '#eef1f0',
+            canvas: '#f6f7f6',
+            accent: '#0d7a70',
+            'accent-hover': '#0b665e',
+            borderline: '#d9dad9',
+            badgeBg: '#e2e8e5',
+          }
+        }
+      }
+    }
+  </script>
+<!-- BEGIN: Custom Styles -->
+<style data-purpose="scrollbar-and-utilities">
+    /* Custom scrollbar handling for kanban horizontal board */
+    .kanban-scroll::-webkit-scrollbar {
+      height: 8px;
+    }
+    .kanban-scroll::-webkit-scrollbar-track {
+      background: #eef1f0;
+    }
+    .kanban-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .kanban-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+<!-- END: Custom Styles -->
+</head>
+<body class="h-full font-sans text-slate-800 antialiased overflow-hidden select-none bg-[#f6f7f6]">
+<!-- BEGIN: Application Shell Layout -->
+<div class="flex h-full w-full">
+<!-- BEGIN: Left Rail (44px) -->
+<aside class="w-[44px] shrink-0 bg-rail border-r border-borderline flex flex-col justify-between items-center py-2.5 z-30" data-purpose="primary-navigation-rail">
+<!-- Top Navigation & Brand -->
+<div class="flex flex-col items-center gap-4 w-full">
+<!-- Brand AD Badge -->
+<div class="w-7 h-7 rounded-md bg-accent text-white font-mono font-bold text-xs flex items-center justify-center shadow-xs" title="AgentDeck Core">
+          AD
+        </div>
+<!-- Navigation Icons -->
+<nav class="flex flex-col items-center gap-2 w-full mt-1">
+<!-- Folder / Projects -->
+<button class="w-8 h-8 rounded flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors" title="Semua Project" type="button">
+<svg class="w-4 h-4 stroke-[1.75]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- Kanban Board (Active) -->
+<button class="w-8 h-8 rounded flex items-center justify-center text-accent bg-[#d2e0dc] text-[#0d7a70] transition-colors" title="Papan Kanban" type="button">
+<svg class="w-4 h-4 stroke-[2]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<rect height="16" rx="1" width="5" x="3" y="4"></rect>
+<rect height="10" rx="1" width="5" x="10" y="4"></rect>
+<rect height="13" rx="1" width="5" x="17" y="4"></rect>
+</svg>
+</button>
+<!-- Registry / Agents -->
+<button class="w-8 h-8 rounded flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors" title="Registri Agen" type="button">
+<svg class="w-4 h-4 stroke-[1.75]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.942A4.5 4.5 0 0115.894 17H8.106a4.5 4.5 0 01-2.336-.758L4.2 15.3m15.6 0A2.25 2.25 0 0021 13.35v-1.1c0-.621-.504-1.125-1.125-1.125h-1.5m-14.175 4.2A2.25 2.25 0 013 13.35v-1.1c0-.621.504-1.125 1.125-1.125h1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- Security / Policies -->
+<button class="w-8 h-8 rounded flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors" title="Kebijakan &amp; Keamanan" type="button">
+<svg class="w-4 h-4 stroke-[1.75]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- Telemetry / Costs -->
+<button class="w-8 h-8 rounded flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors" title="Telemetri &amp; Biaya" type="button">
+<svg class="w-4 h-4 stroke-[1.75]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- Logs / Docs -->
+<button class="w-8 h-8 rounded flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors" title="Dokumentasi &amp; Audit" type="button">
+<svg class="w-4 h-4 stroke-[1.75]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</nav>
+</div>
+<!-- Bottom Avatar & Settings -->
+<div class="flex flex-col items-center gap-3">
+<!-- Settings Gear -->
+<button class="w-8 h-8 rounded flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors" title="Pengaturan Sistem" type="button">
+<svg class="w-4 h-4 stroke-[1.75]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- User Avatar RZ with status dot -->
+<div class="relative cursor-pointer group" title="Pengguna: RZ (Admin)">
+<div class="w-[26px] h-[26px] rounded-full bg-[#191c1c] text-white font-mono font-medium text-[10px] flex items-center justify-center">
+            RZ
+          </div>
+<span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-rail"></span>
+</div>
+</div>
+</aside>
+<!-- END: Left Rail -->
+<!-- BEGIN: Left Sidebar (224px) -->
+<aside class="w-[224px] shrink-0 bg-sidebar border-r border-borderline flex flex-col justify-between" data-purpose="workspace-and-sprint-sidebar">
+<div class="flex flex-col">
+<!-- Workspace Header Section -->
+<div class="px-3.5 pt-3.5 pb-3 border-b border-borderline">
+<div class="flex items-center justify-between text-[10px] font-mono tracking-wider text-slate-500 font-semibold mb-1 uppercase">
+<span>Workspace</span>
+<span class="px-1 py-0.2 rounded bg-slate-200 text-slate-600 font-mono text-[9px] font-normal">B2C SOLO</span>
+</div>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+<span class="text-xs font-mono font-semibold text-slate-800 truncate">ws_8f12a (core)</span>
+</div>
+</div>
+<!-- Papan Kanban Nav List -->
+<div class="px-3 pt-3.5 pb-2">
+<div class="flex items-center justify-between px-1 text-[10px] font-mono tracking-wider text-slate-400 font-bold uppercase mb-1.5">
+<span>Papan Kanban</span>
+<span class="font-mono text-slate-400">4</span>
+</div>
+<div class="space-y-0.5">
+<!-- Sprint 24 (Active, Empty count: 0) -->
+<a class="flex items-center justify-between px-2 py-1.5 rounded-md bg-[#e2e8e5] text-accent font-medium text-xs" href="#">
+<div class="flex items-center gap-2 truncate">
+<svg class="w-3.5 h-3.5 stroke-[2] shrink-0" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<rect height="7" rx="1" width="7" x="3" y="3"></rect>
+<rect height="7" rx="1" width="7" x="14" y="3"></rect>
+<rect height="7" rx="1" width="7" x="14" y="14"></rect>
+<rect height="7" rx="1" width="7" x="3" y="14"></rect>
+</svg>
+<span class="font-medium text-slate-900 truncate">Sprint 24</span>
+</div>
+<span class="px-1.5 py-0.5 text-[10px] font-mono rounded bg-slate-200/80 text-slate-700 font-medium ml-1">0</span>
+</a>
+<!-- Sprint 23 -->
+<a class="flex items-center justify-between px-2 py-1.5 rounded-md text-slate-600 hover:bg-slate-200/50 hover:text-slate-900 font-normal text-xs transition-colors" href="#">
+<div class="flex items-center gap-2 truncate">
+<svg class="w-3.5 h-3.5 stroke-[1.75] shrink-0 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<rect height="7" rx="1" width="7" x="3" y="3"></rect>
+<rect height="7" rx="1" width="7" x="14" y="3"></rect>
+<rect height="7" rx="1" width="7" x="14" y="14"></rect>
+<rect height="7" rx="1" width="7" x="3" y="14"></rect>
+</svg>
+<span class="truncate">Sprint 23</span>
+</div>
+<span class="text-[10px] font-mono text-slate-400">24</span>
+</a>
+<!-- Backlog Grooming -->
+<a class="flex items-center justify-between px-2 py-1.5 rounded-md text-slate-600 hover:bg-slate-200/50 hover:text-slate-900 font-normal text-xs transition-colors" href="#">
+<div class="flex items-center gap-2 truncate">
+<svg class="w-3.5 h-3.5 stroke-[1.75] shrink-0 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<rect height="7" rx="1" width="7" x="3" y="3"></rect>
+<rect height="7" rx="1" width="7" x="14" y="3"></rect>
+<rect height="7" rx="1" width="7" x="14" y="14"></rect>
+<rect height="7" rx="1" width="7" x="3" y="14"></rect>
+</svg>
+<span class="truncate">Backlog grooming</span>
+</div>
+<span class="text-[10px] font-mono text-slate-400">38</span>
+</a>
+<!-- Agent Ops -->
+<a class="flex items-center justify-between px-2 py-1.5 rounded-md text-slate-600 hover:bg-slate-200/50 hover:text-slate-900 font-normal text-xs transition-colors" href="#">
+<div class="flex items-center gap-2 truncate">
+<svg class="w-3.5 h-3.5 stroke-[1.75] shrink-0 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<rect height="7" rx="1" width="7" x="3" y="3"></rect>
+<rect height="7" rx="1" width="7" x="14" y="3"></rect>
+<rect height="7" rx="1" width="7" x="14" y="14"></rect>
+<rect height="7" rx="1" width="7" x="3" y="14"></rect>
+</svg>
+<span class="truncate">Agent ops</span>
+</div>
+<span class="text-[10px] font-mono text-slate-400">6</span>
+</a>
+</div>
+</div>
+<!-- Armada Aktif Section -->
+<div class="px-3 pt-4 pb-2">
+<div class="flex items-center justify-between px-1 text-[10px] font-mono tracking-wider text-slate-400 font-bold uppercase mb-2">
+<span>Armada Aktif</span>
+<span class="text-[9px] text-teal-700 font-mono font-semibold tracking-normal">2 RUNNING</span>
+</div>
+<div class="space-y-1">
+<!-- agent-backend -->
+<div class="flex items-center justify-between px-2 py-1.5 rounded bg-slate-200/40 text-xs">
+<div class="flex items-center gap-1.5 truncate">
+<span class="px-1 py-0.5 text-[9px] font-mono rounded bg-slate-200 text-slate-600 font-bold">be</span>
+<span class="font-mono text-xs text-slate-700 truncate">agent-backend</span>
+</div>
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Online / Running"></span>
+</div>
+<!-- agent-docs -->
+<div class="flex items-center justify-between px-2 py-1.5 rounded bg-slate-200/40 text-xs">
+<div class="flex items-center gap-1.5 truncate">
+<span class="px-1 py-0.5 text-[9px] font-mono rounded bg-slate-200 text-slate-600 font-bold">dc</span>
+<span class="font-mono text-xs text-slate-700 truncate">agent-docs</span>
+</div>
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Online / Running"></span>
+</div>
+<!-- agent-data -->
+<div class="flex items-center justify-between px-2 py-1.5 rounded text-xs text-slate-500">
+<div class="flex items-center gap-1.5 truncate">
+<span class="px-1 py-0.5 text-[9px] font-mono rounded bg-slate-200 text-slate-400 font-bold">dt</span>
+<span class="font-mono text-xs text-slate-500 truncate">agent-data</span>
+</div>
+<span class="text-[10px] font-mono text-slate-400">idle</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Daemon Status Footer -->
+<div class="px-3.5 py-2.5 border-t border-borderline bg-sidebar flex items-center justify-between text-[11px] font-mono text-slate-500">
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+<span>daemon :8080</span>
+</div>
+<span class="text-slate-400">v2.4</span>
+</div>
+</aside>
+<!-- END: Left Sidebar -->
+<!-- BEGIN: Main Center Workspace (Topbar + Board Area) -->
+<div class="flex-1 flex flex-col min-w-0 bg-[#f6f7f6] overflow-hidden" data-purpose="kanban-workspace">
+<!-- BEGIN: Topbar (52px) -->
+<header class="h-[52px] shrink-0 bg-white border-b border-borderline px-4 flex items-center justify-between gap-4 z-20">
+<!-- Left: Sprint Title & Task Count Badge -->
+<div class="flex items-center gap-3">
+<div class="flex items-baseline gap-2">
+<h1 class="text-sm font-semibold text-slate-900 leading-tight">Sprint 24</h1>
+</div>
+<span class="px-2 py-0.5 text-xs font-mono text-slate-600 bg-slate-100 rounded border border-slate-200">
+            0 task
+          </span>
+<div class="h-4 w-[1px] bg-slate-200 mx-1"></div>
+<!-- View Switcher (Board active, Table inactive) -->
+<div class="flex items-center p-0.5 rounded-md bg-slate-100 border border-slate-200 text-xs font-medium">
+<button class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-white text-slate-800 shadow-2xs font-semibold" type="button">
+<svg class="w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<rect height="16" rx="1" width="5" x="3" y="4"></rect>
+<rect height="10" rx="1" width="5" x="10" y="4"></rect>
+<rect height="13" rx="1" width="5" x="17" y="4"></rect>
+</svg>
+<span>Board</span>
+</button>
+<button class="flex items-center gap-1.5 px-2.5 py-1 text-slate-500 hover:text-slate-800 transition-colors" type="button">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>Table</span>
+</button>
+</div>
+</div>
+<!-- Right Controls: Search, Filter, Buat Task CTA -->
+<div class="flex items-center gap-2.5">
+<!-- Search Box -->
+<div class="relative w-64">
+<span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</span>
+<input class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent font-sans" placeholder="Cari task, ID, agent..." type="text"/>
+</div>
+<!-- Filter Button -->
+<button class="flex items-center gap-1.5 px-2.5 py-1.5 border border-slate-200 rounded-md bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors" type="button">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M3 4.5h18m-14 5h10m-7 5h4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span>Filter</span>
+</button>
+<!-- Action Button: + Buat Task -->
+<button class="flex items-center gap-1 px-3 py-1.5 rounded-md bg-accent text-white text-xs font-medium hover:bg-accent-hover transition-colors shadow-2xs" type="button">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span>Buat Task</span>
+</button>
+</div>
+</header>
+<!-- END: Topbar -->
+<!-- BEGIN: Kanban Board Canvas Area -->
+<main class="relative flex-1 p-3 overflow-x-auto kanban-scroll bg-[#f6f7f6]" data-purpose="kanban-columns-container">
+<!-- Column Track: 5 Fixed Columns (268px with 8px gap) -->
+<div class="flex items-start gap-2 min-w-max h-full">
+<!-- 1. Backlog Column -->
+<div class="w-[268px] h-full flex flex-col bg-slate-100/60 rounded-md border border-slate-200/70 border-t-[3px] border-t-[#64748b]">
+<div class="h-[32px] px-2.5 flex items-center justify-between border-b border-slate-200/50">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#64748b]"></span>
+<span class="text-xs font-semibold text-slate-700">Backlog</span>
+</div>
+<span class="px-1.5 py-0.2 text-[10px] font-mono text-slate-500 bg-slate-200/60 rounded">0</span>
+</div>
+<!-- Empty body -->
+<div class="flex-1 p-2"></div>
+</div>
+<!-- 2. Ready Column -->
+<div class="w-[268px] h-full flex flex-col bg-slate-100/60 rounded-md border border-slate-200/70 border-t-[3px] border-t-[#2563eb]">
+<div class="h-[32px] px-2.5 flex items-center justify-between border-b border-slate-200/50">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#2563eb]"></span>
+<span class="text-xs font-semibold text-slate-700">Ready</span>
+</div>
+<span class="px-1.5 py-0.2 text-[10px] font-mono text-slate-500 bg-slate-200/60 rounded">0</span>
+</div>
+<!-- Empty body -->
+<div class="flex-1 p-2"></div>
+</div>
+<!-- 3. In Progress Column -->
+<div class="w-[268px] h-full flex flex-col bg-slate-100/60 rounded-md border border-slate-200/70 border-t-[3px] border-t-[#d97706]">
+<div class="h-[32px] px-2.5 flex items-center justify-between border-b border-slate-200/50">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#d97706]"></span>
+<span class="text-xs font-semibold text-slate-700">In Progress</span>
+</div>
+<span class="px-1.5 py-0.2 text-[10px] font-mono text-slate-500 bg-slate-200/60 rounded">0</span>
+</div>
+<!-- Empty body -->
+<div class="flex-1 p-2"></div>
+</div>
+<!-- 4. Review Column -->
+<div class="w-[268px] h-full flex flex-col bg-slate-100/60 rounded-md border border-slate-200/70 border-t-[3px] border-t-[#0891b2]">
+<div class="h-[32px] px-2.5 flex items-center justify-between border-b border-slate-200/50">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#0891b2]"></span>
+<span class="text-xs font-semibold text-slate-700">Review</span>
+</div>
+<span class="px-1.5 py-0.2 text-[10px] font-mono text-slate-500 bg-slate-200/60 rounded">0</span>
+</div>
+<!-- Empty body -->
+<div class="flex-1 p-2"></div>
+</div>
+<!-- 5. Done Column -->
+<div class="w-[268px] h-full flex flex-col bg-slate-100/60 rounded-md border border-slate-200/70 border-t-[3px] border-t-[#16a34a]">
+<div class="h-[32px] px-2.5 flex items-center justify-between border-b border-slate-200/50">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#16a34a]"></span>
+<span class="text-xs font-semibold text-slate-700">Done</span>
+</div>
+<span class="px-1.5 py-0.2 text-[10px] font-mono text-slate-500 bg-slate-200/60 rounded">0</span>
+</div>
+<!-- Empty body -->
+<div class="flex-1 p-2"></div>
+</div>
+</div>
+<!-- BEGIN: Centered Empty State Overlay Card -->
+<div class="absolute inset-0 flex items-center justify-center p-6 pointer-events-none" data-purpose="empty-state-overlay">
+<div class="pointer-events-auto max-w-md w-full bg-white rounded-xl border border-slate-200 shadow-md p-8 text-center flex flex-col items-center">
+<!-- Empty Board Icon Badge -->
+<div class="w-12 h-12 rounded-full bg-[#e8ecea] text-accent flex items-center justify-center mb-4">
+<svg class="w-6 h-6 stroke-[1.75]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<rect height="16" rx="1" width="5" x="3" y="4"></rect>
+<rect height="11" rx="1" width="5" x="10" y="4"></rect>
+<rect height="7" rx="1" width="5" x="17" y="4"></rect>
+<path d="M12 9v4m0 0l-1.5-1.5M12 13l1.5-1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<!-- Title -->
+<h2 class="text-base font-semibold text-slate-900 tracking-tight mb-2">
+              Belum ada task di board ini
+            </h2>
+<!-- Description -->
+<p class="text-xs text-slate-500 leading-relaxed max-w-xs mb-6 font-normal">
+              Mulai orkestrasi armada agen AI Anda dengan menambahkan instruksi task pertama ke board Sprint 24.
+            </p>
+<!-- Call to Action Button -->
+<button class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-accent hover:bg-accent-hover text-white text-xs font-medium transition-colors shadow-xs" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span>Buat task pertama</span>
+</button>
+</div>
+</div>
+<!-- END: Centered Empty State Overlay Card -->
+</main>
+<!-- END: Kanban Board Canvas Area -->
+</div>
+<!-- END: Main Center Workspace -->
+<!-- BEGIN: Cost Rail Right (264px) -->
+<aside class="w-[264px] shrink-0 bg-costrail border-l border-borderline flex flex-col justify-between overflow-y-auto" data-purpose="telemetry-cost-ledger">
+<div class="p-3.5 space-y-4">
+<!-- Telemetry Header -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 text-xs font-bold tracking-wider text-slate-800 uppercase font-mono">
+<svg class="w-3.5 h-3.5 text-accent" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span>Cost Ledger</span>
+</div>
+<span class="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[9px] font-mono font-semibold uppercase tracking-wider">
+            Realtime
+          </span>
+</div>
+<!-- Today's Spend & Cap Card -->
+<div class="bg-white/80 rounded-lg p-3 border border-slate-200/80 shadow-2xs">
+<div class="flex items-center justify-between text-[10px] font-mono text-slate-500 font-semibold mb-1">
+<span>TODAY</span>
+<span>CAP $20.00</span>
+</div>
+<div class="flex items-baseline justify-between mt-1">
+<span class="text-xl font-mono font-bold text-slate-900 tracking-tight">$4.82</span>
+<div class="text-[11px] font-mono text-slate-600">
+<span>Sisa: </span>
+<span class="text-emerald-700 font-semibold">$15.18</span>
+</div>
+</div>
+<!-- Progress Bar (6px) -->
+<div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-2.5">
+<div class="bg-accent h-full rounded-full" style="width: 24.1%;"></div>
+</div>
+<div class="flex items-center justify-between text-[10px] font-mono text-slate-400 mt-1.5">
+<span>24.1% terpakai</span>
+<span class="text-emerald-700 font-medium">Pagu aman</span>
+</div>
+</div>
+<!-- 7-Day Sparkline Bar Metric -->
+<div class="bg-white/80 rounded-lg p-3 border border-slate-200/80 shadow-2xs">
+<div class="flex items-center justify-between text-[10px] font-mono text-slate-500 font-semibold mb-3">
+<span>7-DAY</span>
+<span class="text-slate-400 font-normal">SEP 12 — SEP 18</span>
+</div>
+<!-- Vertical Bars for 7 days -->
+<div class="flex items-end justify-between h-10 gap-1 px-1">
+<div class="flex-1 bg-slate-200 rounded-xs h-[45%]" title="Sep 12"></div>
+<div class="flex-1 bg-slate-200 rounded-xs h-[60%]" title="Sep 13"></div>
+<div class="flex-1 bg-slate-200 rounded-xs h-[30%]" title="Sep 14"></div>
+<div class="flex-1 bg-slate-200 rounded-xs h-[75%]" title="Sep 15"></div>
+<div class="flex-1 bg-slate-200 rounded-xs h-[50%]" title="Sep 16"></div>
+<div class="flex-1 bg-slate-300 rounded-xs h-[65%]" title="Sep 17"></div>
+<div class="flex-1 bg-accent rounded-xs h-[90%]" title="Sep 18 (Today)"></div>
+</div>
+<div class="flex justify-between text-[9px] font-mono text-slate-400 mt-1.5 px-0.5">
+<span>12</span>
+<span>13</span>
+<span>14</span>
+<span>15</span>
+<span>16</span>
+<span>17</span>
+<span class="font-bold text-accent">18</span>
+</div>
+</div>
+<!-- Top Spenders -->
+<div>
+<div class="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider mb-2">
+            Top Spenders
+          </div>
+<div class="space-y-2 text-xs font-mono">
+<!-- Spender 1 -->
+<div>
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center gap-1.5 text-slate-700">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+<span class="truncate">agent-backend</span>
+</div>
+<span class="font-semibold text-slate-900">$1.84</span>
+</div>
+<div class="w-full bg-slate-200/70 h-1 rounded-full overflow-hidden">
+<div class="bg-accent h-full" style="width: 62%;"></div>
+</div>
+</div>
+<!-- Spender 2 -->
+<div>
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center gap-1.5 text-slate-700">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+<span class="truncate">agent-data</span>
+</div>
+<span class="font-semibold text-slate-900">$1.42</span>
+</div>
+<div class="w-full bg-slate-200/70 h-1 rounded-full overflow-hidden">
+<div class="bg-accent h-full" style="width: 48%;"></div>
+</div>
+</div>
+<!-- Spender 3 -->
+<div>
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center gap-1.5 text-slate-700">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+<span class="truncate">agent-docs</span>
+</div>
+<span class="font-semibold text-slate-900">$0.91</span>
+</div>
+<div class="w-full bg-slate-200/70 h-1 rounded-full overflow-hidden">
+<div class="bg-accent h-full" style="width: 32%;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Running Now -->
+<div>
+<div class="flex items-center justify-between text-[10px] font-mono tracking-wider text-slate-400 font-bold uppercase mb-2">
+<span>Running Now</span>
+<span class="text-teal-700 font-normal">● 2 ACTIVE</span>
+</div>
+<div class="space-y-1.5 font-mono text-xs">
+<div class="flex items-center justify-between px-2 py-1.5 bg-white/70 rounded border border-slate-200/60">
+<span class="text-slate-800">agent-backend</span>
+<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold tracking-tight">RUNNING</span>
+</div>
+<div class="flex items-center justify-between px-2 py-1.5 bg-white/70 rounded border border-slate-200/60">
+<span class="text-slate-800">agent-docs</span>
+<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold tracking-tight">RUNNING</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Cost Rail Footer -->
+<div class="px-3.5 py-2.5 border-t border-borderline bg-costrail flex items-center justify-between text-[11px] font-mono text-slate-500">
+<span>AgentDeck Core</span>
+<span class="text-accent font-medium">µUSD Ledger</span>
+</div>
+</aside>
+<!-- END: Cost Rail Right -->
+</div>
+<!-- END: Application Shell Layout -->
+</body></html>

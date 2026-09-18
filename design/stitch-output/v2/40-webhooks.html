@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — Webhooks (Blueprint C)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            teal: {
+              DEFAULT: '#0d7a70',
+              hover: '#0a635b',
+              subtle: '#e6f3f1',
+              border: '#b4ded9',
+            },
+            ink: {
+              primary: '#0e1110',
+              secondary: '#4d5553',
+              tertiary: '#6b7370',
+            },
+            shell: {
+              rail: '#e8ecea',
+              sidebar: '#f6f7f6',
+              costrail: '#eef1f0',
+              canvas: '#f6f7f6',
+              card: '#ffffff',
+            },
+            border: {
+              subtle: 'rgba(12,26,22,0.07)',
+              standard: 'rgba(12,26,22,0.12)',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      margin: 0;
+      padding: 0;
+      background-color: #f6f7f6;
+      color: #0e1110;
+      -webkit-font-smoothing: antialiased;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(12, 26, 22, 0.15);
+      border-radius: 4px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(12, 26, 22, 0.25);
+    }
+  </style>
+</head>
+<body class="flex h-screen w-screen overflow-hidden select-none">
+
+  <!-- RAIL KIRI (44px) - Background #e8ecea - Ikon saja tanpa label -->
+  <aside class="w-[44px] shrink-0 h-full bg-[#e8ecea] border-r border-[rgba(12,26,22,0.12)] flex flex-col justify-between items-center py-3 z-30">
+    <div class="flex flex-col items-center gap-3 w-full">
+      <!-- App Brand Icon -->
+      <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] text-white flex items-center justify-center font-bold text-[11px] tracking-tight shadow-sm">
+        AD
+      </div>
+      <div class="w-6 h-[1px] bg-[rgba(12,26,22,0.12)] my-1"></div>
+      
+      <!-- Nav Icons -->
+      <a href="#" title="Workspace & Projects" class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
+      </a>
+      <a href="#" title="Boards" class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0H3"/></svg>
+      </a>
+      <a href="#" title="Agents" class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25zm.75-12h9v9h-9v-9z"/></svg>
+      </a>
+      <a href="#" title="Costs & Ledger" class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </a>
+    </div>
+
+    <!-- Bottom Rail -->
+    <div class="flex flex-col items-center gap-2">
+      <div class="w-2 h-2 rounded-full bg-[#16a34a]" title="Fleet daemon connected: :8080"></div>
+      <a href="#" title="Settings" class="w-8 h-8 rounded-[6px] flex items-center justify-center bg-[rgba(13,122,112,0.12)] text-[#0d7a70]">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      </a>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR (224px) - Background #f6f7f6 -->
+  <aside class="w-[224px] shrink-0 h-full bg-[#f6f7f6] border-r border-[rgba(12,26,22,0.12)] flex flex-col justify-between z-20">
+    <div class="p-3">
+      <!-- Workspace Header -->
+      <div class="pb-3 border-b border-[rgba(12,26,22,0.07)]">
+        <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] tracking-wider uppercase">
+          <span>WORKSPACE</span>
+          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#e6f3f1] text-[#0d7a70] text-[10px] font-mono lowercase">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+            prod-internal
+          </span>
+        </div>
+        <div class="mt-1 font-semibold text-[13px] text-[#0e1110] truncate">
+          ws_8f12a (isolated)
+        </div>
+      </div>
+
+      <!-- Navigation Section -->
+      <div class="mt-3">
+        <div class="text-[10px] font-semibold text-[#6b7370] tracking-wider uppercase px-2 mb-1.5">
+          PENGATURAN
+        </div>
+        <nav class="flex flex-col gap-0.5 text-[12px]">
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] hover:text-[#0e1110] transition-colors">
+            <span class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/></svg>
+              Workspace
+            </span>
+          </a>
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] hover:text-[#0e1110] transition-colors">
+            <span class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+              Anggota & Akses
+            </span>
+            <span class="font-mono text-[11px] text-[#6b7370]">3</span>
+          </a>
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] hover:text-[#0e1110] transition-colors">
+            <span class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
+              API Keys
+            </span>
+            <span class="font-mono text-[11px] text-[#6b7370]">4</span>
+          </a>
+          <!-- Webhooks ACTIVE -->
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#e6f3f1] text-[#0d7a70] font-medium transition-colors">
+            <span class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 text-[#0d7a70]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>
+              Webhooks
+            </span>
+            <span class="font-mono text-[11px] text-[#0d7a70] font-semibold">3</span>
+          </a>
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] hover:text-[#0e1110] transition-colors">
+            <span class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v.375c0 .621.504 1.125 1.125 1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/></svg>
+              Pagu Anggaran
+            </span>
+          </a>
+        </nav>
+      </div>
+
+      <!-- Scope / Filter By Board -->
+      <div class="mt-4 pt-3 border-t border-[rgba(12,26,22,0.07)]">
+        <div class="flex items-center justify-between text-[10px] font-semibold text-[#6b7370] tracking-wider uppercase px-2 mb-1.5">
+          <span>BOARD SCOPE (US-AD52)</span>
+        </div>
+        <div class="space-y-1 text-[11px]">
+          <div class="flex items-center justify-between px-2 py-1 rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] font-medium text-[#0e1110]">
+            <span class="flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+              Semua Board (Global)
+            </span>
+            <span class="font-mono text-[10px] text-[#6b7370]">3</span>
+          </div>
+          <div class="flex items-center justify-between px-2 py-1 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)]">
+            <span class="truncate">Sprint 24</span>
+            <span class="font-mono text-[10px] text-[#6b7370]">2</span>
+          </div>
+          <div class="flex items-center justify-between px-2 py-1 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)]">
+            <span class="truncate">Agent ops</span>
+            <span class="font-mono text-[10px] text-[#6b7370]">1</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Profile Bottom (avatar user 26px) -->
+    <div class="p-2.5 border-t border-[rgba(12,26,22,0.12)] flex items-center justify-between bg-[#f6f7f6]">
+      <div class="flex items-center gap-2">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#ffffff] border border-[rgba(12,26,22,0.12)] flex items-center justify-center font-mono text-[11px] font-semibold text-[#0e1110]">
+          RZ
+        </div>
+        <div class="leading-tight">
+          <div class="text-[12px] font-semibold text-[#0e1110]">Reza</div>
+          <div class="text-[10px] font-mono text-[#6b7370]">ws_8f12a</div>
+        </div>
+      </div>
+      <span class="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded-[4px] bg-[rgba(12,26,22,0.06)] text-[#4d5553] font-medium">
+        OWNER
+      </span>
+    </div>
+  </aside>
+
+  <!-- PANE UTAMA: TOPBAR 52px + KONTEN SCROLL (HANYA MEMBENTANG DI ATAS PANE KONTEN) -->
+  <div class="flex-1 flex flex-col min-w-0 h-full bg-[#f6f7f6] overflow-hidden">
+    
+    <!-- TOPBAR (52px) - Background #ffffff - HANYA di atas pane konten -->
+    <header class="h-[52px] shrink-0 bg-[#ffffff] border-b border-[rgba(12,26,22,0.12)] flex items-center justify-between px-4 z-10">
+      <div class="flex items-center gap-2">
+        <h1 class="text-[14px] font-semibold text-[#0e1110] tracking-tight">Webhooks</h1>
+        <span class="font-mono text-[11px] text-[#6b7370] px-1.5 py-0.5 rounded-[4px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+          /settings/webhooks
+        </span>
+        <span class="text-[11px] text-[#6b7370] ml-2">
+          3 endpoint terdaftar
+        </span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Search -->
+        <div class="relative w-64">
+          <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6b7370]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+          <input type="text" placeholder="Cari URL endpoint, event..." class="w-full h-[28px] pl-8 pr-3 text-[11px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] rounded-[6px] text-[#0e1110] placeholder-[#6b7370] focus:outline-none focus:border-[#0d7a70] focus:bg-[#ffffff]">
+        </div>
+        <!-- Filter Board -->
+        <button class="h-[28px] px-2.5 rounded-[6px] border border-[rgba(12,26,22,0.12)] bg-[#ffffff] text-[11px] font-medium text-[#4d5553] hover:text-[#0e1110] flex items-center gap-1.5">
+          <svg class="w-3 h-3 text-[#6b7370]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.53.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.388-1.006.917-1.096A48.32 48.32 0 0112 3z"/></svg>
+          Semua Event
+        </button>
+        <!-- Tambah Webhook -->
+        <button class="h-[28px] px-3 rounded-[6px] bg-[#0d7a70] text-white text-[11px] font-medium hover:bg-[#0a635b] transition-colors flex items-center gap-1 shadow-sm">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          Tambah Webhook
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTENT PANE (SCROLL) -->
+    <main class="flex-1 overflow-y-auto custom-scroll p-4 space-y-4">
+
+      <!-- Banner Protokol & Signature Spec (US-AD52 + US-AD53) -->
+      <div class="rounded-[10px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] p-[10px] flex items-start gap-3 shadow-xs">
+        <div class="w-7 h-7 rounded-[6px] bg-[#e6f3f1] text-[#0d7a70] flex items-center justify-center shrink-0 mt-0.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
+        </div>
+        <div class="flex-1 text-[11px] leading-relaxed text-[#4d5553]">
+          <div class="flex items-center gap-2">
+            <span class="font-semibold text-[#0e1110]">Protokol Pengiriman Webhook & Signature</span>
+            <span class="font-mono text-[10px] px-1.5 py-0.2 rounded bg-[rgba(12,26,22,0.06)] text-[#0e1110]">US-AD52</span>
+            <span class="font-mono text-[10px] px-1.5 py-0.2 rounded bg-[rgba(12,26,22,0.06)] text-[#0e1110]">US-AD53</span>
+            <span class="font-mono text-[10px] text-[#0d7a70] ml-auto">HMAC-SHA256 • Exponential Backoff (3x)</span>
+          </div>
+          <p class="mt-0.5 text-[#4d5553]">
+            Tiap event dikirim via HTTP POST body JSON disertai header otentikasi <code class="font-mono text-[10px] px-1 py-0.5 bg-[#f6f7f6] rounded border border-[rgba(12,26,22,0.07)] text-[#0d7a70]">X-Hub-Signature-256: sha256={hmac_payload}</code> yang ditandatangani menggunakan <code class="font-mono text-[10px]">secret</code> terkonfigurasi. Endpoint harus mengembalikan <code class="font-mono text-[10px]">2xx</code> dalam 5 detik.
+          </p>
+        </div>
+      </div>
+
+      <!-- Tabel Daftar Webhook (US-AD52 AC1: CRUD url, secret, events_json per board) -->
+      <div class="rounded-[10px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] overflow-hidden shadow-xs">
+        
+        <!-- Table Control Bar -->
+        <div class="h-[36px] px-3 border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between bg-[#ffffff]">
+          <div class="flex items-center gap-2">
+            <span class="text-[12px] font-semibold text-[#0e1110]">Daftar Webhook Endpoint</span>
+            <span class="font-mono text-[10px] text-[#6b7370] px-1.5 py-0.5 rounded bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">3 total</span>
+            <span class="text-[11px] text-[#6b7370]">• Board: Sprint 24 & Global</span>
+          </div>
+          <div class="flex items-center gap-2 text-[10px] font-mono text-[#6b7370]">
+            <span>Tinggi baris: 28px</span>
+            <span>•</span>
+            <span class="text-[#0d7a70]">Auto-retry: aktif (backoff)</span>
+          </div>
+        </div>
+
+        <!-- Table Element -->
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="h-[32px] bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.12)] text-[10px] font-semibold text-[#6b7370] uppercase tracking-wider">
+              <th class="w-7 pl-3 pr-1 text-center">
+                <input type="checkbox" class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              </th>
+              <th class="py-1 px-2 font-medium">ENDPOINT URL (AC1)</th>
+              <th class="py-1 px-2 font-medium w-[100px]">SCOPE BOARD</th>
+              <th class="py-1 px-2 font-medium w-[160px]">EVENTS_JSON (AC1)</th>
+              <th class="py-1 px-2 font-medium w-[90px]">SECRET (AC1)</th>
+              <th class="py-1 px-2 font-medium w-[80px]">STATUS</th>
+              <th class="py-1 px-2 font-medium w-[95px] text-right pr-3">LAST DELIVERY</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[rgba(12,26,22,0.07)] text-[11px]">
+            
+            <!-- Row 1: Active selected row (leads to drawer) -->
+            <tr class="h-[28px] bg-[#e6f3f1]/40 hover:bg-[#e6f3f1]/70 transition-colors cursor-pointer group">
+              <td class="pl-3 pr-1 text-center">
+                <input type="checkbox" checked class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              </td>
+              <td class="py-0 px-2 font-mono text-[11px] text-[#0e1110] font-medium truncate max-w-[210px]">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a] shrink-0"></span>
+                  <span class="truncate">https://api.acme.corp/hooks/agent-runs</span>
+                  <span class="font-mono text-[9px] px-1 py-0.2 rounded bg-[#0d7a70] text-white shrink-0">active-drawer</span>
+                </div>
+              </td>
+              <td class="py-0 px-2 text-[#4d5553] text-[10px] font-mono">
+                Sprint 24
+              </td>
+              <td class="py-0 px-2">
+                <div class="flex items-center gap-1">
+                  <span class="font-mono text-[9px] px-1 py-0.2 rounded bg-[#ffffff] border border-[rgba(12,26,22,0.12)] text-[#0d7a70]">task.completed</span>
+                  <span class="font-mono text-[9px] px-1 py-0.2 rounded bg-[#ffffff] border border-[rgba(12,26,22,0.12)] text-[#0d7a70]">run.failed</span>
+                  <span class="font-mono text-[9px] text-[#6b7370]">+2</span>
+                </div>
+              </td>
+              <td class="py-0 px-2 font-mono text-[10px] text-[#4d5553]">
+                whsec_••••9a1f
+              </td>
+              <td class="py-0 px-2">
+                <span class="inline-flex items-center gap-1 font-mono text-[9px] font-medium text-[#16a34a] bg-[#16a34a]/10 px-1.5 py-0.5 rounded">
+                  200 OK
+                </span>
+              </td>
+              <td class="py-0 px-2 text-right pr-3 font-mono text-[10px] text-[#6b7370]">
+                12s lalu
+              </td>
+            </tr>
+
+            <!-- Row 2: Second webhook -->
+            <tr class="h-[28px] hover:bg-[#ffffff] transition-colors cursor-pointer">
+              <td class="pl-3 pr-1 text-center">
+                <input type="checkbox" class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              </td>
+              <td class="py-0 px-2 font-mono text-[11px] text-[#0e1110] truncate max-w-[210px]">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a] shrink-0"></span>
+                  <span class="truncate">https://discord.com/api/webhooks/129/alerts</span>
+                </div>
+              </td>
+              <td class="py-0 px-2 text-[#4d5553] text-[10px] font-mono">
+                Semua Board
+              </td>
+              <td class="py-0 px-2">
+                <div class="flex items-center gap-1">
+                  <span class="font-mono text-[9px] px-1 py-0.2 rounded bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] text-[#4d5553]">approval.requested</span>
+                </div>
+              </td>
+              <td class="py-0 px-2 font-mono text-[10px] text-[#4d5553]">
+                whsec_••••7c03
+              </td>
+              <td class="py-0 px-2">
+                <span class="inline-flex items-center gap-1 font-mono text-[9px] font-medium text-[#16a34a] bg-[#16a34a]/10 px-1.5 py-0.5 rounded">
+                  204 OK
+                </span>
+              </td>
+              <td class="py-0 px-2 text-right pr-3 font-mono text-[10px] text-[#6b7370]">
+                4m lalu
+              </td>
+            </tr>
+
+            <!-- Row 3: Third webhook (failing with retry demonstration) -->
+            <tr class="h-[28px] hover:bg-[#ffffff] transition-colors cursor-pointer">
+              <td class="pl-3 pr-1 text-center">
+                <input type="checkbox" class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              </td>
+              <td class="py-0 px-2 font-mono text-[11px] text-[#0e1110] truncate max-w-[210px]">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#d97706] shrink-0"></span>
+                  <span class="truncate">https://telemetry.ops.internal:8443/v1/event</span>
+                </div>
+              </td>
+              <td class="py-0 px-2 text-[#4d5553] text-[10px] font-mono">
+                Agent ops
+              </td>
+              <td class="py-0 px-2">
+                <div class="flex items-center gap-1">
+                  <span class="font-mono text-[9px] px-1 py-0.2 rounded bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] text-[#4d5553]">agent.cost_spike</span>
+                  <span class="font-mono text-[9px] text-[#6b7370]">+1</span>
+                </div>
+              </td>
+              <td class="py-0 px-2 font-mono text-[10px] text-[#4d5553]">
+                whsec_••••4b81
+              </td>
+              <td class="py-0 px-2">
+                <span class="inline-flex items-center gap-1 font-mono text-[9px] font-medium text-[#d97706] bg-[#d97706]/10 px-1.5 py-0.5 rounded">
+                  Retry #2 (502)
+                </span>
+              </td>
+              <td class="py-0 px-2 text-right pr-3 font-mono text-[10px] text-[#6b7370]">
+                32s lalu
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+
+        <!-- Table Summary Footer -->
+        <div class="h-[32px] px-3 bg-[#f6f7f6] border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] text-[#6b7370]">
+          <div class="flex items-center gap-3">
+            <span>Menampilkan 3 endpoint aktif</span>
+            <span>•</span>
+            <span class="text-[#0d7a70] font-medium">1 endpoint dipilih untuk inspeksi drawer</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="hover:text-[#0e1110]">Test Semua Delivery</button>
+            <span>•</span>
+            <button class="hover:text-[#0e1110]">Export Audit Log</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail Card Spesifikasi CRUD & Signature Delivery (US-AD52 + US-AD53) -->
+      <div class="grid grid-cols-2 gap-3">
+        
+        <!-- Kartu 1: Schema events_json & Form Fields (US-AD52 AC1) -->
+        <div class="rounded-[10px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] p-[10px] space-y-2">
+          <div class="flex items-center justify-between pb-1.5 border-b border-[rgba(12,26,22,0.07)]">
+            <span class="text-[11px] font-semibold text-[#0e1110] flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+              US-AD52: Skema CRUD Webhook
+            </span>
+            <span class="font-mono text-[9px] px-1.5 py-0.2 rounded bg-[#e6f3f1] text-[#0d7a70]">POST /api/webhooks</span>
+          </div>
+          <p class="text-[10px] text-[#4d5553] leading-relaxed">
+            Pendaftaran webhook mewajibkan 3 field inti per board:
+          </p>
+          <div class="space-y-1.5 text-[10px] font-mono">
+            <div class="p-1.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+              <span class="text-[#0d7a70] font-semibold">1. url</span>: <span class="text-[#0e1110]">string (valid HTTPS / localhost)</span>
+            </div>
+            <div class="p-1.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+              <span class="text-[#0d7a70] font-semibold">2. secret</span>: <span class="text-[#0e1110]">string (min. 32 char, auto-generated whsec_*)</span>
+            </div>
+            <div class="p-1.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+              <span class="text-[#0d7a70] font-semibold">3. events_json</span>: <span class="text-[#0e1110]">array of event_kind</span>
+              <div class="text-[9px] text-[#6b7370] mt-0.5">
+                ["task.created", "task.completed", "run.failed", "approval.requested"]
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kartu 2: Delivery & Signature Header (US-AD53 AC1) -->
+        <div class="rounded-[10px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] p-[10px] space-y-2">
+          <div class="flex items-center justify-between pb-1.5 border-b border-[rgba(12,26,22,0.07)]">
+            <span class="text-[11px] font-semibold text-[#0e1110] flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+              US-AD53: Header X-Hub-Signature-256
+            </span>
+            <span class="font-mono text-[9px] px-1.5 py-0.2 rounded bg-[#16a34a]/15 text-[#16a34a]">Delivery Validated</span>
+          </div>
+          <p class="text-[10px] text-[#4d5553] leading-relaxed">
+            Daemon menghitung hash payload menggunakan HMAC SHA-256:
+          </p>
+          <div class="p-2 rounded-[6px] bg-[#0e1110] text-[#e6f3f1] font-mono text-[9px] leading-snug space-y-0.5">
+            <div class="text-[#6b7370]"># Request headers dikirim oleh daemon:</div>
+            <div>POST /hooks/agent-runs HTTP/1.1</div>
+            <div>Host: api.acme.corp</div>
+            <div>Content-Type: application/json</div>
+            <div class="text-[#0d7a70] font-semibold bg-[rgba(13,122,112,0.25)] px-1 rounded inline-block">
+              X-Hub-Signature-256: sha256=d5e9f8...
+            </div>
+            <div>X-AgentDeck-Event: task.completed</div>
+            <div>X-AgentDeck-Delivery: del_8a19bc04</div>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
+  <!-- DRAWER (420px) - Blueprint C: DI ANTARA KONTEN DAN COST RAIL -->
+  <aside class="w-[420px] shrink-0 h-full bg-[#ffffff] border-l border-[rgba(12,26,22,0.12)] flex flex-col justify-between z-20 shadow-md">
+    
+    <!-- Drawer Header -->
+    <div class="h-[52px] shrink-0 px-4 border-b border-[rgba(12,26,22,0.12)] flex items-center justify-between bg-[#ffffff]">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-[#16a34a]"></span>
+        <div>
+          <h2 class="text-[12px] font-semibold text-[#0e1110] leading-tight">Detail Webhook & Delivery</h2>
+          <div class="text-[10px] font-mono text-[#6b7370]">hook_9a1f2b4c • Sprint 24</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button class="h-[24px] px-2 rounded-[4px] bg-[#f6f7f6] text-[10px] font-medium text-[#4d5553] hover:text-[#0e1110] border border-[rgba(12,26,22,0.07)]">
+          Ping Test
+        </button>
+        <button title="Tutup Drawer" class="w-6 h-6 rounded-[4px] flex items-center justify-center text-[#6b7370] hover:text-[#0e1110] hover:bg-[#f6f7f6]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Drawer Body (Scrollable) -->
+    <div class="flex-1 overflow-y-auto custom-scroll p-4 space-y-3.5 text-[11px]">
+      
+      <!-- Konfigurasi URL (US-AD52 AC1) -->
+      <div class="space-y-1">
+        <label class="block text-[10px] font-semibold uppercase text-[#6b7370] tracking-wider">
+          ENDPOINT URL (AC1)
+        </label>
+        <div class="flex items-center gap-1.5">
+          <input type="text" readonly value="https://api.acme.corp/hooks/agent-runs" class="flex-1 h-[28px] px-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] font-mono text-[10px] text-[#0e1110] focus:outline-none">
+          <button class="h-[28px] px-2 rounded-[6px] border border-[rgba(12,26,22,0.12)] bg-[#ffffff] text-[10px] font-medium text-[#4d5553] hover:text-[#0e1110]">
+            Ubah
+          </button>
+        </div>
+      </div>
+
+      <!-- Konfigurasi Secret & Signature Preview (US-AD52 AC1 & US-AD53 AC1) -->
+      <div class="space-y-1">
+        <div class="flex items-center justify-between">
+          <label class="text-[10px] font-semibold uppercase text-[#6b7370] tracking-wider">
+            WEBHOOK SECRET (AC1)
+          </label>
+          <span class="text-[9px] font-mono text-[#0d7a70]">HMAC-SHA256 Key</span>
+        </div>
+        <div class="relative">
+          <input type="text" readonly value="whsec_89dfa12b4e7890cc32ef445aa012" class="w-full h-[28px] pl-2.5 pr-14 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] font-mono text-[10px] text-[#0e1110]">
+          <button class="absolute right-1 top-1/2 -translate-y-1/2 px-2 py-0.5 text-[9px] font-mono font-medium rounded bg-[#ffffff] border border-[rgba(12,26,22,0.12)] text-[#0d7a70] hover:bg-[#e6f3f1]">
+            Salin
+          </button>
+        </div>
+        <div class="text-[9px] text-[#6b7370]">
+          Secret digunakan menghasilkan header <span class="font-mono text-[#0e1110]">X-Hub-Signature-256</span> di tiap pengiriman HTTP POST.
+        </div>
+      </div>
+
+      <!-- Events JSON / Subscription List (US-AD52 AC1: events_json) -->
+      <div class="space-y-1.5 pt-1">
+        <div class="flex items-center justify-between">
+          <label class="text-[10px] font-semibold uppercase text-[#6b7370] tracking-wider">
+            EVENTS_JSON DIPANTAU (AC1)
+          </label>
+          <span class="text-[9px] font-mono text-[#6b7370]">4 event aktif</span>
+        </div>
+        
+        <div class="rounded-[8px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] p-2 space-y-1.5">
+          <label class="flex items-center justify-between text-[11px] text-[#0e1110]">
+            <span class="flex items-center gap-2">
+              <input type="checkbox" checked class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              <span class="font-mono text-[10px]">task.completed</span>
+            </span>
+            <span class="text-[9px] font-mono text-[#6b7370]">Task selesai</span>
+          </label>
+          <label class="flex items-center justify-between text-[11px] text-[#0e1110]">
+            <span class="flex items-center gap-2">
+              <input type="checkbox" checked class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              <span class="font-mono text-[10px]">run.failed</span>
+            </span>
+            <span class="text-[9px] font-mono text-[#6b7370]">Agent crash / timeout</span>
+          </label>
+          <label class="flex items-center justify-between text-[11px] text-[#0e1110]">
+            <span class="flex items-center gap-2">
+              <input type="checkbox" checked class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              <span class="font-mono text-[10px]">approval.requested</span>
+            </span>
+            <span class="text-[9px] font-mono text-[#6b7370]">Gated action pending</span>
+          </label>
+          <label class="flex items-center justify-between text-[11px] text-[#0e1110]">
+            <span class="flex items-center gap-2">
+              <input type="checkbox" checked class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              <span class="font-mono text-[10px]">approval.signed</span>
+            </span>
+            <span class="text-[9px] font-mono text-[#6b7370]">Aksi disetujui</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Live Delivery & Retry Log (US-AD53 AC1: HTTP POST body JSON + X-Hub-Signature-256) -->
+      <div class="space-y-1.5 pt-1">
+        <div class="flex items-center justify-between">
+          <label class="text-[10px] font-semibold uppercase text-[#6b7370] tracking-wider">
+            RIWAYAT DELIVERY TERAKHIR (US-AD53 AC1)
+          </label>
+          <span class="text-[9px] font-mono text-[#16a34a]">Success rate: 98.4%</span>
+        </div>
+
+        <div class="space-y-1 font-mono text-[10px]">
+          
+          <!-- Delivery Item 1 -->
+          <div class="p-2 rounded-[6px] border border-[rgba(12,26,22,0.07)] bg-[#f6f7f6] space-y-1">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                <span class="font-semibold text-[#0e1110]">del_9f201a</span>
+                <span class="text-[#0d7a70]">task.completed</span>
+              </div>
+              <span class="text-[#16a34a] font-semibold">200 OK • 142ms</span>
+            </div>
+            <div class="text-[9px] text-[#6b7370] truncate">
+              Header: <span class="text-[#0e1110]">X-Hub-Signature-256: sha256=48b7f29a00b...</span>
+            </div>
+            <div class="text-[9px] text-[#6b7370] flex items-center justify-between">
+              <span>Attempt: 1 dari 3 (pass)</span>
+              <span>12 detik lalu</span>
+            </div>
+          </div>
+
+          <!-- Delivery Item 2 (Retry demonstrated) -->
+          <div class="p-2 rounded-[6px] border border-[rgba(12,26,22,0.07)] bg-[#f6f7f6] space-y-1">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                <span class="font-semibold text-[#0e1110]">del_8e41bb</span>
+                <span class="text-[#0d7a70]">run.failed</span>
+              </div>
+              <span class="text-[#16a34a] font-semibold">200 OK • Retry #2</span>
+            </div>
+            <div class="text-[9px] text-[#6b7370] truncate">
+              Header: <span class="text-[#0e1110]">X-Hub-Signature-256: sha256=17ca92140df...</span>
+            </div>
+            <div class="text-[9px] text-[#6b7370] flex items-center justify-between">
+              <span>Backoff delay: 10s • Timeout 5s cap</span>
+              <span>18 menit lalu</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Raw Payload Preview (HTTP POST body JSON) -->
+      <div class="space-y-1 pt-1">
+        <label class="text-[10px] font-semibold uppercase text-[#6b7370] tracking-wider">
+          CONTOH BODY JSON (POST)
+        </label>
+        <pre class="p-2 rounded-[6px] bg-[#0e1110] text-[#e6f3f1] font-mono text-[9px] overflow-x-auto custom-scroll leading-relaxed"><code>{
+  "event": "task.completed",
+  "board_id": "ws_8f12a/sprint-24",
+  "task_id": "task_771b",
+  "agent_id": "agent-backend",
+  "timestamp": "2026-09-18T14:22:04Z",
+  "cost_usd": 0.318,
+  "tokens": { "in": 31400, "out": 7200 }
+}</code></pre>
+      </div>
+
+    </div>
+
+    <!-- Drawer Footer Actions -->
+    <div class="h-[48px] shrink-0 px-4 border-t border-[rgba(12,26,22,0.12)] flex items-center justify-between bg-[#ffffff]">
+      <button class="h-[28px] px-2.5 rounded-[6px] text-[11px] font-medium text-[#dc2626] hover:bg-[#dc2626]/10 transition-colors">
+        Hapus Endpoint
+      </button>
+      <div class="flex items-center gap-2">
+        <button class="h-[28px] px-3 rounded-[6px] border border-[rgba(12,26,22,0.12)] text-[11px] font-medium text-[#4d5553] hover:text-[#0e1110] hover:bg-[#f6f7f6]">
+          Rotasi Secret
+        </button>
+        <button class="h-[28px] px-3 rounded-[6px] bg-[#0d7a70] text-white text-[11px] font-medium hover:bg-[#0a635b] transition-colors">
+          Simpan Perubahan
+        </button>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- COST RAIL KANAN (264px) - Background #eef1f0 - ISI TETAP TANPA PENAMBAHAN LAIN -->
+  <aside class="w-[264px] shrink-0 h-full bg-[#eef1f0] border-l border-[rgba(12,26,22,0.12)] flex flex-col justify-between p-3.5 z-10 select-none">
+    <div class="space-y-4">
+      
+      <!-- TODAY Section: biaya + meter pagu (budget meter 6px) -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] tracking-wider uppercase">
+          <span>TODAY</span>
+          <span class="font-mono text-[11px] text-[#4d5553]">CAP $20.00</span>
+        </div>
+        <div class="mt-1 flex items-baseline gap-1.5">
+          <span class="font-mono text-[24px] font-bold text-[#0e1110] tracking-tight">$4.82</span>
+          <span class="font-mono text-[11px] text-[#6b7370]">/ $20.00</span>
+        </div>
+        
+        <!-- Budget meter (6px) -->
+        <div class="mt-2 w-full h-[6px] bg-[rgba(12,26,22,0.12)] rounded-full overflow-hidden">
+          <div class="h-full bg-[#0d7a70] rounded-full" style="width: 24.1%;"></div>
+        </div>
+        <div class="mt-1 flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+          <span>24.1% terpakai</span>
+          <span>Sisa $15.18</span>
+        </div>
+      </div>
+
+      <div class="w-full h-[1px] bg-[rgba(12,26,22,0.07)]"></div>
+
+      <!-- 7-DAY Section: sparkline bar chart -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] tracking-wider uppercase mb-2">
+          <span>7-DAY</span>
+          <span class="font-mono text-[10px] text-[#6b7370]">SEP 12 — SEP 18</span>
+        </div>
+        <div class="h-10 flex items-end gap-1.5 pt-1">
+          <!-- Day 12 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70]/40 rounded-t-[2px] h-4"></div>
+            <span class="font-mono text-[9px] text-[#6b7370]">12</span>
+          </div>
+          <!-- Day 13 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70]/60 rounded-t-[2px] h-6"></div>
+            <span class="font-mono text-[9px] text-[#6b7370]">13</span>
+          </div>
+          <!-- Day 14 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70]/40 rounded-t-[2px] h-3.5"></div>
+            <span class="font-mono text-[9px] text-[#6b7370]">14</span>
+          </div>
+          <!-- Day 15 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70]/70 rounded-t-[2px] h-7"></div>
+            <span class="font-mono text-[9px] text-[#6b7370]">15</span>
+          </div>
+          <!-- Day 16 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70]/80 rounded-t-[2px] h-8"></div>
+            <span class="font-mono text-[9px] text-[#6b7370]">16</span>
+          </div>
+          <!-- Day 17 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70]/75 rounded-t-[2px] h-7"></div>
+            <span class="font-mono text-[9px] text-[#6b7370]">17</span>
+          </div>
+          <!-- Day 18 (Today) -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70] rounded-t-[2px] h-9"></div>
+            <span class="font-mono text-[9px] font-semibold text-[#0d7a70]">18</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="w-full h-[1px] bg-[rgba(12,26,22,0.07)]"></div>
+
+      <!-- TOP SPENDERS Section: 3 baris -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] tracking-wider uppercase mb-2">
+          <span>TOP SPENDERS</span>
+          <span class="font-mono text-[10px] text-[#6b7370]">TODAY</span>
+        </div>
+        <div class="space-y-2">
+          
+          <!-- Spender 1 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="font-mono text-[#0e1110] font-medium truncate">agent-backend</span>
+              <span class="font-mono font-semibold text-[#0e1110]">$1.84</span>
+            </div>
+            <div class="mt-1 w-full h-[3px] bg-[rgba(12,26,22,0.08)] rounded-full overflow-hidden">
+              <div class="h-full bg-[#0d7a70] rounded-full" style="width: 92%;"></div>
+            </div>
+          </div>
+
+          <!-- Spender 2 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="font-mono text-[#0e1110] font-medium truncate">agent-data</span>
+              <span class="font-mono font-semibold text-[#0e1110]">$1.42</span>
+            </div>
+            <div class="mt-1 w-full h-[3px] bg-[rgba(12,26,22,0.08)] rounded-full overflow-hidden">
+              <div class="h-full bg-[#0d7a70] rounded-full" style="width: 71%;"></div>
+            </div>
+          </div>
+
+          <!-- Spender 3 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="font-mono text-[#0e1110] font-medium truncate">agent-docs</span>
+              <span class="font-mono font-semibold text-[#0e1110]">$0.91</span>
+            </div>
+            <div class="mt-1 w-full h-[3px] bg-[rgba(12,26,22,0.08)] rounded-full overflow-hidden">
+              <div class="h-full bg-[#0d7a70] rounded-full" style="width: 45%;"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RUNNING NOW Section: di bagian bawah cost rail -->
+    <div class="pt-3 border-t border-[rgba(12,26,22,0.07)]">
+      <div class="text-[10px] font-semibold text-[#6b7370] tracking-wider uppercase mb-1">
+        RUNNING NOW
+      </div>
+      <div class="flex items-center gap-2 text-[11px] font-medium text-[#0e1110]">
+        <span class="w-2 h-2 rounded-full bg-[#d97706] animate-pulse"></span>
+        <span>2 agents active</span>
+      </div>
+      <div class="mt-0.5 text-[10px] font-mono text-[#6b7370]">
+        task execution: running
+      </div>
+    </div>
+
+  </aside>
+
+</body>
+</html>

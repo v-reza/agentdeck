@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgentDeck — Dokumentasi: REST API (06b-docs-api)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: '#0d7a70',
+            'brand-dark': '#0a5f57',
+            'brand-light': '#eef7f5',
+            page: '#f6f7f6',
+            ink: '#0e1110',
+            muted: '#4d5553',
+            faint: '#6b7370',
+            label: '#98a09d',
+            border: 'rgba(12, 26, 22, 0.08)',
+            codebg: '#eef1f0'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-[#f6f7f6] text-[#0e1110] font-sans antialiased min-h-screen selection:bg-[#0d7a70] selection:text-white">
+
+  <!-- TOP NAV 64px STICKY (Blueprint P) -->
+  <header class="sticky top-0 z-50 h-[64px] bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)]">
+    <div class="max-w-[1120px] mx-auto h-full px-6 flex items-center justify-between">
+      <!-- Kiri: Wordmark & Brand mark -->
+      <a href="/05-landing" class="flex items-center gap-2 text-[#0e1110] font-semibold text-[15px] tracking-tight">
+        <span class="w-3.5 h-3.5 rounded-sm bg-[#0d7a70] flex-shrink-0"></span>
+        <span>AgentDeck</span>
+      </a>
+
+      <!-- Tengah: Link Navigasi -->
+      <nav class="hidden md:flex items-center gap-7 text-[14px]">
+        <a href="/09-features" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">Product</a>
+        <a href="/07-pricing" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">Pricing</a>
+        <a href="/docs/quickstart" class="text-[#0d7a70] font-semibold">Docs</a>
+        <a href="/github" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">GitHub</a>
+      </nav>
+
+      <!-- Kanan: Auth actions -->
+      <div class="flex items-center gap-4 text-[14px]">
+        <a href="/login" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">Sign in</a>
+        <a href="/register" class="bg-[#0d7a70] hover:bg-[#0a5f57] text-white px-3.5 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors shadow-sm">Get started free</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- KONTEN DUA KOLOM: NAV DOKUMEN 240px + ARTIKEL MAX 720px (Blueprint P-DOCS) -->
+  <div class="max-w-[1120px] mx-auto px-6 py-10">
+    <div class="flex flex-col md:flex-row gap-12 items-start">
+      
+      <!-- NAV DOKUMEN (240px, link teks biasa tanpa fill/border/ikon, tinggi mengikuti isi) -->
+      <aside class="w-full md:w-[240px] shrink-0 space-y-6 md:sticky md:top-[88px]">
+        <div>
+          <div class="text-[11px] font-semibold tracking-wider uppercase text-[#98a09d] mb-2.5">
+            Memulai
+          </div>
+          <ul class="space-y-1.5 text-[13px]">
+            <li>
+              <a href="/docs/quickstart" class="text-[#4d5553] hover:text-[#0e1110] block py-0.5 transition-colors">Mulai Cepat</a>
+            </li>
+            <li>
+              <a href="/docs/architecture" class="text-[#4d5553] hover:text-[#0e1110] block py-0.5 transition-colors">Arsitektur &amp; Daemon</a>
+            </li>
+            <li>
+              <a href="/docs/config" class="text-[#4d5553] hover:text-[#0e1110] block py-0.5 transition-colors">Konfigurasi YAML</a>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <div class="text-[11px] font-semibold tracking-wider uppercase text-[#98a09d] mb-2.5">
+            Orkestrasi
+          </div>
+          <ul class="space-y-1.5 text-[13px]">
+            <li>
+              <a href="/docs/agents" class="text-[#4d5553] hover:text-[#0e1110] block py-0.5 transition-colors">Pendaftaran Agent</a>
+            </li>
+            <li>
+              <a href="/docs/lifecycle" class="text-[#4d5553] hover:text-[#0e1110] block py-0.5 transition-colors">Siklus Hidup Run</a>
+            </li>
+            <li>
+              <a href="/docs/approvals" class="text-[#4d5553] hover:text-[#0e1110] block py-0.5 transition-colors">Approval Gates</a>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <div class="text-[11px] font-semibold tracking-wider uppercase text-[#98a09d] mb-2.5">
+            Referensi API
+          </div>
+          <ul class="space-y-1.5 text-[13px]">
+            <li>
+              <a href="/docs/api" class="text-[#0d7a70] font-semibold block py-0.5">REST Endpoints</a>
+            </li>
+            <li>
+              <a href="/docs/webhooks" class="text-[#4d5553] hover:text-[#0e1110] block py-0.5 transition-colors">Webhooks &amp; Event</a>
+            </li>
+            <li>
+              <a href="/docs/telemetry" class="text-[#4d5553] hover:text-[#0e1110] block py-0.5 transition-colors">Skema Telemetri</a>
+            </li>
+            <li>
+              <a href="/docs/cli" class="text-[#4d5553] hover:text-[#0e1110] block py-0.5 transition-colors">CLI Reference</a>
+            </li>
+            <li>
+              <a href="/docs/rbac" class="text-[#4d5553] hover:text-[#0e1110] block py-0.5 transition-colors">Kode Error &amp; RBAC</a>
+            </li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- ARTIKEL UTAMA (max-width 720px) -->
+      <main class="w-full max-w-[720px] min-w-0">
+        
+        <!-- Breadcrumb & Badge US-AD104 -->
+        <div class="flex items-center gap-2 text-[12px] text-[#6b7370] mb-3">
+          <a href="/docs/quickstart" class="hover:text-[#0e1110] transition-colors">Dokumentasi</a>
+          <span>/</span>
+          <a href="/docs/api" class="hover:text-[#0e1110] transition-colors">Referensi API</a>
+          <span>/</span>
+          <span class="text-[#0e1110] font-medium">REST Endpoints</span>
+          <span class="ml-2 font-mono text-[10px] text-[#0d7a70] bg-[#eef7f5] px-2 py-0.5 rounded font-medium border border-[rgba(13,122,112,0.15)]">US-AD104</span>
+        </div>
+
+        <!-- Judul & Deskripsi Pembuka -->
+        <header class="mb-8">
+          <h1 class="text-[28px] font-bold text-[#0e1110] tracking-tight leading-tight mb-3">
+            Referensi REST API
+          </h1>
+          <p class="text-[15px] text-[#4d5553] leading-relaxed">
+            Spesifikasi resmi HTTP REST API internal bawaan daemon Go AgentDeck Core. Seluruh rute menggunakan port biner lokal <code class="font-mono text-[13px] text-[#0d7a70] bg-[#eef1f0] px-1.5 py-0.5 rounded">http://localhost:8080/api/v1</code> dengan header autentikasi token Bearer.
+          </p>
+        </header>
+
+        <!-- DAFTAR ENDPOINT DIKELOMPOKKAN PER SUMBER DAYA (US-AD104 AC1 & AC2) -->
+        <div class="space-y-12">
+
+          <!-- 1. SUMBER DAYA: TASKS -->
+          <section id="resource-tasks" class="space-y-6 pt-2 border-t border-[rgba(12,26,22,0.07)]">
+            <div class="flex items-baseline justify-between">
+              <h2 class="text-[18px] font-bold text-[#0e1110] tracking-tight">
+                Sumber Daya: Tasks
+              </h2>
+              <span class="font-mono text-[11px] text-[#6b7370]">/api/v1/tasks</span>
+            </div>
+            <p class="text-[13px] text-[#4d5553] leading-relaxed -mt-3">
+              Operasi penjadwalan antrean pekerjaan armada agen AI, status komputasi, dan kalkulasi biaya ledger.
+            </p>
+
+            <!-- Endpoint 1.1: POST /api/v1/tasks -->
+            <div class="border border-[rgba(12,26,22,0.08)] bg-white rounded-[12px] p-5 space-y-4 shadow-sm">
+              <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[rgba(12,26,22,0.06)]">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-mono text-[11px] font-bold bg-[#eef7f5] text-[#0d7a70] px-2 py-0.5 rounded-[4px] border border-[rgba(13,122,112,0.2)]">POST</span>
+                  <span class="font-mono text-[13px] font-semibold text-[#0e1110]">/api/v1/tasks</span>
+                </div>
+                <div class="text-[12px] text-[#6b7370]">
+                  Peran minimum: <span class="font-mono text-[11px] bg-[#f6f7f6] text-[#0e1110] px-2 py-0.5 rounded border border-[rgba(12,26,22,0.08)]">member</span>
+                </div>
+              </div>
+
+              <p class="text-[13px] text-[#4d5553] leading-relaxed">
+                Membuat task baru dan mengalirkannya ke backlog orkestrator daemon lokal untuk dieksekusi oleh worker yang ditugaskan.
+              </p>
+
+              <!-- Request Body -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Body Request</span>
+                  <span class="font-mono text-[10px] lowercase">application/json</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>{
+  "title": "Refactor auth module & telemetry pipeline",
+  "board_id": "brd_sprint24",
+  "assigned_agent": "agent-backend",
+  "priority": "P0",
+  "task_body": "Migrasi session state ke Postgres internal daemon.",
+  "max_tokens_budget": 12000
+}</code></pre>
+              </div>
+
+              <!-- Response Body -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Response (201 Created)</span>
+                  <span class="font-mono text-[10px] lowercase">application/json</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>{
+  "task_id": "task-771b",
+  "status": "ready",
+  "board_id": "brd_sprint24",
+  "assigned_agent": "agent-backend",
+  "priority": "P0",
+  "created_at": "2026-09-18T14:10:00Z",
+  "estimated_cost": 0.00
+}</code></pre>
+              </div>
+            </div>
+
+            <!-- Endpoint 1.2: GET /api/v1/tasks/{id} -->
+            <div class="border border-[rgba(12,26,22,0.08)] bg-white rounded-[12px] p-5 space-y-4 shadow-sm">
+              <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[rgba(12,26,22,0.06)]">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-mono text-[11px] font-bold bg-[#eef1f0] text-[#0e1110] px-2 py-0.5 rounded-[4px] border border-[rgba(12,26,22,0.12)]">GET</span>
+                  <span class="font-mono text-[13px] font-semibold text-[#0e1110]">/api/v1/tasks/{id}</span>
+                </div>
+                <div class="text-[12px] text-[#6b7370]">
+                  Peran minimum: <span class="font-mono text-[11px] bg-[#f6f7f6] text-[#0e1110] px-2 py-0.5 rounded border border-[rgba(12,26,22,0.08)]">viewer</span>
+                </div>
+              </div>
+
+              <p class="text-[13px] text-[#4d5553] leading-relaxed">
+                Mengambil status rincian eksekusi task, identitas run aktif, jumlah token terkonsumsi, dan akumulasi biaya mikro-dolar.
+              </p>
+
+              <!-- Request Headers & Params -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Request (Headers)</span>
+                  <span class="font-mono text-[10px] lowercase">http</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>GET /api/v1/tasks/task-771b HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer adk_live_9b42f10c8e...
+Accept: application/json</code></pre>
+              </div>
+
+              <!-- Response Body -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Response (200 OK)</span>
+                  <span class="font-mono text-[10px] lowercase">application/json</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>{
+  "task_id": "task-771b",
+  "status": "running",
+  "active_run_id": "run_9b42f1",
+  "step_current": 2,
+  "step_total": 4,
+  "tokens": {
+    "in": 31400,
+    "out": 7200
+  },
+  "cost_usd": 0.3180
+}</code></pre>
+              </div>
+            </div>
+          </section>
+
+          <!-- 2. SUMBER DAYA: RUNS -->
+          <section id="resource-runs" class="space-y-6 pt-6 border-t border-[rgba(12,26,22,0.07)]">
+            <div class="flex items-baseline justify-between">
+              <h2 class="text-[18px] font-bold text-[#0e1110] tracking-tight">
+                Sumber Daya: Runs
+              </h2>
+              <span class="font-mono text-[11px] text-[#6b7370]">/api/v1/runs</span>
+            </div>
+            <p class="text-[13px] text-[#4d5553] leading-relaxed -mt-3">
+              Manajemen siklus hidup eksekusi runtime armada agen, pemantauan step-by-step, dan streaming telemetri Server-Sent Events.
+            </p>
+
+            <!-- Endpoint 2.1: POST /api/v1/runs -->
+            <div class="border border-[rgba(12,26,22,0.08)] bg-white rounded-[12px] p-5 space-y-4 shadow-sm">
+              <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[rgba(12,26,22,0.06)]">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-mono text-[11px] font-bold bg-[#eef7f5] text-[#0d7a70] px-2 py-0.5 rounded-[4px] border border-[rgba(13,122,112,0.2)]">POST</span>
+                  <span class="font-mono text-[13px] font-semibold text-[#0e1110]">/api/v1/runs</span>
+                </div>
+                <div class="text-[12px] text-[#6b7370]">
+                  Peran minimum: <span class="font-mono text-[11px] bg-[#f6f7f6] text-[#0e1110] px-2 py-0.5 rounded border border-[rgba(12,26,22,0.08)]">member</span>
+                </div>
+              </div>
+
+              <p class="text-[13px] text-[#4d5553] leading-relaxed">
+                Memicu siklus run agen otonom baru untuk task tertentu dengan konfigurasi timeout dan aturan approval gate.
+              </p>
+
+              <!-- Request Body -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Body Request</span>
+                  <span class="font-mono text-[10px] lowercase">application/json</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>{
+  "task_id": "task-771b",
+  "agent_id": "agent-backend",
+  "timeout_seconds": 1800,
+  "require_approval_on": ["bash_exec", "db_migrate"]
+}</code></pre>
+              </div>
+
+              <!-- Response Body -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Response (201 Created)</span>
+                  <span class="font-mono text-[10px] lowercase">application/json</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>{
+  "run_id": "run_9b42f1",
+  "task_id": "task-771b",
+  "status": "claimed",
+  "agent_id": "agent-backend",
+  "started_at": "2026-09-18T14:12:00Z",
+  "stream_url": "/api/v1/runs/run_9b42f1/events"
+}</code></pre>
+              </div>
+            </div>
+
+            <!-- Endpoint 2.2: GET /api/v1/runs/{id}/steps -->
+            <div class="border border-[rgba(12,26,22,0.08)] bg-white rounded-[12px] p-5 space-y-4 shadow-sm">
+              <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[rgba(12,26,22,0.06)]">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-mono text-[11px] font-bold bg-[#eef1f0] text-[#0e1110] px-2 py-0.5 rounded-[4px] border border-[rgba(12,26,22,0.12)]">GET</span>
+                  <span class="font-mono text-[13px] font-semibold text-[#0e1110]">/api/v1/runs/{id}/steps</span>
+                </div>
+                <div class="text-[12px] text-[#6b7370]">
+                  Peran minimum: <span class="font-mono text-[11px] bg-[#f6f7f6] text-[#0e1110] px-2 py-0.5 rounded border border-[rgba(12,26,22,0.08)]">viewer</span>
+                </div>
+              </div>
+
+              <p class="text-[13px] text-[#4d5553] leading-relaxed">
+                Mengambil riwayat langkah eksekusi dalam run, durasi latency, konsumsi token input/output, dan biaya komputasi presisi micro-USD.
+              </p>
+
+              <!-- Request Headers -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Request (Headers)</span>
+                  <span class="font-mono text-[10px] lowercase">http</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>GET /api/v1/runs/run_9b42f1/steps HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer adk_live_9b42f10c8e...</code></pre>
+              </div>
+
+              <!-- Response Body -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Response (200 OK)</span>
+                  <span class="font-mono text-[10px] lowercase">application/json</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>[
+  {
+    "step_index": 1,
+    "step_name": "step_01_query",
+    "tool_name": "read_file",
+    "status": "COMPLETED",
+    "duration_ms": 18200,
+    "tokens_in": 1420,
+    "tokens_out": 184,
+    "cost_micros": 2800
+  },
+  {
+    "step_index": 2,
+    "step_name": "step_02_decompose",
+    "tool_name": "model_invocation",
+    "status": "RUNNING",
+    "duration_ms": 46210,
+    "tokens_in": 8940,
+    "tokens_out": 2104,
+    "cost_micros": 24200
+  }
+]</code></pre>
+              </div>
+            </div>
+          </section>
+
+          <!-- 3. SUMBER DAYA: AGENTS -->
+          <section id="resource-agents" class="space-y-6 pt-6 border-t border-[rgba(12,26,22,0.07)]">
+            <div class="flex items-baseline justify-between">
+              <h2 class="text-[18px] font-bold text-[#0e1110] tracking-tight">
+                Sumber Daya: Agents
+              </h2>
+              <span class="font-mono text-[11px] text-[#6b7370]">/api/v1/agents</span>
+            </div>
+            <p class="text-[13px] text-[#4d5553] leading-relaxed -mt-3">
+              Registrasi identitas model, binding kredensial provider LLM terenkripsi AES-256-GCM, dan verifikasi kapabilitas.
+            </p>
+
+            <!-- Endpoint 3.1: POST /api/v1/agents -->
+            <div class="border border-[rgba(12,26,22,0.08)] bg-white rounded-[12px] p-5 space-y-4 shadow-sm">
+              <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[rgba(12,26,22,0.06)]">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-mono text-[11px] font-bold bg-[#eef7f5] text-[#0d7a70] px-2 py-0.5 rounded-[4px] border border-[rgba(13,122,112,0.2)]">POST</span>
+                  <span class="font-mono text-[13px] font-semibold text-[#0e1110]">/api/v1/agents</span>
+                </div>
+                <div class="text-[12px] text-[#6b7370]">
+                  Peran minimum: <span class="font-mono text-[11px] bg-[#f6f7f6] text-[#0e1110] px-2 py-0.5 rounded border border-[rgba(12,26,22,0.08)]">admin</span>
+                </div>
+              </div>
+
+              <p class="text-[13px] text-[#4d5553] leading-relaxed">
+                Mendaftarkan worker agent baru ke daemon lokal. Kredensial API provider LLM dienkripsi sebelum disimpan ke tabel internal.
+              </p>
+
+              <!-- Request Body -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Body Request</span>
+                  <span class="font-mono text-[10px] lowercase">application/json</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>{
+  "name": "agent-security",
+  "provider": "anthropic",
+  "model": "claude-3-5-sonnet",
+  "provider_api_key": "sk-ant-api03-...",
+  "max_runtime_seconds": 3600,
+  "skills": ["security_audit", "sbom_check"]
+}</code></pre>
+              </div>
+
+              <!-- Response Body -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Response (201 Created)</span>
+                  <span class="font-mono text-[10px] lowercase">application/json</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>{
+  "agent_id": "agt_sec_884",
+  "name": "agent-security",
+  "provider": "anthropic",
+  "model": "claude-3-5-sonnet",
+  "status": "ACTIVE",
+  "created_at": "2026-09-18T10:15:00Z"
+}</code></pre>
+              </div>
+            </div>
+
+            <!-- Endpoint 3.2: GET /api/v1/agents -->
+            <div class="border border-[rgba(12,26,22,0.08)] bg-white rounded-[12px] p-5 space-y-4 shadow-sm">
+              <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[rgba(12,26,22,0.06)]">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-mono text-[11px] font-bold bg-[#eef1f0] text-[#0e1110] px-2 py-0.5 rounded-[4px] border border-[rgba(12,26,22,0.12)]">GET</span>
+                  <span class="font-mono text-[13px] font-semibold text-[#0e1110]">/api/v1/agents</span>
+                </div>
+                <div class="text-[12px] text-[#6b7370]">
+                  Peran minimum: <span class="font-mono text-[11px] bg-[#f6f7f6] text-[#0e1110] px-2 py-0.5 rounded border border-[rgba(12,26,22,0.08)]">viewer</span>
+                </div>
+              </div>
+
+              <p class="text-[13px] text-[#4d5553] leading-relaxed">
+                Mengambil daftar seluruh armada agent terdaftar beserta status operasional (ACTIVE, UNCONFIGURED, ARCHIVED).
+              </p>
+
+              <!-- Request Headers -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Request (Headers)</span>
+                  <span class="font-mono text-[10px] lowercase">http</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>GET /api/v1/agents HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer adk_live_9b42f10c8e...</code></pre>
+              </div>
+
+              <!-- Response Body -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Response (200 OK)</span>
+                  <span class="font-mono text-[10px] lowercase">application/json</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>[
+  {
+    "agent_id": "agt_backend_01",
+    "name": "agent-backend",
+    "provider": "openai",
+    "model": "gpt-4o",
+    "status": "ACTIVE",
+    "runs_completed": 36
+  },
+  {
+    "agent_id": "agt_data_9a",
+    "name": "agent-data",
+    "provider": "deepseek",
+    "model": "deepseek-coder",
+    "status": "ACTIVE",
+    "runs_completed": 14
+  }
+]</code></pre>
+              </div>
+            </div>
+          </section>
+
+          <!-- 4. SUMBER DAYA: APPROVALS -->
+          <section id="resource-approvals" class="space-y-6 pt-6 border-t border-[rgba(12,26,22,0.07)]">
+            <div class="flex items-baseline justify-between">
+              <h2 class="text-[18px] font-bold text-[#0e1110] tracking-tight">
+                Sumber Daya: Approvals
+              </h2>
+              <span class="font-mono text-[11px] text-[#6b7370]">/api/v1/approvals</span>
+            </div>
+            <p class="text-[13px] text-[#4d5553] leading-relaxed -mt-3">
+              Gerbang verifikasi manusia sebelum pemanggilan tool destruktif atau mutasi infrastruktur.
+            </p>
+
+            <!-- Endpoint 4.1: POST /api/v1/approvals/{id} -->
+            <div class="border border-[rgba(12,26,22,0.08)] bg-white rounded-[12px] p-5 space-y-4 shadow-sm">
+              <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[rgba(12,26,22,0.06)]">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-mono text-[11px] font-bold bg-[#eef7f5] text-[#0d7a70] px-2 py-0.5 rounded-[4px] border border-[rgba(13,122,112,0.2)]">POST</span>
+                  <span class="font-mono text-[13px] font-semibold text-[#0e1110]">/api/v1/approvals/{id}</span>
+                </div>
+                <div class="text-[12px] text-[#6b7370]">
+                  Peran minimum: <span class="font-mono text-[11px] bg-[#f6f7f6] text-[#0e1110] px-2 py-0.5 rounded border border-[rgba(12,26,22,0.08)]">admin</span>
+                </div>
+              </div>
+
+              <p class="text-[13px] text-[#4d5553] leading-relaxed">
+                Mengesahkan atau menolak permintaan aksi berisiko tinggi yang tertahan di status <code class="font-mono text-[12px] text-[#0d7a70] bg-[#eef7f5] px-1.5 py-0.5 rounded">awaiting_approval</code> (misal: eksekusi script bash atau migrasi schema).
+              </p>
+
+              <!-- Request Body -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Body Request</span>
+                  <span class="font-mono text-[10px] lowercase">application/json</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>{
+  "decision": "approve",
+  "reason": "Divalidasi pada staging environment.",
+  "actor": "reza@core-platform.internal"
+}</code></pre>
+              </div>
+
+              <!-- Response Body -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                  <span>Contoh Response (200 OK)</span>
+                  <span class="font-mono text-[10px] lowercase">application/json</span>
+                </div>
+                <pre class="bg-[#eef1f0] text-[#0e1110] font-mono text-[13px] p-3.5 rounded-[10px] overflow-x-auto leading-relaxed border border-[rgba(12,26,22,0.04)]"><code>{
+  "approval_id": "appr_9b42f1",
+  "status": "APPROVED",
+  "signed_by": "reza@core-platform.internal",
+  "action_released": "infra_cli drop_replica",
+  "resumed_at": "2026-09-18T14:24:00Z"
+}</code></pre>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Panduan Lanjutan / Next steps -->
+        <div class="mt-12 pt-8 border-t border-[rgba(12,26,22,0.08)] bg-white rounded-[12px] p-6 border shadow-sm">
+          <h3 class="text-[15px] font-bold text-[#0e1110] mb-2">Langkah Selanjutnya</h3>
+          <p class="text-[13px] text-[#4d5553] leading-relaxed mb-4">
+            Untuk mengonsumsi event streaming perubahan status dan penghitungan token step real-time, pelajari dokumentasi spesifikasi payload Server-Sent Events (SSE).
+          </p>
+          <div class="flex flex-wrap gap-4 text-[13px] font-medium">
+            <a href="/docs/telemetry" class="text-[#0d7a70] hover:text-[#0a5f57] flex items-center gap-1">
+              Pelajari Skema Telemetri &rarr;
+            </a>
+            <a href="/docs/webhooks" class="text-[#4d5553] hover:text-[#0e1110] flex items-center gap-1">
+              Konfigurasi Webhooks &rarr;
+            </a>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- FOOTER PUBLIK (Blueprint P) -->
+  <footer class="mt-20 border-t border-[rgba(12,26,22,0.07)] py-10 bg-[#f6f7f6]">
+    <div class="max-w-[1120px] mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-[13px]">
+      <div>
+        <div class="font-semibold text-[#0e1110] mb-3">Produk</div>
+        <ul class="space-y-2 text-[#4d5553]">
+          <li><a href="/09-features" class="hover:text-[#0e1110] transition-colors">Fitur Inti</a></li>
+          <li><a href="/07-pricing" class="hover:text-[#0e1110] transition-colors">Harga Solo &amp; Pro</a></li>
+          <li><a href="/08-changelog" class="hover:text-[#0e1110] transition-colors">Catatan Rilis</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="font-semibold text-[#0e1110] mb-3">Dokumentasi</div>
+        <ul class="space-y-2 text-[#4d5553]">
+          <li><a href="/docs/quickstart" class="hover:text-[#0e1110] transition-colors">Mulai Cepat</a></li>
+          <li><a href="/docs/api" class="text-[#0d7a70] font-medium">REST Endpoints</a></li>
+          <li><a href="/docs/telemetry" class="hover:text-[#0e1110] transition-colors">Skema Telemetri</a></li>
+          <li><a href="/docs/cli" class="hover:text-[#0e1110] transition-colors">CLI Reference</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="font-semibold text-[#0e1110] mb-3">Ekosistem</div>
+        <ul class="space-y-2 text-[#4d5553]">
+          <li><a href="/github" class="hover:text-[#0e1110] transition-colors">GitHub Repository</a></li>
+          <li><a href="/community" class="hover:text-[#0e1110] transition-colors">Komunitas Discord</a></li>
+          <li><a href="/security" class="hover:text-[#0e1110] transition-colors">Keamanan &amp; Lisensi</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="font-semibold text-[#0e1110] mb-3">Lisensi</div>
+        <p class="text-[#4d5553] text-[12px] leading-relaxed mb-3">
+          Papan orkestrasi mandiri untuk armada agen AI otonom. Biner tunggal Go, presisi mikro-dolar.
+        </p>
+        <span class="font-mono text-[11px] bg-[#eef1f0] text-[#0e1110] px-2 py-1 rounded">v2.4-stable (Single Binary)</span>
+      </div>
+    </div>
+
+    <div class="max-w-[1120px] mx-auto px-6 mt-10 pt-6 border-t border-[rgba(12,26,22,0.05)] flex flex-col md:flex-row items-center justify-between text-[12px] text-[#6b7370] gap-4">
+      <div>&copy; 2026 AgentDeck Core. Lisensi Open-Source MIT.</div>
+      <div class="text-[12px] text-[#4d5553]">Designed for autonomous AI agents fleet orchestration</div>
+    </div>
+  </footer>
+
+</body>
+</html>

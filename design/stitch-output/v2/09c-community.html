@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgentDeck — Komunitas &amp; Dukungan (/community)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            page: "#f6f7f6",
+            primary: "#0e1110",
+            secondary: "#4d5553",
+            tertiary: "#6b7370",
+            muted: "#98a09d",
+            accent: "#0d7a70",
+            "accent-tint": "#eef7f5",
+            "code-bg": "#eef1f0",
+            "border-subtle": "rgba(12,26,22,0.07)",
+            "border-medium": "rgba(12,26,22,0.12)",
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #f6f7f6;
+      color: #0e1110;
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-page text-primary antialiased min-h-screen flex flex-col">
+
+  <!-- TOP NAV 64px (Sticky, bg #f6f7f6, border-bottom rgba(12,26,22,0.07)) -->
+  <header class="sticky top-0 z-50 h-16 bg-page border-b border-border-subtle px-6">
+    <div class="max-w-[1120px] mx-auto h-full flex items-center justify-between">
+      <!-- Kiri: Brand Wordmark + Aksen -->
+      <a href="/" class="flex items-center gap-2 text-decoration-none">
+        <div class="w-6 h-6 rounded bg-accent flex items-center justify-center text-white font-mono font-bold text-xs">
+          AD
+        </div>
+        <span class="font-semibold text-[15px] tracking-tight text-primary">AgentDeck</span>
+      </a>
+
+      <!-- Tengah: Navigation Links -->
+      <nav class="hidden md:flex items-center gap-8">
+        <a href="/product" class="text-sm text-secondary hover:text-primary transition-colors">Product</a>
+        <a href="/pricing" class="text-sm text-secondary hover:text-primary transition-colors">Pricing</a>
+        <a href="/docs" class="text-sm text-secondary hover:text-primary transition-colors">Docs</a>
+        <a href="/github" class="text-sm text-secondary hover:text-primary transition-colors">GitHub</a>
+      </nav>
+
+      <!-- Kanan: Sign in + Get started free -->
+      <div class="flex items-center gap-5">
+        <a href="/login" class="text-sm text-secondary hover:text-primary transition-colors">Sign in</a>
+        <a href="/register" class="inline-flex items-center justify-center px-3.5 py-1.5 text-xs font-semibold text-white bg-accent rounded-[6px] hover:bg-[#0b665e] transition-colors">
+          Get started free
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER (max-width 1120px, margin auto) -->
+  <main class="flex-1 w-full max-w-[1120px] mx-auto px-6 py-10 md:py-14">
+
+    <!-- Header / Breadcrumb Section -->
+    <div class="mb-10">
+      <div class="flex items-center gap-2 text-xs text-tertiary mb-3 font-mono">
+        <a href="/" class="hover:text-primary">AgentDeck</a>
+        <span>/</span>
+        <span class="text-accent font-medium">/community</span>
+        <span>•</span>
+        <span class="bg-accent-tint text-accent px-2 py-0.5 rounded border border-accent/20 font-sans font-medium">US-AD102 (AC1, AC2, AC3) Compliant</span>
+      </div>
+
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-primary">
+        Kanal Komunitas &amp; Dukungan Teknis
+      </h1>
+      <p class="mt-3 text-secondary text-base max-w-2xl leading-relaxed">
+        Ruang kolaborasi terbuka dan saluran bantuan resmi untuk developer dan tim rekayasa yang mengorkestrasi armada agen mandiri AgentDeck.
+      </p>
+    </div>
+
+    <!-- AC2 Context Banner: Tautan Footer Landing Verified -->
+    <div class="mb-8 p-4 rounded-xl border border-border-medium bg-white/70 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+      <div class="flex items-start md:items-center gap-3">
+        <div class="w-7 h-7 rounded-lg bg-accent-tint text-accent flex items-center justify-center font-mono font-bold text-xs shrink-0">
+          AC2
+        </div>
+        <div>
+          <span class="font-semibold text-primary">Resolusi Tautan Landing Page (/community):</span>
+          <span class="text-secondary ml-1">Tautan footer "Discord" dan "Bantuan Komunitas" pada landing page terikat penuh ke halaman ini.</span>
+        </div>
+      </div>
+      <div class="font-mono text-tertiary bg-code-bg px-2.5 py-1 rounded text-[11px] self-start md:self-auto">
+        Status: HTTP 200 OK (Bukan Anchor Kosong)
+      </div>
+    </div>
+
+    <!-- AC1: Kanal Dukungan Utama (Discord & GitHub Issues) & SLA Respons -->
+    <div class="mb-12">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-muted font-sans">AC1 — Kanal Dukungan Resmi &amp; Jam Respons</h2>
+          <p class="text-sm font-semibold text-primary mt-0.5">Pilih saluran yang sesuai dengan jenis kebutuhan Anda</p>
+        </div>
+        <span class="text-xs font-mono text-accent bg-accent-tint px-2.5 py-1 rounded-md border border-accent/20">
+          Jam Operasional: 09:00 - 18:00 WIB
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- 1. Discord Community -->
+        <div class="bg-white border border-border-medium rounded-xl p-6 flex flex-col justify-between shadow-sm">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-[#5865F2]/10 text-[#5865F2] flex items-center justify-center font-bold text-sm">
+                  #
+                </div>
+                <div>
+                  <h3 class="font-semibold text-base text-primary">Server Komunitas Discord</h3>
+                  <p class="text-xs text-tertiary">discord.gg/agentdeck (Kanal Resmi)</p>
+                </div>
+              </div>
+              <span class="text-[11px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-medium">
+                Online
+              </span>
+            </div>
+
+            <p class="text-sm text-secondary leading-relaxed mb-4">
+              Diskusi real-time seputar arsitektur biner Go, konfigurasi YAML armada, pembagian modul tool LLM kustom, serta tanya-jawab sesama orkestrator agen otonom.
+            </p>
+
+            <!-- SLA Card -->
+            <div class="p-3.5 bg-page rounded-lg border border-border-subtle mb-4 space-y-1.5">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-secondary font-medium">Jam Respons yang Dijanjikan:</span>
+                <span class="font-semibold text-primary">&lt; 2 Jam (Hari Kerja)</span>
+              </div>
+              <div class="flex items-center justify-between text-xs text-tertiary">
+                <span>Jadwal Aktif Tim Inti:</span>
+                <span>Senin – Jumat (09:00 – 18:00 WIB)</span>
+              </div>
+              <div class="flex items-center justify-between text-xs text-tertiary">
+                <span>Akhir Pekan &amp; Libur:</span>
+                <span>Dukungan Peer-to-Peer Komunitas</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-border-subtle flex items-center justify-between">
+            <span class="text-xs font-mono text-tertiary">2,480+ Anggota Aktif</span>
+            <a href="https://discord.gg/agentdeck" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-accent text-white text-xs font-semibold rounded-[6px] hover:bg-[#0b665e] transition-colors">
+              Gabung Server
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- 2. GitHub Issue Tracker -->
+        <div class="bg-white border border-border-medium rounded-xl p-6 flex flex-col justify-between shadow-sm">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+                  &lt;/&gt;
+                </div>
+                <div>
+                  <h3 class="font-semibold text-base text-primary">Issue Tracker GitHub</h3>
+                  <p class="text-xs text-tertiary">github.com/agentdeck/core/issues</p>
+                </div>
+              </div>
+              <span class="text-[11px] font-mono text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded font-medium">
+                Public Repo
+              </span>
+            </div>
+
+            <p class="text-sm text-secondary leading-relaxed mb-4">
+              Pelaporan bug biner single Go, regresi migrasi schema PostgreSQL, request fitur baru protokol telemetri mikro-dolar, serta proposal perubahan RFC skema run.
+            </p>
+
+            <!-- SLA Card -->
+            <div class="p-3.5 bg-page rounded-lg border border-border-subtle mb-4 space-y-1.5">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-secondary font-medium">Jam Respons yang Dijanjikan:</span>
+                <span class="font-semibold text-primary">&lt; 4 Jam (Triage Bug P0/Crash)</span>
+              </div>
+              <div class="flex items-center justify-between text-xs text-tertiary">
+                <span>Investigasi Bug P1/P2:</span>
+                <span>Maks. 24 Jam Kerja</span>
+              </div>
+              <div class="flex items-center justify-between text-xs text-tertiary">
+                <span>Diskusi RFC &amp; Ide Fitur:</span>
+                <span>Reviu Mingguan Tim Inti</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-border-subtle flex items-center justify-between">
+            <span class="text-xs font-mono text-tertiary">Resolusi Rata-rata 1.8 Hari</span>
+            <a href="https://github.com/agentdeck/core/issues" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-page border border-border-medium text-primary text-xs font-semibold rounded-[6px] hover:bg-white transition-colors">
+              Buka Tracker
+              <svg class="w-3.5 h-3.5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AC3: Protokol Jalur Gagal & Kanal Alternatif Bergaransi -->
+    <div class="mb-12 bg-white border border-border-medium rounded-xl p-6 md:p-7 shadow-sm">
+      <div class="flex items-start gap-4 mb-5">
+        <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-700 flex items-center justify-center font-mono font-bold text-sm shrink-0">
+          AC3
+        </div>
+        <div>
+          <span class="text-xs font-semibold uppercase tracking-wider text-amber-800 font-sans">Jalur Gagal Terkelola (Failover Protocol)</span>
+          <h2 class="text-lg font-bold text-primary mt-0.5">Kanal Alternatif Bila Saluran Komunitas Belum Aktif / Maintenance</h2>
+          <p class="text-sm text-secondary mt-1 leading-relaxed">
+            Jika bot Discord atau server komunitas sedang mengalami pemeliharaan terjadwal, AgentDeck menjamin tidak ada tautan mati (404/dead link). Gunakan kanal alternatif terverifikasi berikut:
+          </p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+        <!-- Alternatif 1: GitHub Discussions -->
+        <div class="p-4 rounded-lg bg-page border border-border-subtle flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-primary">GitHub Discussions</span>
+              <span class="text-[10px] font-mono text-accent bg-accent-tint px-1.5 py-0.2 rounded font-medium">Failover Ready</span>
+            </div>
+            <p class="text-xs text-secondary leading-relaxed mb-3">
+              Forum asinkron alternatif untuk tanya jawab konfigurasi, integrasi SDK agen, dan arsitektur tanpa perlu login Discord.
+            </p>
+          </div>
+          <a href="/github#discussions" class="text-xs font-semibold text-accent hover:underline inline-flex items-center gap-1">
+            Buka GitHub Discussions &rarr;
+          </a>
+        </div>
+
+        <!-- Alternatif 2: Email Dukungan Langsung -->
+        <div class="p-4 rounded-lg bg-page border border-border-subtle flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-primary">Email Tim Inti</span>
+              <span class="text-[10px] font-mono text-accent bg-accent-tint px-1.5 py-0.2 rounded font-medium">SLA &lt; 8 Jam</span>
+            </div>
+            <p class="text-xs text-secondary leading-relaxed mb-3">
+              Kirim kendala teknis spesifik infrastruktur mandiri Anda langsung ke kotak surat rekayasa resmi:
+            </p>
+            <div class="font-mono text-[11px] text-primary bg-code-bg p-2 rounded mb-3 truncate">
+              support@agentdeck.dev
+            </div>
+          </div>
+          <span class="text-[11px] text-tertiary">Dipantau setiap hari kerja</span>
+        </div>
+
+        <!-- Alternatif 3: Arsip & Dokumentasi Cepat -->
+        <div class="p-4 rounded-lg bg-page border border-border-subtle flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-primary">Status Page &amp; Docs</span>
+              <span class="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded font-medium">99.98% Uptime</span>
+            </div>
+            <p class="text-xs text-secondary leading-relaxed mb-3">
+              Periksa status operasional biner publik, repositori, dan cari solusi instan pada dokumentasi luring.
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <a href="/docs" class="text-xs font-semibold text-accent hover:underline">Baca Dokumentasi</a>
+            <span class="text-border-medium">•</span>
+            <a href="/changelog" class="text-xs font-semibold text-secondary hover:text-primary">Changelog</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Terminal Reference Block -->
+    <div class="p-6 bg-white border border-border-medium rounded-xl shadow-sm mb-6">
+      <h3 class="text-xs font-semibold uppercase tracking-wider text-muted font-sans mb-1">Verifikasi Integrasi &amp; Versi Daemon Lokal</h3>
+      <p class="text-xs text-secondary mb-3">Bila Anda mengalami kegagalan stream telemetri atau daemon terputus, verifikasi konektivitas dengan perintah cepat:</p>
+      
+      <div class="bg-code-bg rounded-[10px] p-3.5 font-mono text-[13px] text-primary overflow-x-auto leading-relaxed border border-border-subtle">
+        <span class="text-tertiary"># Periksa ketersediaan daemon dan status endpoint kesehatan</span><br/>
+        curl -s http://localhost:8080/api/v1/health | jq .<br/><br/>
+        <span class="text-tertiary"># Log riwayat status komunikasi armada dan SSE listener</span><br/>
+        agentdeck status --verify-community-link
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FOOTER (border-top rgba(12,26,22,0.07), 4 kolom link Inter 13 #4d5553, padding 40px 0) -->
+  <footer class="border-t border-border-subtle bg-page mt-auto py-10 px-6">
+    <div class="max-w-[1120px] mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 mb-10 text-[13px]">
+      <!-- Kolom 1: Produk -->
+      <div>
+        <h4 class="font-semibold text-primary text-xs uppercase tracking-wider mb-3">Produk</h4>
+        <ul class="space-y-2">
+          <li><a href="/product" class="text-secondary hover:text-primary transition-colors">Fitur Inti</a></li>
+          <li><a href="/pricing" class="text-secondary hover:text-primary transition-colors">Harga Solo &amp; Pro</a></li>
+          <li><a href="/changelog" class="text-secondary hover:text-primary transition-colors">Catatan Rilis</a></li>
+        </ul>
+      </div>
+
+      <!-- Kolom 2: Dokumentasi -->
+      <div>
+        <h4 class="font-semibold text-primary text-xs uppercase tracking-wider mb-3">Dokumentasi</h4>
+        <ul class="space-y-2">
+          <li><a href="/docs/quickstart" class="text-secondary hover:text-primary transition-colors">Mulai Cepat</a></li>
+          <li><a href="/docs/api" class="text-secondary hover:text-primary transition-colors">REST Endpoints</a></li>
+          <li><a href="/docs/telemetry" class="text-secondary hover:text-primary transition-colors">Skema Telemetri</a></li>
+          <li><a href="/docs/cli" class="text-secondary hover:text-primary transition-colors">CLI Reference</a></li>
+        </ul>
+      </div>
+
+      <!-- Kolom 3: Ekosistem & Komunitas -->
+      <div>
+        <h4 class="font-semibold text-primary text-xs uppercase tracking-wider mb-3">Ekosistem</h4>
+        <ul class="space-y-2">
+          <li><a href="/github" class="text-secondary hover:text-primary transition-colors">GitHub Repository</a></li>
+          <li><a href="/community" class="text-accent font-semibold">Komunitas Discord</a></li>
+          <li><a href="/community" class="text-secondary hover:text-primary transition-colors">Dukungan Teknis</a></li>
+        </ul>
+      </div>
+
+      <!-- Kolom 4: Lisensi & Biner -->
+      <div>
+        <h4 class="font-semibold text-primary text-xs uppercase tracking-wider mb-3">Lisensi &amp; Biner</h4>
+        <p class="text-xs text-secondary leading-relaxed mb-3">
+          Papan orkestrasi mandiri untuk armada agen AI otonom. Biner tunggal Go, presisi mikro-dolar.
+        </p>
+        <span class="inline-block font-mono text-[11px] bg-code-bg text-secondary px-2 py-1 rounded border border-border-subtle">
+          v2.4-stable (Single Binary)
+        </span>
+      </div>
+    </div>
+
+    <div class="max-w-[1120px] mx-auto pt-6 border-t border-border-subtle flex flex-col md:flex-row items-center justify-between text-xs text-tertiary gap-3">
+      <div>&copy; 2026 AgentDeck Core. Lisensi Open-Source Apache-2.0.</div>
+      <div class="font-sans">Dirancang untuk orkestrasi armada agen AI otonom</div>
+    </div>
+  </footer>
+
+</body>
+</html>

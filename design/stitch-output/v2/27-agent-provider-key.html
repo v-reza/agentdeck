@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — Kredensial Provider Agent (US-AD86)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            teal: {
+              accent: '#0d7a70',
+              hover: '#0a635b',
+              tint: '#eef7f5',
+            },
+            ink: {
+              primary: '#0e1110',
+              secondary: '#4d5553',
+              tertiary: '#6b7370',
+            },
+            surface: {
+              rail: '#e8ecea',
+              sidebar: '#f6f7f6',
+              card: '#ffffff',
+              costrail: '#eef1f0',
+              canvas: '#f6f7f6',
+            },
+            border: {
+              subtle: 'rgba(12,26,22,0.07)',
+              standard: 'rgba(12,26,22,0.12)',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      background-color: #f6f7f6;
+      color: #0e1110;
+      font-family: 'Inter', sans-serif;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(12,26,22,0.15);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-row select-none">
+
+  <!-- RAIL KIRI (44px, background #e8ecea, ikon saja tanpa label) -->
+  <aside class="w-[44px] shrink-0 h-full bg-[#e8ecea] border-r border-[rgba(12,26,22,0.07)] flex flex-col items-center py-3.5 justify-between z-20">
+    <div class="flex flex-col items-center gap-4 w-full">
+      <!-- Logo AgentDeck AD -->
+      <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] text-white font-bold text-xs flex items-center justify-center tracking-tight shadow-sm">
+        AD
+      </div>
+      <div class="w-6 h-[1px] bg-[rgba(12,26,22,0.1)] my-0.5"></div>
+      
+      <!-- Nav Icons -->
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors" title="Semua Proyek">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors" title="Papan Kanban">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#0d7a70] bg-[#eef7f5] transition-colors" title="Agent Registry & Kredensial">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors" title="Audit Log & Telemetry">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </button>
+    </div>
+
+    <!-- Bottom Icon -->
+    <div class="flex flex-col items-center gap-2">
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110]" title="Pengaturan">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      </button>
+      <div class="w-2 h-2 rounded-full bg-emerald-500" title="Daemon running :8080"></div>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR (224px, background #f6f7f6) -->
+  <aside class="w-[224px] shrink-0 h-full bg-[#f6f7f6] border-r border-[rgba(12,26,22,0.07)] flex flex-col justify-between text-xs py-3 px-2 z-10">
+    <div class="flex flex-col gap-4">
+      <!-- Workspace Badge -->
+      <div class="px-2 py-1.5">
+        <div class="text-[10px] uppercase font-mono tracking-wider text-[#6b7370] font-semibold">Workspace</div>
+        <div class="flex items-center justify-between mt-0.5">
+          <span class="font-semibold text-[13px] text-[#0e1110] font-mono truncate">ws_8f12a</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded-[4px] bg-[#eef7f5] text-[#0d7a70] font-mono font-medium">isolated</span>
+        </div>
+        <div class="text-[11px] text-[#6b7370] mt-0.5">org-scoped tenant</div>
+      </div>
+
+      <!-- Navigation Links -->
+      <div class="flex flex-col gap-0.5">
+        <div class="px-2 py-1 text-[10px] uppercase font-mono text-[#6b7370] font-semibold tracking-wider">Navigasi Armada</div>
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.04)] hover:text-[#0e1110] transition-colors">
+          <span class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+            <span>Semua Proyek</span>
+          </span>
+          <span class="text-[11px] font-mono text-[#6b7370]">3</span>
+        </a>
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.04)] hover:text-[#0e1110] transition-colors">
+          <span class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+            <span>Semua Board</span>
+          </span>
+          <span class="text-[11px] font-mono text-[#6b7370]">6</span>
+        </a>
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] font-medium">
+          <span class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-[#0d7a70]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            <span>Agent Registry</span>
+          </span>
+          <span class="text-[11px] font-mono text-[#0d7a70] font-semibold">5</span>
+        </a>
+      </div>
+
+      <!-- Settings & Security Section -->
+      <div class="flex flex-col gap-0.5 pt-2 border-t border-[rgba(12,26,22,0.06)]">
+        <div class="px-2 py-1 text-[10px] uppercase font-mono text-[#6b7370] font-semibold tracking-wider">Kredensial & Kunci</div>
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.04)] hover:text-[#0e1110]">
+          <span class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+            <span>API Keys (Host)</span>
+          </span>
+          <span class="text-[11px] font-mono text-[#6b7370]">4</span>
+        </a>
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.04)] hover:text-[#0e1110]">
+          <span class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            <span>Webhooks</span>
+          </span>
+          <span class="text-[11px] font-mono text-[#6b7370]">3</span>
+        </a>
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.04)] hover:text-[#0e1110]">
+          <span class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <span>Audit Log</span>
+          </span>
+        </a>
+      </div>
+    </div>
+
+    <!-- User Profile Footer -->
+    <div class="pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between px-2">
+      <div class="flex items-center gap-2">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#0d7a70]/10 text-[#0d7a70] flex items-center justify-center font-semibold text-[11px]">
+          RZ
+        </div>
+        <div class="flex flex-col">
+          <span class="font-medium text-[12px] text-[#0e1110] leading-tight">Reza</span>
+          <span class="text-[10px] text-[#6b7370] font-mono">OWNER</span>
+        </div>
+      </div>
+      <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+    </div>
+  </aside>
+
+  <!-- MAIN AREA: TOPBAR + CONTENT + DRAWER -->
+  <div class="flex-1 h-full flex flex-col min-w-0 bg-[#f6f7f6]">
+    
+    <!-- TOPBAR (52px, background #ffffff, HANYA membentang di atas pane konten) -->
+    <header class="h-[52px] shrink-0 bg-[#ffffff] border-b border-[rgba(12,26,22,0.07)] px-5 flex items-center justify-between z-10">
+      <div class="flex items-center gap-3">
+        <h1 class="text-sm font-semibold text-[#0e1110] tracking-tight">Agent Registry</h1>
+        <span class="text-[#6b7370] text-xs">/</span>
+        <span class="font-mono text-xs text-[#0d7a70] bg-[#eef7f5] px-2 py-0.5 rounded-[4px]">agt_qa_orch_01</span>
+        <span class="text-[#6b7370] text-xs">/</span>
+        <span class="font-mono text-xs text-[#4d5553]">kredensial-provider</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] text-xs text-[#4d5553]">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span class="font-mono text-[11px]">AES-256-GCM Hardware Enc</span>
+        </div>
+        <button class="px-2.5 py-1 text-xs text-[#4d5553] hover:text-[#0e1110] rounded-[6px] hover:bg-[#f6f7f6] flex items-center gap-1 border border-transparent hover:border-[rgba(12,26,22,0.07)]">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Sync Fleet
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTENT BODY (Split: Konten Tabel/Daftar + Drawer 420px di kanan) -->
+    <div class="flex-1 flex flex-row min-h-0 overflow-hidden">
+      
+      <!-- PANE KONTEN KIRI (Scrollable) -->
+      <main class="flex-1 h-full overflow-y-auto custom-scroll p-5 flex flex-col gap-4">
+        
+        <!-- Info Banner US-AD86 & US-AD87 -->
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] p-3.5 shadow-sm">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-[#0d7a70]/10 text-[#0d7a70] flex items-center justify-center">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+              </span>
+              <span class="text-xs font-semibold text-[#0e1110]">Spesifikasi Kredensial Provider LLM Per Agent</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-[4px] bg-[#eef7f5] text-[#0d7a70] font-semibold border border-[#0d7a70]/20">US-AD86</span>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-[4px] bg-slate-100 text-slate-700 font-semibold border border-slate-200">US-AD87</span>
+            </div>
+          </div>
+          <div class="mt-2.5 text-xs text-[#4d5553] leading-relaxed">
+            Setiap worker AI wajib memiliki isolasi kredensial LLM mandiri. Kunci disimpan dalam kolom biner <code class="font-mono text-[11px] text-[#0d7a70] bg-[#eef7f5] px-1 py-0.5 rounded">agents.provider_api_key_enc (BYTEA)</code> yang diproteksi cipher AES-256-GCM dengan envelope nonce & authentication tag.
+          </div>
+        </div>
+
+        <!-- Tabel Ringkasan Armada Kredensial (High Density, baris 28px, header 32px) -->
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] overflow-hidden shadow-sm flex flex-col">
+          <!-- Tabel Title bar -->
+          <div class="px-3.5 py-2.5 border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between bg-white">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-[#0e1110]">Daftar Kredensial Armada</span>
+              <span class="text-[11px] text-[#6b7370] font-mono">(5 total • 4 terkonfigurasi)</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-[#6b7370]">Filter Provider:</span>
+              <span class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] text-[#0e1110]">Semua (OpenAI, DeepSeek, Anthropic)</span>
+            </div>
+          </div>
+
+          <!-- Table Content -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="h-[32px] bg-[#f6f7f6] text-[11px] font-mono uppercase text-[#6b7370] border-b border-[rgba(12,26,22,0.07)]">
+                  <th class="px-3 font-medium">Agent</th>
+                  <th class="px-2 font-medium">Provider & Engine</th>
+                  <th class="px-2 font-medium">Status Kredensial</th>
+                  <th class="px-2 font-medium">Penyimpanan (BYTEA)</th>
+                  <th class="px-3 font-medium text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[rgba(12,26,22,0.05)] text-xs">
+                <!-- Row 1: Selected (agt_qa_orch_01) -->
+                <tr class="h-[28px] bg-[#eef7f5]/70 hover:bg-[#eef7f5] transition-colors border-l-2 border-[#0d7a70]">
+                  <td class="px-3 py-1 font-mono font-medium text-[#0e1110] flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-[#0d7a70]/10 text-[#0d7a70] text-[10px] font-bold flex items-center justify-center">qa</span>
+                    <span class="truncate">agent-qa-orchestrator</span>
+                  </td>
+                  <td class="px-2 py-1 font-mono text-[11px] text-[#4d5553]">
+                    <span class="text-[#0e1110]">openai</span> / gpt-4o
+                  </td>
+                  <td class="px-2 py-1">
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-50 text-amber-700 border border-amber-200">
+                      <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                      Input Baru
+                    </span>
+                  </td>
+                  <td class="px-2 py-1 font-mono text-[11px] text-[#6b7370]">
+                    pending_commit
+                  </td>
+                  <td class="px-3 py-1 text-right">
+                    <span class="text-[11px] font-mono text-[#0d7a70] font-medium">Aktif di Drawer →</span>
+                  </td>
+                </tr>
+
+                <!-- Row 2 -->
+                <tr class="h-[28px] hover:bg-[#f9faf9] transition-colors">
+                  <td class="px-3 py-1 font-mono text-[#0e1110] flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center">be</span>
+                    <span class="truncate">agent-backend</span>
+                  </td>
+                  <td class="px-2 py-1 font-mono text-[11px] text-[#4d5553]">
+                    <span class="text-[#0e1110]">openai</span> / gpt-4o
+                  </td>
+                  <td class="px-2 py-1">
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      Enkripsi Valid
+                    </span>
+                  </td>
+                  <td class="px-2 py-1 font-mono text-[11px] text-[#6b7370] truncate max-w-[120px]">
+                    enc_32b_tag16
+                  </td>
+                  <td class="px-3 py-1 text-right font-mono text-[11px] text-[#6b7370]">
+                    Terkunci
+                  </td>
+                </tr>
+
+                <!-- Row 3 -->
+                <tr class="h-[28px] hover:bg-[#f9faf9] transition-colors">
+                  <td class="px-3 py-1 font-mono text-[#0e1110] flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center">dt</span>
+                    <span class="truncate">agent-data</span>
+                  </td>
+                  <td class="px-2 py-1 font-mono text-[11px] text-[#4d5553]">
+                    <span class="text-[#0e1110]">deepseek</span> / coder
+                  </td>
+                  <td class="px-2 py-1">
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      Enkripsi Valid
+                    </span>
+                  </td>
+                  <td class="px-2 py-1 font-mono text-[11px] text-[#6b7370] truncate max-w-[120px]">
+                    enc_32b_tag16
+                  </td>
+                  <td class="px-3 py-1 text-right font-mono text-[11px] text-[#6b7370]">
+                    Terkunci
+                  </td>
+                </tr>
+
+                <!-- Row 4 -->
+                <tr class="h-[28px] hover:bg-[#f9faf9] transition-colors">
+                  <td class="px-3 py-1 font-mono text-[#0e1110] flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center">dc</span>
+                    <span class="truncate">agent-docs</span>
+                  </td>
+                  <td class="px-2 py-1 font-mono text-[11px] text-[#4d5553]">
+                    <span class="text-[#0e1110]">anthropic</span> / claude-3-5
+                  </td>
+                  <td class="px-2 py-1">
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      Enkripsi Valid
+                    </span>
+                  </td>
+                  <td class="px-2 py-1 font-mono text-[11px] text-[#6b7370] truncate max-w-[120px]">
+                    enc_32b_tag16
+                  </td>
+                  <td class="px-3 py-1 text-right font-mono text-[11px] text-[#6b7370]">
+                    Terkunci
+                  </td>
+                </tr>
+
+                <!-- Row 5 -->
+                <tr class="h-[28px] hover:bg-[#f9faf9] transition-colors">
+                  <td class="px-3 py-1 font-mono text-[#0e1110] flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center">sc</span>
+                    <span class="truncate">agent-security</span>
+                  </td>
+                  <td class="px-2 py-1 font-mono text-[11px] text-[#4d5553]">
+                    <span class="text-[#0e1110]">anthropic</span> / claude-3-opus
+                  </td>
+                  <td class="px-2 py-1">
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      Enkripsi Valid
+                    </span>
+                  </td>
+                  <td class="px-2 py-1 font-mono text-[11px] text-[#6b7370] truncate max-w-[120px]">
+                    enc_32b_tag16
+                  </td>
+                  <td class="px-3 py-1 text-right font-mono text-[11px] text-[#6b7370]">
+                    Terkunci
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Kartu Arsitektur Keamanan Database Kredensial -->
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] p-3.5 shadow-sm">
+          <div class="text-xs font-semibold text-[#0e1110] mb-2 flex items-center justify-between">
+            <span>Struktur Penyimpanan & Keamanan Enkripsi Kredensial</span>
+            <span class="text-[10px] font-mono text-[#6b7370]">Schema v2.4</span>
+          </div>
+          <div class="grid grid-cols-3 gap-3 text-xs">
+            <div class="p-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+              <div class="text-[10px] font-mono uppercase text-[#6b7370]">1. Payload Ciphertext</div>
+              <div class="font-mono text-[12px] font-semibold text-[#0e1110] mt-1">AES-256-GCM</div>
+              <div class="text-[11px] text-[#4d5553] mt-0.5">Plaintext dienkripsi simetris saat form dikirim; kunci mentah dibuang dari memori.</div>
+            </div>
+            <div class="p-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+              <div class="text-[10px] font-mono uppercase text-[#6b7370]">2. Nonce + Auth Tag</div>
+              <div class="font-mono text-[12px] font-semibold text-[#0d7a70] mt-1">12B Nonce + 16B Tag</div>
+              <div class="text-[11px] text-[#4d5553] mt-0.5">Mencegah replay attack & menjamin integritas data (tamper-proofing).</div>
+            </div>
+            <div class="p-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+              <div class="text-[10px] font-mono uppercase text-[#6b7370]">3. Proteksi Plaintext</div>
+              <div class="font-mono text-[12px] font-semibold text-rose-700 mt-1">No Log & No Plain API</div>
+              <div class="text-[11px] text-[#4d5553] mt-0.5">Plaintext tidak pernah dikembalikan via endpoint GET atau tercetak di log audit.</div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- DRAWER DETAIL / FORM KREDENSIAL (Blueprint C: 420px DI ANTARA konten dan cost rail) -->
+      <section class="w-[420px] shrink-0 h-full bg-[#ffffff] border-l border-[rgba(12,26,22,0.07)] flex flex-col justify-between z-10">
+        
+        <!-- Drawer Header (52px align with topbar feel) -->
+        <div class="h-[52px] shrink-0 px-4 border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between bg-white">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+            </div>
+            <div>
+              <h2 class="text-xs font-semibold text-[#0e1110]">Kredensial Provider LLM</h2>
+              <p class="text-[10px] text-[#6b7370] font-mono">Agent: agt_qa_orch_01</p>
+            </div>
+          </div>
+
+          <button class="w-7 h-7 rounded-[6px] text-[#6b7370] hover:text-[#0e1110] hover:bg-[#f6f7f6] flex items-center justify-center" title="Tutup Drawer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Drawer Body Scrollable -->
+        <div class="flex-1 overflow-y-auto custom-scroll p-4 flex flex-col gap-4 text-xs">
+          
+          <!-- State Badge: default -->
+          <div class="flex items-center justify-between pb-1 border-b border-[rgba(12,26,22,0.06)]">
+            <span class="text-[11px] font-medium text-[#4d5553]">Formulir Pengaturan Kunci</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-[4px] bg-[#f6f7f6] text-[#4d5553] border border-[rgba(12,26,22,0.07)]">state: default</span>
+          </div>
+
+          <!-- Target Agent & Provider Metadata -->
+          <div class="bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] rounded-[8px] p-3 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-mono uppercase text-[#6b7370] tracking-wider">Identitas Target</span>
+              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-[#0d7a70] font-medium border border-[rgba(12,26,22,0.07)]">agt_qa_orch_01</span>
+            </div>
+            <div class="text-[13px] font-semibold text-[#0e1110]">agent-qa-orchestrator</div>
+            <div class="grid grid-cols-2 gap-2 text-[11px] pt-2 border-t border-[rgba(12,26,22,0.07)]">
+              <div>
+                <span class="text-[#6b7370] block text-[10px]">Provider:</span>
+                <span class="font-mono text-[#0e1110] font-medium">openai (Compatible)</span>
+              </div>
+              <div>
+                <span class="text-[#6b7370] block text-[10px]">Target Engine:</span>
+                <span class="font-mono text-[#0e1110] font-medium">gpt-4o</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- INPUT FORM: Kredensial Provider LLM (US-AD86 AC1) -->
+          <div class="flex flex-col gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-[#0e1110] mb-1">
+                API Key Provider LLM <span class="text-rose-600">*</span>
+              </label>
+              <div class="relative">
+                <input 
+                  type="text" 
+                  value="sk-proj-live-89f41b2c99a071d4e823f0a7bc9e11" 
+                  placeholder="Masukkan sk-..." 
+                  class="w-full bg-[#ffffff] border border-[rgba(12,26,22,0.18)] focus:border-[#0d7a70] focus:ring-1 focus:ring-[#0d7a70] rounded-[6px] px-3 py-2 text-xs font-mono text-[#0e1110] pr-9 outline-none shadow-sm"
+                />
+                <button class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6b7370] hover:text-[#0e1110]" title="Sembunyikan/Tampilkan Key">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                </button>
+              </div>
+              <p class="text-[10px] text-[#6b7370] mt-1">Plaintext kunci penyedia hanya dibaca satu kali pada memori browser saat proses submit.</p>
+            </div>
+
+            <!-- Ketentuan Enkripsi US-AD86 AC1 (Wajib Terlihat) -->
+            <div class="p-3 rounded-[8px] bg-[#eef7f5] border border-[#0d7a70]/20 text-[#0e1110] flex flex-col gap-2">
+              <div class="flex items-center gap-1.5 text-xs font-semibold text-[#0d7a70]">
+                <svg class="w-4 h-4 text-[#0d7a70]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                <span>Protokol Enkripsi US-AD86 (AC1)</span>
+              </div>
+              <ul class="text-[11px] text-[#4d5553] flex flex-col gap-1.5 list-disc pl-4 leading-normal">
+                <li>
+                  <strong class="text-[#0e1110]">Enkripsi AES-256-GCM:</strong> Nilai API key dienkripsi sebelum disimpan ke kolom <code class="font-mono text-[10.5px] text-[#0d7a70] bg-white px-1 py-0.5 rounded border border-[#0d7a70]/20">agents.provider_api_key_enc (BYTEA)</code>.
+                </li>
+                <li>
+                  <strong class="text-[#0e1110]">Komponen Biner:</strong> Ciphertext + Nonce (<span class="font-mono text-[#0e1110]">12B</span>) + Tag (<span class="font-mono text-[#0e1110]">16B</span>) disimpan bersamaan dalam format envelope.
+                </li>
+                <li>
+                  <strong class="text-[#0e1110]">Inviolable Privacy:</strong> Plaintext tidak pernah di-log maupun dikembalikan oleh respons API manapun.
+                </li>
+              </ul>
+            </div>
+
+            <!-- Ringkasan Ketahanan Kredensial US-AD87 -->
+            <div class="p-2.5 rounded-[8px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] flex flex-col gap-1 text-[11px]">
+              <div class="flex items-center justify-between text-[#0e1110] font-medium">
+                <span>Penanganan Error Provider (US-AD87)</span>
+                <span class="font-mono text-[10px] text-[#6b7370]">Audit Monitor</span>
+              </div>
+              <p class="text-[#4d5553] text-[10.5px] leading-normal">
+                Ringkasan sistem: jika kredensial di atas ditolak oleh provider saat runtime task dieksekusi, daemon langsung memicu proteksi kegagalan bertahap tanpa mengekspos payload biner ke stdout.
+              </p>
+            </div>
+
+            <!-- Metadata Teknis Column DB Preview -->
+            <div class="p-2.5 rounded-[6px] border border-dashed border-[rgba(12,26,22,0.12)] bg-white">
+              <div class="text-[10px] font-mono text-[#6b7370] uppercase">Target Kolom Database</div>
+              <div class="font-mono text-[11px] text-[#0e1110] mt-0.5 font-medium">
+                public.agents.provider_api_key_enc <span class="text-[#0d7a70] font-normal">:: bytea</span>
+              </div>
+              <div class="flex items-center gap-3 mt-1 text-[10px] font-mono text-[#6b7370]">
+                <span>Nonce: 12 Bytes</span>
+                <span>•</span>
+                <span>Tag: 16 Bytes (GCM)</span>
+                <span>•</span>
+                <span>Cipher: GCM-256</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Drawer Footer (Buttons) -->
+        <div class="p-4 border-t border-[rgba(12,26,22,0.07)] bg-white flex items-center justify-between gap-2">
+          <button class="px-3 py-1.5 text-xs text-[#4d5553] hover:text-[#0e1110] rounded-[6px] border border-[rgba(12,26,22,0.12)] hover:bg-[#f6f7f6] transition-colors">
+            Batal
+          </button>
+          <div class="flex items-center gap-2">
+            <button class="px-3 py-1.5 text-xs text-[#0d7a70] bg-[#eef7f5] hover:bg-[#e0f1ed] rounded-[6px] font-medium transition-colors border border-[#0d7a70]/20 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Uji Validitas
+            </button>
+            <button class="px-3.5 py-1.5 text-xs text-white bg-[#0d7a70] hover:bg-[#0a635b] rounded-[6px] font-medium shadow-sm transition-colors flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+              Enkripsi & Simpan
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </div>
+
+  <!-- COST RAIL KANAN (264px, background #eef1f0, isi tetap: TODAY, 7-DAY, TOP SPENDERS, RUNNING NOW) -->
+  <aside class="w-[264px] shrink-0 h-full bg-[#eef1f0] border-l border-[rgba(12,26,22,0.07)] flex flex-col justify-between p-4 text-xs z-10">
+    <div class="flex flex-col gap-4">
+      
+      <!-- TODAY (biaya + meter pagu 6px) -->
+      <div class="flex flex-col gap-1.5">
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370]">
+          <span class="uppercase tracking-wider font-semibold">Today</span>
+          <span>CAP $20.00</span>
+        </div>
+        <div class="flex items-baseline gap-1.5">
+          <span class="text-xl font-bold font-mono text-[#0e1110] tracking-tight">$4.82</span>
+          <span class="text-[11px] font-mono text-[#6b7370]">/ $20.00</span>
+        </div>
+        <!-- Budget meter: 6px -->
+        <div class="w-full h-[6px] rounded-full bg-[rgba(12,26,22,0.08)] overflow-hidden">
+          <div class="h-full rounded-full bg-[#0d7a70]" style="width: 24.1%;"></div>
+        </div>
+        <div class="flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+          <span>24.1% terpakai</span>
+          <span>Sisa $15.18</span>
+        </div>
+      </div>
+
+      <div class="w-full h-[1px] bg-[rgba(12,26,22,0.08)]"></div>
+
+      <!-- 7-DAY SPARKLINE -->
+      <div class="flex flex-col gap-1.5">
+        <div class="flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+          <span class="uppercase tracking-wider font-semibold">7-Day</span>
+          <span>SEP 12 — SEP 18</span>
+        </div>
+        <div class="flex items-end justify-between h-9 pt-1 px-1">
+          <!-- Bars 7 days -->
+          <div class="flex flex-col items-center gap-1">
+            <div class="w-5 bg-[#0d7a70]/40 rounded-t-[2px]" style="height: 18px;"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">12</span>
+          </div>
+          <div class="flex flex-col items-center gap-1">
+            <div class="w-5 bg-[#0d7a70]/45 rounded-t-[2px]" style="height: 24px;"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">13</span>
+          </div>
+          <div class="flex flex-col items-center gap-1">
+            <div class="w-5 bg-[#0d7a70]/35 rounded-t-[2px]" style="height: 14px;"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">14</span>
+          </div>
+          <div class="flex flex-col items-center gap-1">
+            <div class="w-5 bg-[#0d7a70]/60 rounded-t-[2px]" style="height: 28px;"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">15</span>
+          </div>
+          <div class="flex flex-col items-center gap-1">
+            <div class="w-5 bg-[#0d7a70]/70 rounded-t-[2px]" style="height: 32px;"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">16</span>
+          </div>
+          <div class="flex flex-col items-center gap-1">
+            <div class="w-5 bg-[#0d7a70]/50 rounded-t-[2px]" style="height: 22px;"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">17</span>
+          </div>
+          <div class="flex flex-col items-center gap-1">
+            <div class="w-5 bg-[#0d7a70] rounded-t-[2px]" style="height: 30px;"></div>
+            <span class="text-[9px] font-mono text-[#0d7a70] font-bold">18</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="w-full h-[1px] bg-[rgba(12,26,22,0.08)]"></div>
+
+      <!-- TOP SPENDERS (3 baris) -->
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+          <span class="uppercase tracking-wider font-semibold">Top Spenders</span>
+          <span>TODAY</span>
+        </div>
+        
+        <!-- Row 1 -->
+        <div class="flex flex-col gap-0.5">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-mono text-[#0e1110] truncate">agent-backend</span>
+            <span class="font-mono font-medium text-[#0e1110]">$1.84</span>
+          </div>
+          <div class="w-full h-[3px] rounded-full bg-[rgba(12,26,22,0.06)] overflow-hidden">
+            <div class="h-full bg-[#0d7a70]" style="width: 72%;"></div>
+          </div>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="flex flex-col gap-0.5">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-mono text-[#0e1110] truncate">agent-data</span>
+            <span class="font-mono font-medium text-[#0e1110]">$1.42</span>
+          </div>
+          <div class="w-full h-[3px] rounded-full bg-[rgba(12,26,22,0.06)] overflow-hidden">
+            <div class="h-full bg-[#0d7a70]" style="width: 55%;"></div>
+          </div>
+        </div>
+
+        <!-- Row 3 -->
+        <div class="flex flex-col gap-0.5">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-mono text-[#0e1110] truncate">agent-docs</span>
+            <span class="font-mono font-medium text-[#0e1110]">$0.91</span>
+          </div>
+          <div class="w-full h-[3px] rounded-full bg-[rgba(12,26,22,0.06)] overflow-hidden">
+            <div class="h-full bg-[#0d7a70]" style="width: 35%;"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RUNNING NOW (Bawah cost rail) -->
+    <div class="pt-3 border-t border-[rgba(12,26,22,0.08)]">
+      <div class="bg-white/80 border border-[rgba(12,26,22,0.07)] rounded-[8px] p-2.5 flex flex-col gap-1 shadow-sm">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          <span class="font-mono text-[11px] font-semibold text-[#0e1110]">2 agents active</span>
+        </div>
+        <div class="text-[10px] text-[#6b7370] font-mono leading-tight">
+          task execution: running
+        </div>
+      </div>
+    </div>
+  </aside>
+
+</body>
+</html>

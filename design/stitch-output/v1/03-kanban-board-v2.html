@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck - Kanban Board (Blueprint B)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            deck: {
+              rail: '#e8ecea',
+              sidebar: '#f6f7f6',
+              board: '#f6f7f6',
+              column: '#eef1f0',
+              teal: '#0d7a70',
+              tealBg: '#e6f2f0',
+              tealDark: '#0a5f57',
+              grayIcon: '#6b7370',
+              textMain: '#0e1110',
+              borderSubtle: 'rgba(12,26,22,0.07)',
+              borderMedium: 'rgba(12,26,22,0.12)',
+              borderDrag: 'rgba(12,26,22,0.20)',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: #f6f7f6;
+      color: #0e1110;
+      overflow-x: auto;
+      overflow-y: hidden;
+      height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f6f7f6;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #d8dedb;
+      border-radius: 4px;
+    }
+    .mono-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-feature-settings: "tnum";
+    }
+  </style>
+</head>
+<body class="flex h-screen w-screen overflow-hidden select-none">
+
+  <!-- 1. LEFT RAIL (44px) -->
+  <aside class="w-[44px] min-w-[44px] h-full bg-[#e8ecea] border-r border-[rgba(12,26,22,0.07)] flex flex-col items-center py-3.5 justify-between z-20 shrink-0">
+    <div class="flex flex-col items-center gap-3 w-full">
+      <!-- Boards (Active) -->
+      <button class="w-[32px] h-[32px] rounded-md bg-[#0d7a70] text-white flex items-center justify-center transition-colors" title="Boards">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+          <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+          <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+          <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+        </svg>
+      </button>
+
+      <!-- Approvals -->
+      <button class="w-[32px] h-[32px] rounded-md text-[#6b7370] hover:text-[#0e1110] hover:bg-[#dfe4e2] flex items-center justify-center transition-colors" title="Approvals">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </button>
+
+      <!-- Agents -->
+      <button class="w-[32px] h-[32px] rounded-md text-[#6b7370] hover:text-[#0e1110] hover:bg-[#dfe4e2] flex items-center justify-center transition-colors" title="Agents">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+          <path d="M9 9h.01M15 9h.01M9 15h6"></path>
+        </svg>
+      </button>
+
+      <!-- FinOps -->
+      <button class="w-[32px] h-[32px] rounded-md text-[#6b7370] hover:text-[#0e1110] hover:bg-[#dfe4e2] flex items-center justify-center transition-colors" title="FinOps">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <line x1="12" y1="2" x2="12" y2="22"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path>
+        </svg>
+      </button>
+
+      <!-- Settings -->
+      <button class="w-[32px] h-[32px] rounded-md text-[#6b7370] hover:text-[#0e1110] hover:bg-[#dfe4e2] flex items-center justify-center transition-colors" title="Settings">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Status dot 8px #15803d -->
+    <div class="w-full flex justify-center pb-1">
+      <div class="w-[8px] h-[8px] rounded-full bg-[#15803d]" title="System Healthy"></div>
+    </div>
+  </aside>
+
+  <!-- 2. SIDEBAR (224px) -->
+  <nav class="w-[224px] min-w-[224px] h-full bg-[#f6f7f6] border-r border-[rgba(12,26,22,0.07)] flex flex-col justify-between p-3.5 shrink-0 z-10">
+    <div class="flex flex-col gap-5">
+      <!-- Section BOARDS -->
+      <div>
+        <div class="text-[11px] font-semibold text-[#6b7370] tracking-[0.06em] uppercase px-2 mb-2">BOARDS</div>
+        <div class="flex flex-col gap-0.5">
+          <!-- Sprint 24 (Active) -->
+          <a href="#" class="flex items-center justify-between text-[13px] font-medium bg-[#e6f2f0] text-[#0d7a70] rounded-[6px] px-[10px] py-[6px]">
+            <span class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>
+              </svg>
+              Sprint 24
+            </span>
+            <span class="text-[11px] font-mono opacity-80">12</span>
+          </a>
+
+          <!-- Sprint 23 -->
+          <a href="#" class="flex items-center justify-between text-[13px] font-medium text-[#4b5058] hover:bg-[#edf0ee] rounded-[6px] px-[10px] py-[6px] transition-colors">
+            <span class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 stroke-[#6b7370]" fill="none" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>
+              </svg>
+              Sprint 23
+            </span>
+            <span class="text-[11px] font-mono text-[#6b7370]">24</span>
+          </a>
+
+          <!-- Backlog grooming -->
+          <a href="#" class="flex items-center justify-between text-[13px] font-medium text-[#4b5058] hover:bg-[#edf0ee] rounded-[6px] px-[10px] py-[6px] transition-colors">
+            <span class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 stroke-[#6b7370]" fill="none" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+              </svg>
+              Backlog grooming
+            </span>
+            <span class="text-[11px] font-mono text-[#6b7370]">38</span>
+          </a>
+
+          <!-- Agent ops -->
+          <a href="#" class="flex items-center justify-between text-[13px] font-medium text-[#4b5058] hover:bg-[#edf0ee] rounded-[6px] px-[10px] py-[6px] transition-colors">
+            <span class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 stroke-[#6b7370]" fill="none" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+              </svg>
+              Agent ops
+            </span>
+            <span class="text-[11px] font-mono text-[#6b7370]">6</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Section AGENTS -->
+      <div>
+        <div class="text-[11px] font-semibold text-[#6b7370] tracking-[0.06em] uppercase px-2 mb-2">AGENTS</div>
+        <div class="flex flex-col gap-1">
+          <!-- agent-db -->
+          <div class="flex items-center gap-2 px-[10px] py-[5px] text-[12px] font-mono text-[#4b5058] hover:bg-[#edf0ee] rounded-[6px] transition-colors cursor-pointer">
+            <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">db</div>
+            <span class="truncate">agent-db</span>
+          </div>
+          <!-- agent-backend -->
+          <div class="flex items-center gap-2 px-[10px] py-[5px] text-[12px] font-mono text-[#4b5058] hover:bg-[#edf0ee] rounded-[6px] transition-colors cursor-pointer">
+            <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">be</div>
+            <span class="truncate">agent-backend</span>
+          </div>
+          <!-- agent-docs -->
+          <div class="flex items-center gap-2 px-[10px] py-[5px] text-[12px] font-mono text-[#4b5058] hover:bg-[#edf0ee] rounded-[6px] transition-colors cursor-pointer">
+            <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">dc</div>
+            <span class="truncate">agent-docs</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="pt-3 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between px-1">
+      <div class="flex items-center gap-2">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#e6f2f0] text-[#0d7a70] text-[11px] font-semibold flex items-center justify-center shrink-0">
+          R
+        </div>
+        <span class="text-[13px] font-medium text-[#0e1110]">Reza</span>
+      </div>
+      <span class="font-mono text-[10px] uppercase tracking-wider text-[#6b7370] bg-[#e8ecea] px-1.5 py-0.5 rounded">owner</span>
+    </div>
+  </nav>
+
+  <!-- 3. MAIN PANE (Topbar + Approval Banner + Board Area) -->
+  <main class="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#f6f7f6]">
+
+    <!-- TOPBAR (52px, ONLY ABOVE CONTENT PANE) -->
+    <header class="h-[52px] min-h-[52px] bg-white border-b border-[rgba(12,26,22,0.07)] px-4 flex items-center justify-between shrink-0 z-10">
+      <!-- Left: Sprint 24 + Segment Toggle -->
+      <div class="flex items-center gap-4">
+        <h1 class="font-sans text-[15px] font-semibold text-[#0e1110] leading-none">Sprint 24</h1>
+        
+        <!-- Segmented Toggle -->
+        <div class="bg-[#f0f2f1] p-0.5 rounded-[6px] flex items-center text-[12px] font-medium">
+          <button class="px-2.5 py-1 rounded-[5px] bg-white text-[#0d7a70] shadow-sm flex items-center gap-1 font-semibold leading-none">
+            <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="7" height="18" rx="1"></rect>
+              <rect x="14" y="3" width="7" height="18" rx="1"></rect>
+            </svg>
+            Board
+          </button>
+          <button class="px-2.5 py-1 rounded-[5px] text-[#6b7370] hover:text-[#0e1110] flex items-center gap-1 leading-none transition-colors">
+            <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18m-9-4v8m-8 0h18a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+            </svg>
+            Table
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Search (160px) + Filter Icon + Avatar 26px (Exactly 3 actions) -->
+      <div class="flex items-center gap-2">
+        <div class="relative w-[160px]">
+          <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-[#6b7370]">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
+          <input type="text" placeholder="Search tasks..." class="w-full bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] rounded-[6px] pl-8 pr-2.5 py-1 text-[12px] text-[#0e1110] placeholder-[#6b7370] focus:outline-none focus:border-[#0d7a70] focus:bg-white transition-all">
+        </div>
+
+        <button class="w-[30px] h-[30px] rounded-[6px] border border-[rgba(12,26,22,0.07)] bg-white text-[#6b7370] hover:text-[#0e1110] hover:bg-[#f6f7f6] flex items-center justify-center transition-colors" title="Filter">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+        </button>
+
+        <div class="w-[26px] h-[26px] rounded-full bg-[#e6f2f0] text-[#0d7a70] text-[11px] font-semibold flex items-center justify-center shrink-0 border border-[rgba(13,122,112,0.2)]">
+          RZ
+        </div>
+      </div>
+    </header>
+
+    <!-- APPROVAL BANNER (1 thin row below topbar) -->
+    <div class="bg-[#e6f2f0] text-[#0d7a70] text-[12px] font-sans px-3 py-2 border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 shrink-0 text-[#0d7a70]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>1 task waiting for approval</span>
+        <span class="text-[rgba(13,122,112,0.4)]">•</span>
+        <a href="#" class="font-semibold underline hover:text-[#0a5f57]">Review now</a>
+      </div>
+    </div>
+
+    <!-- BOARD CONTENT PANE (5 Columns x 268px, gap 8px, padding 12px, full height) -->
+    <div class="flex-1 overflow-x-auto overflow-y-hidden p-3 custom-scrollbar">
+      <div class="flex gap-2 h-full items-start" style="width: max-content;">
+
+        <!-- ================= KOLOM 1: BACKLOG (3) ================= -->
+        <div class="w-[268px] min-w-[268px] h-full max-h-full bg-[#eef1f0] rounded-[10px] p-2 flex flex-col shrink-0 border-t-[3px] border-t-[#5c6b7a]">
+          <!-- Header (30px) -->
+          <div class="h-[30px] flex items-center justify-between px-1 mb-2 shrink-0">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[12px] font-semibold text-[#4d5553]">Backlog</span>
+              <span class="text-[11px] font-mono text-[#6b7370] bg-[#e8ecea] px-1.5 py-0.2 rounded-[6px]">3</span>
+            </div>
+            <!-- Small + icon (14px) only on first column -->
+            <button class="text-[#6b7370] hover:text-[#0e1110] p-1 rounded hover:bg-[#e4e8e6] transition-colors" title="Add task">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Cards Stack -->
+          <div class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 pr-0.5">
+            <!-- Card 1 -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Upgrade Postgres to 17</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">db</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-db</span>
+              </div>
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#f0f2f1] text-[#5c6b7a] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px]">backlog</span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.000</span>
+              </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Migrate sessions to Redis-less</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">be</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-backend</span>
+              </div>
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#f0f2f1] text-[#5c6b7a] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px]">backlog</span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.000</span>
+              </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Investigate cold start 900ms</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">pf</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-perf</span>
+              </div>
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#f0f2f1] text-[#5c6b7a] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px]">backlog</span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= KOLOM 2: READY (3) ================= -->
+        <div class="w-[268px] min-w-[268px] h-full max-h-full bg-[#eef1f0] rounded-[10px] p-2 flex flex-col shrink-0 border-t-[3px] border-t-[#1d4ed8] relative">
+          <!-- Header (30px) -->
+          <div class="h-[30px] flex items-center justify-between px-1 mb-2 shrink-0">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[12px] font-semibold text-[#4d5553]">Ready</span>
+              <span class="text-[11px] font-mono text-[#6b7370] bg-[#e8ecea] px-1.5 py-0.2 rounded-[6px]">3</span>
+            </div>
+          </div>
+
+          <!-- Cards Stack -->
+          <div class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 pr-0.5">
+            <!-- Card 1 -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Fix payment webhook retry</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">pm</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-payments</span>
+              </div>
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#eff6ff] text-[#1d4ed8] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px]">ready</span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.000</span>
+              </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Backfill user analytics</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">dt</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-data</span>
+              </div>
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#eff6ff] text-[#1d4ed8] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px]">ready</span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.000</span>
+              </div>
+            </div>
+
+            <!-- Card 3 in Dragging State: background #ffffff, border rgba(12,26,22,0.20), shadow 0 6px 20px rgba(12,18,16,0.14), rotate 1deg, opacity 0.96 -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.20)] shadow-[0_6px_20px_rgba(12,18,16,0.14)] rotate-1 opacity-[0.96] flex flex-col gap-2 cursor-grabbing z-30 transform transition-transform">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Audit dependencies</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">sc</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-security</span>
+              </div>
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#f3e8ff] text-[#7c3aed] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px]">awaiting</span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= KOLOM 3: RUNNING (2) ================= -->
+        <div class="w-[268px] min-w-[268px] h-full max-h-full bg-[#eef1f0] rounded-[10px] p-2 flex flex-col shrink-0 border-t-[3px] border-t-[#b45309]">
+          <!-- Header (30px) -->
+          <div class="h-[30px] flex items-center justify-between px-1 mb-2 shrink-0">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[12px] font-semibold text-[#4d5553]">Running</span>
+              <span class="text-[11px] font-mono text-[#6b7370] bg-[#e8ecea] px-1.5 py-0.2 rounded-[6px]">2</span>
+            </div>
+          </div>
+
+          <!-- Cards Stack -->
+          <div class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 pr-0.5">
+            <!-- Card 1: Refactor auth module -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Refactor auth module</div>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">be</div>
+                  <span class="font-mono text-[11px] text-[#6b7370]">agent-backend</span>
+                </div>
+                <span class="font-mono text-[10px] text-[#6b7370]">3.2k tok</span>
+              </div>
+
+              <!-- Progress bar 4px (26%) -->
+              <div class="w-full h-[4px] bg-[#e8ecea] rounded-full overflow-hidden">
+                <div class="h-full bg-[#0d7a70] rounded-full" style="width: 26%;"></div>
+              </div>
+
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#fef3c7] text-[#b45309] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#b45309] animate-pulse"></span>
+                  running
+                </span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.318</span>
+              </div>
+            </div>
+
+            <!-- Card 2: Generate release notes -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Generate release notes</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">dc</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-docs</span>
+              </div>
+
+              <!-- Progress bar 4px (61%) -->
+              <div class="w-full h-[4px] bg-[#e8ecea] rounded-full overflow-hidden">
+                <div class="h-full bg-[#0d7a70] rounded-full" style="width: 61%;"></div>
+              </div>
+
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#fef3c7] text-[#b45309] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px] flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#b45309] animate-pulse"></span>
+                  running
+                </span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.102</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= KOLOM 4: REVIEW (2 + Drop Zone) ================= -->
+        <div class="w-[268px] min-w-[268px] h-full max-h-full bg-[#eef1f0] rounded-[10px] p-2 flex flex-col shrink-0 border-t-[3px] border-t-[#0e7490]">
+          <!-- Header (30px) -->
+          <div class="h-[30px] flex items-center justify-between px-1 mb-2 shrink-0">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[12px] font-semibold text-[#4d5553]">Review</span>
+              <span class="text-[11px] font-mono text-[#6b7370] bg-[#e8ecea] px-1.5 py-0.2 rounded-[6px]">2</span>
+            </div>
+          </div>
+
+          <!-- Cards Stack -->
+          <div class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 pr-0.5">
+            <!-- Drop Zone: height 56px, bg #eff2f1, dashed border rgba(12,26,22,0.20), no text -->
+            <div class="w-full h-[56px] min-h-[56px] rounded-[10px] border border-dashed border-[rgba(12,26,22,0.20)] bg-[#eff2f1] shrink-0"></div>
+
+            <!-- Card 1 -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Backfill user analytics done</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">dt</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-data</span>
+              </div>
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#ecfeff] text-[#0e7490] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px]">review</span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.981</span>
+              </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Security scan weekly</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">sc</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-security</span>
+              </div>
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#ecfeff] text-[#0e7490] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px]">review</span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.214</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= KOLOM 5: DONE (4) ================= -->
+        <div class="w-[268px] min-w-[268px] h-full max-h-full bg-[#eef1f0] rounded-[10px] p-2 flex flex-col shrink-0 border-t-[3px] border-t-[#15803d]">
+          <!-- Header (30px) -->
+          <div class="h-[30px] flex items-center justify-between px-1 mb-2 shrink-0">
+            <div class="flex items-center gap-1.5">
+              <span class="text-[12px] font-semibold text-[#4d5553]">Done</span>
+              <span class="text-[11px] font-mono text-[#6b7370] bg-[#e8ecea] px-1.5 py-0.2 rounded-[6px]">4</span>
+            </div>
+          </div>
+
+          <!-- Cards Stack -->
+          <div class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 pr-0.5">
+            <!-- Card 1 -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Migrate DNS records</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">if</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-infra</span>
+              </div>
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#f0fdf4] text-[#15803d] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px]">done</span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.044</span>
+              </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Rotate API keys</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">sc</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-security</span>
+              </div>
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#f0fdf4] text-[#15803d] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px]">done</span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.011</span>
+              </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Clean image storage</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">dt</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-data</span>
+              </div>
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#f0fdf4] text-[#15803d] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px]">done</span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.128</span>
+              </div>
+            </div>
+
+            <!-- Card 4 -->
+            <div class="bg-white rounded-[10px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.15)] transition-all flex flex-col gap-2 cursor-pointer shadow-sm">
+              <div class="text-[13px] font-medium text-[#0e1110] leading-snug line-clamp-2">Tag release v2.4.1</div>
+              <div class="flex items-center gap-1.5">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#e8ecea] text-[#0d7a70] text-[10px] font-mono font-semibold flex items-center justify-center shrink-0">dc</div>
+                <span class="font-mono text-[11px] text-[#6b7370]">agent-docs</span>
+              </div>
+              <div class="flex items-center justify-between pt-0.5">
+                <span class="bg-[#f0fdf4] text-[#15803d] font-medium text-[10px] px-1.5 py-0.5 rounded-[4px]">done</span>
+                <span class="font-mono text-[13px] font-medium text-[#0d7a70]">$0.008</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- 4. COST RAIL (264px, Right, Full Height, Background #eef1f0) -->
+  <aside class="w-[264px] min-w-[264px] h-full bg-[#eef1f0] border-l border-[rgba(12,26,22,0.07)] p-4 flex flex-col gap-5 shrink-0 z-10 overflow-y-auto custom-scrollbar">
+    
+    <!-- 1. TODAY -->
+    <div class="flex flex-col gap-1">
+      <span class="text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">TODAY</span>
+      <div class="flex items-baseline gap-1.5">
+        <span class="font-mono text-[20px] font-semibold text-[#0e1110] leading-none">$4.82</span>
+        <span class="text-[12px] text-[#6b7370]">of $20.00</span>
+      </div>
+
+      <!-- 2. Budget meter: bar tinggi 6px radius penuh, bg #e8ecea, terisi 24% warna #0d7a70 -->
+      <div class="w-full h-[6px] rounded-full bg-[#e8ecea] mt-2 overflow-hidden">
+        <div class="h-full bg-[#0d7a70] rounded-full" style="width: 24%;"></div>
+      </div>
+    </div>
+
+    <div class="h-[1px] bg-[rgba(12,26,22,0.07)] w-full"></div>
+
+    <!-- 3. 7-DAY SPARKLINE -->
+    <div class="flex flex-col gap-2">
+      <span class="text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">7-DAY</span>
+      
+      <!-- Sparkline 7 bar, tiap bar lebar 5px radius 4, warna #0d7a70, tinggi bervariasi (rendah-tinggi-rendah-sedang-tinggi-sedang-tinggi) -->
+      <div class="h-[46px] flex items-end justify-between px-1 pt-2">
+        <!-- Day 1: Rendah (14px) -->
+        <div class="w-[5px] h-[14px] bg-[#0d7a70] rounded-[4px]" title="Sep 12: $1.10"></div>
+        <!-- Day 2: Tinggi (38px) -->
+        <div class="w-[5px] h-[38px] bg-[#0d7a70] rounded-[4px]" title="Sep 13: $5.40"></div>
+        <!-- Day 3: Rendah (12px) -->
+        <div class="w-[5px] h-[12px] bg-[#0d7a70] rounded-[4px]" title="Sep 14: $0.90"></div>
+        <!-- Day 4: Sedang (24px) -->
+        <div class="w-[5px] h-[24px] bg-[#0d7a70] rounded-[4px]" title="Sep 15: $3.10"></div>
+        <!-- Day 5: Tinggi (42px) -->
+        <div class="w-[5px] h-[42px] bg-[#0d7a70] rounded-[4px]" title="Sep 16: $5.80"></div>
+        <!-- Day 6: Sedang (26px) -->
+        <div class="w-[5px] h-[26px] bg-[#0d7a70] rounded-[4px]" title="Sep 17: $3.40"></div>
+        <!-- Day 7: Tinggi (36px) -->
+        <div class="w-[5px] h-[36px] bg-[#0d7a70] rounded-[4px]" title="Sep 18: $4.82"></div>
+      </div>
+
+      <span class="font-mono text-[10px] text-[#6b7370]">Sep 12 — Sep 18</span>
+    </div>
+
+    <div class="h-[1px] bg-[rgba(12,26,22,0.07)] w-full"></div>
+
+    <!-- 4. TOP SPENDERS -->
+    <div class="flex flex-col gap-2.5">
+      <span class="text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">TOP SPENDERS</span>
+      
+      <!-- Row 1: agent-backend + $1.84 + bar 60% -->
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-[11px] text-[#0e1110]">agent-backend</span>
+          <span class="font-mono text-[11px] font-medium text-[#0d7a70]">$1.84</span>
+        </div>
+        <div class="w-full h-[4px] bg-[#e8ecea] rounded-full overflow-hidden">
+          <div class="h-full bg-[#0d7a70] rounded-full" style="width: 60%;"></div>
+        </div>
+      </div>
+
+      <!-- Row 2: agent-data + $1.21 + bar 40% -->
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-[11px] text-[#0e1110]">agent-data</span>
+          <span class="font-mono text-[11px] font-medium text-[#0d7a70]">$1.21</span>
+        </div>
+        <div class="w-full h-[4px] bg-[#e8ecea] rounded-full overflow-hidden">
+          <div class="h-full bg-[#0d7a70] rounded-full" style="width: 40%;"></div>
+        </div>
+      </div>
+
+      <!-- Row 3: agent-security + $0.77 + bar 26% -->
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-[11px] text-[#0e1110]">agent-security</span>
+          <span class="font-mono text-[11px] font-medium text-[#0d7a70]">$0.77</span>
+        </div>
+        <div class="w-full h-[4px] bg-[#e8ecea] rounded-full overflow-hidden">
+          <div class="h-full bg-[#0d7a70] rounded-full" style="width: 26%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="h-[1px] bg-[rgba(12,26,22,0.07)] w-full"></div>
+
+    <!-- 5. RUNNING NOW -->
+    <div class="flex flex-col gap-1">
+      <span class="text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">RUNNING NOW</span>
+      <div class="flex items-baseline gap-1.5">
+        <span class="font-mono text-[20px] font-semibold text-[#0e1110] leading-none">3</span>
+        <span class="text-[12px] text-[#6b7370]">agents</span>
+      </div>
+    </div>
+
+  </aside>
+
+</body>
+</html>

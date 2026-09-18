@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — Antrean Approval</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: #f6f7f6;
+      color: #0e1110;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Geometri & Warna Kontrak Shell AgentDeck v2 */
+    .shell-rail {
+      width: 44px;
+      min-width: 44px;
+      background-color: #e8ecea;
+      border-right: 1px solid rgba(12, 26, 22, 0.07);
+    }
+    .shell-sidebar {
+      width: 224px;
+      min-width: 224px;
+      background-color: #f6f7f6;
+      border-right: 1px solid rgba(12, 26, 22, 0.07);
+    }
+    .shell-cost-rail {
+      width: 264px;
+      min-width: 264px;
+      background-color: #eef1f0;
+      border-left: 1px solid rgba(12, 26, 22, 0.07);
+    }
+    .shell-topbar {
+      height: 52px;
+      min-height: 52px;
+      background-color: #ffffff;
+      border-bottom: 1px solid rgba(12, 26, 22, 0.07);
+    }
+    .pane-content {
+      background-color: #f6f7f6;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .custom-border-subtle {
+      border-color: rgba(12, 26, 22, 0.07);
+    }
+    .custom-border-standard {
+      border-color: rgba(12, 26, 22, 0.12);
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(12, 26, 22, 0.15);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(12, 26, 22, 0.25);
+    }
+  </style>
+</head>
+<body class="select-none text-[13px] antialiased">
+
+  <!-- 1. LEFT RAIL (44px, background #e8ecea, ikon saja tanpa label) -->
+  <aside class="shell-rail flex flex-col items-center py-3 justify-between z-20">
+    <div class="flex flex-col items-center gap-4 w-full">
+      <!-- Logo Mark -->
+      <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] text-white flex items-center justify-center font-bold text-[12px] tracking-tight shadow-sm">
+        AD
+      </div>
+      
+      <!-- Rail Navigation Icons -->
+      <nav class="flex flex-col items-center gap-1 w-full pt-2">
+        <!-- Projects / Workspace -->
+        <a href="#" class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors" title="Semua Proyek">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          </svg>
+        </a>
+        
+        <!-- Boards -->
+        <a href="#" class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors" title="Semua Board">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+          </svg>
+        </a>
+
+        <!-- Agent Registry -->
+        <a href="#" class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors" title="Agent Registry">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </a>
+
+        <!-- Approvals (Active) -->
+        <a href="#" class="w-8 h-8 rounded-[6px] flex items-center justify-center bg-[#ffffff] text-[#0d7a70] shadow-sm relative" title="Approvals">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[#d97706]"></span>
+        </a>
+
+        <!-- Cost Overview -->
+        <a href="#" class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors" title="Ringkasan Biaya">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </a>
+
+        <!-- Docs -->
+        <a href="#" class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors" title="Dokumentasi">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Rail Bottom -->
+    <div class="flex flex-col items-center gap-2">
+      <div class="w-2 h-2 rounded-full bg-[#16a34a]" title="Daemon connected"></div>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#6b7370] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)]">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- 2. SIDEBAR (224px, background #f6f7f6) -->
+  <aside class="shell-sidebar flex flex-col justify-between p-3 z-10">
+    <div class="flex flex-col gap-4">
+      <!-- Workspace Switcher Pill -->
+      <div class="flex items-center justify-between px-2.5 py-1.5 bg-[#ffffff] rounded-[6px] border custom-border-subtle shadow-xs">
+        <div class="flex items-center gap-2 overflow-hidden">
+          <span class="w-2 h-2 rounded-full bg-[#16a34a] shrink-0"></span>
+          <span class="font-mono text-[12px] font-medium text-[#0e1110] truncate">ws_8f12a</span>
+        </div>
+        <span class="text-[10px] font-medium text-[#0d7a70] bg-[#eef7f5] px-1.5 py-0.5 rounded-[4px]">owner</span>
+      </div>
+
+      <!-- Main Navigation Group -->
+      <div class="flex flex-col gap-0.5">
+        <div class="text-[10px] font-semibold text-[#6b7370] uppercase tracking-wider px-2 py-1">Navigasi Utama</div>
+        
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.04)] transition-colors">
+          <div class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+            <span class="text-[12px]">Semua Proyek</span>
+          </div>
+          <span class="font-mono text-[11px] text-[#6b7370]">3</span>
+        </a>
+
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.04)] transition-colors">
+          <div class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            </svg>
+            <span class="text-[12px]">Semua Board</span>
+          </div>
+          <span class="font-mono text-[11px] text-[#6b7370]">6</span>
+        </a>
+
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.04)] transition-colors">
+          <div class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <span class="text-[12px]">Agent Registry</span>
+          </div>
+          <span class="font-mono text-[11px] text-[#6b7370]">5</span>
+        </a>
+
+        <!-- Approvals item (Active) -->
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#ffffff] text-[#0d7a70] font-medium border custom-border-subtle shadow-xs">
+          <div class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-[#0d7a70]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="text-[12px]">Antrean Approval</span>
+          </div>
+          <span class="font-mono text-[11px] bg-[#d97706] text-white font-semibold px-1.5 py-0.2 rounded-full">3</span>
+        </a>
+
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.04)] transition-colors">
+          <div class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="text-[12px]">Ringkasan Biaya</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- US-AD38 Ringkasan Approval Gate Mode per Agent -->
+      <div class="flex flex-col gap-1.5 pt-2 border-t custom-border-subtle">
+        <div class="flex items-center justify-between px-2">
+          <span class="text-[10px] font-semibold text-[#6b7370] uppercase tracking-wider">Gate Mode (US-AD38)</span>
+          <span class="text-[10px] text-[#0d7a70] font-mono">3 armed</span>
+        </div>
+        <div class="space-y-1 px-1">
+          <div class="flex items-center justify-between px-2 py-1 bg-[rgba(12,26,22,0.03)] rounded-[4px] text-[11px]">
+            <span class="font-mono text-[#0e1110] truncate">agent-backend</span>
+            <span class="px-1.5 py-0.2 text-[9px] font-mono rounded bg-[#7c3aed] text-white">require</span>
+          </div>
+          <div class="flex items-center justify-between px-2 py-1 bg-[rgba(12,26,22,0.03)] rounded-[4px] text-[11px]">
+            <span class="font-mono text-[#0e1110] truncate">agent-infra</span>
+            <span class="px-1.5 py-0.2 text-[9px] font-mono rounded bg-[#7c3aed] text-white">require</span>
+          </div>
+          <div class="flex items-center justify-between px-2 py-1 bg-[rgba(12,26,22,0.03)] rounded-[4px] text-[11px]">
+            <span class="font-mono text-[#0e1110] truncate">agent-security</span>
+            <span class="px-1.5 py-0.2 text-[9px] font-mono rounded bg-[#7c3aed] text-white">require</span>
+          </div>
+          <div class="flex items-center justify-between px-2 py-1 bg-[rgba(12,26,22,0.03)] rounded-[4px] text-[11px]">
+            <span class="font-mono text-[#4d5553] truncate">agent-data</span>
+            <span class="px-1.5 py-0.2 text-[9px] font-mono rounded bg-[#cbd5e1] text-[#4d5553]">auto</span>
+          </div>
+          <div class="flex items-center justify-between px-2 py-1 bg-[rgba(12,26,22,0.03)] rounded-[4px] text-[11px]">
+            <span class="font-mono text-[#4d5553] truncate">agent-docs</span>
+            <span class="px-1.5 py-0.2 text-[9px] font-mono rounded bg-[#cbd5e1] text-[#4d5553]">auto</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar Bottom: User & Role Badge -->
+    <div class="pt-2 border-t custom-border-subtle flex items-center justify-between px-1">
+      <div class="flex items-center gap-2">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#0d7a70] text-white flex items-center justify-center font-semibold text-[11px]">
+          RZ
+        </div>
+        <div class="flex flex-col">
+          <span class="text-[12px] font-medium text-[#0e1110] leading-tight">Reza</span>
+          <span class="text-[10px] text-[#6b7370] leading-none">Owner / Admin</span>
+        </div>
+      </div>
+      <span class="text-[9px] font-mono text-[#0d7a70] bg-[#eef7f5] px-1 py-0.5 rounded border border-[#0d7a70]/20">AC4: decision</span>
+    </div>
+  </aside>
+
+  <!-- 3. CENTER COLUMN: Topbar 52px (HANYA di atas pane konten) + Pane Konten Scrollable -->
+  <div class="flex-1 flex flex-col h-full overflow-hidden">
+    
+    <!-- TOPBAR (52px, background #ffffff, HANYA membentang di atas pane konten) -->
+    <header class="shell-topbar flex items-center justify-between px-5 z-10">
+      <!-- Breadcrumb & Route Path -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5 text-[13px]">
+          <span class="text-[#6b7370]">Organisasi</span>
+          <span class="text-[#6b7370]">/</span>
+          <span class="font-semibold text-[#0e1110]">Approvals</span>
+        </div>
+        <span class="font-mono text-[11px] text-[#4d5553] bg-[#f6f7f6] px-2 py-0.5 rounded border custom-border-subtle">
+          /approvals
+        </span>
+        <div class="flex items-center gap-1.5 px-2 py-0.5 bg-[#eef7f5] text-[#0d7a70] text-[11px] rounded font-medium">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70] animate-pulse"></span>
+          <span>Org-wide Gate Active</span>
+        </div>
+      </div>
+
+      <!-- Actions & Filters -->
+      <div class="flex items-center gap-2.5">
+        <!-- Search bar input (32px header / standard input) -->
+        <div class="relative">
+          <input type="text" placeholder="Filter task atau agent..." class="w-56 h-8 pl-7 pr-2.5 text-[12px] bg-[#f6f7f6] border custom-border-subtle rounded-[6px] text-[#0e1110] placeholder-[#6b7370] focus:outline-none focus:border-[#0d7a70]" />
+          <svg class="w-3.5 h-3.5 text-[#6b7370] absolute left-2 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+
+        <!-- Role Indicator (AC4) -->
+        <div class="flex items-center gap-1.5 px-2.5 h-8 bg-[#ffffff] border custom-border-standard rounded-[6px] text-[11px] text-[#4d5553]">
+          <span class="w-2 h-2 rounded-full bg-[#16a34a]"></span>
+          <span>Peran: <strong class="text-[#0e1110]">Owner (Admin)</strong></span>
+        </div>
+      </div>
+    </header>
+
+    <!-- PANE KONTEN (background #f6f7f6, scrollable) -->
+    <main class="pane-content p-6">
+      <div class="max-w-4xl mx-auto space-y-4">
+        
+        <!-- Header Section with US & AC Badges -->
+        <div class="flex items-center justify-between bg-[#ffffff] p-4 rounded-[10px] border custom-border-subtle shadow-xs">
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-[16px] font-bold text-[#0e1110]">Antrean Approval Organisasi</h1>
+              <span class="px-2 py-0.5 rounded-[4px] bg-[#7c3aed]/10 text-[#7c3aed] text-[10px] font-mono font-semibold">
+                awaiting_approval
+              </span>
+              <span class="px-2 py-0.5 rounded-[4px] bg-[#eef7f5] text-[#0d7a70] text-[10px] font-mono font-medium">
+                US-AD37 (AC1, AC2, AC4)
+              </span>
+            </div>
+            <p class="text-[12px] text-[#4d5553] mt-1">
+              Menampilkan semua tindakan berisiko armada AI yang tertahan pada status <code class="font-mono text-[#0d7a70] bg-[#f6f7f6] px-1 rounded">awaiting_approval</code> dan membutuhkan verifikasi sebelum eksekusi dilanjutkan.
+            </p>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="font-mono text-[20px] font-bold text-[#d97706] leading-none">3</div>
+            <div class="text-[10px] uppercase font-semibold text-[#6b7370] tracking-wider mt-1">Menunggu Keputusan</div>
+          </div>
+        </div>
+
+        <!-- Permission Notice Banner for AC4 -->
+        <div class="flex items-center justify-between px-3.5 py-2 bg-[#ffffff] rounded-[6px] border border-[#0d7a70]/20 text-[11px]">
+          <div class="flex items-center gap-2 text-[#4d5553]">
+            <svg class="w-4 h-4 text-[#0d7a70] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span>
+              <strong class="text-[#0e1110]">US-AD37 AC4 Kebijakan Akses:</strong> Seluruh anggota (<code class="font-mono">member</code> & <code class="font-mono">viewer</code>) dapat memantau antrean; tombol keputusan <span class="text-[#0d7a70] font-medium">Approve</span> & <span class="text-[#dc2626] font-medium">Reject</span> aktif untuk peran <code class="font-mono font-semibold text-[#0d7a70]">owner / admin</code> saat ini.
+            </span>
+          </div>
+          <span class="font-mono text-[10px] text-[#16a34a] bg-[#16a34a]/10 px-2 py-0.5 rounded font-semibold shrink-0">
+            Izin Terverifikasi
+          </span>
+        </div>
+
+        <!-- LIST OF APPROVAL CARDS (US-AD37 AC1, AC2, AC4) -->
+        <div class="space-y-3">
+
+          <!-- KARTU 1: Drop Stale Replicas (Infrastructure / Bash Tool) -->
+          <div class="bg-[#ffffff] rounded-[10px] border custom-border-standard shadow-xs overflow-hidden" style="padding: 10px;">
+            <!-- Card Header: Task ID, Agent, Board, Status, Remaining Time -->
+            <div class="flex items-center justify-between pb-2 mb-2 border-b custom-border-subtle text-[12px]">
+              <div class="flex items-center gap-2">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center font-mono font-bold text-[9px]">
+                  ai
+                </div>
+                <span class="font-mono font-medium text-[#0e1110]">agent-infra</span>
+                <span class="text-[#6b7370]">•</span>
+                <span class="font-mono text-[#4d5553] text-[11px]">task-419b</span>
+                <span class="text-[#6b7370]">•</span>
+                <span class="text-[#4d5553] text-[11px]">Board: <span class="font-medium text-[#0e1110]">infra-fleet</span></span>
+              </div>
+              
+              <!-- AC2: Waktu tersisa -->
+              <div class="flex items-center gap-2">
+                <span class="flex items-center gap-1 font-mono text-[11px] font-semibold text-[#dc2626] bg-[#dc2626]/10 px-2 py-0.5 rounded">
+                  <svg class="w-3 h-3 text-[#dc2626]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Waktu tersisa: 14m 20s</span>
+                </span>
+                <span class="text-[10px] text-[#6b7370] font-mono">TTL: 30m</span>
+              </div>
+            </div>
+
+            <!-- Task Title & Reason -->
+            <div class="mb-2">
+              <div class="flex items-center justify-between">
+                <h2 class="text-[13px] font-semibold text-[#0e1110]">Drop stale replica instances & reset pool DNS</h2>
+                <span class="text-[11px] font-mono text-[#0d7a70] bg-[#eef7f5] px-2 py-0.5 rounded font-medium">
+                  Estimasi Biaya: $0.044
+                </span>
+              </div>
+              <p class="text-[11px] text-[#4d5553] mt-0.5">
+                Agent mencoba mengeksekusi perintah CLI mutasi state infrastruktur produksi. Ditahan otomatis oleh kebijakan <span class="font-mono text-[#7c3aed]">require_approval</span>.
+              </p>
+            </div>
+
+            <!-- AC2: Preview Aksi (Command / Diff / Tool Call) -->
+            <div class="bg-[#f6f7f6] rounded-[6px] border custom-border-subtle p-2.5 font-mono text-[11px] mb-3">
+              <div class="flex items-center justify-between text-[10px] text-[#6b7370] mb-1.5 font-sans font-medium uppercase tracking-wider">
+                <span>Preview Aksi Berisiko: tool: bash_exec</span>
+                <span class="font-mono text-[#4d5553]">step_04_drop_replicas</span>
+              </div>
+              <div class="text-[#0e1110] bg-[#ffffff] p-2 rounded border custom-border-subtle overflow-x-auto leading-relaxed">
+                <span class="text-[#d97706]">$</span> EXEC tool="infra_cli" zone="prod-sg-1" action="drop_replica"<br>
+                <span class="text-[#dc2626] font-medium">- DROP INSTANCE instance_id="replica-node-03.internal" force=true</span><br>
+                <span class="text-[#16a34a] font-medium">+ RECONFIGURE POOL pg_max_connections=64 timeout=10s</span>
+              </div>
+            </div>
+
+            <!-- AC2 & AC4: Decision Action Buttons (Owner/Admin only) -->
+            <div class="flex items-center justify-between pt-1">
+              <div class="flex items-center gap-3 text-[11px] text-[#6b7370]">
+                <span>Dipicu: <strong class="text-[#0e1110] font-mono">14:18:02 WIB</strong></span>
+                <span>•</span>
+                <span>Gate: <strong class="text-[#0e1110]">US-AD38 Armed (Require)</strong></span>
+              </div>
+              
+              <!-- Decision Buttons -->
+              <div class="flex items-center gap-2">
+                <button class="h-7 px-3 rounded-[6px] border custom-border-standard text-[#dc2626] hover:bg-[#dc2626]/5 font-medium text-[11px] transition-colors flex items-center gap-1.5" title="Tolak eksekusi aksi ini">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span>Reject</span>
+                </button>
+                <button class="h-7 px-3.5 rounded-[6px] bg-[#0d7a70] hover:bg-[#0b655d] text-white font-medium text-[11px] transition-colors flex items-center gap-1.5 shadow-xs" title="Setujui dan lanjutkan eksekusi task">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Approve & Run</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- KARTU 2: Migrate Sessions to Redis-less (Database Migration Tool) -->
+          <div class="bg-[#ffffff] rounded-[10px] border custom-border-standard shadow-xs overflow-hidden" style="padding: 10px;">
+            <!-- Card Header -->
+            <div class="flex items-center justify-between pb-2 mb-2 border-b custom-border-subtle text-[12px]">
+              <div class="flex items-center gap-2">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center font-mono font-bold text-[9px]">
+                  be
+                </div>
+                <span class="font-mono font-medium text-[#0e1110]">agent-backend</span>
+                <span class="text-[#6b7370]">•</span>
+                <span class="font-mono text-[#4d5553] text-[11px]">task-771b</span>
+                <span class="text-[#6b7370]">•</span>
+                <span class="text-[#4d5553] text-[11px]">Board: <span class="font-medium text-[#0e1110]">Sprint 24</span></span>
+              </div>
+              
+              <!-- AC2: Waktu tersisa -->
+              <div class="flex items-center gap-2">
+                <span class="flex items-center gap-1 font-mono text-[11px] font-semibold text-[#d97706] bg-[#d97706]/10 px-2 py-0.5 rounded">
+                  <svg class="w-3 h-3 text-[#d97706]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Waktu tersisa: 42m 10s</span>
+                </span>
+                <span class="text-[10px] text-[#6b7370] font-mono">TTL: 60m</span>
+              </div>
+            </div>
+
+            <!-- Task Title & Description -->
+            <div class="mb-2">
+              <div class="flex items-center justify-between">
+                <h2 class="text-[13px] font-semibold text-[#0e1110]">Refactor auth module & telemetry: Eksekusi Migrasi SQL</h2>
+                <span class="text-[11px] font-mono text-[#0d7a70] bg-[#eef7f5] px-2 py-0.5 rounded font-medium">
+                  Estimasi Biaya: $0.318
+                </span>
+              </div>
+              <p class="text-[11px] text-[#4d5553] mt-0.5">
+                Perubahan skema tabel autentikasi dan migrasi session state ke Postgres internal daemon.
+              </p>
+            </div>
+
+            <!-- AC2: Preview Aksi (SQL Diff) -->
+            <div class="bg-[#f6f7f6] rounded-[6px] border custom-border-subtle p-2.5 font-mono text-[11px] mb-3">
+              <div class="flex items-center justify-between text-[10px] text-[#6b7370] mb-1.5 font-sans font-medium uppercase tracking-wider">
+                <span>Preview Aksi Berisiko: tool: db_migrate (PostgreSQL)</span>
+                <span class="font-mono text-[#4d5553]">step_03_migration</span>
+              </div>
+              <div class="text-[#0e1110] bg-[#ffffff] p-2 rounded border custom-border-subtle overflow-x-auto leading-relaxed">
+                <span class="text-[#4d5553]">-- File: migrations/004_auth_ledger.sql</span><br>
+                <span class="text-[#dc2626] font-medium">- ALTER TABLE users DROP COLUMN session_redis_token;</span><br>
+                <span class="text-[#16a34a] font-medium">+ CREATE TABLE daemon_sessions (session_id UUID PRIMARY KEY, nonce BYTEA);</span><br>
+                <span class="text-[#16a34a] font-medium">+ CREATE INDEX idx_sessions_org ON daemon_sessions(org_id);</span>
+              </div>
+            </div>
+
+            <!-- AC2 & AC4: Decision Action Buttons -->
+            <div class="flex items-center justify-between pt-1">
+              <div class="flex items-center gap-3 text-[11px] text-[#6b7370]">
+                <span>Dipicu: <strong class="text-[#0e1110] font-mono">14:22:04 WIB</strong></span>
+                <span>•</span>
+                <span>Gate: <strong class="text-[#0e1110]">US-AD38 Armed (Require)</strong></span>
+              </div>
+              
+              <div class="flex items-center gap-2">
+                <button class="h-7 px-3 rounded-[6px] border custom-border-standard text-[#dc2626] hover:bg-[#dc2626]/5 font-medium text-[11px] transition-colors flex items-center gap-1.5">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span>Reject</span>
+                </button>
+                <button class="h-7 px-3.5 rounded-[6px] bg-[#0d7a70] hover:bg-[#0b655d] text-white font-medium text-[11px] transition-colors flex items-center gap-1.5 shadow-xs">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Approve & Run</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- KARTU 3: Rotate Secret Key & Invalidate Sessions (Security Agent) -->
+          <div class="bg-[#ffffff] rounded-[10px] border custom-border-standard shadow-xs overflow-hidden" style="padding: 10px;">
+            <!-- Card Header -->
+            <div class="flex items-center justify-between pb-2 mb-2 border-b custom-border-subtle text-[12px]">
+              <div class="flex items-center gap-2">
+                <div class="w-[20px] h-[20px] rounded-full bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center font-mono font-bold text-[9px]">
+                  sc
+                </div>
+                <span class="font-mono font-medium text-[#0e1110]">agent-security</span>
+                <span class="text-[#6b7370]">•</span>
+                <span class="font-mono text-[#4d5553] text-[11px]">task-305d</span>
+                <span class="text-[#6b7370]">•</span>
+                <span class="text-[#4d5553] text-[11px]">Board: <span class="font-medium text-[#0e1110]">Security audit Q3</span></span>
+              </div>
+              
+              <!-- AC2: Waktu tersisa -->
+              <div class="flex items-center gap-2">
+                <span class="flex items-center gap-1 font-mono text-[11px] font-semibold text-[#0d7a70] bg-[#eef7f5] px-2 py-0.5 rounded">
+                  <svg class="w-3 h-3 text-[#0d7a70]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Waktu tersisa: 1h 48m</span>
+                </span>
+                <span class="text-[10px] text-[#6b7370] font-mono">TTL: 2h</span>
+              </div>
+            </div>
+
+            <!-- Task Title & Description -->
+            <div class="mb-2">
+              <div class="flex items-center justify-between">
+                <h2 class="text-[13px] font-semibold text-[#0e1110]">Rotasi Kunci Rahasia API & TLS Certificate Daemon</h2>
+                <span class="text-[11px] font-mono text-[#0d7a70] bg-[#eef7f5] px-2 py-0.5 rounded font-medium">
+                  Estimasi Biaya: $0.011
+                </span>
+              </div>
+              <p class="text-[11px] text-[#4d5553] mt-0.5">
+                Revokasi kunci akses lama <code class="font-mono">adk_a8f9*</code> dan pencabutan sertifikat TLS kadaluarsa.
+              </p>
+            </div>
+
+            <!-- AC2: Preview Aksi -->
+            <div class="bg-[#f6f7f6] rounded-[6px] border custom-border-subtle p-2.5 font-mono text-[11px] mb-3">
+              <div class="flex items-center justify-between text-[10px] text-[#6b7370] mb-1.5 font-sans font-medium uppercase tracking-wider">
+                <span>Preview Aksi Berisiko: tool: key_rotation</span>
+                <span class="font-mono text-[#4d5553]">step_02_cert_renewal</span>
+              </div>
+              <div class="text-[#0e1110] bg-[#ffffff] p-2 rounded border custom-border-subtle overflow-x-auto leading-relaxed">
+                <span class="text-[#d97706]">#</span> INITIATE KEY ROTATION FOR prefix="adk_a8f9"<br>
+                <span class="text-[#dc2626] font-medium">- REVOKE API_KEY id="adk_live_••••••••" reason="quarterly_rotation"</span><br>
+                <span class="text-[#16a34a] font-medium">+ GENERATE SECRET NEW_HASH="••••••••••••••••"</span>
+              </div>
+            </div>
+
+            <!-- AC2 & AC4: Decision Action Buttons -->
+            <div class="flex items-center justify-between pt-1">
+              <div class="flex items-center gap-3 text-[11px] text-[#6b7370]">
+                <span>Dipicu: <strong class="text-[#0e1110] font-mono">13:05:12 WIB</strong></span>
+                <span>•</span>
+                <span>Gate: <strong class="text-[#0e1110]">US-AD38 Armed (Require)</strong></span>
+              </div>
+              
+              <div class="flex items-center gap-2">
+                <button class="h-7 px-3 rounded-[6px] border custom-border-standard text-[#dc2626] hover:bg-[#dc2626]/5 font-medium text-[11px] transition-colors flex items-center gap-1.5">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span>Reject</span>
+                </button>
+                <button class="h-7 px-3.5 rounded-[6px] bg-[#0d7a70] hover:bg-[#0b655d] text-white font-medium text-[11px] transition-colors flex items-center gap-1.5 shadow-xs">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Approve & Run</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer Audit Indicator -->
+        <div class="text-center pt-3 pb-1 text-[11px] text-[#6b7370]">
+          Seluruh keputusan tercatat ke dalam audit log & ledger terenkripsi secara otomatis.
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- 4. RIGHT COST RAIL (264px, background #eef1f0, ISI TETAP: TODAY, 7-DAY, TOP SPENDERS, RUNNING NOW) -->
+  <aside class="shell-cost-rail flex flex-col justify-between p-3 z-10">
+    <div class="flex flex-col gap-4">
+      <!-- 1. TODAY (Biaya + Meter Pagu) -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider mb-1">
+          <span>Today</span>
+          <span class="font-mono text-[#0e1110]">Cap $20.00</span>
+        </div>
+        <div class="flex items-baseline gap-1.5">
+          <span class="font-mono text-[24px] font-bold text-[#0e1110] leading-none">$4.82</span>
+          <span class="font-mono text-[12px] text-[#6b7370]">/ $20.00</span>
+        </div>
+        <!-- Budget meter (6px) -->
+        <div class="w-full bg-[rgba(12,26,22,0.08)] h-[6px] rounded-full mt-2 overflow-hidden">
+          <div class="bg-[#0d7a70] h-full rounded-full" style="width: 24.1%;"></div>
+        </div>
+        <div class="flex items-center justify-between text-[10px] text-[#6b7370] font-mono mt-1">
+          <span>24.1% terpakai</span>
+          <span>Sisa $15.18</span>
+        </div>
+      </div>
+
+      <!-- 2. 7-DAY (Sparkline) -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider mb-2">
+          <span>7-Day</span>
+          <span class="font-mono text-[10px] text-[#6b7370]">Sep 12 — Sep 18</span>
+        </div>
+        <!-- Sparkline Bar Chart -->
+        <div class="flex items-end justify-between h-9 gap-1 px-1 bg-[#ffffff] rounded-[6px] p-1.5 border custom-border-subtle">
+          <div class="flex-1 bg-[#0d7a70]/40 rounded-t-[2px] h-[35%]"></div>
+          <div class="flex-1 bg-[#0d7a70]/50 rounded-t-[2px] h-[55%]"></div>
+          <div class="flex-1 bg-[#0d7a70]/30 rounded-t-[2px] h-[25%]"></div>
+          <div class="flex-1 bg-[#0d7a70]/60 rounded-t-[2px] h-[70%]"></div>
+          <div class="flex-1 bg-[#0d7a70]/75 rounded-t-[2px] h-[85%]"></div>
+          <div class="flex-1 bg-[#0d7a70]/65 rounded-t-[2px] h-[75%]"></div>
+          <div class="flex-1 bg-[#0d7a70] rounded-t-[2px] h-[100%]"></div>
+        </div>
+        <div class="flex justify-between text-[9px] font-mono text-[#6b7370] px-1 mt-1">
+          <span>12</span>
+          <span>13</span>
+          <span>14</span>
+          <span>15</span>
+          <span>16</span>
+          <span>17</span>
+          <span class="font-bold text-[#0d7a70]">18</span>
+        </div>
+      </div>
+
+      <!-- 3. TOP SPENDERS (3 baris) -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider mb-2">
+          <span>Top Spenders</span>
+          <span class="font-mono text-[10px] text-[#6b7370]">Today</span>
+        </div>
+        <div class="space-y-2">
+          <!-- Row 1 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px] mb-0.5">
+              <div class="flex items-center gap-1.5">
+                <span class="w-[18px] h-[18px] rounded bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center font-mono text-[9px] font-bold">be</span>
+                <span class="font-mono text-[#0e1110]">agent-backend</span>
+              </div>
+              <span class="font-mono font-medium text-[#0e1110]">$1.84</span>
+            </div>
+            <div class="w-full bg-[rgba(12,26,22,0.06)] h-[3px] rounded-full overflow-hidden">
+              <div class="bg-[#0d7a70] h-full" style="width: 75%;"></div>
+            </div>
+          </div>
+          <!-- Row 2 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px] mb-0.5">
+              <div class="flex items-center gap-1.5">
+                <span class="w-[18px] h-[18px] rounded bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center font-mono text-[9px] font-bold">dt</span>
+                <span class="font-mono text-[#0e1110]">agent-data</span>
+              </div>
+              <span class="font-mono font-medium text-[#0e1110]">$1.42</span>
+            </div>
+            <div class="w-full bg-[rgba(12,26,22,0.06)] h-[3px] rounded-full overflow-hidden">
+              <div class="bg-[#0d7a70] h-full" style="width: 58%;"></div>
+            </div>
+          </div>
+          <!-- Row 3 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px] mb-0.5">
+              <div class="flex items-center gap-1.5">
+                <span class="w-[18px] h-[18px] rounded bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center font-mono text-[9px] font-bold">dc</span>
+                <span class="font-mono text-[#0e1110]">agent-docs</span>
+              </div>
+              <span class="font-mono font-medium text-[#0e1110]">$0.91</span>
+            </div>
+            <div class="w-full bg-[rgba(12,26,22,0.06)] h-[3px] rounded-full overflow-hidden">
+              <div class="bg-[#0d7a70] h-full" style="width: 37%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. RUNNING NOW -->
+    <div class="pt-3 border-t custom-border-subtle">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-[#d97706] animate-pulse"></span>
+          <span class="text-[11px] font-medium text-[#0e1110]">2 agents active</span>
+        </div>
+        <span class="text-[10px] font-mono text-[#6b7370]">daemon :8080</span>
+      </div>
+      <div class="text-[10px] text-[#6b7370] mt-0.5">task execution: running</div>
+    </div>
+  </aside>
+
+</body>
+</html>

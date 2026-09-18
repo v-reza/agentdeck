@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>AgentDeck — Board Mobile (/m/boards/:id)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            teal: {
+              DEFAULT: '#0d7a70',
+              hover: '#0a635b',
+              light: '#eef7f5',
+              border: '#7dd6ca'
+            },
+            ink: {
+              primary: '#0e1110',
+              secondary: '#4d5553',
+              tertiary: '#6b7370'
+            },
+            surface: {
+              page: '#f6f7f6',
+              card: '#ffffff',
+              rail: '#e8ecea',
+              cost: '#eef1f0'
+            },
+            border: {
+              subtle: 'rgba(12,26,22,0.07)',
+              standard: 'rgba(12,26,22,0.12)'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      color: #0e1110;
+      background-color: #f6f7f6;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(12,26,22,0.15);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-surface-page text-ink-primary overflow-hidden h-screen w-screen flex flex-col select-none">
+
+  <!-- TOPBAR (Tinggi 52px, #ffffff, border-b) -->
+  <header class="h-[52px] shrink-0 bg-[#ffffff] border-b border-border-standard px-3.5 flex items-center justify-between z-20">
+    <div class="flex items-center gap-2 min-w-0">
+      <button class="w-7 h-7 rounded flex items-center justify-center text-ink-secondary hover:bg-surface-page" title="Menu Navigasi">
+        <span class="material-symbols-outlined text-[20px]">menu</span>
+      </button>
+      <div class="w-6 h-6 rounded bg-teal text-white flex items-center justify-center font-mono font-bold text-[10px] shrink-0">
+        AD
+      </div>
+      <div class="flex flex-col min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span class="font-bold text-[13px] tracking-tight truncate">Sprint 24</span>
+          <span class="text-[9px] font-mono bg-teal-light text-teal font-bold px-1 rounded border border-teal-border/40">12</span>
+        </div>
+        <span class="text-[10px] font-mono text-ink-tertiary truncate leading-none">/m/boards/brd_sprint24</span>
+      </div>
+    </div>
+
+    <!-- Quick action right -->
+    <div class="flex items-center gap-1.5 shrink-0">
+      <button class="h-7 px-2 text-[11px] font-medium text-ink-secondary bg-surface-page hover:bg-slate-200/60 rounded border border-border-standard flex items-center gap-1" title="Filter Task">
+        <span class="material-symbols-outlined text-[15px]">filter_list</span>
+      </button>
+      <button class="h-7 px-2.5 text-[11px] font-medium text-white bg-teal hover:bg-teal-hover rounded flex items-center gap-1 shadow-sm">
+        <span class="material-symbols-outlined text-[15px]">add</span>
+        <span>Task</span>
+      </button>
+      <div class="w-[26px] h-[26px] rounded-full bg-[#191c1c] text-[#f9f9f8] text-[10px] font-bold flex items-center justify-center border border-white shrink-0 ml-1">
+        RZ
+      </div>
+    </div>
+  </header>
+
+  <!-- SPECIFICATION AUDIT & COMPLIANCE BAR -->
+  <div class="bg-[#ffffff] border-b border-border-subtle px-3.5 py-2 shrink-0 flex flex-col gap-1 z-10 shadow-xs">
+    <div class="flex items-center justify-between flex-wrap gap-1">
+      <div class="flex items-center gap-1.5">
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-teal-light text-teal font-mono text-[9px] font-bold border border-teal/20">
+          <span class="material-symbols-outlined filled text-[11px]">verified</span>
+          US-AD60 COMPLIANT
+        </span>
+        <span class="text-[9px] font-mono text-ink-tertiary bg-surface-page px-1.5 py-0.5 rounded border border-border-subtle">
+          Viewport &lt; 768px (Mobile Mode)
+        </span>
+      </div>
+      <div class="flex items-center gap-1 text-[10px] font-mono text-ink-secondary">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span>Rotasi Terkunci: <strong class="text-ink-primary font-bold">Kolom 3</strong></span>
+      </div>
+    </div>
+    <div class="text-[11px] text-ink-secondary leading-snug">
+      Struktur kanban desktop berubah otomatis menjadi <strong>accordion vertikal interaktif</strong>. Posisi kolom aktif dipertahankan saat orientasi layar berubah (AC1 &amp; AC2).
+    </div>
+  </div>
+
+  <!-- MAIN SCROLLABLE CONTENT (Vertikal Accordion Kolom Board) -->
+  <main class="flex-1 overflow-y-auto p-3 space-y-2.5 pb-16">
+
+    <!-- ACCORDION ITEM 1: BACKLOG (COLLAPSED) -->
+    <section class="bg-surface-card rounded-[10px] border border-border-standard overflow-hidden shadow-xs">
+      <!-- Top edge color status: status-backlog #64748b -->
+      <div class="h-[3px] w-full bg-[#64748b]"></div>
+      <div class="h-[38px] px-3 flex items-center justify-between cursor-pointer hover:bg-surface-page transition-colors">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-[#64748b]"></span>
+          <span class="font-bold text-[13px] text-ink-primary">Backlog</span>
+          <span class="text-[10px] font-mono bg-surface-page text-ink-secondary px-1.5 py-0.2 rounded border border-border-subtle font-semibold">3 task</span>
+        </div>
+        <div class="flex items-center gap-2 text-ink-tertiary">
+          <span class="text-[11px] font-mono text-ink-tertiary">$0.000</span>
+          <span class="material-symbols-outlined text-[18px]">expand_more</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACCORDION ITEM 2: READY (COLLAPSED) -->
+    <section class="bg-surface-card rounded-[10px] border border-border-standard overflow-hidden shadow-xs">
+      <!-- Top edge color status: status-ready #2563eb -->
+      <div class="h-[3px] w-full bg-[#2563eb]"></div>
+      <div class="h-[38px] px-3 flex items-center justify-between cursor-pointer hover:bg-surface-page transition-colors">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-[#2563eb]"></span>
+          <span class="font-bold text-[13px] text-ink-primary">Ready</span>
+          <span class="text-[10px] font-mono bg-surface-page text-ink-secondary px-1.5 py-0.2 rounded border border-border-subtle font-semibold">3 task</span>
+        </div>
+        <div class="flex items-center gap-2 text-ink-tertiary">
+          <span class="text-[11px] font-mono text-ink-tertiary">$0.000</span>
+          <span class="material-symbols-outlined text-[18px]">expand_more</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACCORDION ITEM 3: RUNNING (EXPANDED - DEFAULT ACTIVE COLUMN) -->
+    <section class="bg-surface-card rounded-[10px] border-2 border-teal/40 overflow-hidden shadow-sm">
+      <!-- Top edge color status: status-running #d97706 -->
+      <div class="h-[3px] w-full bg-[#d97706]"></div>
+      
+      <!-- Accordion Header (Active/Open) -->
+      <div class="h-[40px] px-3 bg-teal-light/50 flex items-center justify-between cursor-pointer border-b border-border-subtle">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-[#d97706] animate-pulse"></span>
+          <span class="font-bold text-[13px] text-teal">Running</span>
+          <span class="text-[10px] font-mono bg-teal text-white px-1.5 py-0.2 rounded font-bold">2 aktif</span>
+          <span class="text-[9px] font-mono text-teal uppercase font-bold bg-teal-light px-1 py-0.2 rounded border border-teal/30">Fokus AC1</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] font-mono font-bold text-teal">$0.420</span>
+          <span class="material-symbols-outlined text-[18px] text-teal rotate-180 transition-transform">expand_more</span>
+        </div>
+      </div>
+
+      <!-- Task List Container Inside Expanded Column -->
+      <div class="p-2.5 space-y-2.5 bg-surface-page/60">
+
+        <!-- Task Card 1 (Refactor auth module) -->
+        <div class="bg-surface-card p-[10px] rounded-[8px] border border-border-standard shadow-xs">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <span class="font-mono text-[10px] font-bold text-teal bg-teal-light px-1.5 py-0.5 rounded border border-teal-border/30">task-771b</span>
+              <span class="font-mono text-[9px] font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">P0 • Blocker</span>
+            </div>
+            <span class="font-mono text-[11px] font-bold text-teal">$0.318</span>
+          </div>
+
+          <h3 class="font-semibold text-[13px] text-ink-primary mt-1.5 leading-snug">
+            Refactor auth module &amp; telemetry pipeline
+          </h3>
+          <p class="text-[11px] text-ink-secondary mt-1 line-clamp-2 leading-relaxed">
+            Perubahan skema tabel autentikasi dan migrasi session state ke Postgres internal daemon.
+          </p>
+
+          <!-- Execution Progress Meter -->
+          <div class="mt-2.5 pt-2 border-t border-border-subtle flex flex-col gap-1">
+            <div class="flex items-center justify-between text-[10px] font-mono">
+              <span class="text-ink-secondary">Step 2 / 4 (codegen)</span>
+              <span class="text-amber-700 font-semibold">31.4k in / 7.2k out</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-[5px] rounded-full overflow-hidden">
+              <div class="bg-[#d97706] h-full rounded-full" style="width: 50%;"></div>
+            </div>
+          </div>
+
+          <div class="mt-2.5 flex items-center justify-between text-[11px] pt-1">
+            <div class="flex items-center gap-1.5">
+              <div class="w-[20px] h-[20px] rounded-full bg-teal-light text-teal flex items-center justify-center font-mono font-bold text-[9px] border border-teal/20">
+                be
+              </div>
+              <span class="font-mono text-[10px] text-ink-secondary truncate">agent-backend</span>
+            </div>
+            <span class="text-[10px] font-mono text-ink-tertiary">4m 12s lalu</span>
+          </div>
+        </div>
+
+        <!-- Task Card 2 (Generate release notes) -->
+        <div class="bg-surface-card p-[10px] rounded-[8px] border border-border-standard shadow-xs">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <span class="font-mono text-[10px] font-bold text-teal bg-teal-light px-1.5 py-0.5 rounded border border-teal-border/30">task-930a</span>
+              <span class="font-mono text-[9px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">P2 • Medium</span>
+            </div>
+            <span class="font-mono text-[11px] font-bold text-teal">$0.102</span>
+          </div>
+
+          <h3 class="font-semibold text-[13px] text-ink-primary mt-1.5 leading-snug">
+            Generate release notes v2.4
+          </h3>
+          <p class="text-[11px] text-ink-secondary mt-1 line-clamp-2 leading-relaxed">
+            Menunggu output codegen dari pipeline auth sebelum mengekstraksi changelog publik biner Go.
+          </p>
+
+          <div class="mt-2.5 flex items-center justify-between text-[11px] pt-1 border-t border-border-subtle">
+            <div class="flex items-center gap-1.5">
+              <div class="w-[20px] h-[20px] rounded-full bg-teal-light text-teal flex items-center justify-center font-mono font-bold text-[9px] border border-teal/20">
+                dc
+              </div>
+              <span class="font-mono text-[10px] text-ink-secondary truncate">agent-docs</span>
+            </div>
+            <span class="text-[10px] font-mono text-amber-700 font-medium">Running (step 1/2)</span>
+          </div>
+        </div>
+
+        <!-- Add Task Quick Button within column -->
+        <button class="w-full py-1.5 border border-dashed border-border-standard hover:border-teal rounded-[6px] text-ink-tertiary hover:text-teal text-[11px] font-medium flex items-center justify-center gap-1 transition-colors bg-white/50">
+          <span class="material-symbols-outlined text-[14px]">add</span>
+          <span>Tambah Task ke Running</span>
+        </button>
+
+      </div>
+    </section>
+
+    <!-- ACCORDION ITEM 4: REVIEW (COLLAPSED) -->
+    <section class="bg-surface-card rounded-[10px] border border-border-standard overflow-hidden shadow-xs">
+      <!-- Top edge color status: status-review #0891b2 -->
+      <div class="h-[3px] w-full bg-[#0891b2]"></div>
+      <div class="h-[38px] px-3 flex items-center justify-between cursor-pointer hover:bg-surface-page transition-colors">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-[#0891b2]"></span>
+          <span class="font-bold text-[13px] text-ink-primary">Review</span>
+          <span class="text-[10px] font-mono bg-surface-page text-ink-secondary px-1.5 py-0.2 rounded border border-border-subtle font-semibold">2 task</span>
+        </div>
+        <div class="flex items-center gap-2 text-ink-tertiary">
+          <span class="text-[11px] font-mono text-ink-tertiary">$0.519</span>
+          <span class="material-symbols-outlined text-[18px]">expand_more</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACCORDION ITEM 5: DONE (COLLAPSED) -->
+    <section class="bg-surface-card rounded-[10px] border border-border-standard overflow-hidden shadow-xs">
+      <!-- Top edge color status: status-done #16a34a -->
+      <div class="h-[3px] w-full bg-[#16a34a]"></div>
+      <div class="h-[38px] px-3 flex items-center justify-between cursor-pointer hover:bg-surface-page transition-colors">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-[#16a34a]"></span>
+          <span class="font-bold text-[13px] text-ink-primary">Done</span>
+          <span class="text-[10px] font-mono bg-surface-page text-ink-secondary px-1.5 py-0.2 rounded border border-border-subtle font-semibold">2 task</span>
+        </div>
+        <div class="flex items-center gap-2 text-ink-tertiary">
+          <span class="text-[11px] font-mono text-ink-tertiary">$0.464</span>
+          <span class="material-symbols-outlined text-[18px]">expand_more</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- AC2 & AC3 PROTOCOL NOTICE CARD -->
+    <div class="bg-surface-card p-3 rounded-[10px] border border-border-standard mt-3 space-y-2 text-[11px]">
+      <div class="flex items-center gap-1.5 font-bold text-ink-primary">
+        <span class="material-symbols-outlined text-teal text-[16px]">screen_rotation</span>
+        <span>AC2 &amp; AC3: Mekanisme State Orientasi &amp; Desktop</span>
+      </div>
+      <div class="space-y-1 text-ink-secondary leading-relaxed font-sans">
+        <p>• <strong>AC2 (Simpan Posisi Rotasi):</strong> ID kolom aktif (<code class="font-mono text-[10px] bg-surface-page text-teal px-1 py-0.5 rounded">col_running</code>) disimpan di URL hash / state sesi. Bila orientasi berputar ke landscape atau kembali ke portrait, accordion tetap terbuka pada kolom ini.</p>
+        <p>• <strong>AC3 (Jalur Gagal / Desktop Guard):</strong> Saat viewport &ge; 768px, layout otomatis dirender ulang sebagai 5 kolom paralel horizontal (Blueprint B) tanpa accordion vertikal.</p>
+      </div>
+    </div>
+
+    <!-- MINI REALTIME COST LEDGER BAR (AC-compliant cost info for mobile view) -->
+    <div class="bg-[#ffffff] p-3 rounded-[10px] border border-border-standard shadow-xs space-y-2">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-teal text-[16px]">account_balance_wallet</span>
+          <span class="font-bold text-[11px] text-ink-primary uppercase font-mono">Cost Ledger (Today)</span>
+        </div>
+        <span class="text-[9px] font-mono font-bold bg-teal-light text-teal px-1.5 py-0.5 rounded">REALTIME</span>
+      </div>
+      <div class="flex items-baseline justify-between font-mono">
+        <span class="text-base font-bold text-ink-primary">$4.82</span>
+        <span class="text-[10px] text-ink-tertiary">Pagu $20.00 (Sisa <strong class="text-teal font-semibold">$15.18</strong>)</span>
+      </div>
+      <div class="w-full bg-[#edeeed] h-[6px] rounded-full overflow-hidden">
+        <div class="bg-teal h-full rounded-full" style="width: 24.1%;"></div>
+      </div>
+      <div class="flex items-center justify-between text-[10px] font-mono text-ink-tertiary pt-1">
+        <span>24.1% terpakai</span>
+        <span class="text-teal font-medium">2 Worker Aktif</span>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- BOTTOM NAVIGATION DOCK (Mobile Ergonomics) -->
+  <nav class="h-[50px] shrink-0 bg-[#ffffff] border-t border-border-standard px-4 flex items-center justify-around z-20">
+    <button class="flex flex-col items-center gap-0.5 text-teal" title="Board">
+      <span class="material-symbols-outlined filled text-[20px]">view_kanban</span>
+      <span class="text-[10px] font-medium leading-none">Board</span>
+    </button>
+    <button class="flex flex-col items-center gap-0.5 text-ink-tertiary hover:text-ink-primary" title="Table View">
+      <span class="material-symbols-outlined text-[20px]">table_rows</span>
+      <span class="text-[10px] font-medium leading-none">Table</span>
+    </button>
+    <button class="flex flex-col items-center gap-0.5 text-ink-tertiary hover:text-ink-primary" title="Graf Dependency">
+      <span class="material-symbols-outlined text-[20px]">account_tree</span>
+      <span class="text-[10px] font-medium leading-none">Graf</span>
+    </button>
+    <button class="flex flex-col items-center gap-0.5 text-ink-tertiary hover:text-ink-primary" title="Cost Ledger">
+      <span class="material-symbols-outlined text-[20px]">payments</span>
+      <span class="text-[10px] font-medium leading-none">Biaya</span>
+    </button>
+    <button class="flex flex-col items-center gap-0.5 text-ink-tertiary hover:text-ink-primary" title="Settings">
+      <span class="material-symbols-outlined text-[20px]">settings</span>
+      <span class="text-[10px] font-medium leading-none">Setelan</span>
+    </button>
+  </nav>
+
+</body>
+</html>

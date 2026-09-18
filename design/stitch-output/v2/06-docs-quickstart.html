@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentDeck — Panduan Mulai Cepat (06-docs-quickstart)</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              teal: "#0d7a70",
+              tealHover: "#0b685f",
+              bg: "#f6f7f6",
+              dark: "#0e1110",
+              textBody: "#4d5553",
+              textMuted: "#6b7370",
+              border: "rgba(12, 26, 22, 0.07)",
+              codeBg: "#eef1f0",
+              navGroup: "#98a09d"
+            }
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#f6f7f6] text-[#0e1110] font-sans antialiased selection:bg-[#0d7a70]/10 selection:text-[#0d7a70] min-h-screen">
+
+  <!-- TOP NAV (64px, Sticky, Publik Blueprint P) -->
+  <header class="sticky top-0 z-50 h-16 w-full bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)] backdrop-blur-md">
+    <div class="max-w-[1120px] h-full mx-auto px-6 flex items-center justify-between">
+      <!-- Kiri: Brand Wordmark -->
+      <div class="flex items-center gap-2.5">
+        <span class="w-3 h-3 rounded-sm bg-[#0d7a70] inline-block"></span>
+        <a href="/" class="text-[15px] font-semibold text-[#0e1110] tracking-tight hover:opacity-90 transition-opacity">AgentDeck</a>
+      </div>
+
+      <!-- Tengah: Link Navigasi Inter 14 -->
+      <nav class="hidden md:flex items-center gap-8">
+        <a href="/product" class="text-[14px] text-[#4d5553] hover:text-[#0e1110] transition-colors">Product</a>
+        <a href="/pricing" class="text-[14px] text-[#4d5553] hover:text-[#0e1110] transition-colors">Pricing</a>
+        <a href="/docs/quickstart" class="text-[14px] font-semibold text-[#0d7a70]">Docs</a>
+        <a href="https://github.com" target="_blank" rel="noreferrer" class="text-[14px] text-[#4d5553] hover:text-[#0e1110] transition-colors">GitHub</a>
+      </nav>
+
+      <!-- Kanan: Aksi Masuk & Registrasi Bebas Biaya -->
+      <div class="flex items-center gap-5">
+        <a href="/login" class="text-[14px] font-medium text-[#4d5553] hover:text-[#0e1110] transition-colors">Sign in</a>
+        <a href="/register" class="inline-flex items-center justify-center px-3.5 py-1.5 text-[14px] font-medium text-white bg-[#0d7a70] hover:bg-[#0b685f] rounded-[6px] transition-colors shadow-sm">Get started free</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER (Max-width 1120px, Auto Margin, Blueprint P-DOCS) -->
+  <main class="max-w-[1120px] mx-auto px-6 py-12">
+    <div class="flex flex-col md:flex-row gap-12 items-start">
+      
+      <!-- NAV DOKUMEN (240px, Standalone Teks Biasa, Tanpa Fill / Border Kotak / Ikon) -->
+      <aside class="w-full md:w-[240px] shrink-0">
+        <nav class="space-y-7">
+          
+          <!-- Kelompok 1: MEMULAI -->
+          <div>
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-[#98a09d] mb-3">
+              Memulai
+            </div>
+            <ul class="space-y-2">
+              <li>
+                <a href="/docs/quickstart" class="block text-[14px] font-semibold text-[#0d7a70]">
+                  Mulai Cepat
+                </a>
+              </li>
+              <li>
+                <a href="/docs/architecture" class="block text-[14px] font-normal text-[#4d5553] hover:text-[#0e1110] transition-colors">
+                  Arsitektur &amp; Daemon
+                </a>
+              </li>
+              <li>
+                <a href="/docs/yaml" class="block text-[14px] font-normal text-[#4d5553] hover:text-[#0e1110] transition-colors">
+                  Konfigurasi YAML
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Kelompok 2: ORKESTRASI -->
+          <div>
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-[#98a09d] mb-3">
+              Orkestrasi
+            </div>
+            <ul class="space-y-2">
+              <li>
+                <a href="/docs/agents" class="block text-[14px] font-normal text-[#4d5553] hover:text-[#0e1110] transition-colors">
+                  Pendaftaran Agent
+                </a>
+              </li>
+              <li>
+                <a href="/docs/lifecycle" class="block text-[14px] font-normal text-[#4d5553] hover:text-[#0e1110] transition-colors">
+                  Siklus Hidup Run
+                </a>
+              </li>
+              <li>
+                <a href="/docs/approvals" class="block text-[14px] font-normal text-[#4d5553] hover:text-[#0e1110] transition-colors">
+                  Approval Gates
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Kelompok 3: REFERENSI API -->
+          <div>
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-[#98a09d] mb-3">
+              Referensi API
+            </div>
+            <ul class="space-y-2">
+              <li>
+                <a href="/docs/api" class="block text-[14px] font-normal text-[#4d5553] hover:text-[#0e1110] transition-colors">
+                  REST Endpoints
+                </a>
+              </li>
+              <li>
+                <a href="/docs/webhooks" class="block text-[14px] font-normal text-[#4d5553] hover:text-[#0e1110] transition-colors">
+                  Webhooks &amp; Event
+                </a>
+              </li>
+              <li>
+                <a href="/docs/telemetry" class="block text-[14px] font-normal text-[#4d5553] hover:text-[#0e1110] transition-colors">
+                  Skema Telemetri
+                </a>
+              </li>
+              <li>
+                <a href="/docs/cli" class="block text-[14px] font-normal text-[#4d5553] hover:text-[#0e1110] transition-colors">
+                  CLI Reference
+                </a>
+              </li>
+              <li>
+                <a href="/docs/errors-rbac" class="block text-[14px] font-normal text-[#4d5553] hover:text-[#0e1110] transition-colors">
+                  Kode Error &amp; RBAC
+                </a>
+              </li>
+            </ul>
+          </div>
+
+        </nav>
+      </aside>
+
+      <!-- ARTIKEL KONTEN DOKUMEN (Max-width 720px, US-AD103 AC1 & AC2) -->
+      <article class="w-full max-w-[720px] min-w-0">
+        
+        <!-- Breadcrumb & Metatag -->
+        <div class="flex items-center gap-2 text-[12px] text-[#6b7370] mb-3">
+          <span>Dokumentasi</span>
+          <span>/</span>
+          <span>Memulai</span>
+          <span>/</span>
+          <span class="font-mono text-[#0d7a70] bg-[#0d7a70]/5 px-1.5 py-0.5 rounded text-[11px] font-medium">US-AD103</span>
+        </div>
+
+        <!-- Judul & Pengantar -->
+        <h1 class="text-[28px] md:text-[32px] font-bold text-[#0e1110] tracking-tight leading-tight">
+          Panduan Mulai Cepat
+        </h1>
+        <p class="mt-3 text-[15px] leading-relaxed text-[#4d5553]">
+          Inisialisasi pangkalan orkestrator AgentDeck di server atau workstation lokal Anda dalam hitungan menit. Seluruh komponen berjalan sebagai biner tunggal mandiri yang terhubung langsung ke PostgreSQL internal Anda.
+        </p>
+
+        <!-- Garis Pemisah Halus -->
+        <div class="h-[1px] bg-[rgba(12,26,22,0.07)] my-8"></div>
+
+        <!-- LANGKAH BERURUTAN (US-AD103 AC1 & AC2) -->
+        <div class="space-y-10">
+
+          <!-- 01 Prasyarat Sistem -->
+          <section id="prasyarat" class="scroll-mt-24">
+            <div class="flex items-baseline gap-2.5 mb-2">
+              <span class="font-mono text-[13px] font-semibold text-[#0d7a70]">01</span>
+              <h2 class="text-[17px] font-semibold text-[#0e1110]">Prasyarat Sistem</h2>
+            </div>
+            <p class="text-[14px] leading-relaxed text-[#4d5553] mb-4">
+              Pastikan PostgreSQL 14+ telah berjalan dan dapat diakses. Unduh biner tunggal AgentDeck sesuai dengan arsitektur sistem Anda (Linux x86_64, ARM64, atau macOS):
+            </p>
+
+            <!-- Blok Kode 1 (bg #eef1f0, radius 10px, JetBrains Mono 13px, padding 14px, tombol salin) -->
+            <div class="bg-[#eef1f0] rounded-[10px] p-[14px]">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-mono text-[11px] uppercase tracking-wider text-[#6b7370] font-medium">TERMINAL</span>
+                <button 
+                  onclick="navigator.clipboard.writeText('curl -sSL https://get.agentdeck.dev/v2.4 | bash'); this.innerText = 'Tersalin!'; setTimeout(() => this.innerText = 'Salin', 1800);"
+                  class="text-[12px] font-medium text-[#0d7a70] hover:text-[#0b685f] inline-flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded hover:bg-white/60">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span>Salin</span>
+                </button>
+              </div>
+              <pre class="font-mono text-[13px] text-[#0e1110] overflow-x-auto whitespace-pre leading-relaxed"><code>curl -sSL https://get.agentdeck.dev/v2.4 | bash</code></pre>
+            </div>
+          </section>
+
+          <!-- 02 Migrasi Database -->
+          <section id="migrasi" class="scroll-mt-24">
+            <div class="flex items-baseline gap-2.5 mb-2">
+              <span class="font-mono text-[13px] font-semibold text-[#0d7a70]">02</span>
+              <h2 class="text-[17px] font-semibold text-[#0e1110]">Migrasi Database</h2>
+            </div>
+            <p class="text-[14px] leading-relaxed text-[#4d5553] mb-4">
+              Inisialisasi 21 tabel relasional internal dan skema ledger audit telemetri mikro-dolar pada database PostgreSQL target:
+            </p>
+
+            <!-- Blok Kode 2 -->
+            <div class="bg-[#eef1f0] rounded-[10px] p-[14px]">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-mono text-[11px] uppercase tracking-wider text-[#6b7370] font-medium">TERMINAL</span>
+                <button 
+                  onclick="navigator.clipboard.writeText('agentdeck migrate --db-url=&quot;postgres://postgres:secret@localhost:5432/agentdeck?sslmode=disable&quot;'); this.innerText = 'Tersalin!'; setTimeout(() => this.innerText = 'Salin', 1800);"
+                  class="text-[12px] font-medium text-[#0d7a70] hover:text-[#0b685f] inline-flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded hover:bg-white/60">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span>Salin</span>
+                </button>
+              </div>
+              <pre class="font-mono text-[13px] text-[#0e1110] overflow-x-auto whitespace-pre leading-relaxed"><code>agentdeck migrate --db-url="postgres://postgres:secret@localhost:5432/agentdeck?sslmode=disable"</code></pre>
+            </div>
+          </section>
+
+          <!-- 03 Menjalankan Binary Daemon -->
+          <section id="daemon" class="scroll-mt-24">
+            <div class="flex items-baseline gap-2.5 mb-2">
+              <span class="font-mono text-[13px] font-semibold text-[#0d7a70]">03</span>
+              <h2 class="text-[17px] font-semibold text-[#0e1110]">Menjalankan Binary Daemon</h2>
+            </div>
+            <p class="text-[14px] leading-relaxed text-[#4d5553] mb-4">
+              Jalankan daemon biner AgentDeck Core. Perintah ini mengaktifkan antarmuka web, REST API pada port 8080, serta server ingest telemetri gRPC:
+            </p>
+
+            <!-- Blok Kode 3 -->
+            <div class="bg-[#eef1f0] rounded-[10px] p-[14px]">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-mono text-[11px] uppercase tracking-wider text-[#6b7370] font-medium">TERMINAL</span>
+                <button 
+                  onclick="navigator.clipboard.writeText('agentdeck serve --port=8080 --config=./agentdeck.yaml'); this.innerText = 'Tersalin!'; setTimeout(() => this.innerText = 'Salin', 1800);"
+                  class="text-[12px] font-medium text-[#0d7a70] hover:text-[#0b685f] inline-flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded hover:bg-white/60">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span>Salin</span>
+                </button>
+              </div>
+              <pre class="font-mono text-[13px] text-[#0e1110] overflow-x-auto whitespace-pre leading-relaxed"><code>agentdeck serve --port=8080 --config=./agentdeck.yaml</code></pre>
+            </div>
+          </section>
+
+          <!-- 04 Mendaftarkan Agent Pertama -->
+          <section id="agent" class="scroll-mt-24">
+            <div class="flex items-baseline gap-2.5 mb-2">
+              <span class="font-mono text-[13px] font-semibold text-[#0d7a70]">04</span>
+              <h2 class="text-[17px] font-semibold text-[#0e1110]">Mendaftarkan Agent Pertama</h2>
+            </div>
+            <p class="text-[14px] leading-relaxed text-[#4d5553] mb-4">
+              Hubungkan worker agent otonom pertama Anda ke daemon dengan mendaftarkan slug identitas, model LLM target, dan kredensial akses provider:
+            </p>
+
+            <!-- Blok Kode 4 -->
+            <div class="bg-[#eef1f0] rounded-[10px] p-[14px]">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-mono text-[11px] uppercase tracking-wider text-[#6b7370] font-medium">TERMINAL</span>
+                <button 
+                  onclick="navigator.clipboard.writeText('agentdeck agent add --name=&quot;agent-backend&quot; --provider=openai --model=gpt-4o'); this.innerText = 'Tersalin!'; setTimeout(() => this.innerText = 'Salin', 1800);"
+                  class="text-[12px] font-medium text-[#0d7a70] hover:text-[#0b685f] inline-flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded hover:bg-white/60">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <span>Salin</span>
+                </button>
+              </div>
+              <pre class="font-mono text-[13px] text-[#0e1110] overflow-x-auto whitespace-pre leading-relaxed"><code>agentdeck agent add --name="agent-backend" --provider=openai --model=gpt-4o</code></pre>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Langkah Selanjutnya Callout -->
+        <div class="mt-12 p-6 rounded-[12px] border border-[rgba(12,26,22,0.07)] bg-white/70 shadow-sm">
+          <h3 class="text-[15px] font-semibold text-[#0e1110] mb-2">Langkah Selanjutnya</h3>
+          <p class="text-[13px] text-[#4d5553] leading-relaxed mb-4">
+            Setelah daemon berjalan dan agent terdaftar, pengguna dapat membuka dasbor web lokal di <code class="font-mono text-[12px] bg-[#eef1f0] text-[#0e1110] px-1.5 py-0.5 rounded">http://localhost:8080</code> atau melanjutkan dengan mengeksplorasi dokumentasi REST API dan konfigurasi gate approval.
+          </p>
+          <div class="flex flex-wrap items-center gap-4 text-[13px]">
+            <a href="/docs/api" class="font-medium text-[#0d7a70] hover:underline inline-flex items-center gap-1">
+              Jelajahi REST API <span>&rarr;</span>
+            </a>
+            <a href="/docs/telemetry" class="font-medium text-[#0d7a70] hover:underline inline-flex items-center gap-1">
+              Pelajari Skema Telemetri <span>&rarr;</span>
+            </a>
+          </div>
+        </div>
+
+      </article>
+
+    </div>
+  </main>
+
+  <!-- FOOTER (4 Kolom Link Inter 13 #4d5553, Padding 40px 0, Border-top) -->
+  <footer class="w-full border-t border-[rgba(12,26,22,0.07)] py-10 mt-16 bg-[#f6f7f6]">
+    <div class="max-w-[1120px] mx-auto px-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+        
+        <!-- Kolom 1: Produk -->
+        <div>
+          <div class="text-[11px] font-semibold uppercase tracking-wider text-[#98a09d] mb-3">Produk</div>
+          <ul class="space-y-2 text-[13px] text-[#4d5553]">
+            <li><a href="/features" class="hover:text-[#0e1110] transition-colors">Fitur Inti</a></li>
+            <li><a href="/pricing" class="hover:text-[#0e1110] transition-colors">Harga Solo &amp; Pro</a></li>
+            <li><a href="/changelog" class="hover:text-[#0e1110] transition-colors">Catatan Rilis</a></li>
+          </ul>
+        </div>
+
+        <!-- Kolom 2: Dokumentasi -->
+        <div>
+          <div class="text-[11px] font-semibold uppercase tracking-wider text-[#98a09d] mb-3">Dokumentasi</div>
+          <ul class="space-y-2 text-[13px] text-[#4d5553]">
+            <li><a href="/docs/quickstart" class="text-[#0d7a70] font-medium">Mulai Cepat</a></li>
+            <li><a href="/docs/api" class="hover:text-[#0e1110] transition-colors">REST Endpoints</a></li>
+            <li><a href="/docs/telemetry" class="hover:text-[#0e1110] transition-colors">Skema Telemetri</a></li>
+            <li><a href="/docs/cli" class="hover:text-[#0e1110] transition-colors">CLI Reference</a></li>
+          </ul>
+        </div>
+
+        <!-- Kolom 3: Ekosistem -->
+        <div>
+          <div class="text-[11px] font-semibold uppercase tracking-wider text-[#98a09d] mb-3">Ekosistem</div>
+          <ul class="space-y-2 text-[13px] text-[#4d5553]">
+            <li><a href="https://github.com" target="_blank" rel="noreferrer" class="hover:text-[#0e1110] transition-colors">GitHub Repository</a></li>
+            <li><a href="/community" class="hover:text-[#0e1110] transition-colors">Komunitas Discord</a></li>
+            <li><a href="/security" class="hover:text-[#0e1110] transition-colors">Keamanan &amp; Lisensi</a></li>
+          </ul>
+        </div>
+
+        <!-- Kolom 4: Lisensi & Status -->
+        <div>
+          <div class="text-[11px] font-semibold uppercase tracking-wider text-[#98a09d] mb-3">Lisensi</div>
+          <p class="text-[13px] text-[#4d5553] leading-relaxed">
+            Papan orkestrasi mandiri untuk armada agen AI otonom. Biner tunggal Go, presisi mikro-dolar.
+          </p>
+          <div class="mt-3 font-mono text-[11px] text-[#6b7370] bg-[#eef1f0] inline-block px-2 py-0.5 rounded">
+            v2.4-stable (Single Binary)
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Copyright & Atribusi Bawah -->
+      <div class="border-t border-[rgba(12,26,22,0.07)] pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[12px] text-[#6b7370]">
+        <div>
+          &copy; 2026 AgentDeck Core. Lisensi Open-Source MIT.
+        </div>
+        <div>
+          Designed for autonomous AI agents fleet orchestration
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

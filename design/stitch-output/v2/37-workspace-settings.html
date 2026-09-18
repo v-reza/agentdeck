@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgentDeck — Pengaturan Ruang Kerja (/settings/workspace)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary-teal": "#0d7a70",
+            "primary-dark": "#0e1110",
+            "text-secondary": "#4d5553",
+            "text-muted": "#6b7370",
+            "rail-bg": "#e8ecea",
+            "sidebar-bg": "#f6f7f6",
+            "canvas-bg": "#f6f7f6",
+            "cost-rail-bg": "#eef1f0",
+            "card-white": "#ffffff",
+            "border-subtle": "rgba(12,26,22,0.07)",
+            "border-standard": "rgba(12,26,22,0.12)"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(12,26,22,0.15);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-canvas-bg text-primary-dark font-sans antialiased overflow-hidden h-screen w-screen flex select-none">
+
+  <!-- RAIL KIRI (44px, #e8ecea, ikon saja tanpa label) -->
+  <aside class="w-[44px] shrink-0 bg-rail-bg border-r border-border-standard flex flex-col items-center justify-between py-3 z-20">
+    <div class="flex flex-col items-center gap-4">
+      <!-- AD Badge Hijau -->
+      <div class="w-7 h-7 rounded-[6px] bg-primary-teal flex items-center justify-center text-white font-bold text-[11px] font-mono tracking-tight shadow-sm cursor-pointer" title="AgentDeck Core">
+        AD
+      </div>
+      <div class="w-6 h-[1px] bg-border-standard"></div>
+      <!-- Rail Icons -->
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-text-secondary hover:bg-[#dce4e1] transition-colors" title="Projects & Boards">
+        <span class="material-symbols-outlined">grid_view</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-text-secondary hover:bg-[#dce4e1] transition-colors" title="Kanban Board">
+        <span class="material-symbols-outlined">view_kanban</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-text-secondary hover:bg-[#dce4e1] transition-colors" title="Agent Registry">
+        <span class="material-symbols-outlined">smart_toy</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-text-secondary hover:bg-[#dce4e1] transition-colors" title="Approvals">
+        <span class="material-symbols-outlined">verified_user</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-text-secondary hover:bg-[#dce4e1] transition-colors" title="Cost Ledger">
+        <span class="material-symbols-outlined">payments</span>
+      </button>
+    </div>
+    <div class="flex flex-col items-center gap-3">
+      <!-- Settings Active -->
+      <button class="w-8 h-8 rounded-[6px] bg-[#d9e1de] text-primary-teal flex items-center justify-center" title="Settings">
+        <span class="material-symbols-outlined filled">settings</span>
+      </button>
+      <!-- Avatar User RZ (26px) -->
+      <div class="relative cursor-pointer" title="Reza (Solo User / Owner)">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#191c1c] text-white text-[10px] font-bold flex items-center justify-center border border-white">
+          RZ
+        </div>
+        <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-primary-teal border-2 border-rail-bg rounded-full"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR (224px, #f6f7f6) -->
+  <nav class="w-[224px] shrink-0 bg-sidebar-bg border-r border-border-standard flex flex-col justify-between overflow-y-auto text-[13px] z-10">
+    <div>
+      <!-- Workspace Badge (Solo Workspace) -->
+      <div class="p-3 border-b border-border-subtle">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[10px] font-mono uppercase tracking-wider text-text-muted font-semibold">Workspace</span>
+          <span class="text-[9px] font-mono uppercase bg-[#d9e1de] text-primary-teal px-1.5 py-0.5 rounded-[4px] font-bold">B2C Solo</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-primary-teal"></span>
+          <span class="font-mono text-[12px] font-semibold text-primary-dark truncate" title="ws_8f12a (core)">ws_8f12a (core)</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tree -->
+      <div class="p-2 space-y-4">
+        <!-- GROUP: NAVIGASI UTAMA -->
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-text-muted">Navigasi Utama</span>
+          <ul class="mt-1 space-y-0.5">
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-text-secondary hover:bg-[#edeeed] transition-colors" href="#">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-text-muted">folder</span>
+                  <span class="text-[12px]">Semua Proyek</span>
+                </div>
+                <span class="text-[11px] font-mono text-text-muted">3</span>
+              </a>
+            </li>
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-text-secondary hover:bg-[#edeeed] transition-colors" href="#">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-text-muted">view_kanban</span>
+                  <span class="text-[12px]">Semua Board</span>
+                </div>
+                <span class="text-[11px] font-mono text-text-muted">6</span>
+              </a>
+            </li>
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-text-secondary hover:bg-[#edeeed] transition-colors" href="#">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-text-muted">smart_toy</span>
+                  <span class="text-[12px]">Agent Registry</span>
+                </div>
+                <span class="text-[11px] font-mono text-text-muted">5</span>
+              </a>
+            </li>
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-text-secondary hover:bg-[#edeeed] transition-colors" href="#">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-text-muted">verified_user</span>
+                  <span class="text-[12px]">Antrean Approval</span>
+                </div>
+                <span class="text-[11px] font-mono text-amber-700 font-bold bg-amber-50 px-1 rounded">1</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- GROUP: PENGATURAN RUANG KERJA (ACTIVE) -->
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-text-muted">Pengaturan</span>
+          <ul class="mt-1 space-y-0.5">
+            <!-- Active Item: Ruang Kerja -->
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#eef7f5] text-primary-teal font-semibold border-l-2 border-primary-teal" href="#">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined filled text-[16px] text-primary-teal">apartment</span>
+                  <span class="truncate text-[12px]">Ruang Kerja</span>
+                </div>
+                <span class="text-[9px] font-mono bg-[#d9e1de] text-primary-teal px-1 py-0.2 rounded-[4px] font-bold">M0</span>
+              </a>
+            </li>
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-text-secondary hover:bg-[#edeeed] transition-colors" href="#">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-text-muted">key</span>
+                  <span class="text-[12px]">API Keys</span>
+                </div>
+                <span class="text-[11px] font-mono text-text-muted">4</span>
+              </a>
+            </li>
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-text-secondary hover:bg-[#edeeed] transition-colors" href="#">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-text-muted">sensors</span>
+                  <span class="text-[12px]">Webhooks</span>
+                </div>
+                <span class="text-[11px] font-mono text-text-muted">3</span>
+              </a>
+            </li>
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-text-secondary hover:bg-[#edeeed] transition-colors" href="#">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-text-muted">manage_history</span>
+                  <span class="text-[12px]">Audit Log</span>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daemon Status Footer -->
+    <div class="p-2 border-t border-border-subtle bg-[#f0f2f1]">
+      <div class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] bg-[#e1e3e2] text-[11px] font-mono text-text-secondary">
+        <span class="w-2 h-2 rounded-full bg-primary-teal"></span>
+        <span class="truncate font-medium">daemon :8080 • v2.4</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- PUSAT: TOPBAR + PANE KONTEN (Flex Grow) -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-canvas-bg">
+    <!-- TOPBAR (Tinggi 52px, #ffffff, border-b, HANYA membentang di atas pane konten) -->
+    <header class="h-[52px] shrink-0 bg-card-white border-b border-border-standard px-5 flex items-center justify-between gap-4 z-10">
+      <!-- Breadcrumb + AC5 Compliance (Tanpa dropdown workspace karena hanya ada 1 ruang kerja) -->
+      <div class="flex items-center gap-2 text-[12px] min-w-0">
+        <span class="text-text-muted hover:text-primary-dark cursor-pointer">Pengaturan</span>
+        <span class="text-text-muted text-[10px]">/</span>
+        <span class="font-semibold text-primary-dark truncate">Ruang Kerja</span>
+        <span class="font-mono text-[10px] text-primary-teal bg-[#eef7f5] px-1.5 py-0.5 rounded-[4px] border border-[#d9e1de]">/settings/workspace</span>
+      </div>
+
+      <!-- Right Topbar Info: Menegaskan AC5 (Tidak ada dropdown pemilih ruang kerja) -->
+      <div class="flex items-center gap-3 shrink-0">
+        <!-- Label Status Pemilih Ruang Kerja Tunggal (US-AD03 AC5) -->
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-[#f3f4f3] border border-border-standard text-text-secondary text-[11px] font-mono" title="US-AD03 AC5: Bila pengguna hanya punya satu ruang kerja, pemilih ruang kerja tidak ditampilkan di top bar.">
+          <span class="material-symbols-outlined text-[14px] text-primary-teal">check_circle</span>
+          <span>Workspace Tunggal: <strong class="text-primary-dark font-semibold">ws_8f12a</strong> (Tanpa Dropdown)</span>
+        </div>
+        <div class="h-4 w-[1px] bg-border-standard"></div>
+        <span class="text-[11px] font-mono text-text-muted">Peran: <strong class="text-primary-dark">Owner (Solo)</strong></span>
+      </div>
+    </header>
+
+    <!-- KONTEN UTAMA (Scrollable vertikal) -->
+    <main class="flex-1 overflow-y-auto p-5 space-y-4">
+      <!-- 1. Header Banner: Kepatuhan US-AD03 (AC4, AC5) & US-AD77 (Must M0) -->
+      <div class="bg-card-white border border-border-standard rounded-[10px] p-[10px] shadow-sm">
+        <div class="flex items-center gap-2 flex-wrap mb-1.5">
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-[#eef7f5] border border-primary-teal/30 text-primary-teal font-mono text-[11px] font-bold">
+            <span class="material-symbols-outlined filled text-[14px]">verified</span>
+            US-AD03 (AC4, AC5) &amp; US-AD77 COMPLIANT
+          </span>
+          <span class="text-[11px] font-mono text-text-muted px-2 py-0.5 rounded-[4px] bg-[#edeeed]">Blueprint C • Route: /settings/workspace</span>
+          <span class="text-[11px] font-mono text-text-muted px-2 py-0.5 rounded-[4px] bg-[#edeeed]">M0 Milestone</span>
+        </div>
+        <h1 class="text-base font-bold text-primary-dark tracking-tight">Pengaturan Ruang Kerja (Organization Settings)</h1>
+        <p class="text-[12px] text-text-secondary mt-1 leading-relaxed">
+          Ringkasan konfigurasi ruang kerja tunggal mandiri. Sesuai spesifikasi <strong class="text-primary-dark font-medium">US-AD77</strong>, layar ini hanya menampilkan ringkasan; tidak ada AC berimplikasi visual tambahan.
+        </p>
+      </div>
+
+      <!-- 2. Ringkasan Kartu Spesifikasi US-AD03 (AC4 & AC5) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Kartu AC4 (B2C Fleksibel / Solo) -->
+        <div class="bg-card-white border border-border-standard rounded-[10px] p-[10px] shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-mono uppercase font-bold text-primary-teal bg-[#eef7f5] px-1.5 py-0.5 rounded-[4px] border border-[#d9e1de]">
+                US-AD03 AC4 (B2C Solo)
+              </span>
+              <span class="material-symbols-outlined text-primary-teal text-[16px]">sentiment_satisfied</span>
+            </div>
+            <h2 class="text-[13px] font-bold text-primary-dark mt-1">Alur Mandiri Tanpa Kunjungan Wajib</h2>
+            <p class="text-[12px] text-text-secondary mt-1 leading-relaxed">
+              Pengguna dengan satu ruang kerja (kasus umum solo) dapat menyelesaikan seluruh alur inti (buat proyek, registrasi worker agen, jalankan kanban board) tanpa pernah membuka halaman ini.
+            </p>
+          </div>
+          <div class="mt-3 pt-2 border-t border-border-subtle flex items-center gap-1.5 text-[11px] font-mono text-primary-teal">
+            <span class="material-symbols-outlined text-[14px]">check</span>
+            <span>Status: Alur kerja B2C aktif &amp; tidak diblokir</span>
+          </div>
+        </div>
+
+        <!-- Kartu AC5 (B2C Tanpa Dropdown Topbar) -->
+        <div class="bg-card-white border border-border-standard rounded-[10px] p-[10px] shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] font-mono uppercase font-bold text-primary-teal bg-[#eef7f5] px-1.5 py-0.5 rounded-[4px] border border-[#d9e1de]">
+                US-AD03 AC5 (B2C Bersih)
+              </span>
+              <span class="material-symbols-outlined text-primary-teal text-[16px]">tab_unselected</span>
+            </div>
+            <h2 class="text-[13px] font-bold text-primary-dark mt-1">Peniadaan Dropdown Tunggal Top Bar</h2>
+            <p class="text-[12px] text-text-secondary mt-1 leading-relaxed">
+              Bila pengguna hanya punya satu ruang kerja, pemilih ruang kerja tidak ditampilkan di top bar (tidak ada dropdown mubazir yang hanya berisi satu item). Antarmuka tetap rapi dan fokus.
+            </p>
+          </div>
+          <div class="mt-3 pt-2 border-t border-border-subtle flex items-center gap-1.5 text-[11px] font-mono text-primary-teal">
+            <span class="material-symbols-outlined text-[14px]">check</span>
+            <span>Status: Topbar bersih tanpa selektor redundan</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. US-AD77: Ringkasan Status Ruang Kerja Aktif -->
+      <div class="bg-card-white border border-border-standard rounded-[10px] p-[10px] shadow-sm space-y-3">
+        <div class="flex items-center justify-between border-b border-border-subtle pb-2">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary-teal">info</span>
+            <h2 class="text-[13px] font-bold text-primary-dark">Ringkasan Entitas Ruang Kerja (US-AD77)</h2>
+          </div>
+          <span class="text-[10px] font-mono bg-[#edeeed] text-text-muted px-2 py-0.5 rounded-[4px]">
+            Hanya Menampilkan Ringkasan
+          </span>
+        </div>
+
+        <!-- Grid Ringkasan Properti Ruang Kerja -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-[12px]">
+          <div class="p-2.5 rounded-[6px] bg-[#f8faf9] border border-border-subtle">
+            <span class="text-[10px] font-mono uppercase text-text-muted block">ID Ruang Kerja</span>
+            <span class="font-mono font-bold text-primary-teal mt-0.5 block truncate">ws_8f12a</span>
+          </div>
+          <div class="p-2.5 rounded-[6px] bg-[#f8faf9] border border-border-subtle">
+            <span class="text-[10px] font-mono uppercase text-text-muted block">Nama Display</span>
+            <span class="font-medium text-primary-dark mt-0.5 block truncate">core-platform</span>
+          </div>
+          <div class="p-2.5 rounded-[6px] bg-[#f8faf9] border border-border-subtle">
+            <span class="text-[10px] font-mono uppercase text-text-muted block">Tipe Kepemilikan</span>
+            <span class="font-medium text-primary-dark mt-0.5 block truncate">Solo / Personal (B2C)</span>
+          </div>
+          <div class="p-2.5 rounded-[6px] bg-[#f8faf9] border border-border-subtle">
+            <span class="text-[10px] font-mono uppercase text-text-muted block">Database Postgres</span>
+            <span class="font-mono text-emerald-700 font-semibold mt-0.5 block truncate">Connected (Local)</span>
+          </div>
+        </div>
+
+        <!-- Detail Statistik Resource yang Terikat -->
+        <div class="pt-2">
+          <h3 class="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">Resource Terdaftar Dalam Ruang Kerja</h3>
+          <div class="border border-border-standard rounded-[6px] overflow-hidden">
+            <table class="w-full text-left border-collapse text-[12px]">
+              <thead>
+                <tr class="bg-[#f8faf9] border-b border-border-standard text-[11px] font-mono text-text-muted h-[32px]">
+                  <th class="px-3 font-semibold">Tipe Resource</th>
+                  <th class="px-3 font-semibold">Jumlah Terdaftar</th>
+                  <th class="px-3 font-semibold">Status Alur Inti (AC4)</th>
+                  <th class="px-3 font-semibold text-right">Konsumsi Biaya</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border-subtle font-sans">
+                <tr class="h-[28px] hover:bg-[#f8faf9]">
+                  <td class="px-3 font-medium text-primary-dark flex items-center gap-2 h-[28px]">
+                    <span class="material-symbols-outlined text-[14px] text-text-muted">folder</span>
+                    <span>Proyek Aktif</span>
+                  </td>
+                  <td class="px-3 font-mono">3 proyek</td>
+                  <td class="px-3 font-mono text-[11px] text-emerald-700">Dapat dibuat langsung di kanvas</td>
+                  <td class="px-3 font-mono text-right font-semibold">$9.250</td>
+                </tr>
+                <tr class="h-[28px] hover:bg-[#f8faf9]">
+                  <td class="px-3 font-medium text-primary-dark flex items-center gap-2 h-[28px]">
+                    <span class="material-symbols-outlined text-[14px] text-text-muted">view_kanban</span>
+                    <span>Papan Kanban (Boards)</span>
+                  </td>
+                  <td class="px-3 font-mono">6 boards</td>
+                  <td class="px-3 font-mono text-[11px] text-emerald-700">Sprint 24 berjalan normal</td>
+                  <td class="px-3 font-mono text-right font-semibold">$4.820</td>
+                </tr>
+                <tr class="h-[28px] hover:bg-[#f8faf9]">
+                  <td class="px-3 font-medium text-primary-dark flex items-center gap-2 h-[28px]">
+                    <span class="material-symbols-outlined text-[14px] text-text-muted">smart_toy</span>
+                    <span>Armada Worker Agen</span>
+                  </td>
+                  <td class="px-3 font-mono">5 agen (3 siap, 1 butuh kunci)</td>
+                  <td class="px-3 font-mono text-[11px] text-emerald-700">Terbuka via Agent Registry</td>
+                  <td class="px-3 font-mono text-right font-semibold">$4.170</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Protokol Isolasi Keamanan Data (Ringkasan B2C) -->
+      <div class="bg-card-white border border-border-standard rounded-[10px] p-[10px] shadow-sm flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary-teal text-[20px] shrink-0 mt-0.5">shield</span>
+        <div>
+          <h2 class="text-[12px] font-bold text-primary-dark">Isolasi Data Lokal &amp; Multi-Tenant Kesiapan (Org-Scoped)</h2>
+          <p class="text-[11px] text-text-secondary mt-0.5 leading-relaxed">
+            Seluruh data token ledger, log approval mutasi, dan relasi task terikat secara ketat pada identifier <code class="font-mono text-primary-teal bg-[#eef7f5] px-1 py-0.2 rounded">ws_8f12a</code>. Sesuai AC4, konfigurasi ini disiapkan otomatis saat instalasi biner pertama tanpa membutuhkan pengisian form pendirian tim.
+          </p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- BLUEPRINT C: DRAWER (420px DI ANTARA KONTEN DAN COST RAIL) -->
+  <aside class="w-[420px] shrink-0 bg-card-white border-l border-border-standard flex flex-col justify-between overflow-y-auto z-20 shadow-sm">
+    <!-- Header Drawer -->
+    <div class="p-4 border-b border-border-standard flex items-center justify-between">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary-teal text-[18px]">settings_suggest</span>
+          <h2 class="font-bold text-[14px] text-primary-dark">Detail Ringkasan Ruang Kerja</h2>
+        </div>
+        <p class="text-[11px] font-mono text-text-muted mt-0.5">Blueprint C Drawer • 420px</p>
+      </div>
+      <button class="w-7 h-7 rounded-[6px] hover:bg-[#f3f4f3] flex items-center justify-center text-text-muted hover:text-primary-dark transition-colors" title="Tutup Detail">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
+    </div>
+
+    <!-- Konten Drawer (Scrollable) -->
+    <div class="p-4 space-y-4 flex-1 overflow-y-auto">
+      <!-- Badge Ringkasan US-AD77 -->
+      <div class="p-3 bg-[#f8faf9] rounded-[8px] border border-border-standard space-y-1.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-mono uppercase font-bold text-text-muted">Status Spesifikasi</span>
+          <span class="text-[10px] font-mono font-bold text-primary-teal bg-[#eef7f5] px-2 py-0.5 rounded-[4px] border border-[#d9e1de]">US-AD77 (Must M0)</span>
+        </div>
+        <p class="text-[12px] text-text-secondary leading-relaxed">
+          Spesifikasi US-AD77 menetapkan bahwa layar ini murni sebagai <strong>ringkasan informasi</strong> tanpa kriteria penerimaan fungsional/interaksi yang mengubah data orkestrator.
+        </p>
+      </div>
+
+      <!-- Form Ringkasan Informasi (Read-Only Ringkasan) -->
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[11px] font-mono uppercase font-bold text-text-muted mb-1">Nama Ruang Kerja</label>
+          <input type="text" readonly value="core-platform" class="w-full h-8 px-3 text-[12px] font-mono bg-[#f3f4f3] border border-border-standard rounded-[6px] text-primary-dark cursor-default focus:outline-none"/>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-mono uppercase font-bold text-text-muted mb-1">ID Ruang Kerja (UUID Slug)</label>
+          <input type="text" readonly value="ws_8f12a" class="w-full h-8 px-3 text-[12px] font-mono bg-[#f3f4f3] border border-border-standard rounded-[6px] text-primary-teal font-semibold cursor-default focus:outline-none"/>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-mono uppercase font-bold text-text-muted mb-1">Mode Pengguna</label>
+          <div class="p-2.5 rounded-[6px] bg-[#f8faf9] border border-border-standard flex items-center justify-between text-[12px]">
+            <span class="font-medium text-primary-dark">Pengguna Tunggal (Solo Developer)</span>
+            <span class="text-[10px] font-mono bg-[#eef7f5] text-primary-teal font-bold px-1.5 py-0.5 rounded-[4px]">AC4 Valid</span>
+          </div>
+          <p class="text-[11px] text-text-muted mt-1 leading-normal">
+            Sesuai US-AD03 AC4: Tidak perlu konfigurasi organisasi tim, undang anggota, atau aktivasi modul enterprise.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-mono uppercase font-bold text-text-muted mb-1">Pengaturan Top Bar</label>
+          <div class="p-2.5 rounded-[6px] bg-[#f8faf9] border border-border-standard space-y-1 text-[12px]">
+            <div class="flex items-center gap-1.5 font-medium text-primary-dark">
+              <span class="material-symbols-outlined text-[16px] text-primary-teal">visibility_off</span>
+              <span>Workspace Switcher Dinonaktifkan</span>
+            </div>
+            <p class="text-[11px] text-text-secondary leading-normal">
+              Sesuai US-AD03 AC5: Dropdown pemilih ruang kerja disembunyikan otomatis bila hanya terdapat 1 workspace di database lokal.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-mono uppercase font-bold text-text-muted mb-1">Daemon Binding &amp; Telemetri</label>
+          <div class="p-2.5 rounded-[6px] bg-[#191c1c] text-white font-mono text-[11px] space-y-1">
+            <div class="text-text-muted"># Ingest binding</div>
+            <div class="text-[#7dd6ca]">daemon_port: 8080</div>
+            <div class="text-[#7dd6ca]">workspace_scope: ws_8f12a</div>
+            <div class="text-text-muted"># Telemetry status</div>
+            <div class="text-emerald-400">ledger_sync: 0_drift (Fixed Int)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Drawer -->
+    <div class="p-4 border-t border-border-standard bg-[#f8faf9] flex items-center justify-between">
+      <span class="text-[11px] font-mono text-text-muted">Status: Read-only summary</span>
+      <button class="h-8 px-4 text-[12px] font-medium bg-primary-teal text-white rounded-[6px] hover:bg-[#0d6a62] transition-colors flex items-center gap-1.5" title="Tutup Drawer">
+        <span class="material-symbols-outlined text-[16px]">check</span>
+        <span>Selesai Melihat</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- COST RAIL KANAN (264px, #eef1f0, border-l)
+       Isi TETAP: TODAY (biaya + meter pagu), 7-DAY (sparkline), TOP SPENDERS (3 baris), RUNNING NOW. JANGAN tambah isi lain. -->
+  <aside class="w-[264px] shrink-0 bg-cost-rail-bg border-l border-border-standard flex flex-col justify-between p-3.5 text-[12px] z-20">
+    <div class="space-y-4">
+      <!-- 1. TODAY (Biaya + Meter Pagu 6px) -->
+      <div>
+        <div class="flex items-baseline justify-between">
+          <span class="text-[11px] font-mono uppercase tracking-wider text-text-muted font-bold">Today</span>
+          <span class="text-[10px] font-mono text-text-muted">CAP $20.00</span>
+        </div>
+        <div class="mt-1 flex items-baseline justify-between">
+          <div class="text-2xl font-bold font-mono text-primary-dark tracking-tight">$4.82</div>
+          <div class="text-[11px] font-mono text-text-muted">Sisa: <span class="font-semibold text-primary-teal">$15.18</span></div>
+        </div>
+        <!-- Budget Meter Bar (tinggi 6px, 24.1% terpakai) -->
+        <div class="w-full bg-[#d9dad9] h-[6px] rounded-full mt-2 overflow-hidden">
+          <div class="bg-primary-teal h-full rounded-full" style="width: 24.1%;"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] font-mono text-text-muted mt-1">
+          <span>24.1% terpakai</span>
+          <span class="text-emerald-700 font-semibold">Pagu aman</span>
+        </div>
+      </div>
+
+      <div class="w-full h-[1px] bg-border-standard"></div>
+
+      <!-- 2. 7-DAY (Sparkline Bar: Sep 12 - Sep 18) -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-mono text-text-muted mb-2">
+          <span class="font-bold uppercase tracking-wider">7-Day</span>
+          <span>SEP 12 — SEP 18</span>
+        </div>
+        <div class="h-14 flex items-end justify-between gap-1 pt-1 px-1">
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 45%;" title="Sep 12: $3.10"></div>
+            <span class="text-[9px] font-mono text-text-muted">12</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 60%;" title="Sep 13: $4.20"></div>
+            <span class="text-[9px] font-mono text-text-muted">13</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 30%;" title="Sep 14: $2.05"></div>
+            <span class="text-[9px] font-mono text-text-muted">14</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 75%;" title="Sep 15: $5.40"></div>
+            <span class="text-[9px] font-mono text-text-muted">15</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 50%;" title="Sep 16: $3.50"></div>
+            <span class="text-[9px] font-mono text-text-muted">16</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 85%;" title="Sep 17: $6.12"></div>
+            <span class="text-[9px] font-mono text-text-muted">17</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-primary-teal rounded-t" style="height: 68%;" title="Sep 18 (Today): $4.82"></div>
+            <span class="text-[9px] font-mono font-bold text-primary-teal">18</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="w-full h-[1px] bg-border-standard"></div>
+
+      <!-- 3. TOP SPENDERS (3 Baris) -->
+      <div>
+        <div class="text-[11px] font-mono text-text-muted uppercase font-bold tracking-wider mb-2">Top Spenders</div>
+        <div class="space-y-2">
+          <!-- 1. agent-backend -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary-teal"></span>
+                <span class="font-mono text-primary-dark truncate">agent-backend</span>
+              </div>
+              <span class="font-mono font-bold text-primary-dark">$1.84</span>
+            </div>
+            <div class="w-full bg-[#d9dad9] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-primary-teal h-full" style="width: 38.1%;"></div>
+            </div>
+          </div>
+          <!-- 2. agent-data -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary-teal"></span>
+                <span class="font-mono text-primary-dark truncate">agent-data</span>
+              </div>
+              <span class="font-mono font-bold text-primary-dark">$1.42</span>
+            </div>
+            <div class="w-full bg-[#d9dad9] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-primary-teal/80 h-full" style="width: 29.4%;"></div>
+            </div>
+          </div>
+          <!-- 3. agent-docs -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary-teal"></span>
+                <span class="font-mono text-primary-dark truncate">agent-docs</span>
+              </div>
+              <span class="font-mono font-bold text-primary-dark">$0.91</span>
+            </div>
+            <div class="w-full bg-[#d9dad9] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-primary-teal/60 h-full" style="width: 18.8%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="w-full h-[1px] bg-border-standard"></div>
+
+      <!-- 4. RUNNING NOW -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-mono text-text-muted mb-2">
+          <span class="font-bold uppercase tracking-wider">Running Now</span>
+          <span class="flex items-center gap-1 text-primary-teal font-bold">
+            <span class="w-1.5 h-1.5 rounded-full bg-primary-teal animate-pulse"></span>
+            2 Active
+          </span>
+        </div>
+        <div class="space-y-1.5 text-[11px] font-mono">
+          <div class="p-2 rounded-[6px] bg-card-white border border-border-standard flex items-center justify-between">
+            <span class="font-bold text-primary-dark">agent-backend</span>
+            <span class="text-[9px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-[4px] font-semibold">RUNNING</span>
+          </div>
+          <div class="p-2 rounded-[6px] bg-card-white border border-border-standard flex items-center justify-between">
+            <span class="font-bold text-primary-dark">agent-docs</span>
+            <span class="text-[9px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-[4px] font-semibold">RUNNING</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cost Rail Footer Tetap -->
+    <div class="pt-3 border-t border-border-standard text-[10px] font-mono text-text-muted flex items-center justify-between">
+      <span>AgentDeck Core</span>
+      <span class="text-primary-teal font-semibold">µUSD Ledger</span>
+    </div>
+  </aside>
+
+</body>
+</html>

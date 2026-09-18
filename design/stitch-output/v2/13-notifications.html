@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>AgentDeck — Pusat Notifikasi (/notifications)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#0d7a70",
+            "primary-hover": "#0a635b",
+            "primary-tint": "#eef7f5",
+            "surface-page": "#f6f7f6",
+            "surface-card": "#ffffff",
+            "surface-rail": "#e8ecea",
+            "surface-sidebar": "#f6f7f6",
+            "surface-cost": "#eef1f0",
+            "ink-primary": "#0e1110",
+            "ink-secondary": "#4d5553",
+            "ink-tertiary": "#6b7370",
+            "border-subtle": "rgba(12,26,22,0.07)",
+            "border-standard": "rgba(12,26,22,0.12)"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #bdc9c6;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #6e7977;
+    }
+  </style>
+</head>
+<body class="bg-[#f6f7f6] text-[#0e1110] font-sans antialiased overflow-hidden h-screen w-screen flex select-none">
+
+  <!-- RAIL KIRI (44px, #e8ecea, ikon saja tanpa label) -->
+  <aside class="w-[44px] shrink-0 bg-[#e8ecea] border-r border-[rgba(12,26,22,0.12)] flex flex-col items-center justify-between py-3.5 z-20">
+    <div class="flex flex-col items-center gap-4">
+      <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] flex items-center justify-center text-white font-bold text-[11px] font-mono tracking-tight shadow-sm cursor-pointer" title="AgentDeck Core">
+        AD
+      </div>
+      <div class="w-6 h-[1px] bg-[rgba(12,26,22,0.12)]"></div>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Overview">
+        <span class="material-symbols-outlined">dashboard</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Kanban Board">
+        <span class="material-symbols-outlined">view_kanban</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Agent Registry">
+        <span class="material-symbols-outlined">smart_toy</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Approval Queue">
+        <span class="material-symbols-outlined">verified_user</span>
+      </button>
+      <!-- Active Notifications Icon -->
+      <button class="w-8 h-8 rounded-[6px] bg-[#d9e1de] text-[#0d7a70] flex items-center justify-center relative" title="Pusat Notifikasi">
+        <span class="material-symbols-outlined filled">notifications</span>
+        <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+      </button>
+    </div>
+    <div class="flex flex-col items-center gap-3">
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Pengaturan">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+      <!-- Avatar User RZ (26px) + Online green indicator -->
+      <div class="relative cursor-pointer" title="Reza (Owner) — User Scoped ws_8f12a">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#191c1c] text-white text-[10px] font-bold flex items-center justify-center border border-white">
+          RZ
+        </div>
+        <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-[#0d7a70] border-2 border-[#e8ecea] rounded-full"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR (224px, #f6f7f6) -->
+  <nav class="w-[224px] shrink-0 bg-[#f6f7f6] border-r border-[rgba(12,26,22,0.12)] flex flex-col justify-between overflow-y-auto text-[13px] z-10">
+    <div>
+      <!-- Workspace Info -->
+      <div class="p-3.5 border-b border-[rgba(12,26,22,0.07)]">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-mono uppercase text-[#6b7370] font-bold">Workspace</span>
+          <span class="text-[9px] font-mono bg-[#d9e1de] text-[#0d7a70] px-1.5 py-0.5 rounded-[6px] font-bold">USER-SCOPED</span>
+        </div>
+        <div class="flex items-center gap-1.5 mt-1">
+          <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+          <span class="font-mono text-[12px] font-semibold text-[#0e1110] truncate">ws_8f12a (core)</span>
+        </div>
+      </div>
+
+      <!-- Navigasi Utama -->
+      <div class="p-2 space-y-4">
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-[#6b7370]">Navigasi Utama</span>
+          <ul class="mt-1 space-y-0.5">
+            <li>
+              <a href="#projects" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#eceeef] transition-colors">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">folder</span>
+                  <span class="truncate text-[12px]">Semua Proyek</span>
+                </div>
+                <span class="text-[11px] font-mono text-[#6b7370]">3</span>
+              </a>
+            </li>
+            <li>
+              <a href="#boards" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#eceeef] transition-colors">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">table_chart</span>
+                  <span class="truncate text-[12px]">Semua Board</span>
+                </div>
+                <span class="text-[11px] font-mono text-[#6b7370]">6</span>
+              </a>
+            </li>
+            <li>
+              <a href="#agents" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#eceeef] transition-colors">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">smart_toy</span>
+                  <span class="truncate text-[12px]">Agent Registry</span>
+                </div>
+                <span class="text-[11px] font-mono text-[#6b7370]">5</span>
+              </a>
+            </li>
+            <li>
+              <a href="#approvals" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#eceeef] transition-colors">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">verified_user</span>
+                  <span class="truncate text-[12px]">Antrean Approval</span>
+                </div>
+                <span class="text-[11px] font-mono bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-bold">1</span>
+              </a>
+            </li>
+            <!-- Active Notifications in Sidebar -->
+            <li>
+              <a href="/notifications" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] font-semibold border-l-2 border-[#0d7a70]">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined filled text-[16px] text-[#0d7a70]">notifications</span>
+                  <span class="truncate text-[12px]">Pusat Notifikasi</span>
+                </div>
+                <span class="text-[10px] font-mono bg-[#0d7a70] text-white px-1.5 py-0.2 rounded-full font-bold">4</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-[#6b7370]">Audit & Biaya</span>
+          <ul class="mt-1 space-y-0.5">
+            <li>
+              <a href="#cost-ledger" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#eceeef] transition-colors">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">payments</span>
+                  <span class="truncate text-[12px]">Cost Ledger</span>
+                </div>
+                <span class="text-[9px] font-mono bg-[#d9e1de] text-[#0d7a70] px-1 py-0.2 rounded font-bold">LIVE</span>
+              </a>
+            </li>
+            <li>
+              <a href="#audit-log" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#eceeef] transition-colors">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">history</span>
+                <span class="truncate text-[12px]">Audit Log</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Sidebar -->
+    <div class="p-2 border-t border-[rgba(12,26,22,0.07)] bg-[#f0f2f1]">
+      <div class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] bg-[#e1e3e2] text-[11px] font-mono text-[#4d5553]">
+        <span class="w-2 h-2 rounded-full bg-[#0d7a70] animate-pulse"></span>
+        <span class="truncate font-medium">daemon :8080 • v2.4</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- PUSAT: TOPBAR + MAIN CONTENT AREA (Blueprint A) -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f6f7f6]">
+    
+    <!-- TOPBAR (52px, #ffffff, HANYA di atas pane konten) -->
+    <header class="h-[52px] shrink-0 bg-[#ffffff] border-b border-[rgba(12,26,22,0.12)] px-5 flex items-center justify-between gap-4 z-10">
+      <!-- Breadcrumb & Scoped Tag -->
+      <div class="flex items-center gap-2 text-[12px] min-w-0">
+        <span class="text-[#4d5553] hover:text-[#0e1110] cursor-pointer">AgentDeck</span>
+        <span class="text-[#6b7370] text-[10px]">/</span>
+        <span class="font-semibold text-[#0e1110] truncate">Pusat Notifikasi</span>
+        <span class="font-mono text-[10px] text-[#0d7a70] bg-[#eef7f5] px-1.5 py-0.5 rounded-[6px] border border-[rgba(13,122,112,0.2)]">/notifications</span>
+      </div>
+
+      <!-- Center & Right Tools -->
+      <div class="flex items-center gap-3 shrink-0">
+        <!-- AC5 User Isolation Scope Tag -->
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] text-[11px] font-mono text-[#4d5553]">
+          <span class="material-symbols-outlined text-[14px] text-[#0d7a70]">lock_person</span>
+          <span>Scope: Reza (User ID: usr_reza_01)</span>
+        </div>
+
+        <div class="h-4 w-[1px] bg-[rgba(12,26,22,0.12)]"></div>
+
+        <!-- AC2: Aksi Tandai Semua Terbaca -->
+        <button class="h-8 px-3 text-[12px] font-medium bg-white text-[#0e1110] hover:bg-[#f6f7f6] rounded-[6px] border border-[rgba(12,26,22,0.12)] flex items-center gap-1.5 shadow-sm transition-colors" title="Tandai semua notifikasi pengguna sebagai terbaca">
+          <span class="material-symbols-outlined text-[16px] text-[#0d7a70]">done_all</span>
+          <span>Tandai semua terbaca</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- KONTEN PUSAT (Scrollable vertikal, padding 20px) -->
+    <main class="flex-1 overflow-y-auto p-5 space-y-4">
+      
+      <!-- Compliance Banner US-AD61 -->
+      <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.12)] rounded-[10px] p-3.5 shadow-sm flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#eef7f5] border border-[rgba(13,122,112,0.3)] text-[#0d7a70] font-mono text-[11px] font-bold">
+            <span class="material-symbols-outlined filled text-[14px]">verified</span>
+            US-AD61 (AC1, AC2, AC3, AC4, AC5) COMPLIANT
+          </span>
+          <span class="text-[11px] font-mono text-[#6b7370] px-2 py-0.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+            M1 Milestone • Must-have
+          </span>
+          <span class="text-[11px] text-[#4d5553]">
+            Menampilkan notifikasi berjenjang kepentingan dengan isolasi sesi pengguna mandiri.
+          </span>
+        </div>
+        <div class="flex items-center gap-2 text-[11px] font-mono text-[#6b7370]">
+          <span>Unread: <strong class="text-[#0d7a70]">4</strong></span>
+          <span>•</span>
+          <span>Total: <strong>6</strong></span>
+        </div>
+      </div>
+
+      <!-- AC1: Filter Tingkat Kepentingan (Info, Sukses, Peringatan, Gagal) -->
+      <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.12)] rounded-[10px] p-2.5 shadow-sm flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-1.5">
+          <span class="text-[11px] font-bold text-[#6b7370] uppercase px-2">Tingkat Kepentingan:</span>
+          
+          <button class="px-2.5 py-1 rounded-[6px] bg-[#0d7a70] text-white text-[11px] font-medium flex items-center gap-1">
+            <span>Semua</span>
+            <span class="bg-white/20 text-white rounded-full px-1.5 py-0.2 text-[10px] font-mono">6</span>
+          </button>
+          
+          <!-- Tingkat Info -->
+          <button class="px-2.5 py-1 rounded-[6px] bg-[#f6f7f6] text-[#4d5553] hover:bg-[#eceeef] text-[11px] font-medium flex items-center gap-1.5 border border-[rgba(12,26,22,0.07)]">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            <span>Info</span>
+            <span class="text-[#6b7370] font-mono text-[10px]">2</span>
+          </button>
+
+          <!-- Tingkat Sukses -->
+          <button class="px-2.5 py-1 rounded-[6px] bg-[#f6f7f6] text-[#4d5553] hover:bg-[#eceeef] text-[11px] font-medium flex items-center gap-1.5 border border-[rgba(12,26,22,0.07)]">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Sukses</span>
+            <span class="text-[#6b7370] font-mono text-[10px]">1</span>
+          </button>
+
+          <!-- Tingkat Peringatan -->
+          <button class="px-2.5 py-1 rounded-[6px] bg-[#f6f7f6] text-[#4d5553] hover:bg-[#eceeef] text-[11px] font-medium flex items-center gap-1.5 border border-[rgba(12,26,22,0.07)]">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span>Peringatan</span>
+            <span class="text-[#6b7370] font-mono text-[10px]">2</span>
+          </button>
+
+          <!-- Tingkat Gagal -->
+          <button class="px-2.5 py-1 rounded-[6px] bg-[#f6f7f6] text-[#4d5553] hover:bg-[#eceeef] text-[11px] font-medium flex items-center gap-1.5 border border-[rgba(12,26,22,0.07)]">
+            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+            <span>Gagal</span>
+            <span class="text-[#6b7370] font-mono text-[10px]">1</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Filter Belum Terbaca -->
+          <div class="flex items-center gap-1.5 text-[11px] text-[#4d5553] pr-2">
+            <input type="checkbox" id="unread-only" class="rounded-[4px] border-[rgba(12,26,22,0.18)] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5"/>
+            <label for="unread-only" class="cursor-pointer">Belum dibaca saja</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- DAFTAR NOTIFIKASI (AC1, AC2, AC5) -->
+      <div class="space-y-2">
+
+        <!-- Item 1: Tingkat GAGAL (Unread) -->
+        <div class="bg-[#ffffff] border-l-4 border-l-rose-500 border-y border-r border-[rgba(12,26,22,0.12)] rounded-[10px] p-[10px] shadow-sm hover:border-[rgba(13,122,112,0.3)] transition-all">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3 min-w-0">
+              <!-- Ikon Tingkat Kepentingan Gagal -->
+              <div class="w-7 h-7 rounded-[6px] bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0 mt-0.5">
+                <span class="material-symbols-outlined text-[16px]">cancel</span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <!-- Waktu (AC1) -->
+                  <span class="text-[11px] font-mono text-[#6b7370] flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">schedule</span>
+                    14:22 WIB (3 menit yang lalu)
+                  </span>
+                  <!-- Tingkat Kepentingan (AC1: gagal) -->
+                  <span class="px-2 py-0.2 rounded-full bg-rose-100 text-rose-700 text-[10px] font-mono font-bold uppercase tracking-tight">
+                    Gagal
+                  </span>
+                  <!-- Belum Terbaca Indicator -->
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]" title="Belum dibaca"></span>
+                </div>
+                <!-- Judul Notifikasi (AC1) -->
+                <h3 class="text-[13px] font-semibold text-[#0e1110] mt-1 leading-snug">
+                  Task run_7f93e2 berhenti: step_03_noop_sync failed (Exit Code 1)
+                </h3>
+                <p class="text-[12px] text-[#4d5553] mt-0.5 leading-relaxed">
+                  Eksekusi agent <code class="font-mono text-[11px] bg-[#f6f7f6] px-1 py-0.2 rounded text-[#0e1110]">agent-security</code> mengalami kegagalan pada validasi token sertifikat TLS di Board Sprint 24.
+                </p>
+              </div>
+            </div>
+
+            <!-- AC2: Aksi Tandai Terbaca Satu per Satu -->
+            <div class="shrink-0 flex items-center gap-1">
+              <button class="h-7 px-2 text-[11px] font-medium text-[#4d5553] hover:text-[#0d7a70] hover:bg-[#eef7f5] rounded-[6px] border border-[rgba(12,26,22,0.12)] flex items-center gap-1 transition-colors" title="Tandai notifikasi ini terbaca (AC2)">
+                <span class="material-symbols-outlined text-[14px]">check</span>
+                <span>Tandai terbaca</span>
+              </button>
+              <button class="w-7 h-7 flex items-center justify-center text-[#6b7370] hover:text-rose-600 rounded-[6px] hover:bg-rose-50 transition-colors" title="Hapus notifikasi">
+                <span class="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Item 2: Tingkat PERINGATAN (Unread) -->
+        <div class="bg-[#ffffff] border-l-4 border-l-amber-500 border-y border-r border-[rgba(12,26,22,0.12)] rounded-[10px] p-[10px] shadow-sm hover:border-[rgba(13,122,112,0.3)] transition-all">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3 min-w-0">
+              <!-- Ikon Tingkat Kepentingan Peringatan -->
+              <div class="w-7 h-7 rounded-[6px] bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                <span class="material-symbols-outlined text-[16px]">warning</span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <!-- Waktu (AC1) -->
+                  <span class="text-[11px] font-mono text-[#6b7370] flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">schedule</span>
+                    14:18 WIB (7 menit yang lalu)
+                  </span>
+                  <!-- Tingkat Kepentingan (AC1: peringatan) -->
+                  <span class="px-2 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-mono font-bold uppercase tracking-tight">
+                    Peringatan
+                  </span>
+                  <!-- Belum Terbaca Indicator -->
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]" title="Belum dibaca"></span>
+                </div>
+                <!-- Judul Notifikasi (AC1) -->
+                <h3 class="text-[13px] font-semibold text-[#0e1110] mt-1 leading-snug">
+                  Approval Tertunda: Drop stale replica instances &amp; reset pool DNS
+                </h3>
+                <p class="text-[12px] text-[#4d5553] mt-0.5 leading-relaxed">
+                  Permintaan mutasi berisiko tinggi oleh <code class="font-mono text-[11px] bg-[#f6f7f6] px-1 py-0.2 rounded text-[#0e1110]">agent-infra</code> memerlukan verifikasi Anda. Sisa waktu TTL keputusan: <strong class="font-mono text-amber-800">14m 20s</strong>.
+                </p>
+              </div>
+            </div>
+
+            <!-- AC2: Aksi Tandai Terbaca Satu per Satu -->
+            <div class="shrink-0 flex items-center gap-1">
+              <button class="h-7 px-2 text-[11px] font-medium text-[#4d5553] hover:text-[#0d7a70] hover:bg-[#eef7f5] rounded-[6px] border border-[rgba(12,26,22,0.12)] flex items-center gap-1 transition-colors" title="Tandai notifikasi ini terbaca (AC2)">
+                <span class="material-symbols-outlined text-[14px]">check</span>
+                <span>Tandai terbaca</span>
+              </button>
+              <button class="w-7 h-7 flex items-center justify-center text-[#6b7370] hover:text-rose-600 rounded-[6px] hover:bg-rose-50 transition-colors" title="Hapus notifikasi">
+                <span class="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Item 3: Tingkat PERINGATAN (Unread - Pagu Anggaran) -->
+        <div class="bg-[#ffffff] border-l-4 border-l-amber-500 border-y border-r border-[rgba(12,26,22,0.12)] rounded-[10px] p-[10px] shadow-sm hover:border-[rgba(13,122,112,0.3)] transition-all">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3 min-w-0">
+              <!-- Ikon Peringatan Pagu -->
+              <div class="w-7 h-7 rounded-[6px] bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                <span class="material-symbols-outlined text-[16px]">account_balance_wallet</span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <!-- Waktu (AC1) -->
+                  <span class="text-[11px] font-mono text-[#6b7370] flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">schedule</span>
+                    13:45 WIB (40 menit yang lalu)
+                  </span>
+                  <!-- Tingkat Kepentingan (AC1: peringatan) -->
+                  <span class="px-2 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[10px] font-mono font-bold uppercase tracking-tight">
+                    Peringatan
+                  </span>
+                  <!-- Belum Terbaca Indicator -->
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]" title="Belum dibaca"></span>
+                </div>
+                <!-- Judul Notifikasi (AC1) -->
+                <h3 class="text-[13px] font-semibold text-[#0e1110] mt-1 leading-snug">
+                  Penggunaan anggaran harian mencapai 24.1% ($4.82 / $20.00)
+                </h3>
+                <p class="text-[12px] text-[#4d5553] mt-0.5 leading-relaxed">
+                  Konsumsi komputasi token berjalan normal di bawah ambang batas throttle 80%. Top spender: <code class="font-mono text-[11px] bg-[#f6f7f6] px-1 py-0.2 rounded text-[#0e1110]">agent-backend ($1.84)</code>.
+                </p>
+              </div>
+            </div>
+
+            <!-- AC2: Aksi Tandai Terbaca Satu per Satu -->
+            <div class="shrink-0 flex items-center gap-1">
+              <button class="h-7 px-2 text-[11px] font-medium text-[#4d5553] hover:text-[#0d7a70] hover:bg-[#eef7f5] rounded-[6px] border border-[rgba(12,26,22,0.12)] flex items-center gap-1 transition-colors" title="Tandai notifikasi ini terbaca (AC2)">
+                <span class="material-symbols-outlined text-[14px]">check</span>
+                <span>Tandai terbaca</span>
+              </button>
+              <button class="w-7 h-7 flex items-center justify-center text-[#6b7370] hover:text-rose-600 rounded-[6px] hover:bg-rose-50 transition-colors" title="Hapus notifikasi">
+                <span class="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Item 4: Tingkat SUKSES (Unread) -->
+        <div class="bg-[#ffffff] border-l-4 border-l-emerald-500 border-y border-r border-[rgba(12,26,22,0.12)] rounded-[10px] p-[10px] shadow-sm hover:border-[rgba(13,122,112,0.3)] transition-all">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3 min-w-0">
+              <!-- Ikon Tingkat Kepentingan Sukses -->
+              <div class="w-7 h-7 rounded-[6px] bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                <span class="material-symbols-outlined text-[16px]">check_circle</span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <!-- Waktu (AC1) -->
+                  <span class="text-[11px] font-mono text-[#6b7370] flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">schedule</span>
+                    12:50 WIB (1 jam yang lalu)
+                  </span>
+                  <!-- Tingkat Kepentingan (AC1: sukses) -->
+                  <span class="px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold uppercase tracking-tight">
+                    Sukses
+                  </span>
+                  <!-- Belum Terbaca Indicator -->
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]" title="Belum dibaca"></span>
+                </div>
+                <!-- Judul Notifikasi (AC1) -->
+                <h3 class="text-[13px] font-semibold text-[#0e1110] mt-1 leading-snug">
+                  Migrasi Skema PostgreSQL Selesai: 21 tabel diterapkan tanpa deviasi
+                </h3>
+                <p class="text-[12px] text-[#4d5553] mt-0.5 leading-relaxed">
+                  Perintah migrasi internal daemon berhasil dijalankan. Token ledger siap untuk pelaporan presisi integer mikro-dolar.
+                </p>
+              </div>
+            </div>
+
+            <!-- AC2: Aksi Tandai Terbaca Satu per Satu -->
+            <div class="shrink-0 flex items-center gap-1">
+              <button class="h-7 px-2 text-[11px] font-medium text-[#4d5553] hover:text-[#0d7a70] hover:bg-[#eef7f5] rounded-[6px] border border-[rgba(12,26,22,0.12)] flex items-center gap-1 transition-colors" title="Tandai notifikasi ini terbaca (AC2)">
+                <span class="material-symbols-outlined text-[14px]">check</span>
+                <span>Tandai terbaca</span>
+              </button>
+              <button class="w-7 h-7 flex items-center justify-center text-[#6b7370] hover:text-rose-600 rounded-[6px] hover:bg-rose-50 transition-colors" title="Hapus notifikasi">
+                <span class="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Item 5: Tingkat INFO (Sudah Terbaca) -->
+        <div class="bg-[#ffffff] opacity-80 border-l-4 border-l-blue-500 border-y border-r border-[rgba(12,26,22,0.12)] rounded-[10px] p-[10px] shadow-sm hover:opacity-100 transition-all">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3 min-w-0">
+              <!-- Ikon Tingkat Kepentingan Info -->
+              <div class="w-7 h-7 rounded-[6px] bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                <span class="material-symbols-outlined text-[16px]">info</span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <!-- Waktu (AC1) -->
+                  <span class="text-[11px] font-mono text-[#6b7370] flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">schedule</span>
+                    10:15 WIB (4 jam yang lalu)
+                  </span>
+                  <!-- Tingkat Kepentingan (AC1: info) -->
+                  <span class="px-2 py-0.2 rounded-full bg-blue-100 text-blue-800 text-[10px] font-mono font-bold uppercase tracking-tight">
+                    Info
+                  </span>
+                  <!-- Status Terbaca -->
+                  <span class="text-[10px] font-mono text-[#6b7370]">Terbaca</span>
+                </div>
+                <!-- Judul Notifikasi (AC1) -->
+                <h3 class="text-[13px] font-semibold text-[#0e1110] mt-1 leading-snug">
+                  Worker Agent Baru Terhubung: agent-docs (claude-3-5-sonnet)
+                </h3>
+                <p class="text-[12px] text-[#4d5553] mt-0.5 leading-relaxed">
+                  Worker berhasil didaftarkan ke workspace Anda dengan kredensial provider terisolasi AES-256-GCM.
+                </p>
+              </div>
+            </div>
+
+            <!-- AC2: Sudah Terbaca State -->
+            <div class="shrink-0 flex items-center gap-1">
+              <span class="text-[11px] font-mono text-[#6b7370] px-2 py-1 flex items-center gap-1">
+                <span class="material-symbols-outlined text-[14px] text-[#0d7a70]">done_all</span>
+                <span>Terbaca</span>
+              </span>
+              <button class="w-7 h-7 flex items-center justify-center text-[#6b7370] hover:text-rose-600 rounded-[6px] hover:bg-rose-50 transition-colors" title="Hapus notifikasi">
+                <span class="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Item 6: Tingkat INFO (Sudah Terbaca) -->
+        <div class="bg-[#ffffff] opacity-80 border-l-4 border-l-blue-500 border-y border-r border-[rgba(12,26,22,0.12)] rounded-[10px] p-[10px] shadow-sm hover:opacity-100 transition-all">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3 min-w-0">
+              <!-- Ikon Tingkat Kepentingan Info -->
+              <div class="w-7 h-7 rounded-[6px] bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                <span class="material-symbols-outlined text-[16px]">sync</span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <!-- Waktu (AC1) -->
+                  <span class="text-[11px] font-mono text-[#6b7370] flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[13px]">schedule</span>
+                    09:00 WIB (5 jam yang lalu)
+                  </span>
+                  <!-- Tingkat Kepentingan (AC1: info) -->
+                  <span class="px-2 py-0.2 rounded-full bg-blue-100 text-blue-800 text-[10px] font-mono font-bold uppercase tracking-tight">
+                    Info
+                  </span>
+                  <!-- Status Terbaca -->
+                  <span class="text-[10px] font-mono text-[#6b7370]">Terbaca</span>
+                </div>
+                <!-- Judul Notifikasi (AC1) -->
+                <h3 class="text-[13px] font-semibold text-[#0e1110] mt-1 leading-snug">
+                  Daemon AgentDeck Berhasil Dijalankan pada Port :8080
+                </h3>
+                <p class="text-[12px] text-[#4d5553] mt-0.5 leading-relaxed">
+                  Inisialisasi single Go binary v2.4 aktif dengan gRPC ingestion dan persistent SSE stream.
+                </p>
+              </div>
+            </div>
+
+            <!-- AC2: Sudah Terbaca State -->
+            <div class="shrink-0 flex items-center gap-1">
+              <span class="text-[11px] font-mono text-[#6b7370] px-2 py-1 flex items-center gap-1">
+                <span class="material-symbols-outlined text-[14px] text-[#0d7a70]">done_all</span>
+                <span>Terbaca</span>
+              </span>
+              <button class="w-7 h-7 flex items-center justify-center text-[#6b7370] hover:text-rose-600 rounded-[6px] hover:bg-rose-50 transition-colors" title="Hapus notifikasi">
+                <span class="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- KARTU KETENTUAN SPEC & JALUR GAGAL (AC4 & AC5) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+        <!-- AC4: Penjelasan Jalur Gagal & Aksi Coba Lagi -->
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.12)] rounded-[10px] p-[10px] shadow-sm">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="material-symbols-outlined text-[16px] text-amber-700">healing</span>
+            <h4 class="text-[12px] font-bold text-[#0e1110]">Protokol Jalur Gagal (US-AD61 AC4)</h4>
+          </div>
+          <p class="text-[11px] text-[#4d5553] leading-relaxed">
+            Jika polling atau stream SSE notifikasi terputus dari daemon, antarmuka menyajikan banner kesalahan informatif dengan tombol <strong>Coba Lagi (Retry Fetch)</strong> tanpa merusak tata letak kanvas.
+          </p>
+          <div class="mt-2.5 p-2 bg-[#f6f7f6] rounded-[6px] border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="text-[10px] font-mono text-[#6b7370]">Simulasi endpoint: GET /api/v1/notifications</span>
+            <button class="px-2 py-0.5 rounded-[4px] bg-white border border-[rgba(12,26,22,0.12)] text-[10px] font-mono text-[#0d7a70] hover:bg-[#eef7f5] flex items-center gap-1">
+              <span class="material-symbols-outlined text-[12px]">refresh</span>
+              <span>Coba lagi</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- AC5: Isolasi Hak Akses & Workspace Bound -->
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.12)] rounded-[10px] p-[10px] shadow-sm">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="material-symbols-outlined text-[16px] text-[#0d7a70]">security</span>
+            <h4 class="text-[12px] font-bold text-[#0e1110]">Isolasi Pengguna &amp; Workspace (US-AD61 AC5)</h4>
+          </div>
+          <p class="text-[11px] text-[#4d5553] leading-relaxed">
+            Kueri basis data diikat secara ketat pada ID pengguna aktif (<code class="font-mono text-[10px] bg-[#f6f7f6] px-1 py-0.2 rounded text-[#0e1110]">usr_reza_01</code>) dan workspace aktif (<code class="font-mono text-[10px] bg-[#f6f7f6] px-1 py-0.2 rounded text-[#0e1110]">ws_8f12a</code>). Tidak ada kebocoran data notifikasi lintas penyewa atau tim lain.
+          </p>
+          <div class="mt-2.5 p-2 bg-[#eef7f5] rounded-[6px] border border-[rgba(13,122,112,0.2)] flex items-center justify-between text-[10px] font-mono text-[#0d7a70]">
+            <span>Filter SQL: WHERE user_id = $1 AND workspace_id = $2</span>
+            <span class="font-bold">ENFORCED</span>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- COST RAIL KANAN (264px, #eef1f0, border-l) — ISI TETAP & PERSIS SESUAI SPESIFIKASI KONTRAK -->
+  <aside class="w-[264px] shrink-0 bg-[#eef1f0] border-l border-[rgba(12,26,22,0.12)] flex flex-col justify-between p-3.5 text-[12px] z-20">
+    <div class="space-y-5">
+      <!-- HEADER COST RAIL -->
+      <div class="flex items-center justify-between border-b border-[rgba(12,26,22,0.07)] pb-2">
+        <div class="flex items-center gap-1.5 font-bold text-[#0e1110] text-[12px]">
+          <span class="material-symbols-outlined text-[16px] text-[#0d7a70]">account_balance_wallet</span>
+          <span>COST LEDGER</span>
+        </div>
+        <span class="text-[10px] font-mono font-bold bg-[#d9e1de] text-[#0d7a70] px-1.5 py-0.5 rounded-[6px]">REALTIME</span>
+      </div>
+
+      <!-- TODAY METER SECTION -->
+      <div class="bg-white p-3 rounded-[10px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[11px] text-[#6b7370] font-mono">
+          <span class="font-bold text-[#0e1110] uppercase">TODAY</span>
+          <span>CAP $20.00</span>
+        </div>
+        <div class="mt-1 flex items-baseline justify-between">
+          <div class="text-xl font-bold font-mono text-[#0e1110] tracking-tight">$4.82</div>
+          <div class="text-[11px] font-mono text-[#6b7370]">Sisa: <span class="font-semibold text-[#0d7a70]">$15.18</span></div>
+        </div>
+        <!-- Meter Bar (budget meter 6px, 24.1% terpakai) -->
+        <div class="w-full bg-[#edeeed] h-[6px] rounded-full mt-2.5 overflow-hidden">
+          <div class="bg-[#0d7a70] h-full rounded-full" style="width: 24.1%;"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] font-mono text-[#6b7370] mt-1.5">
+          <span>24.1% terpakai</span>
+          <span class="text-emerald-700 font-medium">Pagu aman</span>
+        </div>
+      </div>
+
+      <!-- 7-DAY SPARKLINE BAR (SEP 12 - SEP 18) -->
+      <div class="bg-white p-3 rounded-[10px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] mb-2">
+          <span class="font-bold text-[#0e1110] uppercase">7-DAY</span>
+          <span>SEP 12 — SEP 18</span>
+        </div>
+        <!-- Bars Container -->
+        <div class="h-14 flex items-end justify-between gap-1 pt-2 px-1">
+          <!-- Sep 12 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t transition-all" style="height: 35%;" title="Sep 12"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">12</span>
+          </div>
+          <!-- Sep 13 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t transition-all" style="height: 48%;" title="Sep 13"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">13</span>
+          </div>
+          <!-- Sep 14 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t transition-all" style="height: 28%;" title="Sep 14"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">14</span>
+          </div>
+          <!-- Sep 15 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t transition-all" style="height: 65%;" title="Sep 15"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">15</span>
+          </div>
+          <!-- Sep 16 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t transition-all" style="height: 42%;" title="Sep 16"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">16</span>
+          </div>
+          <!-- Sep 17 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t transition-all" style="height: 72%;" title="Sep 17"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">17</span>
+          </div>
+          <!-- Sep 18 (Today - Highlighted) -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70] rounded-t" style="height: 85%;" title="Sep 18 (Hari Ini): $4.82"></div>
+            <span class="text-[9px] font-mono font-bold text-[#0d7a70]">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP SPENDERS (3 baris) -->
+      <div class="bg-white p-3 rounded-[10px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="text-[11px] font-mono text-[#6b7370] uppercase font-bold mb-2.5">TOP SPENDERS</div>
+        <div class="space-y-2">
+          <!-- agent-backend -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-backend</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$1.84</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full mt-1 overflow-hidden">
+              <div class="bg-[#0d7a70] h-full" style="width: 38.1%;"></div>
+            </div>
+          </div>
+          <!-- agent-data -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-data</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$1.42</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full mt-1 overflow-hidden">
+              <div class="bg-[#0d7a70]/80 h-full" style="width: 29.4%;"></div>
+            </div>
+          </div>
+          <!-- agent-docs -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-docs</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$0.91</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full mt-1 overflow-hidden">
+              <div class="bg-[#0d7a70]/60 h-full" style="width: 18.8%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RUNNING NOW -->
+      <div class="bg-white p-3 rounded-[10px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] mb-2">
+          <span class="font-bold text-[#0e1110] uppercase">RUNNING NOW</span>
+          <span class="flex items-center gap-1 text-[#0d7a70] font-bold">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70] animate-pulse"></span>
+            2 ACTIVE
+          </span>
+        </div>
+        <div class="space-y-2 text-[11px] font-mono">
+          <div class="p-2 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] flex flex-col gap-0.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-[#0e1110]">agent-backend</span>
+              <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+            </div>
+          </div>
+          <div class="p-2 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] flex flex-col gap-0.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-[#0e1110]">agent-docs</span>
+              <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COST RAIL FOOTER -->
+    <div class="pt-3 border-t border-[rgba(12,26,22,0.07)] text-[10px] font-mono text-[#6b7370] flex items-center justify-between">
+      <span>AgentDeck Core</span>
+      <span class="text-[#0d7a70] font-bold">µUSD Ledger</span>
+    </div>
+  </aside>
+
+</body>
+</html>

@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>AgentDeck — Detail Approval (/approvals/:id)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "accent": "#0d7a70",
+            "accent-hover": "#0a6159",
+            "accent-tint": "#eef7f5",
+            "text-primary": "#0e1110",
+            "text-secondary": "#4d5553",
+            "text-tertiary": "#6b7370",
+            "surface-page": "#f6f7f6",
+            "surface-panel": "#ffffff",
+            "surface-rail": "#e8ecea",
+            "surface-sidebar": "#f6f7f6",
+            "surface-costrail": "#eef1f0",
+            "status-running": "#d97706",
+            "status-awaiting": "#7c3aed",
+            "status-failed": "#dc2626",
+            "status-done": "#16a34a"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          },
+          borderRadius: {
+            'sm': '6px',
+            'md': '10px',
+            'lg': '14px'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(12, 26, 22, 0.15);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(12, 26, 22, 0.25);
+    }
+  </style>
+</head>
+<body class="bg-surface-page text-text-primary font-sans antialiased overflow-hidden h-screen w-screen flex select-none">
+
+  <!-- 1. RAIL KIRI (44px, #e8ecea, ikon saja tanpa label) -->
+  <aside class="w-[44px] shrink-0 bg-surface-rail border-r border-[rgba(12,26,22,0.12)] flex flex-col items-center justify-between py-3.5 z-20">
+    <div class="flex flex-col items-center gap-3.5">
+      <!-- AD Badge -->
+      <div class="w-7 h-7 rounded-sm bg-[#0d7a70] flex items-center justify-center text-white font-bold text-[11px] font-mono tracking-tight shadow-sm cursor-pointer" title="AgentDeck Core">
+        AD
+      </div>
+      <div class="w-6 h-[1px] bg-[rgba(12,26,22,0.12)]"></div>
+      
+      <!-- Nav Icons -->
+      <button class="w-8 h-8 rounded-sm flex items-center justify-center text-text-secondary hover:bg-[rgba(12,26,22,0.06)] hover:text-text-primary transition-colors" title="Semua Proyek">
+        <span class="material-symbols-outlined">folder</span>
+      </button>
+      <button class="w-8 h-8 rounded-sm flex items-center justify-center text-text-secondary hover:bg-[rgba(12,26,22,0.06)] hover:text-text-primary transition-colors" title="Semua Board">
+        <span class="material-symbols-outlined">grid_view</span>
+      </button>
+      <button class="w-8 h-8 rounded-sm flex items-center justify-center text-text-secondary hover:bg-[rgba(12,26,22,0.06)] hover:text-text-primary transition-colors" title="Agent Registry">
+        <span class="material-symbols-outlined">smart_toy</span>
+      </button>
+      <!-- Active Approval Icon -->
+      <button class="w-8 h-8 rounded-sm bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center font-bold" title="Antrean Approval">
+        <span class="material-symbols-outlined filled">verified_user</span>
+      </button>
+      <button class="w-8 h-8 rounded-sm flex items-center justify-center text-text-secondary hover:bg-[rgba(12,26,22,0.06)] hover:text-text-primary transition-colors" title="Cost Ledger">
+        <span class="material-symbols-outlined">account_balance_wallet</span>
+      </button>
+    </div>
+
+    <div class="flex flex-col items-center gap-3">
+      <button class="w-8 h-8 rounded-sm flex items-center justify-center text-text-secondary hover:bg-[rgba(12,26,22,0.06)] transition-colors" title="Settings">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+      <!-- Avatar User 26px -->
+      <div class="relative cursor-pointer" title="Reza (Owner / Admin)">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#191c1c] text-[#f9f9f8] text-[10px] font-bold flex items-center justify-center border border-white">
+          RZ
+        </div>
+        <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-[#0d7a70] border-2 border-surface-rail rounded-full"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 2. SIDEBAR (224px, #f6f7f6) -->
+  <nav class="w-[224px] shrink-0 bg-surface-sidebar border-r border-[rgba(12,26,22,0.12)] flex flex-col justify-between overflow-y-auto text-[13px] z-10">
+    <div>
+      <!-- Header Sidebar -->
+      <div class="p-3 border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="font-bold text-[11px] tracking-tight uppercase text-text-primary">WORKSPACE</span>
+            <span class="text-[9px] font-mono bg-[#eef7f5] text-[#0d7a70] px-1 py-0.2 rounded font-semibold border border-[#0d7a70]/20">M3</span>
+          </div>
+          <p class="text-[11px] text-text-secondary font-mono mt-0.5 truncate">ws_8f12a (core)</p>
+        </div>
+        <span class="text-[9px] font-mono uppercase bg-[rgba(12,26,22,0.06)] text-text-secondary px-1.5 py-0.5 rounded font-bold">PROD</span>
+      </div>
+
+      <!-- Navigation Links -->
+      <div class="p-2 space-y-4">
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Navigasi Utama</span>
+          <ul class="mt-1 space-y-0.5">
+            <li>
+              <a href="#proyek" class="flex items-center justify-between px-2 py-1.5 rounded-sm text-text-secondary hover:bg-[rgba(12,26,22,0.04)] hover:text-text-primary transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-text-tertiary">folder</span>
+                  <span class="text-[12px]">Semua Proyek</span>
+                </div>
+                <span class="text-[10px] font-mono text-text-tertiary">3</span>
+              </a>
+            </li>
+            <li>
+              <a href="#boards" class="flex items-center justify-between px-2 py-1.5 rounded-sm text-text-secondary hover:bg-[rgba(12,26,22,0.04)] hover:text-text-primary transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-text-tertiary">grid_view</span>
+                  <span class="text-[12px]">Semua Board</span>
+                </div>
+                <span class="text-[10px] font-mono text-text-tertiary">6</span>
+              </a>
+            </li>
+            <li>
+              <a href="#agents" class="flex items-center justify-between px-2 py-1.5 rounded-sm text-text-secondary hover:bg-[rgba(12,26,22,0.04)] hover:text-text-primary transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-text-tertiary">smart_toy</span>
+                  <span class="text-[12px]">Agent Registry</span>
+                </div>
+                <span class="text-[10px] font-mono text-text-tertiary">5</span>
+              </a>
+            </li>
+            <!-- Active Antrean Approval -->
+            <li>
+              <a href="#approvals" class="flex items-center justify-between px-2 py-1.5 rounded-sm bg-[#eef7f5] text-[#0d7a70] font-semibold border-l-2 border-[#0d7a70]">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined filled text-[16px] text-[#0d7a70]">verified_user</span>
+                  <span class="text-[12px]">Antrean Approval</span>
+                </div>
+                <span class="text-[10px] font-mono bg-[#0d7a70] text-white px-1.5 py-0.2 rounded-full font-bold">1</span>
+              </a>
+            </li>
+            <li>
+              <a href="#ledger" class="flex items-center justify-between px-2 py-1.5 rounded-sm text-text-secondary hover:bg-[rgba(12,26,22,0.04)] hover:text-text-primary transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-text-tertiary">account_balance_wallet</span>
+                  <span class="text-[12px]">Ringkasan Biaya</span>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Armada Aktif</span>
+          <ul class="mt-1 space-y-1">
+            <li class="flex items-center justify-between px-2 py-1 text-[11px] font-mono">
+              <div class="flex items-center gap-1.5">
+                <!-- Avatar agent 20px -->
+                <div class="w-5 h-5 rounded-full bg-[#eef7f5] text-[#0d7a70] text-[9px] font-bold flex items-center justify-center border border-[#0d7a70]/30">be</div>
+                <span class="text-text-primary">agent-backend</span>
+              </div>
+              <span class="w-2 h-2 rounded-full bg-status-done"></span>
+            </li>
+            <li class="flex items-center justify-between px-2 py-1 text-[11px] font-mono">
+              <div class="flex items-center gap-1.5">
+                <div class="w-5 h-5 rounded-full bg-[#eef7f5] text-[#0d7a70] text-[9px] font-bold flex items-center justify-center border border-[#0d7a70]/30">in</div>
+                <span class="text-text-primary font-semibold text-[#0d7a70]">agent-infra</span>
+              </div>
+              <span class="w-2 h-2 rounded-full bg-status-awaiting animate-pulse" title="Awaiting approval"></span>
+            </li>
+            <li class="flex items-center justify-between px-2 py-1 text-[11px] font-mono">
+              <div class="flex items-center gap-1.5">
+                <div class="w-5 h-5 rounded-full bg-[#eef7f5] text-[#0d7a70] text-[9px] font-bold flex items-center justify-center border border-[#0d7a70]/30">sc</div>
+                <span class="text-text-secondary">agent-security</span>
+              </div>
+              <span class="w-2 h-2 rounded-full bg-[rgba(12,26,22,0.25)]"></span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Sidebar -->
+    <div class="p-2 border-t border-[rgba(12,26,22,0.07)] bg-surface-sidebar">
+      <div class="flex items-center gap-2 px-2 py-1.5 rounded-sm bg-[rgba(12,26,22,0.04)] text-[11px] font-mono text-text-secondary">
+        <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+        <span class="truncate">daemon :8080 • v2.4</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 3. PUSAT: TOPBAR 52px + MAIN PANE KONTEN (SCROLLABLE, BLUEPRINT B 5-KOLOM 268px GAP 8px) -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-surface-page">
+    <!-- TOPBAR 52px (HANYA di atas pane konten) -->
+    <header class="h-[52px] shrink-0 bg-surface-panel border-b border-[rgba(12,26,22,0.12)] px-4 flex items-center justify-between gap-3 z-10">
+      <!-- Breadcrumb / Route Target -->
+      <div class="flex items-center gap-2 text-[12px] min-w-0">
+        <span class="text-text-secondary hover:text-text-primary cursor-pointer">Antrean Approval</span>
+        <span class="text-text-tertiary text-[10px]">/</span>
+        <span class="font-mono text-text-tertiary">appr_9b42f1</span>
+        <span class="text-text-tertiary text-[10px]">/</span>
+        <span class="font-semibold text-text-primary truncate">Detail Approval</span>
+        <span class="font-mono text-[10px] text-[#0d7a70] bg-[#eef7f5] px-1.5 py-0.5 rounded-sm border border-[#0d7a70]/20">/approvals/:id</span>
+        <span class="text-[10px] font-mono uppercase bg-purple-50 text-purple-700 px-1.5 py-0.2 rounded-sm font-bold border border-purple-200">awaiting_approval</span>
+      </div>
+
+      <!-- Action Area Topbar -->
+      <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-1.5 px-2 py-1 rounded-sm bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-mono">
+          <span class="material-symbols-outlined text-[14px]">timer</span>
+          <span>TTL: 14m 20s tersisa</span>
+        </div>
+        <div class="h-4 w-[1px] bg-[rgba(12,26,22,0.12)]"></div>
+        <button class="h-7 px-2.5 text-[11px] font-mono text-text-secondary hover:bg-[rgba(12,26,22,0.06)] rounded-sm border border-[rgba(12,26,22,0.12)] flex items-center gap-1" title="Kembali ke antrean">
+          <span class="material-symbols-outlined text-[14px]">arrow_back</span>
+          <span>Daftar</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- PANE KONTEN: BLUEPRINT B (5 KOLOM x 268px, gap 8px, top edge 3px warna status, tiap kolom scroll sendiri) -->
+    <main class="flex-1 overflow-x-auto overflow-y-hidden p-3 bg-surface-page">
+      <div class="flex h-full gap-2 items-start" style="width: calc(5 * 268px + 4 * 8px);">
+
+        <!-- KOLOM 1 (268px): INFORMASI TASK & AGENT (Top Edge 3px: Signal Teal #0d7a70) -->
+        <section class="w-[268px] shrink-0 h-full flex flex-col bg-surface-panel rounded-md border border-[rgba(12,26,22,0.07)] overflow-hidden shadow-sm relative">
+          <!-- Top edge 3px status line -->
+          <div class="h-[3px] w-full bg-[#0d7a70] shrink-0"></div>
+          
+          <!-- Header Kolom (30px) -->
+          <div class="h-[30px] px-2.5 bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+              <h2 class="text-[11px] font-bold uppercase tracking-wider text-text-primary">1. Konteks Task</h2>
+            </div>
+            <span class="text-[9px] font-mono text-text-tertiary">US-AD34</span>
+          </div>
+
+          <!-- Isi Kolom 1 (Scroll sendiri) -->
+          <div class="flex-1 overflow-y-auto p-2.5 space-y-2.5 text-[12px]">
+            <!-- Kartu Metadata Task (padding 10px, radius 6px) -->
+            <div class="p-2.5 bg-surface-page rounded-sm border border-[rgba(12,26,22,0.07)] space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-mono text-text-tertiary">TASK ID</span>
+                <span class="text-[11px] font-mono font-bold text-[#0d7a70]">task-419b</span>
+              </div>
+              <div>
+                <span class="text-[10px] uppercase font-bold text-text-tertiary block">Judul Permintaan:</span>
+                <h3 class="text-[12px] font-semibold text-text-primary leading-snug mt-0.5">
+                  Drop stale replica instances &amp; reset pool DNS
+                </h3>
+              </div>
+              <div class="flex items-center gap-1 flex-wrap pt-1 border-t border-[rgba(12,26,22,0.07)] text-[10px] font-mono">
+                <span class="px-1.5 py-0.2 rounded-sm bg-white border border-[rgba(12,26,22,0.12)] text-text-secondary">Board: infra-fleet</span>
+                <span class="px-1.5 py-0.2 rounded-sm bg-white border border-[rgba(12,26,22,0.12)] text-text-secondary">Sprint 24</span>
+              </div>
+            </div>
+
+            <!-- Kartu Agent Pemohon (padding 10px) -->
+            <div class="p-2.5 bg-surface-page rounded-sm border border-[rgba(12,26,22,0.07)] space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] uppercase font-bold text-text-tertiary">Agent Pemohon</span>
+                <span class="text-[9px] font-mono bg-emerald-50 text-emerald-700 px-1 py-0.2 rounded-sm border border-emerald-200 font-bold">VERIFIED</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <!-- Avatar agent 20px -->
+                <div class="w-5 h-5 rounded-full bg-[#eef7f5] text-[#0d7a70] text-[9px] font-bold flex items-center justify-center border border-[#0d7a70]/30 shrink-0">
+                  ai
+                </div>
+                <div class="min-w-0">
+                  <div class="text-[12px] font-mono font-semibold text-text-primary truncate">agent-infra</div>
+                  <div class="text-[10px] text-text-tertiary truncate">Provider: OpenAI (gpt-4o)</div>
+                </div>
+              </div>
+              <div class="bg-white p-2 rounded-sm border border-[rgba(12,26,22,0.07)] text-[11px] space-y-1 font-mono">
+                <div class="flex justify-between text-text-secondary">
+                  <span>Policy Gate:</span>
+                  <span class="font-bold text-purple-700">require_approval</span>
+                </div>
+                <div class="flex justify-between text-text-secondary">
+                  <span>Trigger:</span>
+                  <span>tool:bash_exec</span>
+                </div>
+                <div class="flex justify-between text-text-secondary">
+                  <span>Step Index:</span>
+                  <span>4 / 6 (Step 04)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Kartu Estimasi Dampak Biaya (padding 10px) -->
+            <div class="p-2.5 bg-surface-page rounded-sm border border-[rgba(12,26,22,0.07)] space-y-1.5">
+              <span class="text-[10px] uppercase font-bold text-text-tertiary block">Telemetri &amp; Biaya Run</span>
+              <div class="flex items-baseline justify-between font-mono">
+                <span class="text-[11px] text-text-secondary">Estimasi Biaya:</span>
+                <span class="text-[13px] font-bold text-[#0d7a70]">$0.0440</span>
+              </div>
+              <div class="flex items-baseline justify-between font-mono text-[10px] text-text-tertiary">
+                <span>Precision:</span>
+                <span>44,000 µUSD</span>
+              </div>
+              <p class="text-[10px] text-text-tertiary leading-tight pt-1 border-t border-[rgba(12,26,22,0.07)]">
+                Eksekusi terhenti otomatis oleh daemon saat memanggil aksi destruktif infrastruktur.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- KOLOM 2 (268px): INSPEKSI AKSI & DIFF PERINTAH (Top Edge 3px: Warning Amber #d97706) -->
+        <section class="w-[268px] shrink-0 h-full flex flex-col bg-surface-panel rounded-md border border-[rgba(12,26,22,0.07)] overflow-hidden shadow-sm relative">
+          <!-- Top edge 3px status line -->
+          <div class="h-[3px] w-full bg-status-running shrink-0"></div>
+          
+          <!-- Header Kolom (30px) -->
+          <div class="h-[30px] px-2.5 bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-status-running"></span>
+              <h2 class="text-[11px] font-bold uppercase tracking-wider text-text-primary">2. Aksi &amp; Diff CLI</h2>
+            </div>
+            <span class="text-[9px] font-mono text-text-tertiary">bash_exec</span>
+          </div>
+
+          <!-- Isi Kolom 2 (Scroll sendiri) -->
+          <div class="flex-1 overflow-y-auto p-2.5 space-y-2.5 text-[12px]">
+            <!-- Deskripsi Tool Aksi -->
+            <div class="p-2.5 bg-surface-page rounded-sm border border-[rgba(12,26,22,0.07)] space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-mono text-text-tertiary uppercase">Target Invocation</span>
+                <span class="text-[9px] font-mono text-amber-800 bg-amber-50 px-1 py-0.2 rounded-sm border border-amber-200">RISK: HIGH</span>
+              </div>
+              <div class="font-mono text-[11px] text-text-primary bg-white p-1.5 rounded-sm border border-[rgba(12,26,22,0.07)]">
+                infra_cli drop_replica
+              </div>
+              <p class="text-[10px] text-text-tertiary">
+                Penghapusan node pod dan deregistrasi rekod DNS upstream service pool.
+              </p>
+            </div>
+
+            <!-- Blok Diff Perintah CLI (Monospace Dark Box) -->
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-[10px] font-mono text-text-tertiary">
+                <span>PREVIEW DIFF MUTASI</span>
+                <span>posix diff</span>
+              </div>
+              <div class="bg-[#101014] text-[#f6f7f6] rounded-sm p-2 font-mono text-[11px] leading-relaxed border border-[rgba(12,26,22,0.18)] overflow-x-auto">
+                <div class="text-text-tertiary text-[10px] pb-1 border-b border-gray-800 mb-1.5"># Command Arguments</div>
+                <div class="text-cyan-400">$ EXEC tool="infra_cli"</div>
+                <div class="text-yellow-300">&gt; zone="prod-sg-1"</div>
+                <div class="text-yellow-300">&gt; action="drop_replica"</div>
+                <div class="text-red-400 mt-1 font-semibold">- DROP INSTANCE "node-03.internal" force=true</div>
+                <div class="text-emerald-400 font-semibold">+ RECONFIGURE POOL pg_max_conn=64</div>
+                <div class="text-emerald-400 font-semibold">+ SET DNS_TTL=10s</div>
+              </div>
+            </div>
+
+            <!-- Detail Parameter Payload -->
+            <div class="p-2 bg-surface-page rounded-sm border border-[rgba(12,26,22,0.07)] text-[10px] font-mono space-y-1">
+              <div class="text-text-tertiary uppercase font-bold">Snapshot Environment:</div>
+              <div class="flex justify-between text-text-secondary">
+                <span>Cluster:</span>
+                <span class="text-text-primary">k8s-prod-sg-core</span>
+              </div>
+              <div class="flex justify-between text-text-secondary">
+                <span>Timeout TTL:</span>
+                <span class="text-text-primary">30 menit (max)</span>
+              </div>
+              <div class="flex justify-between text-text-secondary">
+                <span>Rollback hook:</span>
+                <span class="text-[#0d7a70]">enabled</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- KOLOM 3 (268px): US-AD34 FORM APPROVE (Top Edge 3px: Done Green #16a34a) -->
+        <section class="w-[268px] shrink-0 h-full flex flex-col bg-surface-panel rounded-md border border-[rgba(12,26,22,0.07)] overflow-hidden shadow-sm relative">
+          <!-- Top edge 3px status line -->
+          <div class="h-[3px] w-full bg-status-done shrink-0"></div>
+          
+          <!-- Header Kolom (30px) -->
+          <div class="h-[30px] px-2.5 bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-status-done"></span>
+              <h2 class="text-[11px] font-bold uppercase tracking-wider text-text-primary">3. Eksekusi Approve</h2>
+            </div>
+            <span class="text-[9px] font-mono bg-emerald-50 text-emerald-700 px-1 py-0.2 rounded-sm border border-emerald-200 font-bold">US-AD34</span>
+          </div>
+
+          <!-- Isi Kolom 3 (Scroll sendiri) -->
+          <div class="flex-1 overflow-y-auto p-2.5 space-y-2.5 text-[12px]">
+            <!-- Ringkasan Persetujuan (Must M3, US-AD34) -->
+            <div class="p-2.5 bg-[#eef7f5] rounded-sm border border-[#0d7a70]/30 space-y-1.5">
+              <div class="flex items-center gap-1.5 text-[#0d7a70] font-bold text-[11px]">
+                <span class="material-symbols-outlined text-[15px]">verified</span>
+                <span>Ringkasan Persetujuan</span>
+              </div>
+              <p class="text-[11px] text-text-secondary leading-snug">
+                Menyetujui approval ini akan langsung memicu daemon Go melanjutkan proses <code class="font-mono text-[10px] text-[#0d7a70]">step.started</code> untuk eksekusi perintah CLI.
+              </p>
+            </div>
+
+            <!-- Data Otorisasi User -->
+            <div class="p-2.5 bg-surface-page rounded-sm border border-[rgba(12,26,22,0.07)] space-y-2">
+              <span class="text-[10px] uppercase font-bold text-text-tertiary block">Hak Akses Penyetuju</span>
+              <div class="flex items-center gap-2">
+                <!-- Avatar user 26px -->
+                <div class="w-[26px] h-[26px] rounded-full bg-[#191c1c] text-[#f9f9f8] text-[10px] font-bold flex items-center justify-center border border-white shrink-0">
+                  RZ
+                </div>
+                <div class="min-w-0">
+                  <div class="text-[11px] font-semibold text-text-primary">Reza (Owner)</div>
+                  <div class="text-[10px] text-[#0d7a70] font-mono">Role: admin/owner (Lolos)</div>
+                </div>
+              </div>
+              <div class="text-[10px] text-text-tertiary bg-white p-2 rounded-sm border border-[rgba(12,26,22,0.07)] space-y-1 font-mono">
+                <div>Route: <span class="text-text-primary">POST /api/v1/approvals/:id/approve</span></div>
+                <div>Payload: <span class="text-text-primary">{"decision": "approved"}</span></div>
+              </div>
+            </div>
+
+            <!-- Tombol Utama Approve -->
+            <div class="space-y-1.5 pt-1">
+              <button class="w-full py-2 px-3 bg-[#0d7a70] hover:bg-[#0a6159] text-white rounded-sm font-semibold text-[12px] flex items-center justify-center gap-1.5 shadow-sm transition-colors">
+                <span class="material-symbols-outlined text-[16px]">check_circle</span>
+                <span>Setujui &amp; Jalankan Run</span>
+              </button>
+              <p class="text-[10px] text-text-tertiary text-center leading-tight">
+                Aksi persetujuan dicatat secara permanen di immutable audit ledger.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- KOLOM 4 (268px): US-AD35 FORM REJECT DENGAN FIELD REASON WAJIB (Top Edge 3px: Danger Red #dc2626) -->
+        <section class="w-[268px] shrink-0 h-full flex flex-col bg-surface-panel rounded-md border border-[rgba(12,26,22,0.07)] overflow-hidden shadow-sm relative">
+          <!-- Top edge 3px status line -->
+          <div class="h-[3px] w-full bg-status-failed shrink-0"></div>
+          
+          <!-- Header Kolom (30px) -->
+          <div class="h-[30px] px-2.5 bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-status-failed"></span>
+              <h2 class="text-[11px] font-bold uppercase tracking-wider text-text-primary">4. Formulir Tolak</h2>
+            </div>
+            <span class="text-[9px] font-mono bg-red-50 text-red-700 px-1 py-0.2 rounded-sm border border-red-200 font-bold">US-AD35 (AC2)</span>
+          </div>
+
+          <!-- Isi Kolom 4 (Scroll sendiri) -->
+          <div class="flex-1 overflow-y-auto p-2.5 space-y-2.5 text-[12px]">
+            <!-- Compliance Badge & Penjelasan AC2 -->
+            <div class="p-2 bg-red-50 rounded-sm border border-red-200 space-y-1">
+              <div class="flex items-center gap-1 text-status-failed font-bold text-[11px]">
+                <span class="material-symbols-outlined text-[15px]">report_problem</span>
+                <span>US-AD35 AC2 Wajib</span>
+              </div>
+              <p class="text-[10px] text-red-900 leading-tight">
+                Alasan penolakan wajib diisi (field <code class="font-mono text-status-failed bg-white px-1 rounded-sm border border-red-200">reason</code>) sebelum tombol tolak dapat dikirim.
+              </p>
+            </div>
+
+            <!-- Form Penolakan (Field Reason Wajib) -->
+            <form class="space-y-2.5" onsubmit="event.preventDefault();">
+              <div>
+                <label for="reject-reason" class="block text-[11px] font-bold text-text-primary mb-1">
+                  Alasan Penolakan <span class="text-status-failed">* (Wajib)</span>
+                </label>
+                <textarea id="reject-reason" rows="4" required class="w-full text-[12px] rounded-sm border border-[rgba(12,26,22,0.18)] bg-white p-2 text-text-primary placeholder:text-text-tertiary focus:border-status-failed focus:ring-1 focus:ring-status-failed" placeholder="Tuliskan alasan penolakan secara spesifik (contoh: load traffic jam sibuk, tunda hingga window maintenance)..."></textarea>
+                <span class="text-[9px] font-mono text-text-tertiary mt-0.5 block">
+                  Field `reason` minimum 10 karakter. Disimpan ke run log.
+                </span>
+              </div>
+
+              <!-- Pilihan Template Alasan Cepat -->
+              <div class="space-y-1">
+                <span class="text-[10px] font-mono text-text-tertiary uppercase">Template Alasan Cepat:</span>
+                <div class="space-y-1">
+                  <button type="button" class="w-full text-left p-1.5 rounded-sm bg-surface-page hover:bg-[rgba(12,26,22,0.06)] border border-[rgba(12,26,22,0.07)] text-[10px] text-text-secondary truncate block">
+                    • Window maintenance di luar jam kerja (02:00 UTC)
+                  </button>
+                  <button type="button" class="w-full text-left p-1.5 rounded-sm bg-surface-page hover:bg-[rgba(12,26,22,0.06)] border border-[rgba(12,26,22,0.07)] text-[10px] text-text-secondary truncate block">
+                    • Replikasi DB masih mengalami sinkronisasi lag
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tombol Tolak Merah -->
+              <div class="pt-1">
+                <button type="submit" class="w-full py-2 px-3 bg-status-failed hover:bg-[#b91c1c] text-white rounded-sm font-semibold text-[12px] flex items-center justify-center gap-1.5 shadow-sm transition-colors">
+                  <span class="material-symbols-outlined text-[16px]">cancel</span>
+                  <span>Tolak Permintaan (Reject)</span>
+                </button>
+                <span class="text-[9px] font-mono text-text-tertiary text-center block mt-1">
+                  POST /api/v1/approvals/:id/reject
+                </span>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- KOLOM 5 (268px): AUDIT TRAIL & LOG LEDGER (Top Edge 3px: Status Backlog Slate #64748b) -->
+        <section class="w-[268px] shrink-0 h-full flex flex-col bg-surface-panel rounded-md border border-[rgba(12,26,22,0.07)] overflow-hidden shadow-sm relative">
+          <!-- Top edge 3px status line -->
+          <div class="h-[3px] w-full bg-[#64748b] shrink-0"></div>
+          
+          <!-- Header Kolom (30px) -->
+          <div class="h-[30px] px-2.5 bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#64748b]"></span>
+              <h2 class="text-[11px] font-bold uppercase tracking-wider text-text-primary">5. Audit &amp; Event Log</h2>
+            </div>
+            <span class="text-[9px] font-mono text-text-tertiary">Live SSE</span>
+          </div>
+
+          <!-- Isi Kolom 5 (Scroll sendiri) -->
+          <div class="flex-1 overflow-y-auto p-2.5 space-y-2.5 text-[12px]">
+            <!-- Status Timeline Monotonik -->
+            <div class="p-2.5 bg-surface-page rounded-sm border border-[rgba(12,26,22,0.07)] space-y-2">
+              <span class="text-[10px] uppercase font-bold text-text-tertiary block">Jejak Event Run</span>
+              <div class="space-y-2 border-l border-[rgba(12,26,22,0.12)] ml-1 pl-2.5 text-[11px] font-mono">
+                <div>
+                  <div class="text-[10px] text-text-tertiary">14:18:02 WIB</div>
+                  <div class="font-bold text-text-primary">run.started</div>
+                  <div class="text-[10px] text-text-secondary">run_9b42f1 diinisiasi</div>
+                </div>
+                <div>
+                  <div class="text-[10px] text-text-tertiary">14:18:15 WIB</div>
+                  <div class="font-bold text-text-primary">step_01_query</div>
+                  <div class="text-[10px] text-text-secondary">exit_code: 0 ($0.0028)</div>
+                </div>
+                <div>
+                  <div class="text-[10px] text-text-tertiary">14:19:04 WIB</div>
+                  <div class="font-bold text-purple-700">approval.requested</div>
+                  <div class="text-[10px] text-purple-900 font-sans">Aksi ditahan (bash_exec)</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Protokol Keamanan & Hash Integritas -->
+            <div class="p-2.5 bg-surface-page rounded-sm border border-[rgba(12,26,22,0.07)] space-y-1.5 text-[10px] font-mono">
+              <span class="text-text-tertiary uppercase font-bold block">Integritas Audit:</span>
+              <div class="text-text-secondary break-all">
+                Payload SHA256: <br/>
+                <span class="text-text-primary font-bold">sha256:4b8e21a...7f9c</span>
+              </div>
+              <div class="text-text-secondary">
+                Storage: <span class="text-text-primary">PostgreSQL Bytea Enclave</span>
+              </div>
+              <div class="text-text-secondary">
+                Enforcement: <span class="text-emerald-700 font-bold">RBAC US-AD37 AC4</span>
+              </div>
+            </div>
+
+            <!-- Info Kebijakan Kadaluarsa (TTL) -->
+            <div class="p-2 bg-surface-page rounded-sm border border-[rgba(12,26,22,0.07)] text-[10px] text-text-tertiary space-y-1">
+              <span class="font-bold text-text-secondary block">Kebijakan Kadaluarsa (TTL):</span>
+              <p class="leading-tight">
+                Bila tidak direspon dalam waktu 30 menit sejak dipicu, status otomatis beralih ke <code class="font-mono text-[9px] text-red-700">expired</code> dan eksekusi run dibatalkan.
+              </p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- 4. COST RAIL KANAN (264px, #eef1f0, border-l) - ISI TETAP: TODAY, 7-DAY, TOP SPENDERS, RUNNING NOW -->
+  <aside class="w-[264px] shrink-0 bg-surface-costrail border-l border-[rgba(12,26,22,0.12)] flex flex-col justify-between p-3.5 text-[12px] z-20">
+    <div class="space-y-4">
+      <!-- HEADER COST RAIL -->
+      <div class="flex items-center justify-between border-b border-[rgba(12,26,22,0.07)] pb-2">
+        <div class="flex items-center gap-1.5 font-bold text-text-primary text-[12px]">
+          <span class="material-symbols-outlined text-[16px] text-[#0d7a70]">account_balance_wallet</span>
+          <span>COST LEDGER</span>
+        </div>
+        <span class="text-[10px] font-mono font-bold bg-[#eef7f5] text-[#0d7a70] px-1.5 py-0.5 rounded-sm border border-[#0d7a70]/20">REALTIME</span>
+      </div>
+
+      <!-- 1. TODAY (Biaya + Meter Pagu 6px) -->
+      <div class="bg-surface-panel p-2.5 rounded-md border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[11px] text-text-secondary font-mono">
+          <span class="font-bold text-text-primary uppercase">TODAY</span>
+          <span>CAP $20.00</span>
+        </div>
+        <div class="mt-1 flex items-baseline justify-between">
+          <div class="text-xl font-bold font-mono text-text-primary tracking-tight">$4.82</div>
+          <div class="text-[11px] font-mono text-text-secondary">Sisa: <span class="font-semibold text-[#0d7a70]">$15.18</span></div>
+        </div>
+        <!-- Budget meter 6px -->
+        <div class="w-full bg-[rgba(12,26,22,0.06)] h-[6px] rounded-full mt-2 overflow-hidden">
+          <div class="bg-[#0d7a70] h-full rounded-full" style="width: 24.1%;"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] font-mono text-text-tertiary mt-1.5">
+          <span>24.1% terpakai</span>
+          <span class="text-emerald-700 font-medium">Pagu aman</span>
+        </div>
+      </div>
+
+      <!-- 2. 7-DAY (Sparkline Bar) -->
+      <div class="bg-surface-panel p-2.5 rounded-md border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[11px] font-mono text-text-secondary mb-1.5">
+          <span class="font-bold text-text-primary uppercase">7-DAY</span>
+          <span>SEP 12 – SEP 18</span>
+        </div>
+        <!-- Bars Container -->
+        <div class="h-14 flex items-end justify-between gap-1 pt-2 px-1">
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t transition-all" style="height: 45%;" title="Sep 12: $3.10"></div>
+            <span class="text-[9px] font-mono text-text-tertiary">12</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t transition-all" style="height: 60%;" title="Sep 13: $4.20"></div>
+            <span class="text-[9px] font-mono text-text-tertiary">13</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t transition-all" style="height: 30%;" title="Sep 14: $2.05"></div>
+            <span class="text-[9px] font-mono text-text-tertiary">14</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t transition-all" style="height: 75%;" title="Sep 15: $5.40"></div>
+            <span class="text-[9px] font-mono text-text-tertiary">15</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t transition-all" style="height: 50%;" title="Sep 16: $3.50"></div>
+            <span class="text-[9px] font-mono text-text-tertiary">16</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t transition-all" style="height: 85%;" title="Sep 17: $6.12"></div>
+            <span class="text-[9px] font-mono text-text-tertiary">17</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70] rounded-t" style="height: 68%;" title="Sep 18 (Today): $4.82"></div>
+            <span class="text-[9px] font-mono font-bold text-[#0d7a70]">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. TOP SPENDERS (3 Baris) -->
+      <div class="bg-surface-panel p-2.5 rounded-md border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="text-[11px] font-mono text-text-tertiary uppercase font-bold mb-2">TOP SPENDERS</div>
+        <div class="space-y-2">
+          <!-- agent-backend -->
+          <div class="space-y-0.5">
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-text-primary truncate">agent-backend</span>
+              </div>
+              <span class="font-mono font-bold text-text-primary">$1.84</span>
+            </div>
+            <div class="w-full bg-[rgba(12,26,22,0.06)] h-1 rounded-full overflow-hidden">
+              <div class="bg-[#0d7a70] h-full" style="width: 38.1%;"></div>
+            </div>
+          </div>
+          <!-- agent-data -->
+          <div class="space-y-0.5">
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-text-primary truncate">agent-data</span>
+              </div>
+              <span class="font-mono font-bold text-text-primary">$1.42</span>
+            </div>
+            <div class="w-full bg-[rgba(12,26,22,0.06)] h-1 rounded-full overflow-hidden">
+              <div class="bg-[#0d7a70]/80 h-full" style="width: 29.4%;"></div>
+            </div>
+          </div>
+          <!-- agent-docs -->
+          <div class="space-y-0.5">
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-text-primary truncate">agent-docs</span>
+              </div>
+              <span class="font-mono font-bold text-text-primary">$0.91</span>
+            </div>
+            <div class="w-full bg-[rgba(12,26,22,0.06)] h-1 rounded-full overflow-hidden">
+              <div class="bg-[#0d7a70]/60 h-full" style="width: 18.8%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. RUNNING NOW -->
+      <div class="bg-surface-panel p-2.5 rounded-md border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[11px] font-mono text-text-secondary mb-1.5">
+          <span class="font-bold text-text-primary uppercase">RUNNING NOW</span>
+          <span class="flex items-center gap-1 text-[#0d7a70] font-bold">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70] animate-pulse"></span>
+            2 active
+          </span>
+        </div>
+        <div class="space-y-1.5 text-[11px] font-mono">
+          <div class="p-1.5 rounded-sm bg-surface-page border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="font-bold text-text-primary truncate">agent-backend</span>
+            <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded-sm font-semibold">RUNNING</span>
+          </div>
+          <div class="p-1.5 rounded-sm bg-surface-page border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="font-bold text-text-primary truncate">agent-docs</span>
+            <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded-sm font-semibold">RUNNING</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COST RAIL FOOTER -->
+    <div class="pt-2.5 border-t border-[rgba(12,26,22,0.07)] text-[10px] font-mono text-text-tertiary flex items-center justify-between">
+      <span>AgentDeck Core</span>
+      <span class="text-[#0d7a70] font-bold">µUSD Ledger</span>
+    </div>
+  </aside>
+
+</body>
+</html>

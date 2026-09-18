@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgentDeck — Editor Kolom Board (Blueprint C)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#101014",
+            "accent": "#0d7a70",
+            "accent-hover": "#0a6159",
+            "accent-tint": "#eef7f5",
+            "border-subtle": "rgba(12,26,22,0.07)",
+            "border-standard": "rgba(12,26,22,0.12)",
+            "text-primary": "#0e1110",
+            "text-secondary": "#4d5553",
+            "text-tertiary": "#6b7370"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #c8d0cd;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #a3aeaa;
+    }
+  </style>
+</head>
+<body class="bg-[#f6f7f6] text-[#0e1110] font-sans antialiased overflow-hidden h-screen w-screen flex select-none">
+
+  <!-- RAIL KIRI (44px, #e8ecea) -->
+  <aside class="w-[44px] shrink-0 bg-[#e8ecea] border-r border-[rgba(12,26,22,0.12)] flex flex-col items-center justify-between py-3 z-20">
+    <div class="flex flex-col items-center gap-3">
+      <!-- AD Badge -->
+      <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] text-white flex items-center justify-center font-bold text-[11px] font-mono shadow-sm cursor-pointer" title="AgentDeck Core">
+        AD
+      </div>
+      <div class="w-6 h-[1px] bg-[rgba(12,26,22,0.12)]"></div>
+      <!-- Rail Icons (Ikon saja, tanpa label) -->
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#6b7370] hover:bg-[#dce4e1] transition-colors" title="Semua Proyek">
+        <span class="material-symbols-outlined">folder</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] bg-[#d9e1de] text-[#0d7a70] flex items-center justify-center font-semibold" title="Papan Kanban (Aktif)">
+        <span class="material-symbols-outlined filled">view_kanban</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#6b7370] hover:bg-[#dce4e1] transition-colors" title="Agent Registry">
+        <span class="material-symbols-outlined">smart_toy</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#6b7370] hover:bg-[#dce4e1] transition-colors" title="Approvals">
+        <span class="material-symbols-outlined">verified_user</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#6b7370] hover:bg-[#dce4e1] transition-colors" title="Ringkasan Biaya">
+        <span class="material-symbols-outlined">payments</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#6b7370] hover:bg-[#dce4e1] transition-colors" title="Dokumentasi">
+        <span class="material-symbols-outlined">menu_book</span>
+      </button>
+    </div>
+    <div class="flex flex-col items-center gap-3">
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#6b7370] hover:bg-[#dce4e1] transition-colors" title="Pengaturan">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+      <!-- Avatar User RZ (26px) -->
+      <div class="w-[26px] h-[26px] rounded-full bg-[#101014] text-white text-[10px] font-bold flex items-center justify-center border border-white" title="Reza (admin)">
+        RZ
+      </div>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR (224px, #f6f7f6) -->
+  <nav class="w-[224px] shrink-0 bg-[#f6f7f6] border-r border-[rgba(12,26,22,0.12)] flex flex-col justify-between overflow-y-auto text-[13px] z-10">
+    <div class="p-3 space-y-4">
+      <!-- Workspace Box -->
+      <div class="bg-white p-2.5 rounded-[6px] border border-[rgba(12,26,22,0.07)]">
+        <div class="text-[10px] font-mono text-[#6b7370] uppercase tracking-wider font-semibold">Workspace</div>
+        <div class="flex items-center justify-between mt-1">
+          <span class="font-mono font-bold text-[12px] text-[#0e1110] truncate">ws_8f12a</span>
+          <span class="px-1.5 py-0.5 rounded-[4px] bg-[#eef7f5] text-[#0d7a70] text-[9px] font-mono font-bold">admin</span>
+        </div>
+      </div>
+
+      <!-- Navigation Section: Papan Kanban -->
+      <div>
+        <div class="flex items-center justify-between px-1 mb-1.5">
+          <span class="text-[10px] font-mono uppercase font-bold tracking-wider text-[#6b7370]">Papan Kanban</span>
+          <span class="text-[10px] font-mono text-[#6b7370]">4 board</span>
+        </div>
+        <ul class="space-y-0.5">
+          <li>
+            <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] font-semibold border-l-2 border-[#0d7a70]">
+              <div class="flex items-center gap-2 truncate">
+                <span class="material-symbols-outlined text-[16px] text-[#0d7a70]">grid_view</span>
+                <span class="text-[12px] truncate">Sprint 24</span>
+              </div>
+              <span class="text-[10px] font-mono px-1 rounded bg-[#d9e1de] text-[#0d7a70] font-bold">12</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edeeed] transition-colors">
+              <div class="flex items-center gap-2 truncate">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">grid_view</span>
+                <span class="text-[12px] truncate">Sprint 23</span>
+              </div>
+              <span class="text-[10px] font-mono px-1 rounded bg-[#e7e8e7] text-[#6b7370]">24</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edeeed] transition-colors">
+              <div class="flex items-center gap-2 truncate">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">grid_view</span>
+                <span class="text-[12px] truncate">Backlog grooming</span>
+              </div>
+              <span class="text-[10px] font-mono px-1 rounded bg-[#e7e8e7] text-[#6b7370]">38</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edeeed] transition-colors">
+              <div class="flex items-center gap-2 truncate">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">grid_view</span>
+                <span class="text-[12px] truncate">Agent ops</span>
+              </div>
+              <span class="text-[10px] font-mono px-1 rounded bg-[#e7e8e7] text-[#6b7370]">6</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Navigation Section: Armada Aktif -->
+      <div>
+        <div class="flex items-center justify-between px-1 mb-1.5">
+          <span class="text-[10px] font-mono uppercase font-bold tracking-wider text-[#6b7370]">Armada Aktif</span>
+          <span class="text-[10px] font-mono text-[#0d7a70] font-semibold">3 running</span>
+        </div>
+        <ul class="space-y-1 text-[12px]">
+          <li class="flex items-center justify-between px-2 py-1 rounded-[6px] bg-white border border-[rgba(12,26,22,0.07)]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-[20px] h-[20px] rounded-full bg-[#eef7f5] text-[#0d7a70] font-mono text-[9px] font-bold flex items-center justify-center">be</span>
+              <span class="font-mono text-[11px] text-[#0e1110]">agent-backend</span>
+            </div>
+            <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+          </li>
+          <li class="flex items-center justify-between px-2 py-1 rounded-[6px] bg-white border border-[rgba(12,26,22,0.07)]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-[20px] h-[20px] rounded-full bg-[#eef7f5] text-[#0d7a70] font-mono text-[9px] font-bold flex items-center justify-center">dt</span>
+              <span class="font-mono text-[11px] text-[#0e1110]">agent-data</span>
+            </div>
+            <span class="w-1.5 h-1.5 rounded-full bg-[#d97706]"></span>
+          </li>
+          <li class="flex items-center justify-between px-2 py-1 rounded-[6px] bg-white border border-[rgba(12,26,22,0.07)]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-[20px] h-[20px] rounded-full bg-[#eef7f5] text-[#0d7a70] font-mono text-[9px] font-bold flex items-center justify-center">dc</span>
+              <span class="font-mono text-[11px] text-[#0e1110]">agent-docs</span>
+            </div>
+            <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="p-3 border-t border-[rgba(12,26,22,0.12)] bg-[#edeeed]/50">
+      <div class="flex items-center gap-2">
+        <span class="w-[26px] h-[26px] rounded-full bg-[#101014] text-white text-[10px] font-bold flex items-center justify-center">RZ</span>
+        <div class="truncate leading-tight">
+          <div class="text-[11px] font-semibold text-[#0e1110] truncate">Reza</div>
+          <div class="text-[10px] font-mono text-[#0d7a70] font-medium">Peran: admin (AC4/AC5)</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- PUSAT: TOPBAR + PANE KONTEN (FLEX-1) + DRAWER 420px (BLUEPRINT C) -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f6f7f6]">
+    
+    <!-- TOPBAR (52px, #ffffff, HANYA membentang di atas pane konten) -->
+    <header class="h-[52px] shrink-0 bg-white border-b border-[rgba(12,26,22,0.12)] px-4 flex items-center justify-between gap-3 z-10">
+      <!-- Breadcrumbs & Board Title -->
+      <div class="flex items-center gap-2 text-[12px] min-w-0">
+        <span class="text-[#6b7370]">Papan</span>
+        <span class="text-[#6b7370]">/</span>
+        <span class="font-bold text-[#0e1110] text-[13px] truncate">Sprint 24</span>
+        <span class="font-mono text-[11px] px-1.5 py-0.5 rounded-[4px] bg-[#edeeed] text-[#4d5553]">12 task</span>
+        <span class="font-mono text-[11px] px-1.5 py-0.5 rounded-[4px] bg-[#eef7f5] text-[#0d7a70] border border-[#0d7a70]/20 font-semibold">5 Kolom</span>
+      </div>
+
+      <!-- Right Action Items -->
+      <div class="flex items-center gap-2 shrink-0">
+        <!-- Switch View Buttons -->
+        <div class="flex items-center bg-[#f6f7f6] p-0.5 rounded-[6px] border border-[rgba(12,26,22,0.07)]">
+          <button class="h-7 px-2.5 rounded-[4px] bg-white text-[#0d7a70] font-semibold text-[11px] flex items-center gap-1 shadow-sm">
+            <span class="material-symbols-outlined text-[14px]">view_kanban</span>
+            <span>Board</span>
+          </button>
+          <button class="h-7 px-2.5 rounded-[4px] text-[#6b7370] hover:text-[#0e1110] text-[11px] flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px]">table_chart</span>
+            <span>Table</span>
+          </button>
+        </div>
+
+        <!-- Filter Input -->
+        <div class="relative flex items-center">
+          <span class="material-symbols-outlined absolute left-2 text-[#6b7370] text-[15px]">search</span>
+          <input type="text" placeholder="Cari task..." class="h-7 pl-7 pr-3 text-[11px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] rounded-[6px] w-36 focus:outline-none focus:border-[#0d7a70] text-[#0e1110]"/>
+        </div>
+
+        <!-- Tombol Edit Kolom (Aktif, Membuka Drawer) -->
+        <button class="h-7 px-2.5 bg-[#eef7f5] text-[#0d7a70] hover:bg-[#d9e1de] border border-[#0d7a70]/30 rounded-[6px] text-[11px] font-semibold flex items-center gap-1 transition-colors">
+          <span class="material-symbols-outlined text-[15px]">view_column</span>
+          <span>Edit Kolom (Aktif)</span>
+        </button>
+
+        <!-- Tombol Buat Task -->
+        <button class="h-7 px-2.5 bg-[#0d7a70] hover:bg-[#0a6159] text-white rounded-[6px] text-[11px] font-semibold flex items-center gap-1 transition-colors">
+          <span class="material-symbols-outlined text-[15px]">add</span>
+          <span>Buat Task</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTENT WRAPPER: KONTEN KANBAN (SCROLL) + DRAWER 420px (BLUEPRINT C) -->
+    <div class="flex-1 flex min-h-0 overflow-hidden relative">
+      
+      <!-- PANE KONTEN: Board Background & Kanban Kolom (Scroll Horizontal & Vertikal) -->
+      <main class="flex-1 overflow-x-auto overflow-y-hidden p-3 flex gap-2 min-w-0 bg-[#f6f7f6]">
+        
+        <!-- Kolom 1: Backlog (268px, top edge 3px warna status) -->
+        <div class="w-[268px] shrink-0 flex flex-col bg-[#e8ecea] rounded-[10px] border border-[rgba(12,26,22,0.07)] h-full overflow-hidden">
+          <!-- Top edge 3px status Backlog (Slate) -->
+          <div class="h-[3px] bg-[#64748b] w-full"></div>
+          <!-- Header Kolom 30px -->
+          <div class="h-[30px] px-2.5 flex items-center justify-between border-b border-[rgba(12,26,22,0.07)] bg-[#f6f7f6]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#64748b]"></span>
+              <span class="text-[12px] font-bold text-[#0e1110]">Backlog</span>
+            </div>
+            <span class="text-[10px] font-mono px-1 rounded bg-[#edeeed] text-[#4d5553] font-bold">3</span>
+          </div>
+          <!-- Task list scrollable -->
+          <div class="flex-1 overflow-y-auto p-2 space-y-2">
+            <div class="bg-white p-[10px] rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+              <div class="text-[12px] font-medium text-[#0e1110] leading-snug">Migrate sessions to Redis-less</div>
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+                <span>task-192e</span>
+                <span class="text-[#0d7a70] font-semibold">$0.000</span>
+              </div>
+            </div>
+            <div class="bg-white p-[10px] rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+              <div class="text-[12px] font-medium text-[#0e1110] leading-snug">Upgrade Postgres schema v2</div>
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+                <span>task-115f</span>
+                <span class="text-[#0d7a70] font-semibold">$0.000</span>
+              </div>
+            </div>
+            <div class="bg-white p-[10px] rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+              <div class="text-[12px] font-medium text-[#0e1110] leading-snug">Investigate cold start 900ms</div>
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+                <span>task-084d</span>
+                <span class="text-[#0d7a70] font-semibold">$0.000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kolom 2: Ready (268px, top edge 3px warna status) -->
+        <div class="w-[268px] shrink-0 flex flex-col bg-[#e8ecea] rounded-[10px] border border-[rgba(12,26,22,0.07)] h-full overflow-hidden">
+          <!-- Top edge 3px status Ready (Blue) -->
+          <div class="h-[3px] bg-[#2563eb] w-full"></div>
+          <!-- Header Kolom 30px -->
+          <div class="h-[30px] px-2.5 flex items-center justify-between border-b border-[rgba(12,26,22,0.07)] bg-[#f6f7f6]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#2563eb]"></span>
+              <span class="text-[12px] font-bold text-[#0e1110]">Ready</span>
+            </div>
+            <span class="text-[10px] font-mono px-1 rounded bg-[#edeeed] text-[#4d5553] font-bold">3</span>
+          </div>
+          <!-- Task list scrollable -->
+          <div class="flex-1 overflow-y-auto p-2 space-y-2">
+            <div class="bg-white p-[10px] rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+              <div class="text-[12px] font-medium text-[#0e1110] leading-snug">Fix webhook signature retry</div>
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+                <div class="flex items-center gap-1">
+                  <span class="w-3.5 h-3.5 rounded-full bg-[#eef7f5] text-[#0d7a70] text-[8px] font-bold flex items-center justify-center">be</span>
+                  <span>agent-backend</span>
+                </div>
+                <span class="text-[#0d7a70] font-semibold">$0.000</span>
+              </div>
+            </div>
+            <div class="bg-white p-[10px] rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+              <div class="text-[12px] font-medium text-[#0e1110] leading-snug">Backfill user analytics ledger</div>
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+                <div class="flex items-center gap-1">
+                  <span class="w-3.5 h-3.5 rounded-full bg-[#eef7f5] text-[#0d7a70] text-[8px] font-bold flex items-center justify-center">dt</span>
+                  <span>agent-data</span>
+                </div>
+                <span class="text-[#0d7a70] font-semibold">$0.000</span>
+              </div>
+            </div>
+            <div class="bg-white p-[10px] rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+              <div class="text-[12px] font-medium text-[#0e1110] leading-snug">Audit dependencies & license report</div>
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+                <div class="flex items-center gap-1">
+                  <span class="w-3.5 h-3.5 rounded-full bg-[#eef7f5] text-[#0d7a70] text-[8px] font-bold flex items-center justify-center">dc</span>
+                  <span>agent-docs</span>
+                </div>
+                <span class="text-[#0d7a70] font-semibold">$0.000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kolom 3: Running (268px, top edge 3px warna status) -->
+        <div class="w-[268px] shrink-0 flex flex-col bg-[#e8ecea] rounded-[10px] border border-[rgba(12,26,22,0.07)] h-full overflow-hidden ring-1 ring-[#d97706]/30">
+          <!-- Top edge 3px status Running (Amber) -->
+          <div class="h-[3px] bg-[#d97706] w-full"></div>
+          <!-- Header Kolom 30px -->
+          <div class="h-[30px] px-2.5 flex items-center justify-between border-b border-[rgba(12,26,22,0.07)] bg-[#f6f7f6]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#d97706] animate-pulse"></span>
+              <span class="text-[12px] font-bold text-[#0e1110]">Running</span>
+            </div>
+            <span class="text-[10px] font-mono px-1 rounded bg-[#fef3c7] text-[#92400e] font-bold">2 task</span>
+          </div>
+          <!-- Task list scrollable -->
+          <div class="flex-1 overflow-y-auto p-2 space-y-2">
+            <div class="bg-white p-[10px] rounded-[6px] border-l-2 border-[#d97706] border-t border-r border-b border-[rgba(12,26,22,0.07)] shadow-sm">
+              <div class="text-[12px] font-medium text-[#0e1110] leading-snug">Refactor auth module & telemetry</div>
+              <div class="mt-1 flex items-center gap-1.5">
+                <span class="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-50 text-amber-700 font-semibold">step 02/04</span>
+                <span class="text-[10px] font-mono text-[#6b7370]">agent-backend</span>
+              </div>
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono">
+                <span class="text-[#6b7370]">4m 12s</span>
+                <span class="text-[#0d7a70] font-bold">$0.318</span>
+              </div>
+            </div>
+            <div class="bg-white p-[10px] rounded-[6px] border-l-2 border-[#d97706] border-t border-r border-b border-[rgba(12,26,22,0.07)] shadow-sm">
+              <div class="text-[12px] font-medium text-[#0e1110] leading-snug">Generate release notes v2.4</div>
+              <div class="mt-1 flex items-center gap-1.5">
+                <span class="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-50 text-amber-700 font-semibold">step 01/02</span>
+                <span class="text-[10px] font-mono text-[#6b7370]">agent-docs</span>
+              </div>
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono">
+                <span class="text-[#6b7370]">1m 45s</span>
+                <span class="text-[#0d7a70] font-bold">$0.102</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kolom 4: Review (268px, top edge 3px) -->
+        <div class="w-[268px] shrink-0 flex flex-col bg-[#e8ecea] rounded-[10px] border border-[rgba(12,26,22,0.07)] h-full overflow-hidden opacity-85">
+          <div class="h-[3px] bg-[#0891b2] w-full"></div>
+          <div class="h-[30px] px-2.5 flex items-center justify-between border-b border-[rgba(12,26,22,0.07)] bg-[#f6f7f6]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#0891b2]"></span>
+              <span class="text-[12px] font-bold text-[#0e1110]">Review</span>
+            </div>
+            <span class="text-[10px] font-mono px-1 rounded bg-[#edeeed] text-[#4d5553] font-bold">2</span>
+          </div>
+          <div class="flex-1 overflow-y-auto p-2 space-y-2">
+            <div class="bg-white p-[10px] rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+              <div class="text-[12px] font-medium text-[#0e1110]">Security scan weekly automated pass</div>
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+                <span>task-554e</span>
+                <span class="text-[#0d7a70] font-semibold">$0.214</span>
+              </div>
+            </div>
+            <div class="bg-white p-[10px] rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+              <div class="text-[12px] font-medium text-[#0e1110]">Clean image storage registry</div>
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+                <span>task-419b</span>
+                <span class="text-[#0d7a70] font-semibold">$0.128</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kolom 5: Done (268px, top edge 3px) -->
+        <div class="w-[268px] shrink-0 flex flex-col bg-[#e8ecea] rounded-[10px] border border-[rgba(12,26,22,0.07)] h-full overflow-hidden opacity-85">
+          <div class="h-[3px] bg-[#16a34a] w-full"></div>
+          <div class="h-[30px] px-2.5 flex items-center justify-between border-b border-[rgba(12,26,22,0.07)] bg-[#f6f7f6]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#16a34a]"></span>
+              <span class="text-[12px] font-bold text-[#0e1110]">Done</span>
+            </div>
+            <span class="text-[10px] font-mono px-1 rounded bg-[#edeeed] text-[#4d5553] font-bold">2</span>
+          </div>
+          <div class="flex-1 overflow-y-auto p-2 space-y-2">
+            <div class="bg-white p-[10px] rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+              <div class="text-[12px] font-medium text-[#0e1110]">Rotate API keys & TLS certificates</div>
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+                <span>task-305d</span>
+                <span class="text-[#0d7a70] font-semibold">$0.011</span>
+              </div>
+            </div>
+            <div class="bg-white p-[10px] rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+              <div class="text-[12px] font-medium text-[#0e1110]">Tag release v2.4.1 binary</div>
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+                <span>task-289c</span>
+                <span class="text-[#0d7a70] font-semibold">$0.008</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- DRAWER PANEL SAMPING (420px, BLUEPRINT C: DI ANTARA KONTEN DAN COST RAIL) -->
+      <aside class="w-[420px] shrink-0 bg-white border-l border-[rgba(12,26,22,0.12)] flex flex-col justify-between z-20 shadow-[-4px_0_12px_rgba(0,0,0,0.04)]">
+        
+        <!-- DRAWER HEADER -->
+        <div class="h-[52px] px-4 border-b border-[rgba(12,26,22,0.12)] flex items-center justify-between bg-white shrink-0">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-[4px] bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center">
+              <span class="material-symbols-outlined text-[16px]">view_column</span>
+            </span>
+            <div>
+              <h2 class="text-[13px] font-bold text-[#0e1110]">Editor Kolom Board</h2>
+              <div class="text-[10px] font-mono text-[#6b7370]">Route: (panel) • Blueprint C</div>
+            </div>
+          </div>
+          <button class="w-7 h-7 rounded-[4px] text-[#6b7370] hover:bg-[#edeeed] hover:text-[#0e1110] flex items-center justify-center transition-colors" title="Tutup Panel">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+
+        <!-- DRAWER BODY SCROLLABLE -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-4 text-[12px]">
+          
+          <!-- BANNER OTORISASI & ATURAN: US-AD10 AC4 & AC5 -->
+          <div class="bg-[#f6f7f6] p-3 rounded-[6px] border border-[rgba(12,26,22,0.12)] space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-mono font-bold uppercase text-[#0d7a70] flex items-center gap-1">
+                <span class="material-symbols-outlined text-[14px]">shield</span>
+                US-AD10 (AC1 - AC5) SPEC
+              </span>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white text-[#4d5553] border border-[rgba(12,26,22,0.12)] font-semibold">v2.4 Core</span>
+            </div>
+            
+            <div class="text-[11px] text-[#4d5553] leading-relaxed space-y-1">
+              <!-- AC4: Permission admin vs member/viewer -->
+              <div class="flex items-start gap-1.5">
+                <span class="material-symbols-outlined text-[14px] text-[#16a34a] shrink-0 mt-0.5">verified_user</span>
+                <div>
+                  <strong class="text-[#0e1110]">AC4 Hak Akses:</strong> Memerlukan peran minimal <code class="font-mono text-[10px] bg-[#edeeed] px-1 py-0.2 rounded text-[#0e1110]">admin</code> (aktif saat ini). Peran <code class="font-mono text-[10px] bg-[#edeeed] px-1 py-0.2 rounded">member</code> / <code class="font-mono text-[10px] bg-[#edeeed] px-1 py-0.2 rounded">viewer</code> ditolak <span class="font-mono font-bold text-[#dc2626]">403 Forbidden</span>.
+                </div>
+              </div>
+              <!-- AC5: B2C Mode -->
+              <div class="flex items-start gap-1.5">
+                <span class="material-symbols-outlined text-[14px] text-[#0d7a70] shrink-0 mt-0.5">person</span>
+                <div>
+                  <strong class="text-[#0e1110]">AC5 (B2C Fleksibel):</strong> Pengguna tunggal workspace personal dapat langsung mengedit kolom tanpa konfigurasi RBAC organisasi.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DAFTAR KOLOM SAAT INI (REORDER & EDIT) -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] font-mono font-bold uppercase text-[#4d5553]">Struktur Kolom Aktif (5)</span>
+              <span class="text-[10px] text-[#6b7370]">Drag handle untuk urutan</span>
+            </div>
+
+            <div class="space-y-2">
+              <!-- Kolom Item 1: Backlog -->
+              <div class="p-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370] cursor-grab">drag_indicator</span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-[#64748b] shrink-0"></span>
+                  <div class="min-w-0 flex-1">
+                    <input type="text" value="Backlog" class="w-full text-[12px] font-medium bg-transparent border-0 p-0 focus:ring-0 text-[#0e1110] focus:border-b focus:border-[#0d7a70]"/>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-[#4d5553] border border-[rgba(12,26,22,0.07)]" title="3 task di dalam kolom">3 task</span>
+                  <!-- Tombol Hapus (Disabled - AC2) -->
+                  <button class="text-[#6b7370] hover:text-[#dc2626] p-1 rounded transition-colors opacity-40 cursor-not-allowed" title="AC2: Kolom berisi 3 task. Hapus menghasilkan 409 Conflict.">
+                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Kolom Item 2: Ready -->
+              <div class="p-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370] cursor-grab">drag_indicator</span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-[#2563eb] shrink-0"></span>
+                  <div class="min-w-0 flex-1">
+                    <input type="text" value="Ready" class="w-full text-[12px] font-medium bg-transparent border-0 p-0 focus:ring-0 text-[#0e1110] focus:border-b focus:border-[#0d7a70]"/>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-[#4d5553] border border-[rgba(12,26,22,0.07)]" title="3 task di dalam kolom">3 task</span>
+                  <button class="text-[#6b7370] hover:text-[#dc2626] p-1 rounded transition-colors opacity-40 cursor-not-allowed" title="AC2: Kolom berisi task (409 Conflict jika dihapus)">
+                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Kolom Item 3: Running (Sorotan AC3: Validasi Nama Unik) -->
+              <div class="p-2.5 rounded-[6px] bg-white border-2 border-[#0d7a70] shadow-sm space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 min-w-0 flex-1">
+                    <span class="material-symbols-outlined text-[16px] text-[#0d7a70] cursor-grab">drag_indicator</span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#d97706] shrink-0"></span>
+                    <div class="min-w-0 flex-1">
+                      <label class="text-[10px] font-mono text-[#6b7370] uppercase font-semibold block">Nama Kolom (Sedang Diedit)</label>
+                      <input type="text" value="Running" class="w-full text-[12px] font-bold bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] rounded-[4px] px-2 py-1 focus:ring-1 focus:ring-[#0d7a70] text-[#0e1110]"/>
+                    </div>
+                  </div>
+                  <div class="flex flex-col items-end gap-1 shrink-0">
+                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#fef3c7] text-[#92400e] font-bold" title="2 task aktif">2 task</span>
+                    <button class="text-[#6b7370] p-1 rounded opacity-40 cursor-not-allowed" title="AC2: Menghapus kolom berisi task mengembalikan 409">
+                      <span class="material-symbols-outlined text-[16px]">delete</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Petunjuk Validasi AC3 & Proteksi AC2 -->
+                <div class="pt-2 border-t border-[rgba(12,26,22,0.07)] text-[11px] space-y-1">
+                  <!-- AC3 Callout -->
+                  <div class="p-2 rounded-[4px] bg-[#fffbeb] border border-[#fef3c7] text-[#92400e] text-[11px] flex items-start gap-1.5">
+                    <span class="material-symbols-outlined text-[14px] text-[#d97706] shrink-0 mt-0.5">info</span>
+                    <div>
+                      <strong class="font-bold">US-AD10 AC3 (Nama Unik):</strong> Mengubah nama kolom <code class="font-mono font-bold bg-[#fef3c7] px-1 rounded">Running</code> menjadi nama kolom yang sudah ada (misal: "Backlog" atau "Review") akan mengembalikan status <span class="font-mono font-bold text-[#b45309]">409 Conflict</span>.
+                    </div>
+                  </div>
+                  <!-- AC2 Callout -->
+                  <div class="p-2 rounded-[4px] bg-[#fef2f2] border border-[#fee2e2] text-[#991b1b] text-[11px] flex items-start gap-1.5">
+                    <span class="material-symbols-outlined text-[14px] text-[#dc2626] shrink-0 mt-0.5">block</span>
+                    <div>
+                      <strong class="font-bold">US-AD10 AC2 (Proteksi Task):</strong> Kolom ini berisi 2 task aktif. Tombol hapus dikunci. Menghapus kolom berisi task mengembalikan <span class="font-mono font-bold text-[#dc2626]">409 Conflict</span> (pindahkan task dulu).
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Kolom Item 4: Review -->
+              <div class="p-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370] cursor-grab">drag_indicator</span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-[#0891b2] shrink-0"></span>
+                  <div class="min-w-0 flex-1">
+                    <input type="text" value="Review" class="w-full text-[12px] font-medium bg-transparent border-0 p-0 focus:ring-0 text-[#0e1110] focus:border-b focus:border-[#0d7a70]"/>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-[#4d5553] border border-[rgba(12,26,22,0.07)]" title="2 task">2 task</span>
+                  <button class="text-[#6b7370] p-1 rounded opacity-40 cursor-not-allowed" title="AC2: Kolom berisi task (409)">
+                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Kolom Item 5: Done -->
+              <div class="p-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370] cursor-grab">drag_indicator</span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-[#16a34a] shrink-0"></span>
+                  <div class="min-w-0 flex-1">
+                    <input type="text" value="Done" class="w-full text-[12px] font-medium bg-transparent border-0 p-0 focus:ring-0 text-[#0e1110] focus:border-b focus:border-[#0d7a70]"/>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-[#4d5553] border border-[rgba(12,26,22,0.07)]" title="2 task">2 task</span>
+                  <button class="text-[#6b7370] p-1 rounded opacity-40 cursor-not-allowed" title="AC2: Kolom berisi task (409)">
+                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FORM TAMBAH KOLOM BARU: US-AD10 AC1 -->
+          <div class="p-3 bg-[#eef7f5]/70 rounded-[6px] border border-[#0d7a70]/30 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono font-bold uppercase text-[#0d7a70] flex items-center gap-1">
+                <span class="material-symbols-outlined text-[15px]">add_circle</span>
+                US-AD10 AC1: Tambah Kolom Baru
+              </span>
+              <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-[#0d7a70] text-white font-bold">200 OK</span>
+            </div>
+            
+            <p class="text-[11px] text-[#4d5553] leading-snug">
+              Menambah kolom baru mengembalikan status <code class="font-mono font-bold text-[#0d7a70]">200 OK</code>. Kolom baru secara otomatis muncul di <strong class="text-[#0e1110]">urutan terakhir</strong> board.
+            </p>
+
+            <div class="space-y-2">
+              <div>
+                <label class="block text-[10px] font-mono text-[#4d5553] uppercase font-semibold mb-1">Nama Kolom Baru *</label>
+                <div class="flex items-center gap-2">
+                  <input type="text" placeholder="misal: Blocked, Staging, QA..." class="flex-1 h-8 px-2.5 text-[12px] bg-white border border-[rgba(12,26,22,0.12)] rounded-[6px] focus:outline-none focus:border-[#0d7a70] text-[#0e1110] placeholder:text-[#6b7370]"/>
+                  <button class="h-8 px-3 bg-[#0d7a70] hover:bg-[#0a6159] text-white rounded-[6px] text-[11px] font-semibold flex items-center gap-1 transition-colors shrink-0">
+                    <span class="material-symbols-outlined text-[14px]">add</span>
+                    <span>Tambah</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Pilihan Warna Status Top Edge -->
+              <div>
+                <label class="block text-[10px] font-mono text-[#6b7370] uppercase mb-1">Warna Status Top Edge (3px):</label>
+                <div class="flex items-center gap-2">
+                  <button class="w-5 h-5 rounded-full bg-[#ea580c] ring-2 ring-offset-1 ring-[#ea580c]" title="Orange (Blocked)"></button>
+                  <button class="w-5 h-5 rounded-full bg-[#7c3aed] hover:scale-110 transition-transform" title="Purple (Awaiting Approval)"></button>
+                  <button class="w-5 h-5 rounded-full bg-[#0891b2] hover:scale-110 transition-transform" title="Cyan (Staging)"></button>
+                  <button class="w-5 h-5 rounded-full bg-[#64748b] hover:scale-110 transition-transform" title="Slate (Draft)"></button>
+                  <span class="text-[10px] font-mono text-[#6b7370] ml-1">Posisi: Indeks ke-6 (Terakhir)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ENDPOINT PROTOCOL CONTRACT PREVIEW -->
+          <div class="bg-[#101014] text-white p-3 rounded-[6px] font-mono text-[11px] space-y-1.5">
+            <div class="flex items-center justify-between text-[#6b7370] text-[10px] border-b border-[rgba(255,255,255,0.1)] pb-1">
+              <span>PATCH /api/v1/boards/{id}/columns</span>
+              <span class="text-[#0d7a70]">JSON Payload</span>
+            </div>
+            <div class="text-[#86efac] leading-tight">
+              // AC1: 200 OK (append to tail)<br/>
+              // AC2: 409 Conflict if task_count &gt; 0<br/>
+              // AC3: 409 Conflict if name duplicate<br/>
+              // AC4: 403 Forbidden if role &lt; admin
+            </div>
+          </div>
+
+        </div>
+
+        <!-- DRAWER FOOTER (Simpan & Batal) -->
+        <div class="p-3 border-t border-[rgba(12,26,22,0.12)] bg-[#f6f7f6] flex items-center justify-between gap-2 shrink-0">
+          <button class="h-8 px-3 text-[12px] font-medium text-[#4d5553] hover:bg-[#edeeed] rounded-[6px] border border-[rgba(12,26,22,0.12)] transition-colors">
+            Batal
+          </button>
+          <div class="flex items-center gap-2">
+            <button class="h-8 px-4 bg-[#0d7a70] hover:bg-[#0a6159] text-white rounded-[6px] text-[12px] font-semibold flex items-center gap-1.5 shadow-sm transition-colors">
+              <span class="material-symbols-outlined text-[16px]">save</span>
+              <span>Simpan Perubahan</span>
+            </button>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </div>
+
+  <!-- COST RAIL KANAN (264px, #eef1f0, border-l) -->
+  <!-- Isi tetap: TODAY (biaya + meter pagu), 7-DAY (sparkline), TOP SPENDERS (3 baris), RUNNING NOW. JANGAN tambah isi lain. -->
+  <aside class="w-[264px] shrink-0 bg-[#eef1f0] border-l border-[rgba(12,26,22,0.12)] flex flex-col justify-between p-3.5 text-[12px] z-20">
+    <div class="space-y-4">
+      
+      <!-- HEADER COST RAIL -->
+      <div class="flex items-center justify-between border-b border-[rgba(12,26,22,0.12)] pb-2">
+        <span class="text-[11px] font-mono font-bold uppercase text-[#0e1110] tracking-wider">COST LEDGER</span>
+        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#d9e1de] text-[#0d7a70] font-bold">CAP $20.00</span>
+      </div>
+
+      <!-- TODAY (Biaya + Meter Pagu 6px) -->
+      <div class="bg-white p-3 rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370]">
+          <span class="font-bold text-[#0e1110] uppercase">TODAY</span>
+          <span>/ $20.00</span>
+        </div>
+        <div class="mt-1 flex items-baseline justify-between font-mono">
+          <div class="text-2xl font-bold text-[#0e1110] tracking-tight">$4.82</div>
+          <div class="text-[11px] text-[#6b7370]">Sisa <span class="text-[#0d7a70] font-bold">$15.18</span></div>
+        </div>
+        <!-- Budget meter (6px) -->
+        <div class="w-full bg-[#edeeed] h-[6px] rounded-full mt-2 overflow-hidden">
+          <div class="bg-[#0d7a70] h-full rounded-full" style="width: 24.1%;"></div>
+        </div>
+        <div class="mt-1.5 text-[10px] font-mono text-[#6b7370] flex justify-between">
+          <span>24.1% terpakai</span>
+          <span>Pagu aman</span>
+        </div>
+      </div>
+
+      <!-- 7-DAY (Sparkline Bar) -->
+      <div class="bg-white p-3 rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] mb-2">
+          <span class="font-bold text-[#0e1110] uppercase">7-DAY</span>
+          <span>SEP 12 – SEP 18</span>
+        </div>
+        <div class="h-14 flex items-end justify-between gap-1 pt-1 px-1">
+          <!-- 12 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#c0c8c5] rounded-t" style="height: 40%;" title="Sep 12: $2.80"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">12</span>
+          </div>
+          <!-- 13 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#c0c8c5] rounded-t" style="height: 55%;" title="Sep 13: $3.90"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">13</span>
+          </div>
+          <!-- 14 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#c0c8c5] rounded-t" style="height: 30%;" title="Sep 14: $2.10"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">14</span>
+          </div>
+          <!-- 15 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#c0c8c5] rounded-t" style="height: 70%;" title="Sep 15: $4.90"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">15</span>
+          </div>
+          <!-- 16 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#c0c8c5] rounded-t" style="height: 50%;" title="Sep 16: $3.40"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">16</span>
+          </div>
+          <!-- 17 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#c0c8c5] rounded-t" style="height: 80%;" title="Sep 17: $5.80"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">17</span>
+          </div>
+          <!-- 18 (Today - Highlighted) -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70] rounded-t" style="height: 68%;" title="Sep 18 (Today): $4.82"></div>
+            <span class="text-[9px] font-mono font-bold text-[#0d7a70]">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP SPENDERS (3 baris) -->
+      <div class="bg-white p-3 rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="text-[11px] font-mono text-[#6b7370] uppercase font-bold mb-2">TOP SPENDERS</div>
+        <div class="space-y-2">
+          <!-- Spender 1 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-[#0e1110]">agent-backend</span>
+              <span class="font-bold text-[#0e1110]">$1.84</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full mt-1 overflow-hidden">
+              <div class="bg-[#0d7a70] h-full" style="width: 38.1%;"></div>
+            </div>
+          </div>
+          <!-- Spender 2 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-[#0e1110]">agent-data</span>
+              <span class="font-bold text-[#0e1110]">$1.42</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full mt-1 overflow-hidden">
+              <div class="bg-[#0d7a70]/80 h-full" style="width: 29.4%;"></div>
+            </div>
+          </div>
+          <!-- Spender 3 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-[#0e1110]">agent-docs</span>
+              <span class="font-bold text-[#0e1110]">$0.91</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full mt-1 overflow-hidden">
+              <div class="bg-[#0d7a70]/60 h-full" style="width: 18.8%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RUNNING NOW -->
+      <div class="bg-white p-3 rounded-[6px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] mb-2">
+          <span class="font-bold text-[#0e1110] uppercase">RUNNING NOW</span>
+          <span class="text-[#0d7a70] font-bold">2 active</span>
+        </div>
+        <div class="space-y-1.5 text-[10px] font-mono">
+          <div class="p-1.5 rounded-[4px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="text-[#0e1110] font-semibold">agent-backend</span>
+            <span class="px-1 py-0.2 rounded bg-emerald-50 text-emerald-700 font-bold">RUNNING</span>
+          </div>
+          <div class="p-1.5 rounded-[4px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="text-[#0e1110] font-semibold">agent-docs</span>
+            <span class="px-1 py-0.2 rounded bg-emerald-50 text-emerald-700 font-bold">RUNNING</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- COST RAIL FOOTER -->
+    <div class="pt-2 border-t border-[rgba(12,26,22,0.12)] text-[10px] font-mono text-[#6b7370] flex items-center justify-between">
+      <span>daemon :8080</span>
+      <span class="text-[#0d7a70] font-bold">micro-cent sync</span>
+    </div>
+  </aside>
+
+</body>
+</html>

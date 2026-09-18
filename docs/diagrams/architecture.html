@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — System Architecture Diagram</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: #f8fafc;
+    }
+    
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      margin-bottom: 2rem;
+    }
+    
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .pulse-dot {
+      width: 12px;
+      height: 12px;
+      background: #0f766e;
+      border-radius: 50%;
+      box-shadow: 0 0 12px #2dd4bf;
+      animation: pulse 2s infinite ease-in-out;
+    }
+    
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.45;
+        transform: scale(0.85);
+      }
+    }
+    
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      color: #ffffff;
+    }
+    
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin-left: 1.75rem;
+    }
+    
+    .diagram-container {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 1rem;
+      border: 1px solid #1e293b;
+      padding: 1.5rem;
+      overflow-x: auto;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    }
+    
+    svg {
+      width: 100%;
+      min-width: 1100px;
+      display: block;
+    }
+    
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+      margin-top: 2rem;
+    }
+    
+    .card {
+      background: rgba(15, 23, 42, 0.55);
+      border-radius: 0.75rem;
+      border: 1px solid #1e293b;
+      padding: 1.25rem;
+    }
+    
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    
+    .card-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    
+    .card-dot.cyan { background: #22d3ee; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.violet { background: #a78bfa; }
+    .card-dot.amber { background: #fbbf24; }
+    .card-dot.rose { background: #fb7185; }
+    .card-dot.orange { background: #fb923c; }
+    
+    .card h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+    
+    .card ul {
+      list-style: none;
+      color: #94a3b8;
+      font-size: 0.75rem;
+      line-height: 1.6;
+    }
+    
+    .card li {
+      margin-bottom: 0.375rem;
+    }
+    
+    .card li strong {
+      color: #e2e8f0;
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      color: #475569;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header with Pulsing Signal Teal Dot -->
+    <header class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>AgentDeck System Architecture</h1>
+      </div>
+      <p class="subtitle">High-Density AI Agent Fleet Orchestration — Single Go Binary, Live SSE Stream, &amp; Financial Ledger</p>
+    </header>
+
+    <!-- Main SVG Diagram Card -->
+    <main class="diagram-container">
+      <svg viewBox="0 0 1100 820" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- Background Grid 40px Pattern -->
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+
+          <!-- Standard Arrowheads -->
+          <marker id="arrow-slate" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+            <polygon points="0 0, 9 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <marker id="arrow-cyan" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+            <polygon points="0 0, 9 3.5, 0 7" fill="#22d3ee" />
+          </marker>
+          <marker id="arrow-emerald" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+            <polygon points="0 0, 9 3.5, 0 7" fill="#34d399" />
+          </marker>
+          <marker id="arrow-orange" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+            <polygon points="0 0, 9 3.5, 0 7" fill="#fb923c" />
+          </marker>
+          <marker id="arrow-violet" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+            <polygon points="0 0, 9 3.5, 0 7" fill="#a78bfa" />
+          </marker>
+          <marker id="arrow-rose" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+            <polygon points="0 0, 9 3.5, 0 7" fill="#fb7185" />
+          </marker>
+          <marker id="arrow-amber" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+            <polygon points="0 0, 9 3.5, 0 7" fill="#fbbf24" />
+          </marker>
+        </defs>
+
+        <!-- Base Dark Canvas + Grid -->
+        <rect width="100%" height="100%" fill="#020617" />
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- =================================================================
+             1. CONNECTION LINES & ARROWS (Drawn FIRST so they stay in back)
+             ================================================================= -->
+
+        <!-- Client Browser -> Ingress Gateway (HTTPS) -->
+        <line x1="190" y1="125" x2="258" y2="125" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+        <text x="224" y="117" fill="#94a3b8" font-size="8" text-anchor="middle">HTTPS</text>
+
+        <!-- Ingress Gateway -> Chi Router API (Forward Auth) -->
+        <path d="M 345 160 L 345 238" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow-rose)"/>
+        <text x="355" y="200" fill="#fb7185" font-size="8">JWT/HMAC</text>
+
+        <!-- React 19 + Vite + Redux Toolkit Client -> Chi Router REST API (Write/Mutate) -->
+        <path d="M 125 240 L 125 272 Q 125 275 140 275 L 268 275" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+        <text x="180" y="268" fill="#94a3b8" font-size="8">CRUD [N1]</text>
+
+        <!-- SSE Hub -> React 19 + Vite + Redux Toolkit Client (HTTP/2 Event Stream) -->
+        <path d="M 665 240 L 665 175 Q 665 160 650 160 L 140 160 Q 125 160 125 188" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+        <text x="500" y="152" fill="#22d3ee" font-size="8" text-anchor="middle">SSE Stream (p95 &lt;= 1.5s) [N3]</text>
+
+        <!-- Chi Router -> Dispatcher Engine (Internal Event Trigger) -->
+        <line x1="395" y1="305" x2="395" y2="338" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-emerald)"/>
+
+        <!-- Dispatcher Engine -> SSE Hub (Broadcast Status Event) -->
+        <path d="M 530 340 L 530 320 Q 530 305 550 305 L 630 305 L 630 307" fill="none" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-emerald)"/>
+        <text x="580" y="298" fill="#34d399" font-size="8" text-anchor="middle">Emit Event</text>
+
+        <!-- Dispatcher Engine -> Webhook Dispatch Worker (Task Claimed) -->
+        <line x1="400" y1="435" x2="400" y2="463" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+        <text x="415" y="452" fill="#fb923c" font-size="8">Batch 20 [N20]</text>
+
+        <!-- Webhook Dispatch Worker -> External Runners (Outbound POST HMAC) -->
+        <path d="M 510 500 L 830 500 Q 845 500 845 420 L 845 265 Q 845 262 868 262" fill="none" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrow-orange)"/>
+        <text x="750" y="493" fill="#fb923c" font-size="8" text-anchor="middle">POST Webhook (HMAC)</text>
+
+        <!-- External Runner -> Ingestion Engine (Step Cost & Heartbeat) -->
+        <path d="M 870 270 L 810 270 Q 795 270 795 380 L 795 490 Q 795 500 782 500" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow-slate)"/>
+        <text x="815" y="360" fill="#94a3b8" font-size="8">Heartbeat [N7] / Steps</text>
+
+        <!-- External Runner -> Human Approval Gateway (Pause on Sensitive Tool) -->
+        <line x1="960" y1="295" x2="960" y2="418" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow-rose)"/>
+        <text x="968" y="360" fill="#fb7185" font-size="8">Pause Gate</text>
+
+        <!-- Human Approval -> Chi Router (Approve/Reject Decision) -->
+        <path d="M 870 457 L 830 457 Q 815 457 815 285 L 512 285" fill="none" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrow-rose)"/>
+        <text x="710" y="278" fill="#fb7185" font-size="8" text-anchor="middle">Decide Approval [N23]</text>
+
+        <!-- External Runners -> Cloudflare R2 / S3 (Upload Artifacts) -->
+        <path d="M 960 495 L 960 618" fill="none" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow-amber)"/>
+        <text x="970" y="555" fill="#fbbf24" font-size="8">Upload [N22]</text>
+
+        <!-- Dispatcher Engine -> PostgreSQL (Advisory Lock & SELECT FOR UPDATE) -->
+        <path d="M 330 435 L 330 618" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+        <text x="340" y="565" fill="#a78bfa" font-size="8">Advisory Lock &amp; Claim</text>
+
+        <!-- Ingestion / Cost Ledger -> PostgreSQL (Atomic Append Ledger & Steps) -->
+        <path d="M 640 535 L 640 580 Q 640 600 580 600 L 580 618" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+        <text x="648" y="580" fill="#a78bfa" font-size="8">cost_ledger [N16, N17]</text>
+
+        <!-- Ingestion -> Cloudflare R2 (Artifact Metadata Ref) -->
+        <line x1="720" y1="535" x2="720" y2="618" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow-amber)"/>
+        <text x="730" y="575" fill="#fbbf24" font-size="8">s3_key &amp; sha256</text>
+
+
+        <!-- =================================================================
+             2. LOGICAL BOUNDARIES (Subnets, Security, Core Enclosure)
+             ================================================================= -->
+
+        <!-- Boundary: Core Backend Service (Go Single Binary) -->
+        <rect x="250" y="195" width="560" height="360" rx="12" fill="rgba(6, 78, 59, 0.05)" stroke="#34d399" stroke-width="1.2" stroke-dasharray="8,4"/>
+        <text x="265" y="215" fill="#34d399" font-size="10" font-weight="700">AgentDeck Core Engine — Single Go Binary &lt;= 30MB [N14], Idle RAM &lt;= 80MB [N15]</text>
+
+        <!-- Boundary: Fleet & Runner Sandbox -->
+        <rect x="850" y="195" width="220" height="360" rx="12" fill="rgba(120, 53, 15, 0.05)" stroke="#fbbf24" stroke-width="1.2" stroke-dasharray="8,4"/>
+        <text x="862" y="215" fill="#fbbf24" font-size="10" font-weight="700">Agent Fleet &amp; Runners</text>
+
+        <!-- Boundary: Storage & Persistence Layer -->
+        <rect x="250" y="585" width="820" height="130" rx="12" fill="rgba(76, 29, 149, 0.05)" stroke="#a78bfa" stroke-width="1.2" stroke-dasharray="8,4"/>
+        <text x="265" y="605" fill="#a78bfa" font-size="10" font-weight="700">Persistence &amp; Financial Ledger Layer (PostgreSQL 16 &amp; Object Storage)</text>
+
+
+        <!-- =================================================================
+             3. COMPONENT BOXES (Double-rect masking: opaque #0f172a + styled)
+             ================================================================= -->
+
+        <!-- Client: Browser / Users (External) -->
+        <rect x="40" y="95" width="150" height="60" rx="6" fill="#0f172a"/>
+        <rect x="40" y="95" width="150" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="115" y="118" fill="#ffffff" font-size="11" font-weight="600" text-anchor="middle">User / Operator</text>
+        <text x="115" y="135" fill="#94a3b8" font-size="9" text-anchor="middle">Browser / CLI Client</text>
+        <text x="115" y="148" fill="#64748b" font-size="7" text-anchor="middle">Admin · Reviewer · Agent</text>
+
+        <!-- Security Gateway: Auth & RBAC (Security) -->
+        <rect x="260" y="95" width="170" height="65" rx="6" fill="#0f172a"/>
+        <rect x="260" y="95" width="170" height="65" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="345" y="118" fill="#ffffff" font-size="11" font-weight="600" text-anchor="middle">Auth &amp; Tenant Gate</text>
+        <text x="345" y="135" fill="#fb7185" font-size="9" text-anchor="middle">JWT · API Keys · RBAC</text>
+        <text x="345" y="148" fill="#94a3b8" font-size="8" text-anchor="middle">Multi-Tenant Isolation</text>
+
+        <!-- Frontend: React 19 + Vite + Redux Toolkit Web Client -->
+        <rect x="40" y="195" width="170" height="100" rx="6" fill="#0f172a"/>
+        <rect x="40" y="195" width="170" height="100" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="125" y="218" fill="#ffffff" font-size="11" font-weight="600" text-anchor="middle">React 19 + Vite + Redux Toolkit UI Shell</text>
+        <text x="125" y="235" fill="#22d3ee" font-size="8" text-anchor="middle">Kanban Board (5k task &lt;= 400ms) [N2]</text>
+        <text x="125" y="252" fill="#94a3b8" font-size="8" text-anchor="middle">• Real-Time SSE Listener</text>
+        <text x="125" y="266" fill="#94a3b8" font-size="8" text-anchor="middle">• Live Cost/Token Meters</text>
+        <text x="125" y="280" fill="#94a3b8" font-size="8" text-anchor="middle">• Task Drawer &amp; Approvals</text>
+
+        <!-- Core: Chi HTTP & REST API (Backend) -->
+        <rect x="280" y="240" width="230" height="65" rx="6" fill="#0f172a"/>
+        <rect x="280" y="240" width="230" height="65" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="395" y="262" fill="#ffffff" font-size="11" font-weight="600" text-anchor="middle">Chi HTTP REST API</text>
+        <text x="395" y="278" fill="#34d399" font-size="9" text-anchor="middle">p95 Read &lt;= 150ms [N1] · Write &lt;= 300ms [N24]</text>
+        <text x="395" y="293" fill="#94a3b8" font-size="8" text-anchor="middle">CRUD Tasks, Runs, Boards, Steps</text>
+
+        <!-- Core: SSE Pub/Sub Hub (Backend) -->
+        <rect x="550" y="240" width="230" height="65" rx="6" fill="#0f172a"/>
+        <rect x="550" y="240" width="230" height="65" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="665" y="262" fill="#ffffff" font-size="11" font-weight="600" text-anchor="middle">Server-Sent Events Hub</text>
+        <text x="665" y="278" fill="#22d3ee" font-size="9" text-anchor="middle">Fan-out 1.000.000 Event/mo [N6]</text>
+        <text x="665" y="293" fill="#94a3b8" font-size="8" text-anchor="middle">In-Memory Topics · Event-to-UI &lt;= 1.5s [N3]</text>
+
+        <!-- Core: Dispatcher Engine (Backend - Big Component) -->
+        <rect x="280" y="340" width="500" height="95" rx="6" fill="#0f172a"/>
+        <rect x="280" y="340" width="500" height="95" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="530" y="362" fill="#ffffff" font-size="12" font-weight="700" text-anchor="middle">Dispatcher Engine (Single Leader / PostgreSQL Lock)</text>
+        <text x="530" y="380" fill="#34d399" font-size="9" text-anchor="middle">• Tick Loop 2s [N19] | Atomic Batch 20 Tasks [N20] via SELECT FOR UPDATE</text>
+        <text x="530" y="396" fill="#94a3b8" font-size="8" text-anchor="middle">• Concurrency Gate: Max 50 running agents per org [N4] | 100k runs/mo [N5]</text>
+        <text x="530" y="411" fill="#94a3b8" font-size="8" text-anchor="middle">• Budget Guard: Stop at $20/day per board [N16] | Stop at $2/run [N17] | 80% Alert [N18]</text>
+        <text x="530" y="425" fill="#fb7185" font-size="8" text-anchor="middle">• Stale Reclaim: Reset unheartbeated running agents after 15 min [N8]</text>
+
+        <!-- Core: Webhook Dispatch Worker (Message Bus) -->
+        <rect x="280" y="465" width="240" height="70" rx="6" fill="#0f172a"/>
+        <rect x="280" y="465" width="240" height="70" rx="6" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
+        <text x="400" y="487" fill="#ffffff" font-size="11" font-weight="600" text-anchor="middle">Webhook Dispatch Worker</text>
+        <text x="400" y="504" fill="#fb923c" font-size="9" text-anchor="middle">HMAC-SHA256 Signed Outbound</text>
+        <text x="400" y="519" fill="#94a3b8" font-size="8" text-anchor="middle">Payload &lt;= 64 KB [N21] · Retry Exponential</text>
+
+        <!-- Core: Ingestion & Cost Aggregator (Backend) -->
+        <rect x="550" y="465" width="230" height="70" rx="6" fill="#0f172a"/>
+        <rect x="550" y="465" width="230" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="665" y="487" fill="#ffffff" font-size="11" font-weight="600" text-anchor="middle">Ingestion &amp; Cost Rollup</text>
+        <text x="665" y="504" fill="#34d399" font-size="9" text-anchor="middle">Micro-Cents Math (Integer micros)</text>
+        <text x="665" y="519" fill="#94a3b8" font-size="8" text-anchor="middle">Daily Rollup Engine · 12m Aggr [N11]</text>
+
+        <!-- External: Hermes Agent CLI / Local (External) -->
+        <rect x="870" y="235" width="180" height="60" rx="6" fill="#0f172a"/>
+        <rect x="870" y="235" width="180" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="960" y="255" fill="#ffffff" font-size="11" font-weight="600" text-anchor="middle">Hermes Agent CLI</text>
+        <text x="960" y="271" fill="#94a3b8" font-size="8" text-anchor="middle">Local Subprocess / Daemon</text>
+        <text x="960" y="284" fill="#34d399" font-size="8" text-anchor="middle">Heartbeat Every 60s [N7]</text>
+
+        <!-- Cloud: Cloud Sandbox Runners (Cloud) -->
+        <rect x="870" y="325" width="180" height="60" rx="6" fill="#0f172a"/>
+        <rect x="870" y="325" width="180" height="60" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="960" y="345" fill="#ffffff" font-size="11" font-weight="600" text-anchor="middle">Cloud Agent Sandbox</text>
+        <text x="960" y="361" fill="#fbbf24" font-size="8" text-anchor="middle">Modal / Fly.io Containers</text>
+        <text x="960" y="374" fill="#94a3b8" font-size="8" text-anchor="middle">Max Runtime 4h [N9]</text>
+
+        <!-- Security: Human Approval Gate (Security) -->
+        <rect x="870" y="415" width="180" height="65" rx="6" fill="#0f172a"/>
+        <rect x="870" y="415" width="180" height="65" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="960" y="435" fill="#ffffff" font-size="11" font-weight="600" text-anchor="middle">Approval Gate</text>
+        <text x="960" y="451" fill="#fb7185" font-size="8" text-anchor="middle">Sensitive Tool Barrier (Bash/DB)</text>
+        <text x="960" y="465" fill="#94a3b8" font-size="8" text-anchor="middle">24h Expiry [N23] · Task Awaiting</text>
+
+        <!-- Database: PostgreSQL 16 on Neon/Supabase (Database) -->
+        <rect x="280" y="625" width="370" height="75" rx="6" fill="#0f172a"/>
+        <rect x="280" y="625" width="370" height="75" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="465" y="647" fill="#ffffff" font-size="11" font-weight="600" text-anchor="middle">Managed PostgreSQL 16 (Neon / Supabase)</text>
+        <text x="465" y="663" fill="#a78bfa" font-size="9" text-anchor="middle">orgs · boards · tasks · runs · steps · approvals</text>
+        <text x="465" y="677" fill="#94a3b8" font-size="8" text-anchor="middle">• cost_ledger: Immutable micro-cents financial ledger</text>
+        <text x="465" y="690" fill="#94a3b8" font-size="8" text-anchor="middle">• events: Hot retention 30d [N10] | Aggr rollup 12m [N11]</text>
+
+        <!-- Cloud: Cloudflare R2 / S3 Storage (Cloud) -->
+        <rect x="690" y="625" width="360" height="75" rx="6" fill="#0f172a"/>
+        <rect x="690" y="625" width="360" height="75" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="870" y="647" fill="#ffffff" font-size="11" font-weight="600" text-anchor="middle">Cloudflare R2 / S3 Object Storage</text>
+        <text x="870" y="663" fill="#fbbf24" font-size="9" text-anchor="middle">artifacts (Diffs, Logs, Test Outputs, HTML)</text>
+        <text x="870" y="677" fill="#94a3b8" font-size="8" text-anchor="middle">• Max 25 MB / file · 100 MB / task [N22]</text>
+        <text x="870" y="690" fill="#94a3b8" font-size="8" text-anchor="middle">• Artifact Retention: 90 days [N12] · Infra &lt;= $10/mo [N13]</text>
+
+
+        <!-- =================================================================
+             4. LEGEND — OUTSIDE ALL BOUNDARIES (Placed below lowest boundary)
+             Lowest boundary is y=715; Legend starts at y=745 (>20px clearance)
+             ================================================================= -->
+        <g id="legend">
+          <text x="40" y="763" fill="#ffffff" font-size="10" font-weight="700">SEMANTIC LEGEND:</text>
+          
+          <!-- Frontend -->
+          <rect x="170" y="753" width="16" height="12" rx="3" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+          <text x="193" y="763" fill="#94a3b8" font-size="8">Frontend</text>
+
+          <!-- Backend -->
+          <rect x="270" y="753" width="16" height="12" rx="3" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+          <text x="293" y="763" fill="#94a3b8" font-size="8">Backend (Go)</text>
+
+          <!-- Database -->
+          <rect x="390" y="753" width="16" height="12" rx="3" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+          <text x="413" y="763" fill="#94a3b8" font-size="8">Database</text>
+
+          <!-- Cloud / Storage -->
+          <rect x="490" y="753" width="16" height="12" rx="3" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+          <text x="513" y="763" fill="#94a3b8" font-size="8">Cloud / S3</text>
+
+          <!-- Security -->
+          <rect x="600" y="753" width="16" height="12" rx="3" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+          <text x="623" y="763" fill="#94a3b8" font-size="8">Security / Gate</text>
+
+          <!-- Message Bus -->
+          <rect x="735" y="753" width="16" height="12" rx="3" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
+          <text x="758" y="763" fill="#94a3b8" font-size="8">Message Bus</text>
+
+          <!-- External -->
+          <rect x="855" y="753" width="16" height="12" rx="3" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+          <text x="878" y="763" fill="#94a3b8" font-size="8">External Runner</text>
+
+          <!-- Auth / Dashed Flow -->
+          <line x1="980" y1="759" x2="1005" y2="759" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <text x="1013" y="763" fill="#94a3b8" font-size="8">Gated Flow</text>
+        </g>
+      </svg>
+    </main>
+
+    <!-- Summary Info Cards (Grid of 3 cards) -->
+    <section class="cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot cyan"></div>
+          <h3>Reactive High-Density UI</h3>
+        </div>
+        <ul>
+          <li>• <strong>Zero Polling</strong>: Live updates pushed via SSE stream with latency &le; 1.5s (p95) [N3].</li>
+          <li>• <strong>Board Performance</strong>: First paint &le; 400ms under 5.000 loaded tasks [N2].</li>
+          <li>• <strong>High Density Design</strong>: 32px table row height, 12px card padding, Signal Teal accent.</li>
+          <li>• <strong>Financial Transparency</strong>: Monospace token and micro-cents meter visible on every card.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot emerald"></div>
+          <h3>Deterministic Go Dispatcher</h3>
+        </div>
+        <ul>
+          <li>• <strong>Binary Footprint</strong>: Single Go binary &le; 30MB [N14], idling at &le; 80MB RAM [N15].</li>
+          <li>• <strong>Tick &amp; Batching</strong>: Periodic 2s tick [N19], claiming up to 20 tasks [N20] via SELECT FOR UPDATE.</li>
+          <li>• <strong>Fleet Concurrency</strong>: Gated strictly to 50 concurrent running agents per organization [N4].</li>
+          <li>• <strong>Autonomous Reclaim</strong>: Stale runners without heartbeat (> 15m) automatically reset [N8].</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot violet"></div>
+          <h3>Cost Ledger &amp; Guardrails</h3>
+        </div>
+        <ul>
+          <li>• <strong>Dual Budget Caps</strong>: Hard stop at $20/day per board [N16] and $2/run [N17]; alert at 80% [N18].</li>
+          <li>• <strong>Immutable Accounting</strong>: Integer micro-cents math (1 USD = 1.000.000 micros) per step.</li>
+          <li>• <strong>Approval Safeguard</strong>: Dangerous tools halt execution until approved or expired at 24h [N23].</li>
+          <li>• <strong>Data Lifecycle</strong>: Events retained 30d [N10], daily aggregates 12m [N11], artifacts 90d [N12].</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Minimal Metadata Footer -->
+    <footer class="footer">
+      AgentDeck Architecture Specification • Single Source of Truth DECISIONS.md • Target Infra Cost &le; $10/mo [N13] • 99.5% Monthly Uptime [N25]
+    </footer>
+  </div>
+</body>
+</html>

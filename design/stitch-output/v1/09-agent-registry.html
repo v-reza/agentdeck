@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — Agent Registry</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f6f7f6;
+      color: #0e1110;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .mono-xs {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .tabular {
+      font-variant-numeric: tabular-nums;
+    }
+    /* Custom thin scrollbar */
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #f6f7f6;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #d1d5d3;
+      border-radius: 3px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #b5bab8;
+    }
+  </style>
+</head>
+<body class="w-screen h-screen flex overflow-hidden select-none text-[#0e1110]">
+
+  <!-- RAIL KIRI (44px) -->
+  <aside style="width: 44px; min-width: 44px; background-color: #e8ecea;" class="h-full flex flex-col items-center py-2.5 z-20 flex-shrink-0 border-r border-[rgba(12,26,22,0.07)]">
+    <div class="flex flex-col items-center gap-1.5 w-full">
+      <!-- Icon 1: Grid / Boards -->
+      <button type="button" aria-label="Dashboard" class="w-8 h-8 rounded flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+      </button>
+
+      <!-- Icon 2: Kanban / Columns -->
+      <button type="button" aria-label="Kanban Boards" class="w-8 h-8 rounded flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+          <line x1="9" y1="4" x2="9" y2="20"></line>
+          <line x1="15" y1="4" x2="15" y2="20"></line>
+        </svg>
+      </button>
+
+      <!-- Icon 3: Tasks / Runs -->
+      <button type="button" aria-label="Tasks" class="w-8 h-8 rounded flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 11 12 14 22 4"></polyline>
+          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+        </svg>
+      </button>
+
+      <!-- Icon 4: AGENTS AKTIF (#0d7a70, icon putih) -->
+      <button type="button" aria-label="Agents Registry (Active)" class="w-8 h-8 rounded flex items-center justify-center bg-[#0d7a70] text-white transition-colors shadow-sm">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="8" width="16" height="12" rx="2"></rect>
+          <circle cx="9" cy="13" r="1"></circle>
+          <circle cx="15" cy="13" r="1"></circle>
+          <path d="M9 17h6"></path>
+          <line x1="12" y1="4" x2="12" y2="8"></line>
+          <circle cx="12" cy="3" r="1"></circle>
+        </svg>
+      </button>
+
+      <!-- Icon 5: Cost / Ledger -->
+      <button type="button" aria-label="Cost Ledger" class="w-8 h-8 rounded flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="2" x2="12" y2="22"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Bottom settings icon -->
+    <div class="mt-auto w-full flex flex-col items-center">
+      <button type="button" aria-label="Settings" class="w-8 h-8 rounded flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] transition-colors">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR (224px) -->
+  <nav style="width: 224px; min-width: 224px; background-color: #f6f7f6;" class="h-full flex flex-col justify-between border-r border-[rgba(12,26,22,0.07)] flex-shrink-0 z-10">
+    <div class="px-3 pt-3.5 flex flex-col">
+      <!-- Section BOARDS -->
+      <div class="text-[11px] font-semibold tracking-wider text-[#6b7370] uppercase px-2 mb-1.5">
+        BOARDS
+      </div>
+      <div class="flex flex-col gap-0.5 mb-5">
+        <!-- Sprint 24 (Aktif, teks #0e1110 weight 600) -->
+        <div class="flex items-center justify-between px-2 py-1.5 rounded text-[13px] font-semibold text-[#0e1110] bg-[#e8ecea] cursor-pointer">
+          <div class="flex items-center gap-2 truncate">
+            <svg class="w-3.5 h-3.5 text-[#0d7a70] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+              <line x1="4" y1="22" x2="4" y2="15"></line>
+            </svg>
+            <span class="truncate">Sprint 24</span>
+          </div>
+          <span class="mono-xs text-[#6b7370] tabular">12</span>
+        </div>
+
+        <div class="flex items-center justify-between px-2 py-1.5 rounded text-[13px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[#eef1f0] transition-colors cursor-pointer">
+          <div class="flex items-center gap-2 truncate">
+            <svg class="w-3.5 h-3.5 text-[#6b7370] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+              <line x1="4" y1="22" x2="4" y2="15"></line>
+            </svg>
+            <span class="truncate">Sprint 23</span>
+          </div>
+          <span class="mono-xs text-[#6b7370] tabular">24</span>
+        </div>
+
+        <div class="flex items-center justify-between px-2 py-1.5 rounded text-[13px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[#eef1f0] transition-colors cursor-pointer">
+          <div class="flex items-center gap-2 truncate">
+            <svg class="w-3.5 h-3.5 text-[#6b7370] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+            <span class="truncate">Backlog grooming</span>
+          </div>
+          <span class="mono-xs text-[#6b7370] tabular">38</span>
+        </div>
+
+        <div class="flex items-center justify-between px-2 py-1.5 rounded text-[13px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[#eef1f0] transition-colors cursor-pointer">
+          <div class="flex items-center gap-2 truncate">
+            <svg class="w-3.5 h-3.5 text-[#6b7370] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+              <path d="M9 9h6v6H9z"></path>
+            </svg>
+            <span class="truncate">Agent ops</span>
+          </div>
+          <span class="mono-xs text-[#6b7370] tabular">6</span>
+        </div>
+      </div>
+
+      <!-- Section AGENTS -->
+      <div class="text-[11px] font-semibold tracking-wider text-[#6b7370] uppercase px-2 mb-1.5">
+        AGENTS
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded text-[13px] text-[#0e1110] hover:bg-[#eef1f0] transition-colors cursor-pointer">
+          <span class="w-4 h-4 rounded-full bg-[#e6f2f0] text-[#0d7a70] text-[9px] font-mono font-medium flex items-center justify-center flex-shrink-0">db</span>
+          <span class="truncate">agent-db</span>
+        </div>
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded text-[13px] text-[#0e1110] hover:bg-[#eef1f0] transition-colors cursor-pointer">
+          <span class="w-4 h-4 rounded-full bg-[#e6f2f0] text-[#0d7a70] text-[9px] font-mono font-medium flex items-center justify-center flex-shrink-0">be</span>
+          <span class="truncate">agent-backend</span>
+        </div>
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded text-[13px] text-[#0e1110] hover:bg-[#eef1f0] transition-colors cursor-pointer">
+          <span class="w-4 h-4 rounded-full bg-[#e6f2f0] text-[#0d7a70] text-[9px] font-mono font-medium flex items-center justify-center flex-shrink-0">dc</span>
+          <span class="truncate">agent-docs</span>
+        </div>
+        <div class="flex items-center gap-2 px-2 py-1.5 rounded text-[13px] text-[#0e1110] hover:bg-[#eef1f0] transition-colors cursor-pointer">
+          <span class="w-4 h-4 rounded-full bg-[#e6f2f0] text-[#0d7a70] text-[9px] font-mono font-medium flex items-center justify-center flex-shrink-0">dt</span>
+          <span class="truncate">agent-data</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Sidebar Avatar 26px "Reza" -->
+    <div class="p-3 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#e8ecea] text-[#0e1110] text-xs font-medium flex items-center justify-center">
+          R
+        </div>
+        <span class="text-[13px] font-medium text-[#0e1110]">Reza</span>
+      </div>
+      <span class="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#6b7370] bg-[#e8ecea] px-1.5 py-0.5 rounded">OWNER</span>
+    </div>
+  </nav>
+
+  <!-- PANE UTAMA (TENGAH): TOPBAR (52px) + KONTEN SCROLLABLE -->
+  <main class="flex-1 h-full flex flex-col min-w-0 bg-[#ffffff] overflow-hidden">
+    
+    <!-- TOPBAR (52px) HANYA di atas pane konten -->
+    <header style="height: 52px; min-height: 52px; background-color: #ffffff;" class="border-b border-[rgba(12,26,22,0.07)] px-5 flex items-center justify-between flex-shrink-0">
+      <!-- Kiri: "Agents" Inter 16 weight 600 #0e1110 + mono-xs #6b7370 "5 registered" -->
+      <div class="flex items-baseline gap-2.5">
+        <h1 class="text-[16px] font-semibold text-[#0e1110] tracking-tight">Agents</h1>
+        <span class="mono-xs text-[#6b7370]">5 registered</span>
+      </div>
+
+      <!-- Kanan: search 160px + ikon filter + tombol primary "New agent" (JANGAN lebih dari 3 elemen) -->
+      <div class="flex items-center gap-2">
+        <!-- 1. Search 160px -->
+        <div class="relative w-[160px]">
+          <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6b7370]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input 
+            type="text" 
+            placeholder="Search agents..." 
+            class="w-full h-8 pl-8 pr-2.5 text-xs bg-[#f6f7f6] border border-[rgba(12,26,22,0.1)] rounded focus:outline-none focus:border-[#0d7a70] text-[#0e1110] placeholder-[#6b7370]"
+          />
+        </div>
+
+        <!-- 2. Ikon Filter -->
+        <button type="button" aria-label="Filter" class="w-8 h-8 rounded border border-[rgba(12,26,22,0.1)] bg-[#f6f7f6] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[#e8ecea] transition-colors">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+        </button>
+
+        <!-- 3. Tombol Primary "New agent" -->
+        <button type="button" class="h-8 px-3 rounded-[6px] bg-[#0d7a70] hover:bg-[#0b685f] text-white text-xs font-medium flex items-center gap-1.5 transition-colors shadow-sm">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>New agent</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ISI PANE KONTEN: SCROLLABLE -->
+    <div class="flex-1 overflow-y-auto custom-scroll flex flex-col justify-between bg-white">
+      <div class="w-full">
+        <!-- TABEL PADAT -->
+        <table class="w-full border-collapse text-left table-fixed">
+          <!-- HEADER: 32px background #e8ecea sticky -->
+          <thead class="sticky top-0 z-10 bg-[#e8ecea] border-b border-[rgba(12,26,22,0.07)] text-[11px] font-semibold text-[#4d5553]">
+            <tr style="height: 32px;">
+              <th class="px-4 font-semibold text-[#4d5553]">Agent</th>
+              <th style="width: 130px;" class="px-3 font-semibold text-[#4d5553]">Provider</th>
+              <th style="width: 180px;" class="px-3 font-semibold text-[#4d5553]">Model</th>
+              <th style="width: 120px;" class="px-3 font-semibold text-[#4d5553]">Status</th>
+              <th style="width: 80px;" class="px-3 font-semibold text-[#4d5553] text-right">Runs</th>
+              <th style="width: 100px;" class="px-3 font-semibold text-[#4d5553] text-right">Fail rate</th>
+              <th style="width: 110px;" class="px-4 font-semibold text-[#4d5553] text-right">Cost today</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[rgba(12,26,22,0.05)] text-xs">
+            
+            <!-- BARIS 1 (Disorot: state klik, background #e6f2f0, border kiri 2px #0d7a70, 28px) -->
+            <tr style="height: 28px; background-color: #e6f2f0; border-left: 2px solid #0d7a70;" class="cursor-pointer transition-colors">
+              <td class="px-4 py-0 flex items-center gap-2 h-[28px] overflow-hidden">
+                <div class="w-5 h-5 rounded-full bg-[#e6f2f0] border border-[#0d7a70]/20 text-[#0d7a70] text-[10px] font-mono font-medium flex items-center justify-center flex-shrink-0">
+                  be
+                </div>
+                <span class="text-[13px] font-medium text-[#0e1110] truncate">agent-backend</span>
+              </td>
+              <td class="px-3 py-0 mono-xs text-[#0e1110] truncate">openai</td>
+              <td class="px-3 py-0 mono-xs text-[#0e1110] truncate">gpt-4o-2024-11</td>
+              <td class="px-3 py-0">
+                <span class="inline-flex items-center rounded-[4px] px-[6px] py-[2px] text-[10px] font-medium uppercase tracking-wider bg-[#15803d] text-white leading-none">
+                  active
+                </span>
+              </td>
+              <td class="px-3 py-0 mono-xs text-[#4d5553] tabular text-right">18</td>
+              <td class="px-3 py-0 mono-xs tabular text-right text-[#4d5553]">5.6%</td>
+              <td class="px-4 py-0 font-mono text-[13px] font-medium text-[#0d1a67] tabular text-right">$94.12</td>
+            </tr>
+
+            <!-- INLINE DETAIL ROW di bawah Baris 1: tinggi 128px background #e8ecea padding 12 -->
+            <tr>
+              <td colspan="7" class="p-0 border-b border-[rgba(12,26,22,0.07)]">
+                <div style="height: 128px; background-color: #e8ecea; padding: 12px;" class="flex flex-col justify-between">
+                  <!-- Grid 3 kolom label-value mono-xs -->
+                  <div class="grid grid-cols-3 gap-y-2 gap-x-6">
+                    <div class="flex items-center gap-2 mono-xs">
+                      <span class="text-[#6b7370] font-semibold tracking-wider">AGENT ID</span>
+                      <span class="text-[#0e1110] font-mono">agt_2b41</span>
+                    </div>
+                    <div class="flex items-center gap-2 mono-xs">
+                      <span class="text-[#6b7370] font-semibold tracking-wider">MAX RUNTIME</span>
+                      <span class="text-[#0e1110] font-mono">3,600s</span>
+                    </div>
+                    <div class="flex items-center gap-2 mono-xs">
+                      <span class="text-[#6b7370] font-semibold tracking-wider">MAX ATTEMPTS</span>
+                      <span class="text-[#0e1110] font-mono">5</span>
+                    </div>
+                    <div class="flex items-center gap-2 mono-xs">
+                      <span class="text-[#6b7370] font-semibold tracking-wider">RETRY POLICY</span>
+                      <span class="text-[#0e1110] font-mono">transient_only</span>
+                    </div>
+                    <div class="flex items-center gap-2 mono-xs">
+                      <span class="text-[#6b7370] font-semibold tracking-wider">GATE MODE</span>
+                      <span class="text-[#0e1110] font-mono">require</span>
+                    </div>
+                    <div class="flex items-center gap-2 mono-xs">
+                      <span class="text-[#6b7370] font-semibold tracking-wider">PRICE VERSION</span>
+                      <span class="text-[#0e1110] font-mono">v4</span>
+                    </div>
+                  </div>
+
+                  <!-- Satu baris Inter 12 #4d5553 -->
+                  <div class="text-[12px] text-[#4d5553] pt-2 border-t border-[rgba(12,26,22,0.07)]">
+                    Skills: sql, filesystem, shell. Tools: read_file, edit_file, bash (gated).
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <!-- BARIS 2: agent-data | deepseek | deepseek-chat | active | 14 | 0.0% | $71.03 -->
+            <tr style="height: 28px;" class="hover:bg-[#f6f7f6] transition-colors">
+              <td class="px-4 py-0 flex items-center gap-2 h-[28px] overflow-hidden">
+                <div class="w-5 h-5 rounded-full bg-[#e6f2f0] text-[#0d7a70] text-[10px] font-mono font-medium flex items-center justify-center flex-shrink-0">
+                  dt
+                </div>
+                <span class="text-[13px] font-medium text-[#0e1110] truncate">agent-data</span>
+              </td>
+              <td class="px-3 py-0 mono-xs text-[#0e1110] truncate">deepseek</td>
+              <td class="px-3 py-0 mono-xs text-[#0e1110] truncate">deepseek-chat</td>
+              <td class="px-3 py-0">
+                <span class="inline-flex items-center rounded-[4px] px-[6px] py-[2px] text-[10px] font-medium uppercase tracking-wider bg-[#15803d] text-white leading-none">
+                  active
+                </span>
+              </td>
+              <td class="px-3 py-0 mono-xs text-[#4d5553] tabular text-right">14</td>
+              <td class="px-3 py-0 mono-xs tabular text-right text-[#4d5553]">0.0%</td>
+              <td class="px-4 py-0 font-mono text-[13px] font-medium text-[#0d1a67] tabular text-right">$71.03</td>
+            </tr>
+
+            <!-- BARIS 3: agent-security | anthropic | claude-3-5-sonnet | active | 9 | 11.1% | $43.87 -->
+            <tr style="height: 28px;" class="hover:bg-[#f6f7f6] transition-colors">
+              <td class="px-4 py-0 flex items-center gap-2 h-[28px] overflow-hidden">
+                <div class="w-5 h-5 rounded-full bg-[#e6f2f0] text-[#0d7a70] text-[10px] font-mono font-medium flex items-center justify-center flex-shrink-0">
+                  sc
+                </div>
+                <span class="text-[13px] font-medium text-[#0e1110] truncate">agent-security</span>
+              </td>
+              <td class="px-3 py-0 mono-xs text-[#0e1110] truncate">anthropic</td>
+              <td class="px-3 py-0 mono-xs text-[#0e1110] truncate">claude-3-5-sonnet</td>
+              <td class="px-3 py-0">
+                <span class="inline-flex items-center rounded-[4px] px-[6px] py-[2px] text-[10px] font-medium uppercase tracking-wider bg-[#15803d] text-white leading-none">
+                  active
+                </span>
+              </td>
+              <td class="px-3 py-0 mono-xs text-[#4d5553] tabular text-right">9</td>
+              <!-- Fail rate > 10% → #b91c1c -->
+              <td class="px-3 py-0 mono-xs tabular text-right font-medium text-[#b91c1c]">11.1%</td>
+              <td class="px-4 py-0 font-mono text-[13px] font-medium text-[#0d1a67] tabular text-right">$43.87</td>
+            </tr>
+
+            <!-- BARIS 4: agent-docs | openai | gpt-4o-mini | active | 22 | 4.5% | $31.44 -->
+            <tr style="height: 28px;" class="hover:bg-[#f6f7f6] transition-colors">
+              <td class="px-4 py-0 flex items-center gap-2 h-[28px] overflow-hidden">
+                <div class="w-5 h-5 rounded-full bg-[#e6f2f0] text-[#0d7a70] text-[10px] font-mono font-medium flex items-center justify-center flex-shrink-0">
+                  dc
+                </div>
+                <span class="text-[13px] font-medium text-[#0e1110] truncate">agent-docs</span>
+              </td>
+              <td class="px-3 py-0 mono-xs text-[#0e1110] truncate">openai</td>
+              <td class="px-3 py-0 mono-xs text-[#0e1110] truncate">gpt-4o-mini</td>
+              <td class="px-3 py-0">
+                <span class="inline-flex items-center rounded-[4px] px-[6px] py-[2px] text-[10px] font-medium uppercase tracking-wider bg-[#15803d] text-white leading-none">
+                  active
+                </span>
+              </td>
+              <td class="px-3 py-0 mono-xs text-[#4d5553] tabular text-right">22</td>
+              <td class="px-3 py-0 mono-xs tabular text-right text-[#4d5553]">4.5%</td>
+              <td class="px-4 py-0 font-mono text-[13px] font-medium text-[#0d1a67] tabular text-right">$31.44</td>
+            </tr>
+
+            <!-- BARIS 5: agent-payments | openai | gpt-4o-mini | archived | 6 | 16.7% | $22.18 -->
+            <!-- Archived → opacity 0.7 di seluruh baris -->
+            <tr style="height: 28px; opacity: 0.7;" class="hover:bg-[#f6f7f6] transition-opacity">
+              <td class="px-4 py-0 flex items-center gap-2 h-[28px] overflow-hidden">
+                <div class="w-5 h-5 rounded-full bg-[#e6f2f0] text-[#0d7a70] text-[10px] font-mono font-medium flex items-center justify-center flex-shrink-0">
+                  pm
+                </div>
+                <span class="text-[13px] font-medium text-[#0e1110] truncate">agent-payments</span>
+              </td>
+              <td class="px-3 py-0 mono-xs text-[#0e1110] truncate">openai</td>
+              <td class="px-3 py-0 mono-xs text-[#0e1110] truncate">gpt-4o-mini</td>
+              <td class="px-3 py-0">
+                <span class="inline-flex items-center rounded-[4px] px-[6px] py-[2px] text-[10px] font-medium uppercase tracking-wider bg-[#cbd5e1] text-[#0e1110] leading-none">
+                  archived
+                </span>
+              </td>
+              <td class="px-3 py-0 mono-xs text-[#4d5553] tabular text-right">6</td>
+              <!-- Fail rate > 10% → #b91c1c -->
+              <td class="px-3 py-0 mono-xs tabular text-right font-medium text-[#b91c1c]">16.7%</td>
+              <td class="px-4 py-0 font-mono text-[13px] font-medium text-[#0d1a67] tabular text-right">$22.18</td>
+            </tr>
+
+          </tbody>
+        </table>
+      </div>
+
+      <!-- FOOTER TINGGI 40px -->
+      <footer style="height: 40px; min-height: 40px;" class="border-t border-[rgba(12,26,22,0.07)] px-4 flex items-center justify-between bg-white flex-shrink-0">
+        <span class="mono-xs text-[#6b7370]">5 of 5 agents</span>
+        <button type="button" class="text-xs font-medium text-[#4d5553] hover:text-[#0e1110] px-2.5 py-1 rounded hover:bg-[#eef1f0] transition-colors">
+          Export registry
+        </button>
+      </footer>
+    </div>
+  </main>
+
+  <!-- COST RAIL KANAN (264px) TINGGI PENUH -->
+  <aside style="width: 264px; min-width: 264px; background-color: #eef1f0;" class="h-full flex flex-col p-4 border-l border-[rgba(12,26,22,0.07)] flex-shrink-0 z-10 overflow-y-auto custom-scroll">
+    
+    <!-- (1) TODAY -->
+    <div class="mb-6">
+      <div class="text-[11px] font-semibold uppercase tracking-wider text-[#6b7370] mb-1">
+        TODAY
+      </div>
+      <div class="font-mono text-[20px] font-semibold text-[#0e1110] tracking-tight mb-2">
+        $4.82 <span class="text-[13px] font-normal text-[#6b7370]">/ $20.00</span>
+      </div>
+      <!-- Budget meter 6px radius full terisi 24% warna #0d7a70 di atas track #e8ecea -->
+      <div class="w-full h-[6px] rounded-full bg-[#e8ecea] overflow-hidden">
+        <div class="h-full bg-[#0d7a70] rounded-full" style="width: 24.1%;"></div>
+      </div>
+    </div>
+
+    <!-- (2) 7-DAY -->
+    <div class="mb-6">
+      <div class="text-[11px] font-semibold uppercase tracking-wider text-[#6b7370] mb-2">
+        7-DAY
+      </div>
+      <!-- Sparkline 7 bar lebar 5px warna #0d7a70 -->
+      <div class="flex items-end justify-between h-[52px] pt-2 px-1 mb-1.5 border-b border-[rgba(12,26,22,0.06)] pb-1">
+        <div class="w-[5px] bg-[#0d7a70] rounded-t-sm" style="height: 18px;"></div>
+        <div class="w-[5px] bg-[#0d7a70] rounded-t-sm" style="height: 38px;"></div>
+        <div class="w-[5px] bg-[#0d7a70] rounded-t-sm" style="height: 14px;"></div>
+        <div class="w-[5px] bg-[#0d7a70] rounded-t-sm" style="height: 24px;"></div>
+        <div class="w-[5px] bg-[#0d7a70] rounded-t-sm" style="height: 42px;"></div>
+        <div class="w-[5px] bg-[#0d7a70] rounded-t-sm" style="height: 32px;"></div>
+        <div class="w-[5px] bg-[#0d7a70] rounded-t-sm" style="height: 40px;"></div>
+      </div>
+      <!-- Mono-xs tanggal "Sep 12 – Sep 18" -->
+      <div class="mono-xs text-[#6b7370] text-right">
+        Sep 12 – Sep 18
+      </div>
+    </div>
+
+    <!-- (3) TOP SPENDERS -->
+    <div class="mb-6">
+      <div class="text-[11px] font-semibold uppercase tracking-wider text-[#6b7370] mb-3">
+        TOP SPENDERS
+      </div>
+      <div class="flex flex-col gap-3">
+        <!-- Spender 1: agent-backend $1.84 -->
+        <div>
+          <div class="flex items-center justify-between text-xs mb-1">
+            <span class="font-mono text-[11px] text-[#0e1110]">agent-backend</span>
+            <span class="font-mono text-[11px] text-[#0d7a70] font-medium">$1.84</span>
+          </div>
+          <!-- Bar tipis 4px proporsional (1.84 / 1.84 = 100%) -->
+          <div class="w-full h-[4px] rounded-full bg-[#e8ecea] overflow-hidden">
+            <div class="h-full bg-[#0d7a70] rounded-full" style="width: 100%;"></div>
+          </div>
+        </div>
+
+        <!-- Spender 2: agent-data $1.42 -->
+        <div>
+          <div class="flex items-center justify-between text-xs mb-1">
+            <span class="font-mono text-[11px] text-[#0e1110]">agent-data</span>
+            <span class="font-mono text-[11px] text-[#0d7a70] font-medium">$1.42</span>
+          </div>
+          <!-- Bar tipis 4px proporsional (1.42 / 1.84 = 77%) -->
+          <div class="w-full h-[4px] rounded-full bg-[#e8ecea] overflow-hidden">
+            <div class="h-full bg-[#0d7a70] rounded-full" style="width: 77.2%;"></div>
+          </div>
+        </div>
+
+        <!-- Spender 3: agent-docs $0.91 -->
+        <div>
+          <div class="flex items-center justify-between text-xs mb-1">
+            <span class="font-mono text-[11px] text-[#0e1110]">agent-docs</span>
+            <span class="font-mono text-[11px] text-[#0d7a70] font-medium">$0.91</span>
+          </div>
+          <!-- Bar tipis 4px proporsional (0.91 / 1.84 = 49.5%) -->
+          <div class="w-full h-[4px] rounded-full bg-[#e8ecea] overflow-hidden">
+            <div class="h-full bg-[#0d7a70] rounded-full" style="width: 49.5%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- (4) RUNNING NOW -->
+    <div class="mt-auto pt-4 border-t border-[rgba(12,26,22,0.07)]">
+      <div class="text-[11px] font-semibold uppercase tracking-wider text-[#6b7370] mb-1">
+        RUNNING NOW
+      </div>
+      <div class="flex items-baseline gap-1.5">
+        <span class="font-mono text-[20px] font-semibold text-[#0e1110] leading-none">2</span>
+        <span class="text-xs text-[#6b7370]">agents</span>
+      </div>
+    </div>
+
+  </aside>
+
+</body>
+</html>

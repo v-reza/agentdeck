@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — Register (Blueprint D)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-page: #f6f7f6;
+      --surface-panel: #ffffff;
+      --accent: #0d7a70;
+      --accent-hover: #0b685f;
+      --accent-tint: #eef7f5;
+      --text-primary: #0e1110;
+      --text-secondary: #4d5553;
+      --text-tertiary: #6b7370;
+      --border-subtle: rgba(12, 26, 22, 0.07);
+      --border-standard: rgba(12, 26, 22, 0.12);
+      --border-focus: #0d7a70;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-page);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .blueprint-d-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* Brand Header */
+    .brand-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .brand-logo-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .logo-mark {
+      width: 24px;
+      height: 24px;
+      background-color: var(--accent);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: -0.02em;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .logo-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+
+    .brand-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .route-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      background-color: #edefed;
+      color: var(--text-secondary);
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* Blueprint D Card: persis 400px tengah */
+    .register-card {
+      width: 400px;
+      background-color: var(--surface-panel);
+      border: 1px solid var(--border-standard);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .card-description {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .form-hint {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .form-input {
+      width: 100%;
+      height: 36px;
+      background-color: #ffffff;
+      border: 1px solid var(--border-standard);
+      border-radius: var(--radius-sm);
+      padding: 0 10px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .form-input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 1px var(--border-focus);
+    }
+
+    .form-input::placeholder {
+      color: #9aa0aa;
+    }
+
+    /* AC1 & AC5 Notice / Note banner */
+    .onboarding-badge-box {
+      background-color: var(--accent-tint);
+      border: 1px solid rgba(13, 122, 112, 0.18);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      margin-bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .badge-box-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .badge-box-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.01em;
+    }
+
+    .badge-box-text {
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .btn-submit {
+      width: 100%;
+      height: 36px;
+      background-color: var(--accent);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background-color 0.15s ease;
+    }
+
+    .btn-submit:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .card-footer {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-subtle);
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .card-footer a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .card-footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* System footer meta */
+    .system-meta-footer {
+      margin-top: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .system-meta-footer span {
+      display: inline-flex;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="blueprint-d-container">
+    <!-- Brand Header -->
+    <header class="brand-header">
+      <div class="brand-logo-badge">
+        <div class="logo-mark">AD</div>
+        <div class="logo-title">AgentDeck</div>
+      </div>
+      <div class="brand-meta">
+        <span class="route-pill">/register</span>
+        <span>Fleet Orchestration</span>
+      </div>
+    </header>
+
+    <!-- Blueprint D Centered Card (400px) -->
+    <main class="register-card" role="main">
+      <h1 class="card-title">Daftar ke AgentDeck</h1>
+      <p class="card-description">Mulai orkestrasi armada agen AI Anda dengan akun baru.</p>
+
+      <form action="#" method="POST" onsubmit="return false;" novalidate>
+        <!-- Email Input (AC1) -->
+        <div class="form-group">
+          <div class="label-row">
+            <label for="email" class="form-label">Email</label>
+          </div>
+          <input 
+            type="email" 
+            id="email" 
+            name="email" 
+            class="form-input" 
+            placeholder="nama@perusahaan.com" 
+            autocomplete="email" 
+            required
+          >
+        </div>
+
+        <!-- Password Input (AC1: minimum 8 karakter) -->
+        <div class="form-group">
+          <div class="label-row">
+            <label for="password" class="form-label">Password</label>
+            <span class="form-hint">min. 8 karakter</span>
+          </div>
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            class="form-input" 
+            placeholder="Minimal 8 karakter" 
+            minlength="8" 
+            autocomplete="new-password" 
+            required
+          >
+        </div>
+
+        <!-- AC1 & AC5 Requirements Notice: Personal Workspace & Direct Project/Board Setup -->
+        <div class="onboarding-badge-box">
+          <div class="badge-box-header">
+            <span class="status-dot"></span>
+            <span class="badge-box-title">Workspace Personal Otomatis</span>
+          </div>
+          <p class="badge-box-text">
+            Workspace personal langsung dibuat tanpa konfigurasi organisasi. Anda dapat langsung membuat project &amp; board pertama Anda.
+          </p>
+        </div>
+
+        <!-- Submit Button (201 Created & session token dikirim) -->
+        <button type="submit" class="btn-submit">
+          Daftar Akun
+        </button>
+      </form>
+
+      <!-- Card Link to Login -->
+      <div class="card-footer">
+        Sudah memiliki akun? <a href="/login">Masuk</a>
+      </div>
+    </main>
+
+    <!-- System Footer Meta -->
+    <footer class="system-meta-footer">
+      <span>agentdeck v2.0</span>
+      <span>•</span>
+      <span>self-hosted</span>
+      <span>•</span>
+      <span>isolated</span>
+    </footer>
+  </div>
+</body>
+</html>

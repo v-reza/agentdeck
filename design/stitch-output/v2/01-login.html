@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — Login</title>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            teal: {
+              accent: '#0d7a70',
+              accentHover: '#0a635b',
+              tint: '#eef7f5',
+            },
+            ink: {
+              primary: '#0e1110',
+              secondary: '#4d5553',
+              tertiary: '#6b7370',
+            },
+            deck: {
+              canvas: '#f6f7f6',
+              panel: '#ffffff',
+              borderSubtle: 'rgba(12,26,22,0.07)',
+              borderStandard: 'rgba(12,26,22,0.12)',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #f6f7f6;
+      color: #0e1110;
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen bg-[#f6f7f6] select-none">
+  <!-- Blueprint D: Kartu 400px tengah, TANPA rail / sidebar / cost rail -->
+  <main class="w-[400px] flex flex-col items-center">
+    
+    <!-- Brand / Header Logo & Route -->
+    <div class="mb-6 flex flex-col items-center text-center">
+      <div class="flex items-center gap-2 mb-2">
+        <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] flex items-center justify-center text-white font-mono font-bold text-sm tracking-tighter">
+          AD
+        </div>
+        <span class="font-bold text-[18px] tracking-tight text-[#0e1110]">AgentDeck</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="font-mono text-[11px] text-[#6b7370] bg-[#e8ecea] px-2 py-0.5 rounded-[6px]">/login</span>
+        <span class="text-[12px] text-[#4d5553]">Fleet Orchestration</span>
+      </div>
+    </div>
+
+    <!-- Login Card (400px width, padding 24px, radius 10px / 14px) -->
+    <section class="w-full bg-[#ffffff] rounded-[10px] border border-[rgba(12,26,22,0.12)] p-6 shadow-sm">
+      <div class="mb-6">
+        <h1 class="text-[17px] font-semibold text-[#0e1110] tracking-tight mb-1">Masuk ke AgentDeck</h1>
+        <p class="text-[13px] text-[#6b7370]">Masukkan kredensial akun untuk mengakses fleet.</p>
+      </div>
+
+      <form class="space-y-4" onsubmit="event.preventDefault();">
+        <!-- Field Email -->
+        <div>
+          <label for="email" class="block text-[12px] font-medium text-[#0e1110] mb-1.5">
+            Email
+          </label>
+          <input 
+            type="email" 
+            id="email" 
+            name="email"
+            placeholder="nama@perusahaan.com" 
+            class="w-full h-[36px] px-3 text-[13px] bg-[#ffffff] text-[#0e1110] rounded-[6px] border border-[rgba(12,26,22,0.12)] placeholder-[#6b7370]/60 focus:outline-none focus:border-[#0d7a70] focus:ring-1 focus:ring-[#0d7a70] transition-colors"
+            autocomplete="email"
+          />
+        </div>
+
+        <!-- Field Password & Lupa Password link -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label for="password" class="block text-[12px] font-medium text-[#0e1110]">
+              Password
+            </label>
+            <!-- AC5: tautan "Lupa password?" -->
+            <a href="#" class="text-[12px] text-[#0d7a70] hover:underline font-medium focus:outline-none">
+              Lupa password?
+            </a>
+          </div>
+          <input 
+            type="password" 
+            id="password" 
+            name="password"
+            placeholder="••••••••" 
+            class="w-full h-[36px] px-3 text-[13px] bg-[#ffffff] text-[#0e1110] rounded-[6px] border border-[rgba(12,26,22,0.12)] placeholder-[#6b7370]/60 focus:outline-none focus:border-[#0d7a70] focus:ring-1 focus:ring-[#0d7a70] transition-colors"
+            autocomplete="current-password"
+          />
+        </div>
+
+        <!-- Tombol Utama "Log in" (AC5) -->
+        <div class="pt-2">
+          <button 
+            type="submit" 
+            class="w-full h-[36px] bg-[#0d7a70] hover:bg-[#0a635b] active:bg-[#084f49] text-white text-[13px] font-medium rounded-[6px] flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-[#0d7a70] focus:ring-offset-1"
+          >
+            Log in
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Footer meta: single-binary / isolation mode tag -->
+    <div class="mt-6 flex items-center justify-center gap-3 text-[11px] text-[#6b7370] font-mono">
+      <span>agentdeck v2.0</span>
+      <span>•</span>
+      <span>self-hosted</span>
+      <span>•</span>
+      <span>isolated</span>
+    </div>
+
+  </main>
+</body>
+</html>

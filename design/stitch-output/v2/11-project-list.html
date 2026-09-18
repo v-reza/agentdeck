@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — Projects (/projects)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            teal: {
+              accent: '#0d7a70',
+              hover: '#0a645c',
+              subtle: '#eef7f5',
+            },
+            surface: {
+              rail: '#e8ecea',
+              sidebar: '#f6f7f6',
+              card: '#ffffff',
+              costrail: '#eef1f0',
+              canvas: '#f6f7f6',
+            },
+            ink: {
+              primary: '#0e1110',
+              secondary: '#4d5553',
+              tertiary: '#6b7370',
+            },
+            border: {
+              subtle: 'rgba(12,26,22,0.07)',
+              standard: 'rgba(12,26,22,0.12)',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      background-color: #f6f7f6;
+      color: #0e1110;
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(12,26,22,0.15);
+      border-radius: 4px;
+    }
+    .tnum {
+      font-feature-settings: "tnum";
+    }
+  </style>
+</head>
+<body class="flex h-screen w-screen overflow-hidden text-[13px] select-none">
+
+  <!-- 1. LEFT ICON RAIL (44px, background #e8ecea, ikon saja tanpa label) -->
+  <aside class="w-[44px] shrink-0 bg-[#e8ecea] border-r border-[rgba(12,26,22,0.07)] flex flex-col items-center justify-between py-3 z-30">
+    <div class="flex flex-col items-center gap-4 w-full">
+      <!-- App Brand Mark / Logo -->
+      <a href="/projects" class="w-7 h-7 rounded-[6px] bg-[#0d7a70] flex items-center justify-center text-white font-bold text-[12px] tracking-tight">
+        AD
+      </a>
+
+      <!-- Icon Nav Items (44px rail - icons only) -->
+      <nav class="flex flex-col items-center gap-1.5 w-full mt-2">
+        <!-- Boards -->
+        <a href="/boards" class="w-8 h-8 rounded-[6px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] flex items-center justify-center transition-colors" title="Boards">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+        </a>
+        <!-- Projects (Active) -->
+        <a href="/projects" class="w-8 h-8 rounded-[6px] bg-[rgba(13,122,112,0.12)] text-[#0d7a70] flex items-center justify-center font-medium" title="Projects">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </a>
+        <!-- Tasks -->
+        <a href="#" class="w-8 h-8 rounded-[6px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] flex items-center justify-center transition-colors" title="Tasks">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4"></path>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+          </svg>
+        </a>
+        <!-- Agent Registry -->
+        <a href="/agents" class="w-8 h-8 rounded-[6px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] flex items-center justify-center transition-colors" title="Agents">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+            <circle cx="12" cy="5" r="2"></circle>
+            <path d="M12 7v4"></path>
+            <line x1="8" y1="16" x2="8.01" y2="16"></line>
+            <line x1="16" y1="16" x2="16.01" y2="16"></line>
+          </svg>
+        </a>
+        <!-- Cost / Billing -->
+        <a href="#" class="w-8 h-8 rounded-[6px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] flex items-center justify-center transition-colors" title="Cost & Usage">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Bottom Icon Rail -->
+    <div class="flex flex-col items-center gap-2">
+      <a href="#" class="w-8 h-8 rounded-[6px] text-[#4d5553] hover:text-[#0e1110] flex items-center justify-center" title="Settings">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </a>
+      <div class="w-2 h-2 rounded-full bg-[#16a34a]" title="Daemon Connected"></div>
+    </div>
+  </aside>
+
+  <!-- 2. SIDEBAR (224px, background #f6f7f6, border-r standard) -->
+  <aside class="w-[224px] shrink-0 bg-[#f6f7f6] border-r border-[rgba(12,26,22,0.07)] flex flex-col justify-between p-3.5 z-20">
+    <div class="flex flex-col gap-5">
+      <!-- Workspace Badge (AC4 / US-AD08 AC4: ruang kerja aktif dipakai otomatis, scoped isolation) -->
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[10px] font-mono uppercase tracking-wider text-[#6b7370]">WORKSPACE</span>
+          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#0d7a70]/10 text-[#0d7a70] text-[10px] font-mono font-medium">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+            prod-internal
+          </span>
+        </div>
+        <div class="text-[13px] font-semibold text-[#0e1110] font-mono truncate">ws_8f12a</div>
+        <div class="flex items-center gap-1 text-[11px] text-[#6b7370] mt-0.5">
+          <svg class="w-3 h-3 text-[#6b7370]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span class="font-mono text-[10px]">auto-bound (US-AD08 AC4)</span>
+        </div>
+      </div>
+
+      <!-- Navigation Links -->
+      <div class="flex flex-col gap-1">
+        <div class="text-[10px] font-mono uppercase tracking-wider text-[#6b7370] mb-1">NAVIGATION</div>
+        <a href="/boards" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.04)] hover:text-[#0e1110] transition-colors text-[12px] font-medium">
+          <div class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span>All Boards</span>
+          </div>
+          <span class="text-[11px] font-mono text-[#6b7370]">6</span>
+        </a>
+        <a href="/projects" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] bg-[#0d7a70]/10 text-[#0d7a70] text-[12px] font-semibold">
+          <div class="flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-[#0d7a70]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>All Projects</span>
+          </div>
+          <span class="text-[11px] font-mono text-[#0d7a70] font-bold">3</span>
+        </a>
+      </div>
+
+      <!-- Projects Tree / Active List -->
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[10px] font-mono uppercase tracking-wider text-[#6b7370]">PROJECTS IN SCOPE</span>
+          <span class="text-[10px] font-mono text-[#6b7370]">AC4</span>
+        </div>
+        <div class="flex flex-col gap-0.5">
+          <a href="#core-platform" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] hover:bg-[rgba(12,26,22,0.04)] text-[12px] text-[#0e1110] group">
+            <span class="font-mono text-[11px] truncate">core-platform</span>
+            <span class="text-[10px] font-mono text-[#6b7370] group-hover:text-[#0e1110]">3 boards</span>
+          </a>
+          <a href="#infra-fleet" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] hover:bg-[rgba(12,26,22,0.04)] text-[12px] text-[#0e1110] group">
+            <span class="font-mono text-[11px] truncate">infra-fleet</span>
+            <span class="text-[10px] font-mono text-[#6b7370] group-hover:text-[#0e1110]">2 boards</span>
+          </a>
+          <a href="#billing-service" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] hover:bg-[rgba(12,26,22,0.04)] text-[12px] text-[#0e1110] group">
+            <span class="font-mono text-[11px] truncate">billing-service</span>
+            <span class="text-[10px] font-mono text-[#6b7370] group-hover:text-[#0e1110]">1 board</span>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Profile Footer in Sidebar -->
+    <div class="pt-3 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <!-- avatar user 26px -->
+        <div class="w-[26px] h-[26px] rounded-full bg-[#e8ecea] text-[#4d5553] font-mono font-semibold text-[11px] flex items-center justify-center">
+          R
+        </div>
+        <div class="flex flex-col">
+          <span class="text-[12px] font-medium text-[#0e1110] leading-none">Reza</span>
+          <span class="text-[10px] font-mono text-[#6b7370] leading-tight">ws_8f12a</span>
+        </div>
+      </div>
+      <span class="px-1.5 py-0.5 rounded-[4px] bg-[#e8ecea] text-[#4d5553] font-mono text-[9px] uppercase font-semibold">OWNER</span>
+    </div>
+  </aside>
+
+  <!-- 3. MAIN WORKSPACE CONTAINER (Contains TOPBAR 52px + SCROLLABLE CONTENT PANE) -->
+  <!-- Topbar HANYA membentang di atas pane konten - JANGAN sejajar rail+sidebar+costrail -->
+  <div class="flex-1 flex flex-col min-w-0 h-screen bg-[#f6f7f6]">
+    
+    <!-- TOPBAR 52px (background #ffffff, border-b standard, konten saja) -->
+    <header class="h-[52px] shrink-0 bg-[#ffffff] border-b border-[rgba(12,26,22,0.07)] px-5 flex items-center justify-between z-10">
+      <!-- Title & Breadcrumb -->
+      <div class="flex items-center gap-3">
+        <h1 class="text-[15px] font-semibold text-[#0e1110] tracking-tight">Projects</h1>
+        <span class="font-mono text-[11px] text-[#6b7370] bg-[#f6f7f6] px-1.5 py-0.5 rounded-[4px] border border-[rgba(12,26,22,0.07)]">/projects</span>
+        <span class="text-[11px] font-mono text-[#6b7370] ml-1">3 projects in ws_8f12a</span>
+      </div>
+
+      <!-- Header Actions: Search, Filter, New Project (US-AD08 AC4 auto-bound) -->
+      <div class="flex items-center gap-2">
+        <!-- Search within current workspace (US-AD91 AC4) -->
+        <div class="relative">
+          <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6b7370]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input 
+            type="text" 
+            placeholder="Search projects in workspace..." 
+            value="" 
+            class="h-8 pl-8 pr-3 text-[12px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] rounded-[6px] text-[#0e1110] placeholder-[#6b7370] focus:outline-none focus:border-[#0d7a70] w-60"
+          />
+        </div>
+
+        <!-- Filter dropdown button -->
+        <button class="h-8 px-2.5 rounded-[6px] border border-[rgba(12,26,22,0.07)] bg-[#ffffff] text-[#4d5553] hover:text-[#0e1110] text-[12px] flex items-center gap-1.5 transition-colors">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+          <span>Sort & Filter</span>
+        </button>
+
+        <!-- New Project CTA (US-AD08 AC4: Tidak perlu pilih Org; ruang kerja aktif ws_8f12a dipakai otomatis) -->
+        <button class="h-8 px-3 rounded-[6px] bg-[#0d7a70] hover:bg-[#0a645c] text-white text-[12px] font-medium flex items-center gap-1.5 shadow-sm transition-colors" title="Create project in active workspace (US-AD08 AC4)">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>New project</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTENT PANE (Hanya pane konten yang scroll, background #f6f7f6) -->
+    <main class="flex-1 overflow-y-auto custom-scroll p-5 space-y-4">
+
+      <!-- Workspace Scope Isolation Callout (US-AD91 AC4 & US-AD08 AC4) -->
+      <div class="rounded-[8px] bg-[#ffffff] border border-[rgba(12,26,22,0.07)] px-3.5 py-2.5 flex items-center justify-between text-[11px] shadow-sm">
+        <div class="flex items-center gap-2 text-[#4d5553]">
+          <svg class="w-3.5 h-3.5 text-[#0d7a70] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>
+            Showing projects scoped strictly to active workspace <strong class="font-mono text-[#0e1110]">prod-internal</strong> (<span class="font-mono">ws_8f12a</span>). B2C project creation auto-binds to current workspace (US-AD08 AC4).
+          </span>
+        </div>
+        <div class="flex items-center gap-3 font-mono text-[10px] text-[#6b7370]">
+          <span>Sort active: <strong class="text-[#0d7a70]">Cost today (desc)</strong></span>
+          <span class="text-[rgba(12,26,22,0.12)]">|</span>
+          <span>Permission: <strong class="text-[#0e1110]">US-AD91 AC4 (isolated)</strong></span>
+        </div>
+      </div>
+
+      <!-- Projects Summary Cards / Overview Row (padding kartu 10px, radius 10px) -->
+      <div class="grid grid-cols-4 gap-3">
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] p-[10px] shadow-sm">
+          <div class="text-[10px] font-mono text-[#6b7370] uppercase">Total Projects</div>
+          <div class="text-[18px] font-semibold font-mono text-[#0e1110] mt-0.5">3</div>
+          <div class="text-[10px] text-[#6b7370] mt-0.5">All within <span class="font-mono">ws_8f12a</span></div>
+        </div>
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] p-[10px] shadow-sm">
+          <div class="text-[10px] font-mono text-[#6b7370] uppercase">Total Boards</div>
+          <div class="text-[18px] font-semibold font-mono text-[#0e1110] mt-0.5">6</div>
+          <div class="text-[10px] text-[#6b7370] mt-0.5">Across 3 active projects</div>
+        </div>
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] p-[10px] shadow-sm">
+          <div class="text-[10px] font-mono text-[#6b7370] uppercase">Running Tasks</div>
+          <div class="text-[18px] font-semibold font-mono text-[#d97706] mt-0.5 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-[#d97706] animate-pulse"></span>
+            3 running
+          </div>
+          <div class="text-[10px] text-[#6b7370] mt-0.5">103 total tasks</div>
+        </div>
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] p-[10px] shadow-sm">
+          <div class="text-[10px] font-mono text-[#6b7370] uppercase">Combined Cost Today</div>
+          <div class="text-[18px] font-semibold font-mono text-[#0d7a70] mt-0.5">$9.250</div>
+          <div class="text-[10px] text-[#6b7370] mt-0.5">Pagu harian $20.00</div>
+        </div>
+      </div>
+
+      <!-- MAIN PROJECTS & BOARDS TABLE CONTAINER (Follows Density: Baris 28px, Header 32px) -->
+      <!-- US-AD91 AC1: Nama, Project induk, Jumlah task, Jumlah task running, Biaya hari ini -->
+      <!-- US-AD91 AC2: Baris 28px, Header 32px, dapat diurutkan berdasarkan biaya atau jumlah task -->
+      <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] overflow-hidden shadow-sm">
+        
+        <!-- Table Control Toolbar -->
+        <div class="h-10 px-4 border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between bg-[#ffffff]">
+          <div class="flex items-center gap-3">
+            <span class="text-[12px] font-semibold text-[#0e1110]">Project Directory & Child Boards</span>
+            <span class="text-[11px] font-mono text-[#6b7370] bg-[#f6f7f6] px-2 py-0.5 rounded-[4px] border border-[rgba(12,26,22,0.07)]">3 projects &bull; 6 boards</span>
+          </div>
+          
+          <div class="flex items-center gap-3 text-[11px] font-mono text-[#6b7370]">
+            <span class="flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-[#16a34a]"></span>
+              <span>Workspace Auto-Bind: Active</span>
+            </span>
+            <span class="text-[rgba(12,26,22,0.12)]">|</span>
+            <span class="text-[#0d7a70] font-medium">Density: 28px row / 32px header</span>
+          </div>
+        </div>
+
+        <!-- Table View -->
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <!-- Kontrak density: Header tabel 32px -->
+            <tr class="h-[32px] bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)] text-[11px] font-mono text-[#6b7370] uppercase tracking-wider">
+              <th class="w-7 px-3 text-center">
+                <input type="checkbox" class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              </th>
+              <th class="px-3 font-semibold text-[#0e1110]">
+                Project / Board Name
+              </th>
+              <th class="px-3 font-semibold">
+                Parent Project
+              </th>
+              <!-- US-AD91 AC2: Sortable by Task Count -->
+              <th class="px-3 text-right font-semibold">
+                <button class="inline-flex items-center gap-1 hover:text-[#0e1110] transition-colors" title="Urutkan berdasarkan jumlah task (US-AD91 AC2)">
+                  <span>Tasks</span>
+                  <svg class="w-3 h-3 text-[#0d7a70]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M7 15l5 5 5-5"></path>
+                    <path d="M7 9l5-5 5 5"></path>
+                  </svg>
+                </button>
+              </th>
+              <th class="px-3 font-semibold">
+                Running Tasks
+              </th>
+              <!-- US-AD91 AC2: Sortable by Cost -->
+              <th class="px-3 text-right font-semibold">
+                <button class="inline-flex items-center gap-1 text-[#0d7a70] font-bold" title="Diurutkan berdasarkan biaya hari ini (US-AD91 AC2)">
+                  <span>Cost Today</span>
+                  <svg class="w-3 h-3 text-[#0d7a70]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 15l-6-6-6 6"></path>
+                  </svg>
+                </button>
+              </th>
+              <th class="px-3 text-right font-semibold">
+                Action
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[rgba(12,26,22,0.05)] text-[12px]">
+
+            <!-- PROJECT 1: core-platform (Group Header / Parent Row) -->
+            <tr id="core-platform" class="bg-[rgba(13,122,112,0.03)] font-medium border-t border-b border-[rgba(12,26,22,0.08)]">
+              <td class="px-3 text-center py-1.5">
+                <svg class="w-3.5 h-3.5 text-[#0d7a70] inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"></path>
+                </svg>
+              </td>
+              <td class="px-3 py-1.5" colspan="2">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono font-bold text-[#0e1110] text-[13px]">core-platform</span>
+                  <span class="px-1.5 py-0.2 rounded-[4px] bg-[#ffffff] border border-[rgba(12,26,22,0.08)] text-[10px] font-mono text-[#4d5553]">3 boards</span>
+                  <span class="text-[11px] text-[#6b7370] font-normal">&mdash; Core backend & infrastructure fleet</span>
+                </div>
+              </td>
+              <td class="px-3 text-right font-mono text-[#0e1110] font-semibold py-1.5 tnum">74</td>
+              <td class="px-3 py-1.5">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#d97706]/10 text-[#d97706] font-mono text-[11px] font-medium">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#d97706]"></span>
+                  2 running
+                </span>
+              </td>
+              <td class="px-3 text-right font-mono font-bold text-[#0d7a70] py-1.5 tnum">$5.660</td>
+              <td class="px-3 text-right py-1.5">
+                <a href="/boards" class="text-[11px] font-mono text-[#0d7a70] hover:underline font-medium">View 3 boards &rarr;</a>
+              </td>
+            </tr>
+
+            <!-- Board 1.1: Sprint 24 (Kontrak density: baris 28px) -->
+            <tr class="h-[28px] hover:bg-[#f6f7f6] transition-colors">
+              <td class="px-3 text-center">
+                <input type="checkbox" class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              </td>
+              <td class="px-3 pl-8">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+                  <a href="/boards" class="font-medium text-[#0e1110] hover:text-[#0d7a70] transition-colors truncate">Sprint 24</a>
+                  <span class="px-1 py-0.2 rounded-[3px] bg-[#eef7f5] text-[#0d7a70] text-[9px] font-mono">current</span>
+                </div>
+              </td>
+              <td class="px-3 font-mono text-[11px] text-[#4d5553]">core-platform</td>
+              <td class="px-3 text-right font-mono text-[#4d5553] tnum">12</td>
+              <td class="px-3">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-[4px] bg-[#d97706]/10 text-[#d97706] font-mono text-[10px] font-medium">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#d97706]"></span>
+                  2 running
+                </span>
+              </td>
+              <td class="px-3 text-right font-mono font-semibold text-[#0d7a70] tnum">$4.820</td>
+              <td class="px-3 text-right">
+                <a href="/boards" class="font-mono text-[11px] text-[#0d7a70] hover:underline">Open &rarr;</a>
+              </td>
+            </tr>
+
+            <!-- Board 1.2: Sprint 23 (Kontrak density: baris 28px) -->
+            <tr class="h-[28px] hover:bg-[#f6f7f6] transition-colors">
+              <td class="px-3 text-center">
+                <input type="checkbox" class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              </td>
+              <td class="px-3 pl-8">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-[#64748b]"></span>
+                  <a href="/boards" class="font-medium text-[#0e1110] hover:text-[#0d7a70] transition-colors truncate">Sprint 23</a>
+                </div>
+              </td>
+              <td class="px-3 font-mono text-[11px] text-[#4d5553]">core-platform</td>
+              <td class="px-3 text-right font-mono text-[#4d5553] tnum">24</td>
+              <td class="px-3">
+                <span class="text-[#6b7370] font-mono text-[10px]">0 running</span>
+              </td>
+              <td class="px-3 text-right font-mono text-[#4d5553] tnum">$0.840</td>
+              <td class="px-3 text-right">
+                <a href="/boards" class="font-mono text-[11px] text-[#0d7a70] hover:underline">Open &rarr;</a>
+              </td>
+            </tr>
+
+            <!-- Board 1.3: Backlog grooming (Kontrak density: baris 28px) -->
+            <tr class="h-[28px] hover:bg-[#f6f7f6] transition-colors">
+              <td class="px-3 text-center">
+                <input type="checkbox" class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              </td>
+              <td class="px-3 pl-8">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-[#64748b]"></span>
+                  <a href="/boards" class="font-medium text-[#0e1110] hover:text-[#0d7a70] transition-colors truncate">Backlog grooming</a>
+                </div>
+              </td>
+              <td class="px-3 font-mono text-[11px] text-[#4d5553]">core-platform</td>
+              <td class="px-3 text-right font-mono text-[#4d5553] tnum">38</td>
+              <td class="px-3">
+                <span class="text-[#6b7370] font-mono text-[10px]">0 running</span>
+              </td>
+              <td class="px-3 text-right font-mono text-[#6b7370] tnum">$0.000</td>
+              <td class="px-3 text-right">
+                <a href="/boards" class="font-mono text-[11px] text-[#0d7a70] hover:underline">Open &rarr;</a>
+              </td>
+            </tr>
+
+            <!-- PROJECT 2: infra-fleet (Group Header / Parent Row) -->
+            <tr id="infra-fleet" class="bg-[rgba(13,122,112,0.03)] font-medium border-t border-b border-[rgba(12,26,22,0.08)]">
+              <td class="px-3 text-center py-1.5">
+                <svg class="w-3.5 h-3.5 text-[#0d7a70] inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"></path>
+                </svg>
+              </td>
+              <td class="px-3 py-1.5" colspan="2">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono font-bold text-[#0e1110] text-[13px]">infra-fleet</span>
+                  <span class="px-1.5 py-0.2 rounded-[4px] bg-[#ffffff] border border-[rgba(12,26,22,0.08)] text-[10px] font-mono text-[#4d5553]">2 boards</span>
+                  <span class="text-[11px] text-[#6b7370] font-normal">&mdash; Agent fleet operations & security audits</span>
+                </div>
+              </td>
+              <td class="px-3 text-right font-mono text-[#0e1110] font-semibold py-1.5 tnum">20</td>
+              <td class="px-3 py-1.5">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#d97706]/10 text-[#d97706] font-mono text-[11px] font-medium">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#d97706]"></span>
+                  1 running
+                </span>
+              </td>
+              <td class="px-3 text-right font-mono font-bold text-[#0d7a70] py-1.5 tnum">$3.140</td>
+              <td class="px-3 text-right py-1.5">
+                <a href="/boards" class="text-[11px] font-mono text-[#0d7a70] hover:underline font-medium">View 2 boards &rarr;</a>
+              </td>
+            </tr>
+
+            <!-- Board 2.1: Agent ops (Kontrak density: baris 28px) -->
+            <tr class="h-[28px] hover:bg-[#f6f7f6] transition-colors">
+              <td class="px-3 text-center">
+                <input type="checkbox" class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              </td>
+              <td class="px-3 pl-8">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-[#d97706]"></span>
+                  <a href="/boards" class="font-medium text-[#0e1110] hover:text-[#0d7a70] transition-colors truncate">Agent ops</a>
+                </div>
+              </td>
+              <td class="px-3 font-mono text-[11px] text-[#4d5553]">infra-fleet</td>
+              <td class="px-3 text-right font-mono text-[#4d5553] tnum">6</td>
+              <td class="px-3">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-[4px] bg-[#d97706]/10 text-[#d97706] font-mono text-[10px] font-medium">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#d97706]"></span>
+                  1 running
+                </span>
+              </td>
+              <td class="px-3 text-right font-mono font-semibold text-[#0d7a70] tnum">$3.140</td>
+              <td class="px-3 text-right">
+                <a href="/boards" class="font-mono text-[11px] text-[#0d7a70] hover:underline">Open &rarr;</a>
+              </td>
+            </tr>
+
+            <!-- Board 2.2: Security audit Q3 (Kontrak density: baris 28px) -->
+            <tr class="h-[28px] hover:bg-[#f6f7f6] transition-colors">
+              <td class="px-3 text-center">
+                <input type="checkbox" class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              </td>
+              <td class="px-3 pl-8">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-[#64748b]"></span>
+                  <a href="/boards" class="font-medium text-[#0e1110] hover:text-[#0d7a70] transition-colors truncate">Security audit Q3</a>
+                </div>
+              </td>
+              <td class="px-3 font-mono text-[11px] text-[#4d5553]">infra-fleet</td>
+              <td class="px-3 text-right font-mono text-[#4d5553] tnum">14</td>
+              <td class="px-3">
+                <span class="text-[#6b7370] font-mono text-[10px]">0 running</span>
+              </td>
+              <td class="px-3 text-right font-mono text-[#6b7370] tnum">$0.000</td>
+              <td class="px-3 text-right">
+                <a href="/boards" class="font-mono text-[11px] text-[#0d7a70] hover:underline">Open &rarr;</a>
+              </td>
+            </tr>
+
+            <!-- PROJECT 3: billing-service (Group Header / Parent Row) -->
+            <tr id="billing-service" class="bg-[rgba(13,122,112,0.03)] font-medium border-t border-b border-[rgba(12,26,22,0.08)]">
+              <td class="px-3 text-center py-1.5">
+                <svg class="w-3.5 h-3.5 text-[#0d7a70] inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M6 9l6 6 6-6"></path>
+                </svg>
+              </td>
+              <td class="px-3 py-1.5" colspan="2">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono font-bold text-[#0e1110] text-[13px]">billing-service</span>
+                  <span class="px-1.5 py-0.2 rounded-[4px] bg-[#ffffff] border border-[rgba(12,26,22,0.08)] text-[10px] font-mono text-[#4d5553]">1 board</span>
+                  <span class="text-[11px] text-[#6b7370] font-normal">&mdash; Ledger, Stripe integration & telemetry pipeline</span>
+                </div>
+              </td>
+              <td class="px-3 text-right font-mono text-[#0e1110] font-semibold py-1.5 tnum">9</td>
+              <td class="px-3 py-1.5">
+                <span class="text-[#6b7370] font-mono text-[11px]">0 running</span>
+              </td>
+              <td class="px-3 text-right font-mono font-bold text-[#0d7a70] py-1.5 tnum">$0.450</td>
+              <td class="px-3 text-right py-1.5">
+                <a href="/boards" class="text-[11px] font-mono text-[#0d7a70] hover:underline font-medium">View 1 board &rarr;</a>
+              </td>
+            </tr>
+
+            <!-- Board 3.1: Billing v2 Migration (Kontrak density: baris 28px) -->
+            <tr class="h-[28px] hover:bg-[#f6f7f6] transition-colors">
+              <td class="px-3 text-center">
+                <input type="checkbox" class="rounded-[3px] border-[rgba(12,26,22,0.2)] text-[#0d7a70] focus:ring-0">
+              </td>
+              <td class="px-3 pl-8">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+                  <a href="/boards" class="font-medium text-[#0e1110] hover:text-[#0d7a70] transition-colors truncate">Billing v2 Migration</a>
+                </div>
+              </td>
+              <td class="px-3 font-mono text-[11px] text-[#4d5553]">billing-service</td>
+              <td class="px-3 text-right font-mono text-[#4d5553] tnum">9</td>
+              <td class="px-3">
+                <span class="text-[#6b7370] font-mono text-[10px]">0 running</span>
+              </td>
+              <td class="px-3 text-right font-mono font-semibold text-[#0d7a70] tnum">$0.450</td>
+              <td class="px-3 text-right">
+                <a href="/boards" class="font-mono text-[11px] text-[#0d7a70] hover:underline">Open &rarr;</a>
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+
+        <!-- Table Footer / Summary Bar -->
+        <div class="h-9 px-4 border-t border-[rgba(12,26,22,0.07)] bg-[#f6f7f6] flex items-center justify-between text-[11px] font-mono text-[#4d5553]">
+          <div class="flex items-center gap-3">
+            <span>3 projects total</span>
+            <span>&bull;</span>
+            <span>6 boards total</span>
+            <span>&bull;</span>
+            <span>103 tasks</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <span>Total running: <strong class="text-[#d97706] font-semibold">3 tasks</strong></span>
+            <span>Total today: <strong class="text-[#0d7a70] font-bold">$9.250</strong></span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Infrastructure / Daemon Status Footer Card (from Blueprint A spec) -->
+      <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] p-3 text-[11px] font-mono flex items-center justify-between text-[#4d5553] shadow-sm">
+        <div class="flex items-center gap-5">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#16a34a]"></span>
+            <span><strong class="text-[#0e1110]">Daemon:</strong> running :8080</span>
+          </div>
+          <span>&bull;</span>
+          <div><strong class="text-[#0e1110]">Fleet:</strong> prod-internal</div>
+          <span>&bull;</span>
+          <div><strong class="text-[#0e1110]">Isolation:</strong> Org-scoped tenant (US-AD91 AC4)</div>
+        </div>
+        <div class="text-[#6b7370] text-[10px]">
+          AC1 &bull; AC2 &bull; AC3 &bull; AC4 &bull; US-AD08 AC4
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- 4. RIGHT COST RAIL (264px, background #eef1f0, border-l standard) -->
+  <!-- Cost rail isi TETAP: TODAY, 7-DAY sparkline, TOP SPENDERS (3 baris), RUNNING NOW. JANGAN tambah isi lain. -->
+  <aside class="w-[264px] shrink-0 bg-[#eef1f0] border-l border-[rgba(12,26,22,0.07)] flex flex-col justify-between p-4 z-20">
+    <div class="flex flex-col gap-6">
+
+      <!-- SECTION 1: TODAY (biaya + meter pagu: budget meter 6px) -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] uppercase">
+          <span>TODAY</span>
+          <span>cap $20.00</span>
+        </div>
+        <div class="flex items-baseline gap-2 mt-1">
+          <div class="text-[24px] font-bold font-mono text-[#0e1110] tnum tracking-tight">$4.82</div>
+          <div class="text-[12px] font-mono text-[#6b7370]">/ $20.00</div>
+        </div>
+        <!-- Budget meter: 6px height -->
+        <div class="w-full bg-[rgba(12,26,22,0.1)] rounded-full h-[6px] mt-2.5 overflow-hidden">
+          <div class="bg-[#0d7a70] h-full rounded-full" style="width: 24.1%;"></div>
+        </div>
+      </div>
+
+      <!-- SECTION 2: 7-DAY (sparkline) -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] uppercase">
+          <span>7-DAY</span>
+          <span class="text-[10px]">Sep 12 &ndash; Sep 18</span>
+        </div>
+        <!-- Sparkline bars container -->
+        <div class="flex items-end justify-between h-[42px] mt-3 gap-1.5 px-0.5">
+          <div class="flex-1 bg-[#0d7a70]/70 hover:bg-[#0d7a70] rounded-[2px] h-[40%]" title="Sep 12: $1.92"></div>
+          <div class="flex-1 bg-[#0d7a70]/70 hover:bg-[#0d7a70] rounded-[2px] h-[65%]" title="Sep 13: $3.12"></div>
+          <div class="flex-1 bg-[#0d7a70]/70 hover:bg-[#0d7a70] rounded-[2px] h-[30%]" title="Sep 14: $1.44"></div>
+          <div class="flex-1 bg-[#0d7a70]/70 hover:bg-[#0d7a70] rounded-[2px] h-[55%]" title="Sep 15: $2.64"></div>
+          <div class="flex-1 bg-[#0d7a70]/70 hover:bg-[#0d7a70] rounded-[2px] h-[85%]" title="Sep 16: $4.08"></div>
+          <div class="flex-1 bg-[#0d7a70]/70 hover:bg-[#0d7a70] rounded-[2px] h-[75%]" title="Sep 17: $3.60"></div>
+          <div class="flex-1 bg-[#0d7a70] rounded-[2px] h-[100%]" title="Today: $4.82"></div>
+        </div>
+      </div>
+
+      <!-- SECTION 3: TOP SPENDERS (3 baris) -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] uppercase mb-2">
+          <span>TOP SPENDERS</span>
+          <span>TODAY</span>
+        </div>
+        <div class="flex flex-col gap-2.5">
+          <!-- Row 1: agent-backend -->
+          <div>
+            <div class="flex items-center justify-between text-[11px] font-mono mb-1">
+              <span class="text-[#0e1110] font-medium">agent-backend</span>
+              <span class="text-[#0d7a70] font-semibold tnum">$1.84</span>
+            </div>
+            <div class="w-full bg-[rgba(12,26,22,0.08)] rounded-full h-[3px] overflow-hidden">
+              <div class="bg-[#0d7a70] h-full rounded-full" style="width: 76%;"></div>
+            </div>
+          </div>
+          <!-- Row 2: agent-data -->
+          <div>
+            <div class="flex items-center justify-between text-[11px] font-mono mb-1">
+              <span class="text-[#0e1110] font-medium">agent-data</span>
+              <span class="text-[#0d7a70] font-semibold tnum">$1.42</span>
+            </div>
+            <div class="w-full bg-[rgba(12,26,22,0.08)] rounded-full h-[3px] overflow-hidden">
+              <div class="bg-[#0d7a70] h-full rounded-full" style="width: 58%;"></div>
+            </div>
+          </div>
+          <!-- Row 3: agent-docs -->
+          <div>
+            <div class="flex items-center justify-between text-[11px] font-mono mb-1">
+              <span class="text-[#0e1110] font-medium">agent-docs</span>
+              <span class="text-[#0d7a70] font-semibold tnum">$0.91</span>
+            </div>
+            <div class="w-full bg-[rgba(12,26,22,0.08)] rounded-full h-[3px] overflow-hidden">
+              <div class="bg-[#0d7a70] h-full rounded-full" style="width: 38%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SECTION 4: RUNNING NOW (bottom of cost rail) -->
+    <div class="pt-3 border-t border-[rgba(12,26,22,0.07)]">
+      <div class="text-[11px] font-mono text-[#6b7370] uppercase mb-1">RUNNING NOW</div>
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-[#d97706] animate-pulse"></span>
+        <span class="font-mono text-[12px] font-semibold text-[#0e1110] tnum">2</span>
+        <span class="text-[12px] text-[#4d5553]">agents active</span>
+      </div>
+    </div>
+  </aside>
+
+</body>
+</html>

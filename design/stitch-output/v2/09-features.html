@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>AgentDeck — Fitur Produk (09-features) • Blueprint P</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            page: '#f6f7f6',
+            teal: {
+              DEFAULT: '#0d7a70',
+              hover: '#0a635b',
+              tint: '#eef7f5'
+            },
+            ink: {
+              primary: '#0e1110',
+              secondary: '#4d5553',
+              tertiary: '#6b7370',
+              muted: '#98a09d'
+            },
+            well: '#eef1f0',
+            sunken: '#e8ecea'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      background-color: #f6f7f6;
+      color: #0e1110;
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-page text-ink-primary antialiased flex flex-col justify-between selection:bg-teal selection:text-white">
+
+  <!-- TOP NAV PUBLIK (64px sticky, Blueprint P) -->
+  <header class="sticky top-0 z-50 h-16 w-full bg-page border-b border-[rgba(12,26,22,0.07)]">
+    <div class="max-w-[1120px] mx-auto h-full px-6 flex items-center justify-between">
+      <!-- Kiri: Wordmark + Mark Aksen -->
+      <a href="/product" class="flex items-center gap-2 group">
+        <div class="w-6 h-6 rounded bg-teal flex items-center justify-center text-white text-[11px] font-mono font-bold tracking-tight">
+          AD
+        </div>
+        <span class="text-[15px] font-semibold text-ink-primary tracking-tight">AgentDeck</span>
+      </a>
+
+      <!-- Tengah: Nav Links (Product aktif) -->
+      <nav class="hidden md:flex items-center gap-8 text-[14px]">
+        <a href="/product" class="text-teal font-semibold">Product</a>
+        <a href="/pricing" class="text-ink-secondary hover:text-ink-primary transition-colors">Pricing</a>
+        <a href="/docs" class="text-ink-secondary hover:text-ink-primary transition-colors">Docs</a>
+        <a href="https://github.com" target="_blank" rel="noreferrer" class="text-ink-secondary hover:text-ink-primary transition-colors">GitHub</a>
+      </nav>
+
+      <!-- Kanan: Sign in + CTA Pill -->
+      <div class="flex items-center gap-5 text-[14px]">
+        <a href="/login" class="text-ink-secondary hover:text-ink-primary font-medium transition-colors">Sign in</a>
+        <a href="/register" class="h-9 px-4 rounded-[6px] bg-teal hover:bg-teal-hover text-white text-[13px] font-medium flex items-center justify-center transition-colors">
+          Get started free
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- KONTEN UTAMA (Max-width 1120px, margin auto di tengah, scroll normal) -->
+  <main class="flex-1 w-full max-w-[1120px] mx-auto px-6 py-12">
+    
+    <!-- Hero / Intro Fitur -->
+    <div class="max-w-[800px] mb-12">
+      <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-teal-tint border border-teal/20 text-teal text-[11px] font-mono font-semibold mb-4">
+        <span>US-AD99 (AC1, AC3, AC4) COMPLIANT</span>
+        <span class="text-ink-muted">•</span>
+        <span>Route: /product</span>
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-ink-primary leading-[1.2] mb-4">
+        Papan Orkestrasi &amp; Observabilitas Armada Agen AI
+      </h1>
+      <p class="text-[15px] sm:text-[16px] text-ink-secondary leading-relaxed">
+        AgentDeck Core berjalan sebagai biner tunggal mandiri tanpa ketergantungan Redis atau Kafka. Didesain untuk tim rekayasa yang membutuhkan kendali biaya mikro-dolar terperinci, gerbang approval interaktif, dan eksekusi deterministik.
+      </p>
+    </div>
+
+    <!-- US-AD99 AC3: Jalur Gagal / Halaman Sedang Disusun Banner -->
+    <section class="mb-10 bg-white border border-[rgba(12,26,22,0.08)] rounded-[12px] p-6 shadow-sm">
+      <div class="flex items-start gap-4">
+        <div class="w-8 h-8 rounded-lg bg-teal-tint flex items-center justify-center text-teal shrink-0 mt-0.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center gap-2 flex-wrap mb-1">
+            <h2 class="text-[14px] font-semibold text-ink-primary">Dokumentasi Sedang Disusun (US-AD99 AC3)</h2>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-50 text-amber-800 border border-amber-200 font-semibold">Bukan 404 mentah</span>
+          </div>
+          <p class="text-[13px] text-ink-secondary leading-relaxed mb-3">
+            Tautan menuju spesifikasi modul SDK eksternal (<code class="font-mono text-[12px] text-teal bg-well px-1.5 py-0.5 rounded">/docs/sdk-integrasi</code>) sedang dalam penyusunan oleh tim teknis. Anda diarahkan secara aman ke riwayat dan spesifikasi resmi ini tanpa halaman error kosong.
+          </p>
+          <a href="/docs" class="inline-flex items-center gap-1.5 text-[13px] text-teal font-medium hover:underline">
+            <span>&larr;</span> Tautan Balik ke Indeks Dokumentasi (AC1)
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- US-AD99 AC4: Perintah Unduh & Menjalankan Daemon Biner (Monospace & Satu Klik Salin) -->
+    <section class="mb-14">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-lg font-semibold text-ink-primary">Instalasi &amp; Quickstart Biner (US-AD99 AC4)</h2>
+          <p class="text-[13px] text-ink-secondary">Setiap blok perintah disajikan dalam format monospace JetBrains Mono dan mendukung penyalinan satu klik.</p>
+        </div>
+        <span class="text-[11px] font-mono text-ink-tertiary bg-well px-2 py-1 rounded">Biner Go ~28 MB</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Blok Perintah 1 -->
+        <div class="bg-well border border-[rgba(12,26,22,0.08)] rounded-[10px] p-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] font-mono uppercase font-semibold text-ink-tertiary">01 • Migrasi Database PostgreSQL</span>
+            <button onclick="navigator.clipboard.writeText('curl -sSL https://get.agentdeck.dev/v2.4 | bash && agentdeck migrate'); this.innerText='Tersalin!';" class="text-[11px] font-mono px-2.5 py-1 rounded bg-white text-ink-secondary hover:text-ink-primary border border-[rgba(12,26,22,0.1)] transition-colors shadow-2xs">
+              Salin
+            </button>
+          </div>
+          <pre class="font-mono text-[13px] text-ink-primary bg-white/70 p-3 rounded-[6px] border border-[rgba(12,26,22,0.05)] overflow-x-auto whitespace-pre"><code>curl -sSL https://get.agentdeck.dev/v2.4 | bash &amp;&amp; agentdeck migrate</code></pre>
+          <span class="text-[11px] text-ink-tertiary mt-2 block">Menginisialisasi 21 tabel relasional dan skema ledger audit internal.</span>
+        </div>
+
+        <!-- Blok Perintah 2 -->
+        <div class="bg-well border border-[rgba(12,26,22,0.08)] rounded-[10px] p-4 flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] font-mono uppercase font-semibold text-ink-tertiary">02 • Menjalankan Daemon Server</span>
+            <button onclick="navigator.clipboard.writeText('agentdeck serve --port=8080 --config=./agentdeck.yaml'); this.innerText='Tersalin!';" class="text-[11px] font-mono px-2.5 py-1 rounded bg-white text-ink-secondary hover:text-ink-primary border border-[rgba(12,26,22,0.1)] transition-colors shadow-2xs">
+              Salin
+            </button>
+          </div>
+          <pre class="font-mono text-[13px] text-ink-primary bg-white/70 p-3 rounded-[6px] border border-[rgba(12,26,22,0.05)] overflow-x-auto whitespace-pre"><code>agentdeck serve --port=8080 --config=./agentdeck.yaml</code></pre>
+          <span class="text-[11px] text-ink-tertiary mt-2 block">Mengaktifkan antarmuka web, REST API, dan server ingest telemetri gRPC.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grid Pilar Fitur Inti Platform -->
+    <section class="mb-14">
+      <div class="border-t border-[rgba(12,26,22,0.07)] pt-10 mb-8">
+        <h2 class="text-xl font-bold text-ink-primary tracking-tight mb-2">Kapabilitas Utama AgentDeck Core</h2>
+        <p class="text-[14px] text-ink-secondary">Dibangun khusus untuk armada multi-agen dengan kendali penuh di infrastruktur Anda sendiri.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Fitur 1 -->
+        <div class="bg-white border border-[rgba(12,26,22,0.08)] rounded-[12px] p-6 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div class="w-9 h-9 rounded-lg bg-teal-tint text-teal flex items-center justify-center font-mono font-bold text-sm mb-4">
+              01
+            </div>
+            <h3 class="text-[16px] font-semibold text-ink-primary mb-2">Telemetri Mikro-Dolar (Fixed-Point)</h3>
+            <p class="text-[13px] text-ink-secondary leading-relaxed">
+              Pencatatan konsumsi token dan komputasi presisi hingga satuan mikro-USD ($1 = 1.000.000 &micro;USD). Mencegah distorsi floating-point IEEE-754 pada agregasi multi-langkah.
+            </p>
+          </div>
+          <div class="mt-5 pt-4 border-t border-[rgba(12,26,22,0.06)] flex items-center justify-between text-[11px] font-mono text-ink-tertiary">
+            <span>Toleransi deviasi: $0.00</span>
+            <span class="text-teal font-semibold">Tabel Relasional</span>
+          </div>
+        </div>
+
+        <!-- Fitur 2 -->
+        <div class="bg-white border border-[rgba(12,26,22,0.08)] rounded-[12px] p-6 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div class="w-9 h-9 rounded-lg bg-teal-tint text-teal flex items-center justify-center font-mono font-bold text-sm mb-4">
+              02
+            </div>
+            <h3 class="text-[16px] font-semibold text-ink-primary mb-2">Approval Gates Interaktif</h3>
+            <p class="text-[13px] text-ink-secondary leading-relaxed">
+              Mencegah pemanggilan tool destruktif seperti eksekusi bash atau migrasi skema database. Eksekusi armada dijeda secara otomatis hingga diverifikasi manusia melalui UI atau webhook.
+            </p>
+          </div>
+          <div class="mt-5 pt-4 border-t border-[rgba(12,26,22,0.06)] flex items-center justify-between text-[11px] font-mono text-ink-tertiary">
+            <span>Timeout TTL: 30 menit</span>
+            <span class="text-teal font-semibold">Diff Mutasi</span>
+          </div>
+        </div>
+
+        <!-- Fitur 3 -->
+        <div class="bg-white border border-[rgba(12,26,22,0.08)] rounded-[12px] p-6 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div class="w-9 h-9 rounded-lg bg-teal-tint text-teal flex items-center justify-center font-mono font-bold text-sm mb-4">
+              03
+            </div>
+            <h3 class="text-[16px] font-semibold text-ink-primary mb-2">Biner Tunggal Mandiri (~28 MB)</h3>
+            <p class="text-[13px] text-ink-secondary leading-relaxed">
+              Kompilasi Go 1.22 ramping tanpa beban orkestrator kontainer rumit. Beroperasi stabil dengan konsumsi memori idle di bawah 80 MB pada server VPS lokal maupun cloud.
+            </p>
+          </div>
+          <div class="mt-5 pt-4 border-t border-[rgba(12,26,22,0.06)] flex items-center justify-between text-[11px] font-mono text-ink-tertiary">
+            <span>RAM Idle: &lt; 80 MB</span>
+            <span class="text-teal font-semibold">Self-Hosted</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Deep-dive Bagian Arsitektur Streaming SSE & Enkripsi Kredensial -->
+    <section class="bg-well border border-[rgba(12,26,22,0.08)] rounded-[12px] p-8 mb-10">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+        <div>
+          <span class="text-[11px] font-mono uppercase font-bold text-teal tracking-wider block mb-2">Protokol &amp; Keamanan Data</span>
+          <h2 class="text-2xl font-bold text-ink-primary tracking-tight mb-3">Enkripsi Kredensial AES-256-GCM &amp; Stream SSE</h2>
+          <p class="text-[13px] text-ink-secondary leading-relaxed mb-4">
+            Kredensial API provider LLM disimpan dengan enkripsi amplop perangkat keras (nonce 12-byte dan auth tag 16-byte). Telemetri langkah diekspos melalui stream Server-Sent Events (SSE) dengan dukungan rekoneksi Last-Event-ID otomatis.
+          </p>
+          <div class="flex flex-wrap gap-2 text-[11px] font-mono">
+            <span class="px-2.5 py-1 rounded bg-white text-ink-secondary border border-[rgba(12,26,22,0.08)]">Header: Last-Event-ID</span>
+            <span class="px-2.5 py-1 rounded bg-white text-ink-secondary border border-[rgba(12,26,22,0.08)]">gRPC Port :8080</span>
+            <span class="px-2.5 py-1 rounded bg-white text-ink-secondary border border-[rgba(12,26,22,0.08)]">HMAC-SHA256 Signatures</span>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-[10px] p-5 border border-[rgba(12,26,22,0.08)] font-mono text-[12px] shadow-2xs">
+          <div class="text-ink-muted text-[11px] border-b border-[rgba(12,26,22,0.06)] pb-2 mb-3 flex items-center justify-between">
+            <span>Contoh Payload Telemetri Biner</span>
+            <span class="text-teal font-semibold">v2.4.1</span>
+          </div>
+          <pre class="text-ink-primary leading-relaxed overflow-x-auto"><code>{
+  "event": "step.finished",
+  "run_id": "run_9b42f1a0e88c",
+  "step_index": 2,
+  "tokens_input": 1280,
+  "tokens_output": 164,
+  "cost_micro_usd": 1420,
+  "cumulative_cost_micro_usd": 27400,
+  "exit_code": 0,
+  "error_payload": null
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER PUBLIK (Blueprint P: border-top, 4 kolom link Inter 13, padding 40px 0) -->
+  <footer class="w-full border-t border-[rgba(12,26,22,0.07)] bg-page">
+    <div class="max-w-[1120px] mx-auto px-6 py-10">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10 text-[13px]">
+        <!-- Kolom 1: Produk -->
+        <div>
+          <span class="text-[11px] font-mono uppercase font-bold text-ink-muted tracking-wider block mb-3">Produk</span>
+          <ul class="space-y-2.5">
+            <li><a href="/product" class="text-teal font-medium">Fitur Inti</a></li>
+            <li><a href="/pricing" class="text-ink-secondary hover:text-ink-primary transition-colors">Harga Solo &amp; Pro</a></li>
+            <li><a href="/changelog" class="text-ink-secondary hover:text-ink-primary transition-colors">Catatan Rilis</a></li>
+          </ul>
+        </div>
+
+        <!-- Kolom 2: Dokumentasi (US-AD99 AC1) -->
+        <div>
+          <span class="text-[11px] font-mono uppercase font-bold text-ink-muted tracking-wider block mb-3">Dokumentasi</span>
+          <ul class="space-y-2.5">
+            <li><a href="/docs/quickstart" class="text-ink-secondary hover:text-ink-primary transition-colors">Mulai Cepat</a></li>
+            <li><a href="/docs/api" class="text-ink-secondary hover:text-ink-primary transition-colors">REST Endpoints</a></li>
+            <li><a href="/docs/telemetry" class="text-ink-secondary hover:text-ink-primary transition-colors">Skema Telemetri</a></li>
+            <li><a href="/docs/cli" class="text-ink-secondary hover:text-ink-primary transition-colors">CLI Reference</a></li>
+          </ul>
+        </div>
+
+        <!-- Kolom 3: Ekosistem -->
+        <div>
+          <span class="text-[11px] font-mono uppercase font-bold text-ink-muted tracking-wider block mb-3">Ekosistem</span>
+          <ul class="space-y-2.5">
+            <li><a href="https://github.com" target="_blank" rel="noreferrer" class="text-ink-secondary hover:text-ink-primary transition-colors">GitHub Repository</a></li>
+            <li><a href="/community" class="text-ink-secondary hover:text-ink-primary transition-colors">Komunitas Discord</a></li>
+            <li><a href="/security" class="text-ink-secondary hover:text-ink-primary transition-colors">Keamanan &amp; Lisensi</a></li>
+          </ul>
+        </div>
+
+        <!-- Kolom 4: Lisensi & Status Biner -->
+        <div>
+          <span class="text-[11px] font-mono uppercase font-bold text-ink-muted tracking-wider block mb-3">Lisensi &amp; Biner</span>
+          <p class="text-ink-secondary text-[12px] leading-relaxed mb-3">
+            Papan orkestrasi mandiri untuk armada agen AI otonom. Biner tunggal Go, presisi mikro-dolar.
+          </p>
+          <span class="inline-block font-mono text-[11px] px-2 py-1 rounded bg-well text-ink-secondary border border-[rgba(12,26,22,0.06)]">
+            v2.4-stable (Single Binary)
+          </span>
+        </div>
+      </div>
+
+      <div class="border-t border-[rgba(12,26,22,0.07)] pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[12px] text-ink-tertiary">
+        <p>&copy; 2026 AgentDeck Core. Lisensi Open-Source MIT.</p>
+        <p>Designed for autonomous AI agents fleet orchestration</p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

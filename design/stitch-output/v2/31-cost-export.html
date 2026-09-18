@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgentDeck — Ekspor CSV Biaya (/cost/export)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#0d7a70",
+            "primary-hover": "#0a6159",
+            "primary-tint": "#eef7f5",
+            "on-surface": "#0e1110",
+            "secondary": "#4d5553",
+            "tertiary": "#6b7370",
+            "border-subtle": "rgba(12,26,22,0.07)",
+            "border-standard": "rgba(12,26,22,0.12)"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(12,26,22,0.15);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-[#f6f7f6] text-[#0e1110] font-sans antialiased overflow-hidden h-screen w-screen flex select-none">
+
+  <!-- 1. RAIL KIRI (44px, #e8ecea, ikon saja tanpa label) -->
+  <aside class="w-[44px] shrink-0 bg-[#e8ecea] border-r border-[rgba(12,26,22,0.12)] flex flex-col items-center justify-between py-3.5 z-10">
+    <div class="flex flex-col items-center gap-4">
+      <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] flex items-center justify-center text-white font-bold text-[11px] font-mono tracking-tight shadow-sm" title="AgentDeck Core">
+        AD
+      </div>
+      <div class="w-5 h-[1px] bg-[rgba(12,26,22,0.12)]"></div>
+      <button class="w-7 h-7 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[rgba(12,26,22,0.06)] transition-colors" title="Semua Proyek">
+        <span class="material-symbols-outlined text-[18px]">folder</span>
+      </button>
+      <button class="w-7 h-7 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[rgba(12,26,22,0.06)] transition-colors" title="Papan Kanban">
+        <span class="material-symbols-outlined text-[18px]">view_kanban</span>
+      </button>
+      <button class="w-7 h-7 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[rgba(12,26,22,0.06)] transition-colors" title="Agent Registry">
+        <span class="material-symbols-outlined text-[18px]">smart_toy</span>
+      </button>
+      <button class="w-7 h-7 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[rgba(12,26,22,0.06)] transition-colors" title="Antrean Approval">
+        <span class="material-symbols-outlined text-[18px]">verified_user</span>
+      </button>
+      <!-- Active Biaya / Cost Ledger -->
+      <button class="w-7 h-7 rounded-[6px] bg-[#d9e1de] text-[#0d7a70] flex items-center justify-center" title="Ringkasan Biaya & Ledger">
+        <span class="material-symbols-outlined filled text-[18px]">account_balance_wallet</span>
+      </button>
+    </div>
+    <div class="flex flex-col items-center gap-3">
+      <button class="w-7 h-7 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[rgba(12,26,22,0.06)] transition-colors" title="Pengaturan">
+        <span class="material-symbols-outlined text-[18px]">settings</span>
+      </button>
+      <div class="w-[26px] h-[26px] rounded-full bg-[#0e1110] text-white text-[10px] font-bold flex items-center justify-center" title="Reza (Owner)">
+        RZ
+      </div>
+    </div>
+  </aside>
+
+  <!-- 2. SIDEBAR (224px, #f6f7f6) -->
+  <nav class="w-[224px] shrink-0 bg-[#f6f7f6] border-r border-[rgba(12,26,22,0.12)] flex flex-col justify-between overflow-y-auto text-[13px] z-10">
+    <div class="p-3">
+      <!-- Workspace Badge -->
+      <div class="px-2 py-1.5 mb-3 bg-white rounded-[6px] border border-[rgba(12,26,22,0.07)]">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-mono uppercase tracking-wider text-[#6b7370]">WORKSPACE</span>
+          <span class="text-[9px] font-mono uppercase bg-[#eef7f5] text-[#0d7a70] px-1 rounded font-semibold">CORE</span>
+        </div>
+        <div class="font-mono text-[12px] font-bold text-[#0e1110] mt-0.5 truncate flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+          <span>ws_8f12a (core)</span>
+        </div>
+      </div>
+
+      <!-- Menu Navigation -->
+      <div class="space-y-4">
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-[#6b7370]">NAVIGASI UTAMA</span>
+          <ul class="mt-1 space-y-0.5 text-[12px]">
+            <li>
+              <a href="#" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-white transition-colors">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">folder</span>
+                <span class="truncate">Semua Proyek</span>
+                <span class="ml-auto font-mono text-[10px] text-[#6b7370]">3</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-white transition-colors">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">view_kanban</span>
+                <span class="truncate">Semua Board</span>
+                <span class="ml-auto font-mono text-[10px] text-[#6b7370]">6</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-white transition-colors">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">smart_toy</span>
+                <span class="truncate">Agent Registry</span>
+                <span class="ml-auto font-mono text-[10px] text-[#6b7370]">5</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-white transition-colors">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">verified_user</span>
+                <span class="truncate">Antrean Approval</span>
+                <span class="ml-auto font-mono text-[10px] text-amber-700 bg-amber-50 px-1 rounded font-bold">1</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-[#6b7370]">AUDIT & BIAYA</span>
+          <ul class="mt-1 space-y-0.5 text-[12px]">
+            <li>
+              <a href="#" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-white transition-colors">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">insights</span>
+                <span class="truncate">Ringkasan Biaya</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] font-semibold">
+                <span class="material-symbols-outlined filled text-[16px] text-[#0d7a70]">table_chart</span>
+                <span class="truncate">Cost Ledger</span>
+                <span class="ml-auto text-[9px] font-mono uppercase bg-[#0d7a70] text-white px-1 py-0.2 rounded font-bold">LIVE</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-white transition-colors">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">history</span>
+                <span class="truncate">Audit Log</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daemon status bar bottom -->
+    <div class="p-2.5 border-t border-[rgba(12,26,22,0.12)] bg-[#f0f2f1]">
+      <div class="flex items-center gap-2 px-2 py-1 rounded-[6px] bg-[#e1e3e2] text-[11px] font-mono text-[#4d5553]">
+        <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+        <span class="truncate">daemon :8080 • v2.4</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 3. AREA TENGAH: TOPBAR 52px + KONTEN SCROLLABLE + MODAL OVERLAY -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+    
+    <!-- TOPBAR (52px, #ffffff, HANYA membentang di atas pane konten) -->
+    <header class="h-[52px] shrink-0 bg-[#ffffff] border-b border-[rgba(12,26,22,0.12)] px-5 flex items-center justify-between gap-4 z-10">
+      <div class="flex items-center gap-2 text-[12px] min-w-0">
+        <span class="text-[#4d5553]">Biaya</span>
+        <span class="text-[#6b7370] text-[10px]">/</span>
+        <span class="text-[#4d5553]">Cost Ledger</span>
+        <span class="text-[#6b7370] text-[10px]">/</span>
+        <span class="font-semibold text-[#0e1110]">Ekspor CSV</span>
+        <span class="font-mono text-[10px] text-[#0d7a70] bg-[#eef7f5] px-1.5 py-0.5 rounded border border-[rgba(12,26,22,0.07)]">(modal)</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] text-[11px] font-mono">
+          <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+          <span>Sync: Ingested (0 drift)</span>
+        </div>
+        <button class="h-8 px-3 text-[12px] font-medium text-white bg-[#0d7a70] hover:bg-[#0a6159] rounded-[6px] flex items-center gap-1.5 shadow-sm" title="Buka Ekspor CSV">
+          <span class="material-symbols-outlined text-[16px]">download</span>
+          <span>Ekspor CSV</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- PANE KONTEN LATAR BELAKANG (Cost Ledger Table View - Blur/Dim saat modal muncul) -->
+    <main class="flex-1 overflow-y-auto p-5 space-y-4 filter blur-[1px] opacity-60 pointer-events-none select-none">
+      <div class="bg-white rounded-[10px] border border-[rgba(12,26,22,0.07)] p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h1 class="text-[15px] font-bold text-[#0e1110]">Ledger Pemakaian Token & Biaya Komputasi per Step</h1>
+            <p class="text-[12px] text-[#6b7370] font-mono">Presisi integer mikro-dolar (1 USD = 1.000.000 µUSD)</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-mono bg-[#f6f7f6] px-2 py-1 rounded border border-[rgba(12,26,22,0.07)] text-[#4d5553]">18 Sep 2026 (Hari ini)</span>
+            <span class="text-[11px] font-mono bg-[#f6f7f6] px-2 py-1 rounded border border-[rgba(12,26,22,0.07)] text-[#4d5553]">Semua Agent</span>
+          </div>
+        </div>
+
+        <div class="border border-[rgba(12,26,22,0.12)] rounded-[6px] overflow-hidden">
+          <div class="h-[32px] bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.12)] px-3 flex items-center text-[11px] font-mono text-[#6b7370] font-bold uppercase">
+            <div class="w-24">WAKTU (UTC+7)</div>
+            <div class="w-32">AGENT</div>
+            <div class="w-28">MODEL</div>
+            <div class="w-24 text-right">IN TOK</div>
+            <div class="w-24 text-right">OUT TOK</div>
+            <div class="flex-1 text-right">BIAYA ($)</div>
+          </div>
+          <div class="divide-y divide-[rgba(12,26,22,0.07)] text-[12px] font-mono">
+            <div class="h-[28px] px-3 flex items-center hover:bg-[#f6f7f6]">
+              <div class="w-24 text-[#6b7370]">14:22:18</div>
+              <div class="w-32 font-bold text-[#0d7a70]">agent-backend</div>
+              <div class="w-28 text-[#4d5553]">gpt-4o</div>
+              <div class="w-24 text-right">1,420</div>
+              <div class="w-24 text-right">184</div>
+              <div class="flex-1 text-right font-bold">$0.0028</div>
+            </div>
+            <div class="h-[28px] px-3 flex items-center hover:bg-[#f6f7f6]">
+              <div class="w-24 text-[#6b7370]">14:21:46</div>
+              <div class="w-32 font-bold text-[#0d7a70]">agent-backend</div>
+              <div class="w-28 text-[#4d5553]">gpt-4o</div>
+              <div class="w-24 text-right">8,940</div>
+              <div class="w-24 text-right">2,104</div>
+              <div class="flex-1 text-right font-bold">$0.0242</div>
+            </div>
+            <div class="h-[28px] px-3 flex items-center hover:bg-[#f6f7f6]">
+              <div class="w-24 text-[#6b7370]">14:19:02</div>
+              <div class="w-32 font-bold text-[#0d7a70]">agent-data</div>
+              <div class="w-28 text-[#4d5553]">deepseek-coder</div>
+              <div class="w-24 text-right">14,880</div>
+              <div class="w-24 text-right">4,320</div>
+              <div class="flex-1 text-right font-bold">$0.0581</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- MODAL OVERLAY BACKDROP & DIALOG (Route: (modal), US-AD56 AC2) -->
+    <div class="absolute inset-0 bg-[#0e1110]/40 backdrop-blur-[2px] flex items-center justify-center p-4 z-30">
+      
+      <!-- KARTU MODAL (Ukuran dialog proposional 480px, rounded 14px, panel #ffffff) -->
+      <div class="w-full max-w-[480px] bg-[#ffffff] rounded-[14px] shadow-2xl border border-[rgba(12,26,22,0.12)] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        
+        <!-- Header Modal -->
+        <div class="px-5 py-4 border-b border-[rgba(12,26,22,0.12)] flex items-center justify-between bg-white">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-[8px] bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center">
+              <span class="material-symbols-outlined text-[20px]">csv</span>
+            </div>
+            <div>
+              <h2 class="text-[14px] font-bold text-[#0e1110]">Ekspor CSV Biaya</h2>
+              <p class="text-[11px] font-mono text-[#6b7370]">Route: (modal) • US-AD56 AC2</p>
+            </div>
+          </div>
+          <button class="w-7 h-7 rounded-[6px] text-[#6b7370] hover:text-[#0e1110] hover:bg-[#f6f7f6] flex items-center justify-center transition-colors" title="Tutup Modal">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+
+        <!-- Body Modal -->
+        <div class="p-5 space-y-4 bg-white overflow-y-auto max-h-[calc(100vh-160px)]">
+          
+          <!-- Spec Compliance Banner: US-AD56 AC2 -->
+          <div class="p-2.5 rounded-[6px] bg-[#eef7f5] border border-[rgba(13,122,112,0.2)] flex items-start gap-2">
+            <span class="material-symbols-outlined filled text-[#0d7a70] text-[16px] shrink-0 mt-0.5">verified</span>
+            <div class="text-[11px] leading-relaxed">
+              <span class="font-bold text-[#0d7a70]">US-AD56 AC2:</span>
+              <span class="text-[#4d5553]">Filter berdasarkan rentang tanggal aktif. Baris CSV mencakup catatan ledger telemetri lengkap sesuai rentang yang dipilih.</span>
+            </div>
+          </div>
+
+          <!-- Pilihan Rentang Tanggal (AC2) -->
+          <div class="space-y-2">
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-[#4d5553]">
+              Rentang Tanggal (US-AD56 AC2)
+            </label>
+            
+            <!-- Radio Pills Pilihan Cepat -->
+            <div class="grid grid-cols-3 gap-2">
+              <label class="flex items-center justify-center gap-1.5 px-3 py-2 rounded-[6px] border border-[rgba(12,26,22,0.12)] hover:border-[#0d7a70] cursor-pointer text-[12px] font-medium text-[#4d5553] bg-white transition-colors">
+                <input type="radio" name="quick_range" value="today" class="text-[#0d7a70] focus:ring-[#0d7a70] h-3.5 w-3.5"/>
+                <span>Hari Ini</span>
+              </label>
+              <label class="flex items-center justify-center gap-1.5 px-3 py-2 rounded-[6px] border border-[#0d7a70] bg-[#eef7f5] cursor-pointer text-[12px] font-semibold text-[#0d7a70]">
+                <input type="radio" name="quick_range" value="7d" checked class="text-[#0d7a70] focus:ring-[#0d7a70] h-3.5 w-3.5"/>
+                <span>7 Hari Terakhir</span>
+              </label>
+              <label class="flex items-center justify-center gap-1.5 px-3 py-2 rounded-[6px] border border-[rgba(12,26,22,0.12)] hover:border-[#0d7a70] cursor-pointer text-[12px] font-medium text-[#4d5553] bg-white transition-colors">
+                <input type="radio" name="quick_range" value="30d" class="text-[#0d7a70] focus:ring-[#0d7a70] h-3.5 w-3.5"/>
+                <span>30 Hari</span>
+              </label>
+            </div>
+
+            <!-- Input Date Picker Kustom (Dari - Sampai) -->
+            <div class="pt-1">
+              <div class="grid grid-cols-2 gap-2.5">
+                <div>
+                  <span class="text-[10px] font-mono uppercase text-[#6b7370] font-semibold block mb-1">Tanggal Mulai</span>
+                  <div class="relative flex items-center">
+                    <span class="material-symbols-outlined absolute left-2.5 text-[#6b7370] text-[16px] pointer-events-none">calendar_today</span>
+                    <input type="date" value="2026-09-12" class="w-full h-8 pl-8 pr-2 text-[12px] font-mono rounded-[6px] border border-[rgba(12,26,22,0.12)] bg-white text-[#0e1110] focus:border-[#0d7a70] focus:ring-0 focus:outline-none"/>
+                  </div>
+                </div>
+                <div>
+                  <span class="text-[10px] font-mono uppercase text-[#6b7370] font-semibold block mb-1">Tanggal Akhir</span>
+                  <div class="relative flex items-center">
+                    <span class="material-symbols-outlined absolute left-2.5 text-[#6b7370] text-[16px] pointer-events-none">event</span>
+                    <input type="date" value="2026-09-18" class="w-full h-8 pl-8 pr-2 text-[12px] font-mono rounded-[6px] border border-[rgba(12,26,22,0.12)] bg-white text-[#0e1110] focus:border-[#0d7a70] focus:ring-0 focus:outline-none"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ringkasan Filter & Estimasi Baris -->
+          <div class="p-3 rounded-[10px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] space-y-2">
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-[#6b7370]">Rentang Terpilih:</span>
+              <span class="font-bold text-[#0e1110]">12 Sep 2026 – 18 Sep 2026 (7 Hari)</span>
+            </div>
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-[#6b7370]">Estimasi Baris Ekspor:</span>
+              <span class="font-bold text-[#0d7a70]">1,428 baris ledger</span>
+            </div>
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-[#6b7370]">Format Kolom:</span>
+              <span class="text-[#4d5553]">waktu, task_id, agent, model, tokens_in, tokens_out, cost_micros</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer Modal (Aksi) -->
+        <div class="px-5 py-3.5 border-t border-[rgba(12,26,22,0.12)] bg-[#f6f7f6] flex items-center justify-between">
+          <button class="px-3.5 py-1.5 text-[12px] font-medium text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.06)] rounded-[6px] transition-colors">
+            Batal
+          </button>
+          <button class="px-4 py-1.5 text-[12px] font-medium text-white bg-[#0d7a70] hover:bg-[#0a6159] rounded-[6px] shadow-sm flex items-center gap-2 transition-colors">
+            <span class="material-symbols-outlined text-[16px]">file_download</span>
+            <span>Unduh CSV</span>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- 4. COST RAIL KANAN (264px, #eef1f0, border-l - Isi TETAP sesuai kontrak) -->
+  <aside class="w-[264px] shrink-0 bg-[#eef1f0] border-l border-[rgba(12,26,22,0.12)] flex flex-col justify-between p-3.5 text-[12px] z-10">
+    <div class="space-y-4">
+      
+      <!-- TODAY (biaya + meter pagu) -->
+      <div class="bg-white p-3 rounded-[10px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[10px] font-mono text-[#6b7370] uppercase">
+          <span class="font-bold text-[#0e1110]">TODAY</span>
+          <span>CAP $20.00</span>
+        </div>
+        <div class="mt-1 flex items-baseline justify-between">
+          <div class="text-[22px] font-bold font-mono text-[#0e1110] tracking-tight">$4.82</div>
+          <div class="text-[11px] font-mono text-[#6b7370]">Sisa: <span class="font-semibold text-[#0d7a70]">$15.18</span></div>
+        </div>
+        <!-- Budget meter (6px, 24.1% terpakai) -->
+        <div class="w-full bg-[#edeeed] h-[6px] rounded-full mt-2 overflow-hidden">
+          <div class="bg-[#0d7a70] h-full rounded-full" style="width: 24.1%;"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] font-mono text-[#6b7370] mt-1.5">
+          <span>24.1% terpakai</span>
+          <span class="text-[#0d7a70] font-medium">Pagu aman</span>
+        </div>
+      </div>
+
+      <!-- 7-DAY (sparkline) -->
+      <div class="bg-white p-3 rounded-[10px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[10px] font-mono text-[#6b7370] uppercase mb-2">
+          <span class="font-bold text-[#0e1110]">7-DAY</span>
+          <span>SEP 12 – SEP 18</span>
+        </div>
+        <div class="h-14 flex items-end justify-between gap-1 pt-2 px-1">
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 45%;" title="Sep 12"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">12</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 60%;" title="Sep 13"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">13</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 30%;" title="Sep 14"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">14</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 75%;" title="Sep 15"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">15</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 50%;" title="Sep 16"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">16</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 85%;" title="Sep 17"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">17</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70] rounded-t" style="height: 68%;" title="Sep 18 (Today)"></div>
+            <span class="text-[9px] font-mono font-bold text-[#0d7a70]">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP SPENDERS (3 baris) -->
+      <div class="bg-white p-3 rounded-[10px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="text-[10px] font-mono text-[#6b7370] uppercase font-bold mb-2">TOP SPENDERS</div>
+        <div class="space-y-2">
+          <!-- 1. agent-backend -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-backend</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$1.84</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-[4px] rounded-full mt-1 overflow-hidden">
+              <div class="bg-[#0d7a70] h-full" style="width: 38.1%;"></div>
+            </div>
+          </div>
+          <!-- 2. agent-data -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-data</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$1.42</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-[4px] rounded-full mt-1 overflow-hidden">
+              <div class="bg-[#0d7a70]/80 h-full" style="width: 29.4%;"></div>
+            </div>
+          </div>
+          <!-- 3. agent-docs -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-docs</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$0.91</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-[4px] rounded-full mt-1 overflow-hidden">
+              <div class="bg-[#0d7a70]/60 h-full" style="width: 18.8%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RUNNING NOW -->
+      <div class="bg-white p-3 rounded-[10px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[10px] font-mono text-[#6b7370] uppercase mb-2">
+          <span class="font-bold text-[#0e1110]">RUNNING NOW</span>
+          <span class="text-[#0d7a70] font-bold flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70] animate-pulse"></span>
+            2 ACTIVE
+          </span>
+        </div>
+        <div class="space-y-1.5 text-[11px] font-mono">
+          <div class="p-1.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="font-medium text-[#0e1110]">agent-backend</span>
+            <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+          </div>
+          <div class="p-1.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="font-medium text-[#0e1110]">agent-docs</span>
+            <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Cost rail footer info -->
+    <div class="pt-3 border-t border-[rgba(12,26,22,0.12)] text-[10px] font-mono text-[#6b7370] flex items-center justify-between">
+      <span>AgentDeck Core</span>
+      <span class="text-[#0d7a70]">µUSD Ledger</span>
+    </div>
+  </aside>
+
+</body>
+</html>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgentDeck — Pricing (/pricing)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            accent: "#0d7a70",
+            "accent-hover": "#0a5f57",
+            "accent-tint": "#eef7f5",
+            page: "#f6f7f6",
+            "border-subtle": "rgba(12,26,22,0.07)",
+            "border-standard": "rgba(12,26,22,0.12)",
+            ink: "#0e1110",
+            "ink-secondary": "#4d5553",
+            "ink-muted": "#6b7370"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #bdc9c6;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-[#f6f7f6] text-ink font-sans antialiased min-h-screen flex flex-col justify-between selection:bg-accent-tint selection:text-accent">
+
+  <!-- TOPBAR STANDALONE / PUBLIC NAVIGATION (52px, #ffffff, border-b) -->
+  <header class="h-[52px] bg-white border-b border-border-standard px-6 shrink-0 flex items-center justify-between sticky top-0 z-30">
+    <div class="flex items-center gap-8">
+      <!-- Logo AgentDeck -->
+      <a href="/" class="flex items-center gap-2.5 group">
+        <div class="w-7 h-7 rounded-[6px] bg-accent flex items-center justify-center text-white font-mono font-bold text-[11px] shadow-sm">
+          AD
+        </div>
+        <span class="font-bold text-[15px] tracking-tight text-ink flex items-center gap-1.5">
+          AgentDeck
+          <span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
+        </span>
+      </a>
+
+      <!-- Public Nav Links -->
+      <nav class="flex items-center gap-6 text-[13px] font-medium text-ink-secondary">
+        <a href="/features" class="hover:text-ink transition-colors">Fitur</a>
+        <a href="/pricing" class="text-accent font-semibold flex items-center gap-1">
+          Harga
+          <span class="text-[10px] font-mono font-bold bg-accent-tint text-accent px-1.5 py-0.2 rounded">/pricing</span>
+        </a>
+        <a href="/docs" class="hover:text-ink transition-colors">Dokumentasi</a>
+        <a href="https://github.com" target="_blank" class="hover:text-ink transition-colors flex items-center gap-1">
+          GitHub
+          <span class="material-symbols-outlined text-[14px]">arrow_outward</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Auth / Direct CTA -->
+    <div class="flex items-center gap-3">
+      <span class="text-[11px] font-mono text-ink-muted hidden sm:inline-block">v2.4 self-hosted</span>
+      <a href="/login" class="h-8 px-3 text-[13px] font-medium text-ink-secondary hover:text-ink hover:bg-[#f1f3f2] rounded-[6px] transition-colors flex items-center">
+        Masuk
+      </a>
+      <a href="/register" class="h-8 px-3.5 bg-accent hover:bg-accent-hover text-white text-[13px] font-medium rounded-[6px] transition-colors flex items-center gap-1.5 shadow-sm">
+        <span>Mulai Gratis</span>
+        <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- KONTEN UTAMA PRICING (Scrollable, centered) -->
+  <main class="flex-1 w-full max-w-5xl mx-auto px-6 py-12 flex flex-col items-center">
+
+    <!-- AC Compliance & Context Badge -->
+    <div class="flex items-center gap-2 mb-3">
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-accent-tint border border-accent/20 text-accent font-mono text-[11px] font-bold">
+        <span class="material-symbols-outlined filled text-[14px]">verified</span>
+        US-AD100 (AC1, AC3) COMPLIANT
+      </span>
+      <span class="text-[11px] font-mono text-ink-muted px-2 py-0.5 rounded-[6px] bg-white border border-border-subtle">
+        Route: /pricing
+      </span>
+      <span class="text-[11px] font-mono text-ink-muted px-2 py-0.5 rounded-[6px] bg-white border border-border-subtle">
+        Public • Tanpa Login
+      </span>
+    </div>
+
+    <!-- Header Section -->
+    <div class="text-center max-w-2xl mt-1 mb-10">
+      <h1 class="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+        Harga transparan untuk armada agen AI Anda.
+      </h1>
+      <p class="mt-3 text-[14px] text-ink-secondary leading-relaxed">
+        Pilih paket yang sesuai dengan skala orkestrasi Anda. Jalankan di infrastruktur mandiri tanpa biaya tak terduga, didukung audit ledger mikro-dolar.
+      </p>
+    </div>
+
+    <!-- PRICING CARDS CONTAINER (2 Paket: Solo / Gratis & Berbayar) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl">
+
+      <!-- PAKET 1: SOLO (GRATIS) -->
+      <div class="bg-white border border-border-standard rounded-[14px] p-7 flex flex-col justify-between shadow-sm relative hover:border-accent/40 transition-all">
+        <div>
+          <!-- Header Paket -->
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-bold text-ink">Solo</h2>
+            <span class="px-2.5 py-0.5 text-[11px] font-mono font-medium rounded-full bg-[#e8ecea] text-ink-secondary">
+              Gratis Selamanya
+            </span>
+          </div>
+          <p class="text-[13px] text-ink-secondary mt-1">
+            Untuk developer perorangan yang menjalankan eksperimen dan agen mandiri lokal.
+          </p>
+
+          <!-- Nominal Harga Solo -->
+          <div class="mt-6 flex items-baseline gap-1">
+            <span class="font-mono text-4xl font-bold text-ink tracking-tight">$0</span>
+            <span class="text-[13px] text-ink-muted font-medium">/ selamanya</span>
+          </div>
+          <div class="text-[11px] font-mono text-ink-muted mt-1">
+            1 pengguna • Tanpa kartu kredit
+          </div>
+
+          <!-- Divider -->
+          <div class="h-[1px] bg-border-subtle my-6"></div>
+
+          <!-- Daftar Isi Paket Solo (AC1) -->
+          <div class="space-y-3.5">
+            <div class="text-[12px] font-mono uppercase font-bold text-ink-muted tracking-wider">
+              Daftar Isi Paket:
+            </div>
+            <ul class="space-y-3 text-[13px] text-ink-secondary">
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span>Self-hosted single Go binary (~30 MB)</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span>Jumlah agen AI tidak terbatas</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span>Ledger telemetri biaya mikro-dolar (µUSD)</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span>Approval gate interaktif sebelum eksekusi berisiko</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span>Penyimpanan relasional SQLite / PostgreSQL</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span>Dukungan komunitas &amp; repositori publik</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Tombol Aksi Solo -->
+        <div class="mt-8 pt-4 border-t border-border-subtle">
+          <a href="/download" class="w-full h-10 px-4 bg-white border border-border-standard hover:bg-[#f6f7f6] text-ink font-semibold text-[13px] rounded-[6px] transition-colors flex items-center justify-center gap-2 shadow-xs">
+            <span class="material-symbols-outlined text-[16px]">download</span>
+            <span>Unduh Binary Solo</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- PAKET 2: BERBAYAR (PRO / FLEET) — $5/bulan flat -->
+      <div class="bg-white border-2 border-accent rounded-[14px] p-7 flex flex-col justify-between shadow-md relative">
+        <!-- Most Popular / Team Badge -->
+        <div class="absolute -top-3 right-6">
+          <span class="px-2.5 py-0.5 text-[10px] font-mono font-bold tracking-wide uppercase rounded-full bg-accent text-white shadow-xs">
+            Pilihan Tim
+          </span>
+        </div>
+
+        <div>
+          <!-- Header Paket -->
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-bold text-ink flex items-center gap-2">
+              <span>Pro</span>
+              <span class="text-[11px] font-mono font-normal text-ink-muted">(Berbayar)</span>
+            </h2>
+            <span class="px-2 py-0.5 text-[10px] font-mono font-bold rounded-[6px] bg-accent-tint text-accent border border-accent/20">
+              AC3 RAW PLACEHOLDER
+            </span>
+          </div>
+          <p class="text-[13px] text-ink-secondary mt-1">
+            Untuk organisasi dan tim rekayasa yang membutuhkan multi-tenancy, RBAC, dan audit log kepatuhan.
+          </p>
+
+          <!-- Nominal Harga Berbayar: $5/bulan flat -->
+          <div class="mt-6 flex items-baseline gap-1.5 flex-wrap">
+            <div class="font-mono text-3xl font-bold text-accent tracking-tight bg-accent-tint px-2.5 py-0.5 rounded-[6px] border border-accent/20">
+              $5
+            </div>
+            <span class="text-[13px] text-ink-muted font-medium">/ bulan (flat)</span>
+          </div>
+          <div class="text-[11px] font-mono text-ink-muted mt-1 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            <span>Tarif resmi belum ditetapkan (US-AD100 AC3)</span>
+          </div>
+
+          <!-- Divider -->
+          <div class="h-[1px] bg-border-subtle my-6"></div>
+
+          <!-- Daftar Isi Paket Berbayar (AC1) -->
+          <div class="space-y-3.5">
+            <div class="text-[12px] font-mono uppercase font-bold text-ink-muted tracking-wider">
+              Semua isi paket Solo, ditambah:
+            </div>
+            <ul class="space-y-3 text-[13px] text-ink-secondary">
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span class="font-medium text-ink">Semua kapabilitas paket Solo</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span>Anggota tim &amp; kolaborator tanpa batas (flat, bukan per-seat)</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span>Papan kerja bersama (shared boards) &amp; project multi-tenant</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span>Role-Based Access Control (Owner, Admin, Member, Viewer)</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span>Audit log mutasi tidak dapat diubah (immutable SHA-256)</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span>Webhooks dengan HMAC-SHA256 &amp; retry exponential backoff</span>
+              </li>
+              <li class="flex items-start gap-2.5">
+                <span class="material-symbols-outlined text-accent text-[18px] shrink-0 mt-0.5">check</span>
+                <span>Dukungan prioritas &amp; arsitektur deployment skala besar</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Tombol Aksi Paket Berbayar -->
+        <div class="mt-8 pt-4 border-t border-border-subtle">
+          <a href="/register?plan=pro" class="w-full h-10 px-4 bg-accent hover:bg-accent-hover text-white font-semibold text-[13px] rounded-[6px] transition-colors flex items-center justify-center gap-2 shadow-xs">
+            <span>Daftar Akses Awal Pro</span>
+            <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Catatan Tambahan Footer Konten -->
+    <div class="mt-10 text-center text-[12px] text-ink-muted max-w-xl">
+      <p>
+        Semua paket mencakup lisensi <span class="font-mono text-ink font-medium">self-hosted</span>. Seluruh data kueri, token, kredensial penyedia LLM terenkripsi AES-256-GCM, dan ledger biaya tidak pernah meninggalkan infrastruktur Anda.
+      </p>
+    </div>
+
+  </main>
+
+  <!-- FOOTER PUBLIC STANDALONE -->
+  <footer class="border-t border-border-standard bg-white py-6 px-6 shrink-0 mt-8">
+    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-[12px] text-ink-muted">
+      <div class="flex items-center gap-2">
+        <div class="w-5 h-5 rounded-[4px] bg-accent flex items-center justify-center text-white font-mono font-bold text-[9px]">
+          AD
+        </div>
+        <span class="font-medium text-ink">AgentDeck Core v2.4</span>
+        <span>•</span>
+        <span>Single Go Binary Orchestrator</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="/docs" class="hover:text-ink transition-colors">Dokumentasi</a>
+        <a href="/docs/telemetry" class="hover:text-ink transition-colors">Skema Telemetri</a>
+        <a href="/pricing" class="text-accent font-medium">Harga</a>
+        <a href="/terms" class="hover:text-ink transition-colors">Privasi &amp; Lisensi</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

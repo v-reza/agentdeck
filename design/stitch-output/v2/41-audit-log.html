@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentDeck — Audit Log (Blueprint C)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  :root {
+    --rail-bg: #e8ecea;
+    --sidebar-bg: #f6f7f6;
+    --topbar-bg: #ffffff;
+    --card-bg: #ffffff;
+    --costrail-bg: #eef1f0;
+    --page-bg: #f6f7f6;
+    --accent: #0d7a70;
+    --accent-hover: #0b675e;
+    --accent-light: #e6f3f1;
+    --text-primary: #0e1110;
+    --text-secondary: #4d5553;
+    --text-muted: #6b7370;
+    --border-subtle: rgba(12, 26, 22, 0.07);
+    --border-standard: rgba(12, 26, 22, 0.12);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background-color: var(--page-bg);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app-shell {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* 1. Rail 44px (ikon saja, tanpa label) */
+  .rail {
+    width: 44px;
+    min-width: 44px;
+    height: 100vh;
+    background-color: var(--rail-bg);
+    border-right: 1px solid var(--border-standard);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    z-index: 30;
+  }
+
+  .rail-top, .rail-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .rail-brand {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    background: #0d7a70;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: -0.02em;
+    cursor: pointer;
+  }
+
+  .rail-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .rail-btn:hover {
+    background-color: rgba(12, 26, 22, 0.06);
+    color: var(--text-primary);
+  }
+
+  .rail-btn.active {
+    background-color: #ffffff;
+    color: var(--accent);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+
+  .rail-btn svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .status-dot-pulse {
+    width: 6px;
+    height: 6px;
+    background: #10b981;
+    border-radius: 50%;
+  }
+
+  /* 2. Sidebar 224px */
+  .sidebar {
+    width: 224px;
+    min-width: 224px;
+    height: 100vh;
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--border-standard);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    z-index: 20;
+  }
+
+  .sidebar-header {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .workspace-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-light);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+  }
+
+  .workspace-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .workspace-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    margin-top: 2px;
+  }
+
+  .sidebar-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .nav-group-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    padding: 0 8px 6px;
+  }
+
+  .nav-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .nav-item a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 11.5px;
+    font-weight: 500;
+    transition: background 0.1s;
+  }
+
+  .nav-item a:hover {
+    background: rgba(12, 26, 22, 0.04);
+    color: var(--text-primary);
+  }
+
+  .nav-item.active a {
+    background: #ffffff;
+    color: var(--accent);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .nav-label-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nav-label-box svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.75;
+  }
+
+  .nav-badge-count {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    background: rgba(12,26,22,0.05);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  .sidebar-footer {
+    padding: 10px 12px;
+    border-top: 1px solid var(--border-subtle);
+    background: rgba(255,255,255,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .user-profile-sm {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .avatar-user-26 {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #dbe4e1;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 10.5px;
+    border: 1px solid var(--border-subtle);
+  }
+
+  .user-info-text {
+    line-height: 1.2;
+  }
+
+  .user-name {
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--text-primary);
+  }
+
+  .user-role {
+    font-size: 9.5px;
+    font-weight: 600;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    background: var(--accent-light);
+    padding: 0 4px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+
+  /* Main Workspace Area (Topbar + Central Pane) */
+  .center-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Topbar 52px (HANYA membentang di atas pane konten) */
+  .topbar {
+    height: 52px;
+    min-height: 52px;
+    background-color: var(--topbar-bg);
+    border-bottom: 1px solid var(--border-standard);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 10;
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .topbar-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .topbar-route-pill {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--sidebar-bg);
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .rbac-pill-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    border: 1px solid transparent;
+  }
+
+  .btn-outline {
+    background: #ffffff;
+    border-color: var(--border-standard);
+    color: var(--text-primary);
+  }
+
+  .btn-outline:hover {
+    background: var(--sidebar-bg);
+    border-color: rgba(12,26,22,0.2);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #ffffff;
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-hover);
+  }
+
+  /* Horizontal layout split: Content Pane + Drawer 420px */
+  .pane-and-drawer-layout {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    height: calc(100vh - 52px);
+    overflow: hidden;
+    background-color: var(--page-bg);
+  }
+
+  /* Konten Scroll */
+  .content-pane {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* AC4 Permission callout box */
+  .perm-notice-banner {
+    background: #ffffff;
+    border: 1px solid var(--border-subtle);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .perm-notice-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .perm-icon {
+    color: var(--accent);
+  }
+
+  .perm-text {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .perm-text strong {
+    color: var(--text-primary);
+  }
+
+  .perm-badge-ac4 {
+    font-size: 9.5px;
+    font-family: var(--font-mono);
+    background: rgba(13,122,112,0.08);
+    color: var(--accent);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  /* AC2 Filter Toolbar */
+  .filter-card {
+    background: #ffffff;
+    border: 1px solid var(--border-standard);
+    border-radius: var(--radius-md);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  }
+
+  .filter-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .filter-controls-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .filter-select-box {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--page-bg);
+    border: 1px solid var(--border-standard);
+    border-radius: var(--radius-sm);
+    padding: 3px 8px;
+    height: 28px;
+  }
+
+  .filter-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .filter-select {
+    background: transparent;
+    border: none;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .filter-input-date {
+    background: transparent;
+    border: none;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    outline: none;
+  }
+
+  .filter-stats {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  .active-filter-tags {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-top: 4px;
+    border-top: 1px dashed var(--border-subtle);
+  }
+
+  .tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f1f5f4;
+    border: 1px solid var(--border-subtle);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    color: var(--text-secondary);
+  }
+
+  .tag-pill strong {
+    color: var(--text-primary);
+  }
+
+  /* AC1 & AC2: Table container & Rows */
+  .table-card {
+    background: #ffffff;
+    border: 1px solid var(--border-standard);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .audit-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    text-align: left;
+  }
+
+  /* Header tabel 32px */
+  .audit-table thead tr {
+    height: 32px;
+    background-color: #f7f9f8;
+    border-bottom: 1px solid var(--border-standard);
+  }
+
+  .audit-table th {
+    padding: 0 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  /* Baris tabel 28px */
+  .audit-table tbody tr {
+    height: 28px;
+    border-bottom: 1px solid var(--border-subtle);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .audit-table tbody tr:hover {
+    background-color: #f4f8f7;
+  }
+
+  .audit-table tbody tr.row-selected {
+    background-color: #eaf4f2;
+    border-left: 3px solid var(--accent);
+  }
+
+  .audit-table td {
+    padding: 0 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+  }
+
+  .td-time {
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    font-size: 10.5px;
+    width: 130px;
+  }
+
+  .actor-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .actor-chip-role {
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+  }
+
+  .chip-owner {
+    background: #ecfdf5;
+    color: #065f46;
+  }
+
+  .chip-admin {
+    background: #eff6ff;
+    color: #1e40af;
+  }
+
+  .chip-agent {
+    background: #faf5ff;
+    color: #6b21a8;
+  }
+
+  .action-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+
+  .act-update { background: #e0f2fe; color: #0369a1; }
+  .act-delete { background: #fee2e2; color: #b91c1c; }
+  .act-create { background: #dcfce7; color: #15803d; }
+  .act-rotate { background: #fef3c7; color: #b45309; }
+
+  .target-code {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-secondary);
+  }
+
+  .diff-summary-cell {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    max-width: 240px;
+  }
+
+  .diff-inline-del {
+    color: #b91c1c;
+    background: #fee2e2;
+    padding: 0 3px;
+    border-radius: 2px;
+    text-decoration: line-through;
+  }
+
+  .diff-inline-add {
+    color: #15803d;
+    background: #dcfce7;
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+
+  /* Drawer 420px (Blueprint C - DI ANTARA konten dan cost rail) */
+  .drawer-panel {
+    width: 420px;
+    min-width: 420px;
+    height: 100%;
+    background: #ffffff;
+    border-left: 1px solid var(--border-standard);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 15;
+  }
+
+  .drawer-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-standard);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fafbfa;
+  }
+
+  .drawer-header-title {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .drawer-heading {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .drawer-sub {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+
+  .drawer-close-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-subtle);
+    background: #ffffff;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  .drawer-close-btn:hover {
+    background: var(--sidebar-bg);
+    color: var(--text-primary);
+  }
+
+  .drawer-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* AC1 Inspeksi Nilai Sebelum/Sesudah */
+  .audit-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    background: var(--page-bg);
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .meta-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .meta-label {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  .meta-value {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+  }
+
+  .diff-section-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .diff-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .diff-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .diff-views {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .diff-pane {
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-standard);
+    overflow: hidden;
+  }
+
+  .diff-pane-title {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+  }
+
+  .pane-before .diff-pane-title {
+    background: #fef2f2;
+    color: #991b1b;
+    border-bottom: 1px solid #fecaca;
+  }
+
+  .pane-after .diff-pane-title {
+    background: #f0fdf4;
+    color: #166534;
+    border-bottom: 1px solid #bbf7d0;
+  }
+
+  .code-diff-block {
+    background: #ffffff;
+    padding: 8px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    line-height: 1.45;
+    overflow-x: auto;
+    color: #1f2937;
+  }
+
+  .diff-line {
+    display: flex;
+    gap: 8px;
+  }
+
+  .diff-del-line {
+    background: #fff1f2;
+    color: #9f1239;
+    text-decoration: line-through;
+    padding: 0 4px;
+    border-radius: 2px;
+  }
+
+  .diff-add-line {
+    background: #f0fdf4;
+    color: #166534;
+    font-weight: 600;
+    padding: 0 4px;
+    border-radius: 2px;
+  }
+
+  .security-hash-card {
+    background: #f8fafc;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .hash-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+  }
+
+  .hash-code {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--text-muted);
+  }
+
+  /* 3. Cost Rail Kanan 264px (ISI TETAP: TODAY, 7-DAY, TOP SPENDERS, RUNNING NOW) */
+  .cost-rail {
+    width: 264px;
+    min-width: 264px;
+    height: 100vh;
+    background-color: var(--costrail-bg);
+    border-left: 1px solid var(--border-standard);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 14px 14px 12px;
+    z-index: 25;
+    overflow-y: auto;
+  }
+
+  .cost-rail-top {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .cost-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  .today-amount {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.1;
+  }
+
+  .today-cap {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  /* Budget meter 6px */
+  .meter-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(12, 26, 22, 0.1);
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 8px 0 4px;
+  }
+
+  .meter-fill {
+    height: 100%;
+    width: 24.1%;
+    background-color: var(--accent);
+    border-radius: 999px;
+  }
+
+  .meter-caption {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+
+  /* 7-DAY Sparkline Bar Chart */
+  .sparkline-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 42px;
+    padding-top: 6px;
+  }
+
+  .spark-bar-wrap {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 3px;
+  }
+
+  .spark-bar {
+    width: 100%;
+    background: #99c2bd;
+    border-radius: 2px 2px 0 0;
+  }
+
+  .spark-bar.active-day {
+    background: var(--accent);
+  }
+
+  .spark-day-label {
+    font-size: 8.5px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+
+  /* TOP SPENDERS (3 baris) */
+  .spenders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .spender-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .spender-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10.5px;
+    font-family: var(--font-mono);
+  }
+
+  .spender-name {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .spender-val {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .spender-progress {
+    width: 100%;
+    height: 3px;
+    background: rgba(12,26,22,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .spender-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* RUNNING NOW */
+  .running-now-box {
+    background: #ffffff;
+    border: 1px solid var(--border-standard);
+    border-radius: var(--radius-md);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .running-status-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .dot-orange {
+    width: 6px;
+    height: 6px;
+    background: #f59e0b;
+    border-radius: 50%;
+  }
+
+  .running-subtext {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- 1. Rail 44px (ikon saja, tanpa label, background #e8ecea) -->
+  <aside class="rail">
+    <div class="rail-top">
+      <div class="rail-brand" title="AgentDeck Core">AD</div>
+      <button class="rail-btn" title="Boards">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+      </button>
+      <button class="rail-btn" title="Tasks">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+      </button>
+      <button class="rail-btn" title="Agents">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8.01" y2="16"></line><line x1="16" y1="16" x2="16.01" y2="16"></line></svg>
+      </button>
+      <button class="rail-btn active" title="Settings & Governance">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
+    </div>
+    <div class="rail-bottom">
+      <div class="status-dot-pulse" title="Connected: Daemon running"></div>
+    </div>
+  </aside>
+
+  <!-- 2. Sidebar 224px (background #f6f7f6) -->
+  <aside class="sidebar">
+    <div>
+      <div class="sidebar-header">
+        <span class="workspace-badge-pill">org-scoped</span>
+        <div class="workspace-title">
+          <span>ws_8f12a (isolated)</span>
+        </div>
+        <div class="workspace-meta">US-AD95 Compliance</div>
+      </div>
+
+      <div class="sidebar-scroll">
+        <div>
+          <div class="nav-group-title">Navigasi Utama</div>
+          <ul class="nav-list">
+            <li class="nav-item">
+              <a href="#">
+                <span class="nav-label-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                  <span>Semua Proyek</span>
+                </span>
+                <span class="nav-badge-count">3</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#">
+                <span class="nav-label-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                  <span>Semua Board</span>
+                </span>
+                <span class="nav-badge-count">6</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#">
+                <span class="nav-label-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg>
+                  <span>Agent Registry</span>
+                </span>
+                <span class="nav-badge-count">5</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <div class="nav-group-title">Pengaturan & Audit</div>
+          <ul class="nav-list">
+            <li class="nav-item">
+              <a href="#">
+                <span class="nav-label-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                  <span>API Keys</span>
+                </span>
+                <span class="nav-badge-count">4</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#">
+                <span class="nav-label-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                  <span>Webhooks</span>
+                </span>
+                <span class="nav-badge-count">3</span>
+              </a>
+            </li>
+            <li class="nav-item active">
+              <a href="#">
+                <span class="nav-label-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                  <span>Audit Log</span>
+                </span>
+                <span class="nav-badge-count" style="background: var(--accent); color: #fff;">LIVE</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#">
+                <span class="nav-label-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  <span>Anggota & Akses</span>
+                </span>
+                <span class="nav-badge-count">3</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Profile Footer with AC4 context -->
+    <div class="sidebar-footer">
+      <div class="user-profile-sm">
+        <div class="avatar-user-26">RZ</div>
+        <div class="user-info-text">
+          <div class="user-name">Reza</div>
+          <span class="user-role">OWNER</span>
+        </div>
+      </div>
+      <div title="AC4 Guard Verified" style="color: #10b981;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Central Working Area (Topbar 52px + Content & Drawer Pane) -->
+  <div class="center-container">
+    
+    <!-- Topbar 52px (HANYA di atas pane konten) -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="topbar-title">
+          <span>Audit Log</span>
+        </h1>
+        <span class="topbar-route-pill">/settings/audit</span>
+        <!-- AC4 Permission Status Pill -->
+        <span class="rbac-pill-tag" title="AC4: Hanya Owner & Admin yang dapat mengakses">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          RBAC: Owner / Admin Level
+        </span>
+      </div>
+      <div class="topbar-right">
+        <!-- AC2: Ekspor ke CSV -->
+        <button class="btn btn-outline" title="AC2: Ekspor data log terfilter ke format CSV">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <span>Ekspor CSV</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Horizontal Split: Content Pane + Drawer 420px (Blueprint C) -->
+    <div class="pane-and-drawer-layout">
+      
+      <!-- Pane Konten Scroll -->
+      <main class="content-pane">
+        
+        <!-- AC4 Permission Enforcement Note (Informational) -->
+        <div class="perm-notice-banner">
+          <div class="perm-notice-left">
+            <svg class="perm-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span class="perm-text">
+              <strong>Hak Akses Audit (US-AD95 AC4):</strong> Halaman ini dilindungi otentikasi role-based level halaman. Akses role <code>member</code> & <code>viewer</code> dicegah dengan status 403 Forbidden sebelum data dirender.
+            </span>
+          </div>
+          <span class="perm-badge-ac4">AC4 Enforced</span>
+        </div>
+
+        <!-- AC2: Baris Filter (Aktor, Jenis Aksi, Rentang Tanggal) & Ekspor -->
+        <section class="filter-card">
+          <div class="filter-row">
+            <div class="filter-controls-group">
+              <!-- Filter Aktor -->
+              <div class="filter-select-box">
+                <span class="filter-label">Aktor:</span>
+                <select class="filter-select">
+                  <option value="all">Semua Aktor</option>
+                  <option value="reza" selected>Reza (Owner)</option>
+                  <option value="sarah">Sarah (Admin)</option>
+                  <option value="daemon">daemon / automated</option>
+                </select>
+              </div>
+
+              <!-- Filter Jenis Aksi -->
+              <div class="filter-select-box">
+                <span class="filter-label">Jenis Aksi:</span>
+                <select class="filter-select">
+                  <option value="all">Semua Aksi</option>
+                  <option value="update" selected>UPDATE (Perubahan)</option>
+                  <option value="create">CREATE (Pembuatan)</option>
+                  <option value="delete">DELETE (Penghapusan)</option>
+                  <option value="rotate">ROTATE (Rotasi Kunci)</option>
+                </select>
+              </div>
+
+              <!-- Filter Rentang Tanggal -->
+              <div class="filter-select-box">
+                <span class="filter-label">Rentang Tanggal:</span>
+                <input type="text" class="filter-input-date" value="12 Sep 2026 — 18 Sep 2026" readonly>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              </div>
+            </div>
+
+            <div class="filter-stats">
+              <span>Menampilkan <strong>6</strong> dari <strong>142</strong> catatan audit</span>
+            </div>
+          </div>
+
+          <div class="active-filter-tags">
+            <span style="font-size: 10px; color: var(--text-muted);">Filter aktif:</span>
+            <span class="tag-pill">Aktor: <strong>Reza (Owner)</strong></span>
+            <span class="tag-pill">Rentang: <strong>7 hari terakhir</strong></span>
+            <span style="font-size: 10px; color: var(--accent); cursor: pointer; margin-left: 4px;">Reset Filter</span>
+          </div>
+        </section>
+
+        <!-- AC1: Tabel Audit Log (Waktu, Aktor, Aksi, Target, Nilai Sebelum/Sesudah) -->
+        <!-- Baris tabel 28px, Header 32px -->
+        <section class="table-card">
+          <table class="audit-table">
+            <thead>
+              <tr>
+                <th style="width: 130px;">WAKTU (UTC+7)</th>
+                <th style="width: 140px;">AKTOR</th>
+                <th style="width: 100px;">AKSI</th>
+                <th style="width: 180px;">TARGET</th>
+                <th>RINGKASAN PERUBAHAN (SEBELUM &rarr; SESUDAH)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Row 1: Selected (Details in Drawer) -->
+              <tr class="row-selected" title="Klik untuk membuka detail sebelum/sesudah di drawer">
+                <td class="td-time">18 Sep, 14:22:04</td>
+                <td>
+                  <span class="actor-badge">
+                    <span class="actor-chip-role chip-owner">OWNER</span>
+                    <span>Reza</span>
+                  </span>
+                </td>
+                <td><span class="action-badge act-update">UPDATE</span></td>
+                <td><span class="target-code">agent/agt_backend_01</span></td>
+                <td class="diff-summary-cell">
+                  max_runtime: <span class="diff-inline-del">1800s</span> &rarr; <span class="diff-inline-add">3600s</span>
+                </td>
+              </tr>
+
+              <!-- Row 2 -->
+              <tr>
+                <td class="td-time">18 Sep, 13:05:12</td>
+                <td>
+                  <span class="actor-badge">
+                    <span class="actor-chip-role chip-owner">OWNER</span>
+                    <span>Reza</span>
+                  </span>
+                </td>
+                <td><span class="action-badge act-rotate">ROTATE</span></td>
+                <td><span class="target-code">keys/adk_a8f9</span></td>
+                <td class="diff-summary-cell">
+                  secret_hash: <span class="diff-inline-del">7f4d...</span> &rarr; <span class="diff-inline-add">9c1b...</span>
+                </td>
+              </tr>
+
+              <!-- Row 3 -->
+              <tr>
+                <td class="td-time">17 Sep, 19:40:22</td>
+                <td>
+                  <span class="actor-badge">
+                    <span class="actor-chip-role chip-owner">OWNER</span>
+                    <span>Reza</span>
+                  </span>
+                </td>
+                <td><span class="action-badge act-create">CREATE</span></td>
+                <td><span class="target-code">webhook/hook_9a1f2b</span></td>
+                <td class="diff-summary-cell">
+                  events: <span class="diff-inline-add">[task.completed, run.failed]</span>
+                </td>
+              </tr>
+
+              <!-- Row 4 -->
+              <tr>
+                <td class="td-time">16 Sep, 11:15:30</td>
+                <td>
+                  <span class="actor-badge">
+                    <span class="actor-chip-role chip-owner">OWNER</span>
+                    <span>Reza</span>
+                  </span>
+                </td>
+                <td><span class="action-badge act-update">UPDATE</span></td>
+                <td><span class="target-code">settings/budget_cap</span></td>
+                <td class="diff-summary-cell">
+                  daily_cap: <span class="diff-inline-del">$15.00</span> &rarr; <span class="diff-inline-add">$20.00</span>
+                </td>
+              </tr>
+
+              <!-- Row 5 -->
+              <tr>
+                <td class="td-time">15 Sep, 16:50:18</td>
+                <td>
+                  <span class="actor-badge">
+                    <span class="actor-chip-role chip-owner">OWNER</span>
+                    <span>Reza</span>
+                  </span>
+                </td>
+                <td><span class="action-badge act-update">UPDATE</span></td>
+                <td><span class="target-code">agent/agt_docs_33</span></td>
+                <td class="diff-summary-cell">
+                  model: <span class="diff-inline-del">claude-3-haiku</span> &rarr; <span class="diff-inline-add">claude-3-5-sonnet</span>
+                </td>
+              </tr>
+
+              <!-- Row 6 -->
+              <tr>
+                <td class="td-time">14 Sep, 09:12:00</td>
+                <td>
+                  <span class="actor-badge">
+                    <span class="actor-chip-role chip-owner">OWNER</span>
+                    <span>Reza</span>
+                  </span>
+                </td>
+                <td><span class="action-badge act-create">CREATE</span></td>
+                <td><span class="target-code">board/sprint-24</span></td>
+                <td class="diff-summary-cell">
+                  initial_columns: <span class="diff-inline-add">5-column Kanban layout</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+      </main>
+
+      <!-- AC1: Drawer 420px (Blueprint C: Detail Inspeksi Nilai Sebelum & Sesudah) -->
+      <aside class="drawer-panel">
+        <div class="drawer-header">
+          <div class="drawer-header-title">
+            <div class="drawer-heading">Detail Catatan Audit</div>
+            <div class="drawer-sub">log_audit_9b42f1a • SHA256-verified</div>
+          </div>
+          <button class="drawer-close-btn" title="Tutup Drawer">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <div class="drawer-body">
+          <!-- Metadata Transaksi Audit -->
+          <div class="audit-meta-grid">
+            <div class="meta-field">
+              <span class="meta-label">Aktor</span>
+              <span class="meta-value">Reza (Owner)</span>
+            </div>
+            <div class="meta-field">
+              <span class="meta-label">Jenis Aksi</span>
+              <span class="meta-value" style="color: #0369a1;">UPDATE_CONFIG</span>
+            </div>
+            <div class="meta-field">
+              <span class="meta-label">Target Entitas</span>
+              <span class="meta-value">agt_backend_01</span>
+            </div>
+            <div class="meta-field">
+              <span class="meta-label">Waktu Eksekusi</span>
+              <span class="meta-value">18 Sep, 14:22:04</span>
+            </div>
+          </div>
+
+          <!-- AC1: Inspeksi Nilai Sebelum & Sesudah (JSON/Config Diff) -->
+          <div class="diff-section-box">
+            <div class="diff-header-bar">
+              <span class="diff-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"></path><path d="M8 21H3v-5"></path><path d="M21 3l-7 7"></path><path d="M3 21l7-7"></path></svg>
+                Perbandingan Nilai Sebelum vs Sesudah
+              </span>
+              <span style="font-size: 9.5px; font-family: var(--font-mono); color: var(--text-muted);">field: agent.runtime</span>
+            </div>
+
+            <div class="diff-views">
+              <!-- Nilai Sebelum -->
+              <div class="diff-pane pane-before">
+                <div class="diff-pane-title">
+                  <span>- NILAI SEBELUM (OLD STATE)</span>
+                  <span>rev #14</span>
+                </div>
+                <div class="code-diff-block">
+                  <div class="diff-line diff-del-line">- "max_runtime_seconds": 1800,</div>
+                  <div class="diff-line diff-del-line">- "retry_policy": "exponential_backoff_3x",</div>
+                  <div class="diff-line" style="color: #6b7280;">  "model": "gpt-4o",</div>
+                  <div class="diff-line" style="color: #6b7280;">  "reasoning_effort": "medium"</div>
+                </div>
+              </div>
+
+              <!-- Nilai Sesudah -->
+              <div class="diff-pane pane-after">
+                <div class="diff-pane-title">
+                  <span>+ NILAI SESUDAH (NEW STATE)</span>
+                  <span>rev #15 (current)</span>
+                </div>
+                <div class="code-diff-block">
+                  <div class="diff-line diff-add-line">+ "max_runtime_seconds": 3600,</div>
+                  <div class="diff-line diff-add-line">+ "retry_policy": "linear_5x",</div>
+                  <div class="diff-line" style="color: #6b7280;">  "model": "gpt-4o",</div>
+                  <div class="diff-line" style="color: #6b7280;">  "reasoning_effort": "medium"</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Security & Immutability Verification -->
+          <div class="security-hash-card">
+            <div class="hash-row">
+              <span style="font-weight: 600; color: var(--text-primary);">Audit Integrity Check:</span>
+              <span style="color: #10b981; font-weight: 600;">PASS (Immutable)</span>
+            </div>
+            <div class="hash-row">
+              <span style="color: var(--text-muted);">Payload Hash:</span>
+              <span class="hash-code">sha256:e3b0c44298fc1c149afbf4c8996fb92427ae...</span>
+            </div>
+            <div class="hash-row">
+              <span style="color: var(--text-muted);">Client IP / Session:</span>
+              <span class="hash-code">192.168.1.104 (TLS session valid)</span>
+            </div>
+          </div>
+
+        </div>
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- 3. Cost Rail Kanan 264px (ISI TETAP: TODAY, 7-DAY, TOP SPENDERS, RUNNING NOW - background #eef1f0) -->
+  <aside class="cost-rail">
+    <div class="cost-rail-top">
+      <!-- TODAY -->
+      <div>
+        <div class="cost-section-title">
+          <span>TODAY</span>
+          <span class="today-cap">CAP $20.00</span>
+        </div>
+        <div class="today-amount">$4.82 <span style="font-size: 13px; font-weight: 500; color: var(--text-muted);">/ $20.00</span></div>
+        <div class="meter-bar">
+          <div class="meter-fill"></div>
+        </div>
+        <div class="meter-caption">
+          <span>24.1% terpakai</span>
+          <span>Sisa $15.18</span>
+        </div>
+      </div>
+
+      <!-- 7-DAY -->
+      <div>
+        <div class="cost-section-title">
+          <span>7-DAY</span>
+          <span>SEP 12 — SEP 18</span>
+        </div>
+        <div class="sparkline-row">
+          <div class="spark-bar-wrap">
+            <div class="spark-bar" style="height: 48%;"></div>
+            <span class="spark-day-label">12</span>
+          </div>
+          <div class="spark-bar-wrap">
+            <div class="spark-bar" style="height: 65%;"></div>
+            <span class="spark-day-label">13</span>
+          </div>
+          <div class="spark-bar-wrap">
+            <div class="spark-bar" style="height: 40%;"></div>
+            <span class="spark-day-label">14</span>
+          </div>
+          <div class="spark-bar-wrap">
+            <div class="spark-bar" style="height: 75%;"></div>
+            <span class="spark-day-label">15</span>
+          </div>
+          <div class="spark-bar-wrap">
+            <div class="spark-bar" style="height: 85%;"></div>
+            <span class="spark-day-label">16</span>
+          </div>
+          <div class="spark-bar-wrap">
+            <div class="spark-bar" style="height: 70%;"></div>
+            <span class="spark-day-label">17</span>
+          </div>
+          <div class="spark-bar-wrap">
+            <div class="spark-bar active-day" style="height: 90%;"></div>
+            <span class="spark-day-label" style="font-weight: 700; color: var(--accent);">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP SPENDERS (3 baris) -->
+      <div>
+        <div class="cost-section-title">
+          <span>TOP SPENDERS</span>
+          <span>TODAY</span>
+        </div>
+        <div class="spenders-list">
+          <div class="spender-item">
+            <div class="spender-row">
+              <span class="spender-name">agent-backend</span>
+              <span class="spender-val">$1.84</span>
+            </div>
+            <div class="spender-progress">
+              <div class="spender-progress-bar" style="width: 100%;"></div>
+            </div>
+          </div>
+          <div class="spender-item">
+            <div class="spender-row">
+              <span class="spender-name">agent-data</span>
+              <span class="spender-val">$1.42</span>
+            </div>
+            <div class="spender-progress">
+              <div class="spender-progress-bar" style="width: 77%;"></div>
+            </div>
+          </div>
+          <div class="spender-item">
+            <div class="spender-row">
+              <span class="spender-name">agent-docs</span>
+              <span class="spender-val">$0.91</span>
+            </div>
+            <div class="spender-progress">
+              <div class="spender-progress-bar" style="width: 49%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RUNNING NOW -->
+    <div>
+      <div class="cost-section-title">
+        <span>RUNNING NOW</span>
+      </div>
+      <div class="running-now-box">
+        <div class="running-status-line">
+          <span class="dot-orange"></span>
+          <span>2 agents active</span>
+        </div>
+        <div class="running-subtext">task execution: running</div>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+</body>
+</html>

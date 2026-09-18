@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgentDeck — Table View (/boards/:id?view=table)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface": "#f9f9f8",
+            "surface-dim": "#d9dad9",
+            "surface-bright": "#f9f9f8",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#f3f4f3",
+            "surface-container": "#edeeed",
+            "surface-container-high": "#e7e8e7",
+            "surface-container-highest": "#e1e3e2",
+            "primary": "#005f57",
+            "primary-container": "#0d7a70",
+            "teal-accent": "#0d7a70",
+            "teal-hover": "#0b665d",
+            "teal-tint": "#eef7f5",
+            "ink-primary": "#0e1110",
+            "ink-secondary": "#4d5553",
+            "ink-tertiary": "#6b7370"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #bdc9c6;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #6e7977;
+    }
+  </style>
+</head>
+<body class="bg-[#f6f7f6] text-ink-primary font-sans antialiased overflow-hidden h-screen w-screen flex select-none">
+
+  <!-- RAIL KIRI (44px, #e8ecea) -->
+  <aside class="w-[44px] shrink-0 bg-[#e8ecea] border-r border-[#d9dad9] flex flex-col items-center justify-between py-3.5 z-20">
+    <div class="flex flex-col items-center gap-3">
+      <!-- AD Badge Hijau -->
+      <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] flex items-center justify-center text-white font-bold text-[11px] font-mono tracking-tight shadow-sm cursor-pointer" title="AgentDeck Core">
+        AD
+      </div>
+      <div class="w-6 h-[1px] bg-[#d9dad9]"></div>
+      <!-- Rail Icons -->
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-[#dce4e1] transition-colors" title="Semua Proyek">
+        <span class="material-symbols-outlined">folder</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] bg-[#d9e1de] text-[#0d7a70] flex items-center justify-center" title="Papan Kanban & Tabel">
+        <span class="material-symbols-outlined filled">view_kanban</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-[#dce4e1] transition-colors" title="Agent Registry">
+        <span class="material-symbols-outlined">smart_toy</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-[#dce4e1] transition-colors" title="Antrean Approval">
+        <span class="material-symbols-outlined">verified_user</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-[#dce4e1] transition-colors" title="Ledger & Biaya">
+        <span class="material-symbols-outlined">payments</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-[#dce4e1] transition-colors" title="Dokumentasi">
+        <span class="material-symbols-outlined">description</span>
+      </button>
+    </div>
+    <div class="flex flex-col items-center gap-3">
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-[#dce4e1] transition-colors" title="Pengaturan">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+      <!-- Avatar User RZ (26px) -->
+      <div class="relative cursor-pointer" title="Logged in as Reza (Owner)">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#191c1c] text-[#f9f9f8] text-[10px] font-bold flex items-center justify-center border border-white">
+          RZ
+        </div>
+        <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-[#0d7a70] border-2 border-[#e8ecea] rounded-full"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR (224px, #f6f7f6) -->
+  <nav class="w-[224px] shrink-0 bg-[#f6f7f6] border-r border-[#d9dad9] flex flex-col justify-between overflow-y-auto text-[13px] z-10">
+    <div>
+      <!-- Workspace Switcher Pill -->
+      <div class="p-3 border-b border-[#edeeed]">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+            <span class="text-[12px] font-mono font-semibold text-ink-primary truncate">ws_8f12a (core)</span>
+          </div>
+          <span class="text-[9px] font-mono uppercase bg-[#d9e1de] text-[#0d7a70] px-1.5 py-0.5 rounded font-bold">B2C SOLO</span>
+        </div>
+      </div>
+
+      <!-- Navigation Hierarchy -->
+      <div class="p-2 space-y-4">
+        <!-- GROUP 1: PAPAN KANBAN & VIEW -->
+        <div>
+          <div class="flex items-center justify-between px-2 py-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">Papan Kanban</span>
+            <span class="text-[10px] font-mono text-ink-tertiary">4</span>
+          </div>
+          <ul class="mt-1 space-y-0.5">
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] font-semibold border-l-2 border-[#0d7a70]" href="#">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-[16px] text-[#0d7a70]">grid_view</span>
+                  <span class="truncate text-[12px]">Sprint 24</span>
+                </div>
+                <span class="text-[10px] font-mono bg-[#d9e1de] text-[#0d7a70] px-1.5 py-0.2 rounded font-bold">12</span>
+              </a>
+            </li>
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-ink-secondary hover:bg-[#edeeed] transition-colors" href="#">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-[16px] text-ink-tertiary">grid_view</span>
+                  <span class="truncate text-[12px]">Sprint 23</span>
+                </div>
+                <span class="text-[10px] font-mono text-ink-tertiary">24</span>
+              </a>
+            </li>
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-ink-secondary hover:bg-[#edeeed] transition-colors" href="#">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-[16px] text-ink-tertiary">view_agenda</span>
+                  <span class="truncate text-[12px]">Backlog grooming</span>
+                </div>
+                <span class="text-[10px] font-mono text-ink-tertiary">38</span>
+              </a>
+            </li>
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-ink-secondary hover:bg-[#edeeed] transition-colors" href="#">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-[16px] text-ink-tertiary">grid_view</span>
+                  <span class="truncate text-[12px]">Agent ops</span>
+                </div>
+                <span class="text-[10px] font-mono text-ink-tertiary">6</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- GROUP 2: MODE TAMPILAN -->
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">Mode Tampilan</span>
+          <ul class="mt-1 space-y-0.5">
+            <li>
+              <a class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-ink-secondary hover:bg-[#edeeed] transition-colors" href="#">
+                <span class="material-symbols-outlined text-[16px] text-ink-tertiary">view_column</span>
+                <span class="truncate text-[12px]">Board View (Kanban)</span>
+              </a>
+            </li>
+            <li>
+              <a class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] font-semibold" href="#">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-[16px] text-[#0d7a70]">table_chart</span>
+                  <span class="truncate text-[12px]">Table View (List)</span>
+                </div>
+                <span class="text-[9px] font-mono bg-[#d9e1de] text-[#0d7a70] px-1 py-0.2 rounded font-bold">AD54</span>
+              </a>
+            </li>
+            <li>
+              <a class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-ink-secondary hover:bg-[#edeeed] transition-colors" href="#">
+                <span class="material-symbols-outlined text-[16px] text-ink-tertiary">account_tree</span>
+                <span class="truncate text-[12px]">Graf Dependency</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- GROUP 3: ARMADA TERDAFTAR -->
+        <div>
+          <div class="flex items-center justify-between px-2 py-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">Armada Terdaftar</span>
+            <span class="text-[10px] font-mono text-[#0d7a70] font-semibold">2 RUNNING</span>
+          </div>
+          <ul class="mt-1 space-y-1">
+            <li class="flex items-center justify-between px-2 py-1 rounded bg-[#edeeed] text-[11px] font-mono">
+              <div class="flex items-center gap-1.5">
+                <span class="w-[20px] h-[20px] rounded-full bg-[#d9e1de] text-[#0d7a70] font-bold text-[9px] flex items-center justify-center">be</span>
+                <span class="text-ink-primary">agent-backend</span>
+              </div>
+              <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+            </li>
+            <li class="flex items-center justify-between px-2 py-1 rounded bg-[#edeeed] text-[11px] font-mono">
+              <div class="flex items-center gap-1.5">
+                <span class="w-[20px] h-[20px] rounded-full bg-[#d9e1de] text-[#0d7a70] font-bold text-[9px] flex items-center justify-center">dc</span>
+                <span class="text-ink-primary">agent-docs</span>
+              </div>
+              <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+            </li>
+            <li class="flex items-center justify-between px-2 py-1 rounded bg-[#edeeed] text-[11px] font-mono opacity-60">
+              <div class="flex items-center gap-1.5">
+                <span class="w-[20px] h-[20px] rounded-full bg-[#d9dad9] text-ink-secondary font-bold text-[9px] flex items-center justify-center">dt</span>
+                <span class="text-ink-primary">agent-data</span>
+              </div>
+              <span class="text-[9px] text-ink-tertiary">idle</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Sidebar -->
+    <div class="p-2 border-t border-[#edeeed] bg-[#f0f2f1]">
+      <div class="flex items-center gap-2 px-2 py-1.5 rounded bg-[#e1e3e2] text-[11px] font-mono text-ink-secondary">
+        <span class="w-2 h-2 rounded-full bg-[#0d7a70] animate-pulse"></span>
+        <span class="truncate font-medium">daemon :8080 • v2.4</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- PUSAT: TOPBAR + MAIN CONTENT AREA (Flex Grow) -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f6f7f6]">
+    
+    <!-- TOPBAR (52px, #ffffff, HANYA membentang di atas pane konten) -->
+    <header class="h-[52px] shrink-0 bg-[#ffffff] border-b border-[#d9dad9] px-5 flex items-center justify-between gap-4 z-10">
+      <!-- Kiri: Board Title & Toggle View Buttons -->
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-[14px] text-ink-primary">Sprint 24</span>
+          <span class="text-[11px] font-mono text-ink-tertiary bg-[#edeeed] px-1.5 py-0.5 rounded-[6px]">12 task</span>
+        </div>
+        <div class="h-4 w-[1px] bg-[#d9dad9]"></div>
+        <!-- Toggle View Segmented Button -->
+        <div class="flex items-center bg-[#edeeed] p-0.5 rounded-[6px] border border-[rgba(12,26,22,0.07)] text-[12px]">
+          <button class="flex items-center gap-1 px-2.5 py-1 rounded-[4px] text-ink-secondary hover:text-ink-primary font-medium transition-colors" title="Beralih ke Board View">
+            <span class="material-symbols-outlined text-[15px]">view_column</span>
+            <span>Board</span>
+          </button>
+          <button class="flex items-center gap-1 px-2.5 py-1 rounded-[4px] bg-white text-[#0d7a70] font-semibold shadow-xs" title="Table View Aktif">
+            <span class="material-symbols-outlined filled text-[15px] text-[#0d7a70]">table_chart</span>
+            <span>Table</span>
+          </button>
+        </div>
+        <span class="font-mono text-[11px] text-ink-tertiary bg-[#f3f4f3] px-2 py-0.5 rounded border border-[#d9dad9] hidden lg:inline-block">/boards/sprint-24?view=table</span>
+      </div>
+
+      <!-- Kanan: Search + Filter + Action Button -->
+      <div class="flex items-center gap-2.5 shrink-0">
+        <!-- Search input -->
+        <div class="relative flex items-center">
+          <span class="material-symbols-outlined absolute left-2.5 text-ink-tertiary text-[15px]">search</span>
+          <input type="text" placeholder="Cari task, agent, ID..." class="h-8 pl-8 pr-11 text-[12px] rounded-[6px] bg-[#f3f4f3] border border-transparent focus:border-[#0d7a70] focus:bg-white focus:outline-none w-52 text-ink-primary placeholder:text-ink-tertiary"/>
+          <kbd class="absolute right-2 text-[10px] font-mono bg-[#e1e3e2] text-ink-tertiary px-1 rounded border border-[#bdc9c6]">⌘K</kbd>
+        </div>
+        <!-- Filter Button -->
+        <button class="h-8 px-2.5 text-[12px] font-medium text-ink-secondary hover:bg-[#f3f4f3] rounded-[6px] border border-[#d9dad9] flex items-center gap-1.5 transition-colors">
+          <span class="material-symbols-outlined text-[16px]">filter_list</span>
+          <span>Filter</span>
+        </button>
+        <!-- Buat Task Button -->
+        <button class="h-8 px-3 text-[12px] font-semibold text-white bg-[#0d7a70] hover:bg-[#0b665d] rounded-[6px] flex items-center gap-1.5 shadow-xs transition-colors">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>Buat Task</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- PANE KONTEN (Scrollable vertikal & horizontal, bg #f6f7f6, padding 16px) -->
+    <main class="flex-1 overflow-y-auto p-4 space-y-3.5">
+
+      <!-- Baris Informasi Kepatuhan User Story & Multi-Sort Indicator -->
+      <div class="bg-white border border-[rgba(12,26,22,0.12)] rounded-[10px] p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#eef7f5] border border-[#0d7a70]/30 text-[#0d7a70] font-mono text-[11px] font-bold">
+            <span class="material-symbols-outlined filled text-[14px]">verified</span>
+            US-AD54 (AC1, AC2) COMPLIANT
+          </span>
+          <span class="text-[11px] font-mono text-ink-secondary bg-[#f3f4f3] px-2 py-0.5 rounded-[6px] border border-[#d9dad9]">
+            32px/baris • 7 Kolom Wajib
+          </span>
+          <span class="text-[11px] text-ink-secondary flex items-center gap-1">
+            <span class="material-symbols-outlined text-[14px] text-[#0d7a70]">info</span>
+            US-AD57: Ringkasan bulk move &amp; aksi terstruktur siap pakai
+          </span>
+        </div>
+
+        <!-- AC2: Multi-Sort Badges Indicator -->
+        <div class="flex items-center gap-2 text-[11px] font-mono">
+          <span class="text-ink-tertiary">Active Multi-Sort:</span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#eef7f5] text-[#0d7a70] font-semibold border border-[#7dd6ca]/40">
+            <span>Priority</span>
+            <span class="material-symbols-outlined text-[13px]">arrow_upward</span>
+            <span class="text-[9px] bg-[#d9e1de] px-1 rounded">1</span>
+          </span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#f3f4f3] text-ink-secondary border border-[#d9dad9]">
+            <span>Cost</span>
+            <span class="material-symbols-outlined text-[13px]">arrow_downward</span>
+            <span class="text-[9px] bg-[#e1e3e2] px-1 rounded">2</span>
+          </span>
+          <button class="text-[10px] text-ink-tertiary hover:text-ink-primary underline ml-1" title="Reset urutan sort">Reset</button>
+        </div>
+      </div>
+
+      <!-- TABEL DATA TASK (US-AD54 AC1: 32px/baris, kolom: ID, Title, Status, Priority, Agent, Cost, Created) -->
+      <div class="bg-white border border-[rgba(12,26,22,0.12)] rounded-[10px] shadow-xs overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-[12px]">
+            <!-- Table Header (32px tinggi, header tabel presisi) -->
+            <thead>
+              <tr class="h-[32px] bg-[#f9f9f8] border-b border-[rgba(12,26,22,0.12)] text-[11px] font-mono text-ink-secondary uppercase tracking-wider">
+                <!-- Checkbox bulk selection (US-AD57) -->
+                <th class="w-[36px] px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </th>
+                <!-- 1. Kolom ID (Sortable) -->
+                <th class="px-3 py-0 font-bold hover:bg-[#f3f4f3] cursor-pointer transition-colors" title="Sort by ID">
+                  <div class="flex items-center gap-1">
+                    <span>ID</span>
+                    <span class="material-symbols-outlined text-[13px] text-ink-tertiary">unfold_more</span>
+                  </div>
+                </th>
+                <!-- 2. Kolom Title (Sortable) -->
+                <th class="px-3 py-0 font-bold hover:bg-[#f3f4f3] cursor-pointer transition-colors min-w-[260px]" title="Sort by Title">
+                  <div class="flex items-center gap-1">
+                    <span>Title</span>
+                    <span class="material-symbols-outlined text-[13px] text-ink-tertiary">unfold_more</span>
+                  </div>
+                </th>
+                <!-- 3. Kolom Status (Sortable) -->
+                <th class="px-3 py-0 font-bold hover:bg-[#f3f4f3] cursor-pointer transition-colors min-w-[120px]" title="Sort by Status">
+                  <div class="flex items-center gap-1">
+                    <span>Status</span>
+                    <span class="material-symbols-outlined text-[13px] text-ink-tertiary">unfold_more</span>
+                  </div>
+                </th>
+                <!-- 4. Kolom Priority (Active Primary Sort: ASC) -->
+                <th class="px-3 py-0 font-bold bg-[#eef7f5] text-[#0d7a70] hover:bg-[#e3f2ef] cursor-pointer transition-colors min-w-[100px]" title="Sorted ASC (Primary)">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-1">
+                      <span>Priority</span>
+                      <span class="material-symbols-outlined text-[14px] text-[#0d7a70]">arrow_upward</span>
+                    </div>
+                    <span class="text-[9px] bg-[#d9e1de] px-1 py-0.2 rounded font-bold">1</span>
+                  </div>
+                </th>
+                <!-- 5. Kolom Agent (Sortable) -->
+                <th class="px-3 py-0 font-bold hover:bg-[#f3f4f3] cursor-pointer transition-colors min-w-[140px]" title="Sort by Agent">
+                  <div class="flex items-center gap-1">
+                    <span>Agent</span>
+                    <span class="material-symbols-outlined text-[13px] text-ink-tertiary">unfold_more</span>
+                  </div>
+                </th>
+                <!-- 6. Kolom Cost (Active Secondary Sort: DESC) -->
+                <th class="px-3 py-0 font-bold bg-[#f3f4f3] text-ink-primary hover:bg-[#e7e8e7] cursor-pointer transition-colors text-right min-w-[100px]" title="Sorted DESC (Secondary)">
+                  <div class="flex items-center justify-end gap-1">
+                    <span>Cost</span>
+                    <span class="material-symbols-outlined text-[14px] text-ink-secondary">arrow_downward</span>
+                    <span class="text-[9px] bg-[#d9dad9] px-1 py-0.2 rounded font-bold">2</span>
+                  </div>
+                </th>
+                <!-- 7. Kolom Created (Sortable) -->
+                <th class="px-3 py-0 font-bold hover:bg-[#f3f4f3] cursor-pointer transition-colors text-right min-w-[110px]" title="Sort by Created Time">
+                  <div class="flex items-center justify-end gap-1">
+                    <span>Created</span>
+                    <span class="material-symbols-outlined text-[13px] text-ink-tertiary">unfold_more</span>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+
+            <!-- Table Body (Tepat 32px per baris sesuai US-AD54 AC1) -->
+            <tbody class="divide-y divide-[rgba(12,26,22,0.07)] font-sans">
+              
+              <!-- Baris 1 (Running P0) -->
+              <tr class="h-[32px] hover:bg-[#f3f4f3] transition-colors group">
+                <td class="px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary font-medium">task-771b</td>
+                <td class="px-3 py-0 font-medium text-ink-primary truncate max-w-[320px]">
+                  <a href="#" class="hover:text-[#0d7a70] hover:underline">Refactor auth module &amp; telemetry pipeline</a>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-amber-50 text-amber-800 border border-amber-200 font-mono text-[10px] font-semibold">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    Running
+                  </span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-red-700 border border-red-200">P0 • Blocker</span>
+                </td>
+                <td class="px-3 py-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-[#d9e1de] text-[#0d7a70] font-mono font-bold text-[9px] flex items-center justify-center">be</span>
+                    <span class="font-mono text-[11px] text-ink-primary truncate">agent-backend</span>
+                  </div>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] font-semibold text-[#0d7a70] text-right">$0.318</td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">14:10 WIB</td>
+              </tr>
+
+              <!-- Baris 2 (Ready P0) -->
+              <tr class="h-[32px] hover:bg-[#f3f4f3] transition-colors group">
+                <td class="px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary font-medium">task-201a</td>
+                <td class="px-3 py-0 font-medium text-ink-primary truncate max-w-[320px]">
+                  <a href="#" class="hover:text-[#0d7a70] hover:underline">Fix payment webhook retry backoff exponential</a>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-blue-50 text-blue-700 border border-blue-200 font-mono text-[10px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    Ready
+                  </span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-red-700 border border-red-200">P0 • Blocker</span>
+                </td>
+                <td class="px-3 py-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-[#d9e1de] text-[#0d7a70] font-mono font-bold text-[9px] flex items-center justify-center">be</span>
+                    <span class="font-mono text-[11px] text-ink-primary truncate">agent-backend</span>
+                  </div>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">$0.000</td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">13:45 WIB</td>
+              </tr>
+
+              <!-- Baris 3 (Backlog P1) -->
+              <tr class="h-[32px] hover:bg-[#f3f4f3] transition-colors group">
+                <td class="px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary font-medium">task-882c</td>
+                <td class="px-3 py-0 font-medium text-ink-primary truncate max-w-[320px]">
+                  <a href="#" class="hover:text-[#0d7a70] hover:underline">Backfill user analytics ledger to ClickHouse sink</a>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-slate-100 text-slate-700 border border-slate-200 font-mono text-[10px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                    Backlog
+                  </span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">P1 • High</span>
+                </td>
+                <td class="px-3 py-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-[#d9dad9] text-ink-secondary font-mono font-bold text-[9px] flex items-center justify-center">dt</span>
+                    <span class="font-mono text-[11px] text-ink-primary truncate">agent-data</span>
+                  </div>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] font-semibold text-[#0d7a70] text-right">$0.142</td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">12:30 WIB</td>
+              </tr>
+
+              <!-- Baris 4 (Review P1) -->
+              <tr class="h-[32px] hover:bg-[#f3f4f3] transition-colors group">
+                <td class="px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary font-medium">task-612f</td>
+                <td class="px-3 py-0 font-medium text-ink-primary truncate max-w-[320px]">
+                  <a href="#" class="hover:text-[#0d7a70] hover:underline">Audit dependencies &amp; generate SBOM license report</a>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-cyan-50 text-cyan-800 border border-cyan-200 font-mono text-[10px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-cyan-600"></span>
+                    Review
+                  </span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">P1 • High</span>
+                </td>
+                <td class="px-3 py-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-purple-100 text-purple-800 font-mono font-bold text-[9px] flex items-center justify-center">sc</span>
+                    <span class="font-mono text-[11px] text-ink-primary truncate">agent-security</span>
+                  </div>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] font-semibold text-[#0d7a70] text-right">$0.075</td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">11:15 WIB</td>
+              </tr>
+
+              <!-- Baris 5 (Backlog P1) -->
+              <tr class="h-[32px] hover:bg-[#f3f4f3] transition-colors group">
+                <td class="px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary font-medium">task-192e</td>
+                <td class="px-3 py-0 font-medium text-ink-primary truncate max-w-[320px]">
+                  <a href="#" class="hover:text-[#0d7a70] hover:underline">Migrate session storage to Redis-less Postgres table</a>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-slate-100 text-slate-700 border border-slate-200 font-mono text-[10px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                    Backlog
+                  </span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">P1 • High</span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="text-ink-tertiary text-[11px] italic">— Tanpa agent —</span>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">$0.000</td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">10:50 WIB</td>
+              </tr>
+
+              <!-- Baris 6 (Running P2) -->
+              <tr class="h-[32px] hover:bg-[#f3f4f3] transition-colors group">
+                <td class="px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary font-medium">task-930a</td>
+                <td class="px-3 py-0 font-medium text-ink-primary truncate max-w-[320px]">
+                  <a href="#" class="hover:text-[#0d7a70] hover:underline">Generate release notes v2.4 from Git commit log</a>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] bg-amber-50 text-amber-800 border border-amber-200 font-mono text-[10px] font-semibold">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    Running
+                  </span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="font-mono text-[10px] font-semibold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">P2 • Medium</span>
+                </td>
+                <td class="px-3 py-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-[#d9e1de] text-[#0d7a70] font-mono font-bold text-[9px] flex items-center justify-center">dc</span>
+                    <span class="font-mono text-[11px] text-ink-primary truncate">agent-docs</span>
+                  </div>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] font-semibold text-[#0d7a70] text-right">$0.102</td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">09:40 WIB</td>
+              </tr>
+
+              <!-- Baris 7 (Ready P2) -->
+              <tr class="h-[32px] hover:bg-[#f3f4f3] transition-colors group">
+                <td class="px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary font-medium">task-115f</td>
+                <td class="px-3 py-0 font-medium text-ink-primary truncate max-w-[320px]">
+                  <a href="#" class="hover:text-[#0d7a70] hover:underline">Upgrade Postgres schema v2 to 21 tables</a>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-blue-50 text-blue-700 border border-blue-200 font-mono text-[10px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    Ready
+                  </span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="font-mono text-[10px] font-semibold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">P2 • Medium</span>
+                </td>
+                <td class="px-3 py-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-slate-200 text-slate-700 font-mono font-bold text-[9px] flex items-center justify-center">db</span>
+                    <span class="font-mono text-[11px] text-ink-primary truncate">agent-db</span>
+                  </div>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">$0.000</td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">09:12 WIB</td>
+              </tr>
+
+              <!-- Baris 8 (Review P2) -->
+              <tr class="h-[32px] hover:bg-[#f3f4f3] transition-colors group">
+                <td class="px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary font-medium">task-554e</td>
+                <td class="px-3 py-0 font-medium text-ink-primary truncate max-w-[320px]">
+                  <a href="#" class="hover:text-[#0d7a70] hover:underline">Security scan weekly automated pass &amp; report</a>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-cyan-50 text-cyan-800 border border-cyan-200 font-mono text-[10px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-cyan-600"></span>
+                    Review
+                  </span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="font-mono text-[10px] font-semibold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">P2 • Medium</span>
+                </td>
+                <td class="px-3 py-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-purple-100 text-purple-800 font-mono font-bold text-[9px] flex items-center justify-center">sc</span>
+                    <span class="font-mono text-[11px] text-ink-primary truncate">agent-security</span>
+                  </div>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] font-semibold text-[#0d7a70] text-right">$0.214</td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">08:50 WIB</td>
+              </tr>
+
+              <!-- Baris 9 (Done P2) -->
+              <tr class="h-[32px] hover:bg-[#f3f4f3] transition-colors group">
+                <td class="px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary font-medium">task-305d</td>
+                <td class="px-3 py-0 font-medium text-ink-primary truncate max-w-[320px]">
+                  <a href="#" class="hover:text-[#0d7a70] hover:underline">Rotate API keys and TLS certificate daemon</a>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-[10px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Done
+                  </span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="font-mono text-[10px] font-semibold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">P2 • Medium</span>
+                </td>
+                <td class="px-3 py-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-purple-100 text-purple-800 font-mono font-bold text-[9px] flex items-center justify-center">sc</span>
+                    <span class="font-mono text-[11px] text-ink-primary truncate">agent-security</span>
+                  </div>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] font-semibold text-[#0d7a70] text-right">$0.011</td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">08:20 WIB</td>
+              </tr>
+
+              <!-- Baris 10 (Backlog P3) -->
+              <tr class="h-[32px] hover:bg-[#f3f4f3] transition-colors group">
+                <td class="px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary font-medium">task-084d</td>
+                <td class="px-3 py-0 font-medium text-ink-primary truncate max-w-[320px]">
+                  <a href="#" class="hover:text-[#0d7a70] hover:underline">Investigate cold start 900ms Go binary profiling</a>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-slate-100 text-slate-700 border border-slate-200 font-mono text-[10px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                    Backlog
+                  </span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="font-mono text-[10px] text-ink-secondary px-1.5 py-0.2 rounded bg-slate-100 border border-slate-200">P3 • Low</span>
+                </td>
+                <td class="px-3 py-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-amber-100 text-amber-800 font-mono font-bold text-[9px] flex items-center justify-center">pf</span>
+                    <span class="font-mono text-[11px] text-ink-primary truncate">agent-perf</span>
+                  </div>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">$0.000</td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">07:45 WIB</td>
+              </tr>
+
+              <!-- Baris 11 (Done P3) -->
+              <tr class="h-[32px] hover:bg-[#f3f4f3] transition-colors group">
+                <td class="px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary font-medium">task-419b</td>
+                <td class="px-3 py-0 font-medium text-ink-primary truncate max-w-[320px]">
+                  <a href="#" class="hover:text-[#0d7a70] hover:underline">Clean image storage registry garbage collection</a>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-[10px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Done
+                  </span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="font-mono text-[10px] text-ink-secondary px-1.5 py-0.2 rounded bg-slate-100 border border-slate-200">P3 • Low</span>
+                </td>
+                <td class="px-3 py-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-[#d9dad9] text-ink-secondary font-mono font-bold text-[9px] flex items-center justify-center">dt</span>
+                    <span class="font-mono text-[11px] text-ink-primary truncate">agent-data</span>
+                  </div>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] font-semibold text-[#0d7a70] text-right">$0.044</td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">07:10 WIB</td>
+              </tr>
+
+              <!-- Baris 12 (Done P3) -->
+              <tr class="h-[32px] hover:bg-[#f3f4f3] transition-colors group">
+                <td class="px-3 py-0 text-center">
+                  <input type="checkbox" class="rounded-[4px] border-[#bdc9c6] text-[#0d7a70] focus:ring-[#0d7a70] w-3.5 h-3.5 cursor-pointer"/>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary font-medium">task-289c</td>
+                <td class="px-3 py-0 font-medium text-ink-primary truncate max-w-[320px]">
+                  <a href="#" class="hover:text-[#0d7a70] hover:underline">Tag release v2.4.1 binary and docker image push</a>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-[10px] font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Done
+                  </span>
+                </td>
+                <td class="px-3 py-0">
+                  <span class="font-mono text-[10px] text-ink-secondary px-1.5 py-0.2 rounded bg-slate-100 border border-slate-200">P3 • Low</span>
+                </td>
+                <td class="px-3 py-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-[#d9e1de] text-[#0d7a70] font-mono font-bold text-[9px] flex items-center justify-center">dc</span>
+                    <span class="font-mono text-[11px] text-ink-primary truncate">agent-docs</span>
+                  </div>
+                </td>
+                <td class="px-3 py-0 font-mono text-[11px] font-semibold text-[#0d7a70] text-right">$0.008</td>
+                <td class="px-3 py-0 font-mono text-[11px] text-ink-secondary text-right">06:30 WIB</td>
+              </tr>
+
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Table Footer: Statistik Ringkasan & US-AD57 Ringkasan Bulk Action -->
+        <div class="px-4 py-2.5 bg-[#f9f9f8] border-t border-[rgba(12,26,22,0.12)] flex flex-wrap items-center justify-between text-[11px] font-mono text-ink-secondary gap-3">
+          <div class="flex items-center gap-3">
+            <span>Menampilkan <strong>12</strong> dari <strong>12</strong> task terdaftar</span>
+            <span class="h-3 w-[1px] bg-[#d9dad9]"></span>
+            <span>Total Ledger Terakumulasi: <strong class="text-[#0d7a70]">$0.916</strong></span>
+          </div>
+
+          <!-- US-AD57: Ringkasan Bulk Action (Could, M6) -->
+          <div class="flex items-center gap-2 text-[11px]">
+            <span class="text-ink-tertiary">Ringkasan US-AD57:</span>
+            <span class="px-2 py-0.5 rounded bg-[#edeeed] text-ink-secondary border border-[#d9dad9]">
+              Bulk move siap ditargetkan ke kolom tujuan saat baris dicentang
+            </span>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- COST RAIL KANAN (264px, #eef1f0, border-l) -->
+  <aside class="w-[264px] shrink-0 bg-[#eef1f0] border-l border-[#d9dad9] flex flex-col justify-between p-3.5 text-[12px] z-20">
+    <div class="space-y-4">
+      <!-- HEADER COST RAIL -->
+      <div class="flex items-center justify-between border-b border-[#d9e1de] pb-2">
+        <div class="flex items-center gap-1.5 font-bold text-ink-primary text-[12px]">
+          <span class="material-symbols-outlined text-[16px] text-[#0d7a70]">query_stats</span>
+          <span>COST LEDGER</span>
+        </div>
+        <span class="text-[10px] font-mono font-bold bg-[#d9e1de] text-[#0d7a70] px-1.5 py-0.5 rounded">REALTIME</span>
+      </div>
+
+      <!-- TODAY METER SECTION -->
+      <div class="bg-white p-3 rounded-[10px] border border-[#d9e1de] shadow-xs">
+        <div class="flex items-center justify-between text-[11px] text-ink-secondary font-mono">
+          <span class="font-bold text-ink-primary uppercase">TODAY</span>
+          <span>CAP $20.00</span>
+        </div>
+        <div class="mt-1 flex items-baseline justify-between">
+          <div class="text-xl font-bold font-mono text-ink-primary tracking-tight">$4.82</div>
+          <div class="text-[11px] font-mono text-ink-secondary">Sisa: <span class="font-semibold text-[#0d7a70]">$15.18</span></div>
+        </div>
+        <!-- Budget Meter Bar (height 6px, radius 6px) -->
+        <div class="w-full bg-[#edeeed] h-[6px] rounded-full mt-2.5 overflow-hidden">
+          <div class="bg-[#0d7a70] h-full rounded-full" style="width: 24.1%;"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] font-mono text-ink-tertiary mt-1.5">
+          <span>24.1% terpakai</span>
+          <span>Pagu aman</span>
+        </div>
+      </div>
+
+      <!-- 7-DAY SPARKLINE BAR (SEP 12 - SEP 18) -->
+      <div class="bg-white p-3 rounded-[10px] border border-[#d9e1de] shadow-xs">
+        <div class="flex items-center justify-between text-[11px] font-mono text-ink-secondary mb-2">
+          <span class="font-bold text-ink-primary uppercase">7-DAY</span>
+          <span>Sep 12 — Sep 18</span>
+        </div>
+        <!-- Sparkline Bars Container -->
+        <div class="h-16 flex items-end justify-between gap-1 pt-2 px-1">
+          <!-- Sep 12 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t-[2px] transition-all" style="height: 45%;" title="Sep 12: $3.10"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">12</span>
+          </div>
+          <!-- Sep 13 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t-[2px] transition-all" style="height: 60%;" title="Sep 13: $4.20"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">13</span>
+          </div>
+          <!-- Sep 14 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t-[2px] transition-all" style="height: 30%;" title="Sep 14: $2.05"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">14</span>
+          </div>
+          <!-- Sep 15 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t-[2px] transition-all" style="height: 75%;" title="Sep 15: $5.40"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">15</span>
+          </div>
+          <!-- Sep 16 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t-[2px] transition-all" style="height: 50%;" title="Sep 16: $3.50"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">16</span>
+          </div>
+          <!-- Sep 17 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-[#0d7a70] rounded-t-[2px] transition-all" style="height: 85%;" title="Sep 17: $6.12"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">17</span>
+          </div>
+          <!-- Sep 18 (Today - Highlighted) -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70] rounded-t-[2px]" style="height: 68%;" title="Sep 18 (Today): $4.82"></div>
+            <span class="text-[9px] font-mono font-bold text-[#0d7a70]">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP SPENDERS (3 baris) -->
+      <div class="bg-white p-3 rounded-[10px] border border-[#d9e1de] shadow-xs">
+        <div class="text-[11px] font-mono text-ink-tertiary uppercase font-bold mb-2.5">TOP SPENDERS</div>
+        <div class="space-y-2">
+          <!-- agent-backend -->
+          <div class="flex items-center justify-between text-[11px]">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+              <span class="font-mono text-ink-primary truncate">agent-backend</span>
+            </div>
+            <span class="font-mono font-bold text-ink-primary">$1.84</span>
+          </div>
+          <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden">
+            <div class="bg-[#0d7a70] h-full" style="width: 38.1%;"></div>
+          </div>
+
+          <!-- agent-data -->
+          <div class="flex items-center justify-between text-[11px] pt-1">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+              <span class="font-mono text-ink-primary truncate">agent-data</span>
+            </div>
+            <span class="font-mono font-bold text-ink-primary">$1.42</span>
+          </div>
+          <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden">
+            <div class="bg-[#0d7a70]/80 h-full" style="width: 29.4%;"></div>
+          </div>
+
+          <!-- agent-docs -->
+          <div class="flex items-center justify-between text-[11px] pt-1">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+              <span class="font-mono text-ink-primary truncate">agent-docs</span>
+            </div>
+            <span class="font-mono font-bold text-ink-primary">$0.91</span>
+          </div>
+          <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden">
+            <div class="bg-[#0d7a70]/60 h-full" style="width: 18.8%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RUNNING NOW -->
+      <div class="bg-white p-3 rounded-[10px] border border-[#d9e1de] shadow-xs">
+        <div class="flex items-center justify-between text-[11px] font-mono text-ink-secondary mb-2">
+          <span class="font-bold text-ink-primary uppercase">RUNNING NOW</span>
+          <span class="flex items-center gap-1 text-[#0d7a70] font-bold">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70] animate-pulse"></span>
+            2 Active
+          </span>
+        </div>
+        <div class="space-y-2 text-[11px] font-mono">
+          <div class="p-2 rounded-[6px] bg-[#f3f4f3] border border-[#e1e3e2] flex flex-col gap-1">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-ink-primary">agent-backend</span>
+              <span class="text-[9px] px-1.5 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+            </div>
+          </div>
+          <div class="p-2 rounded-[6px] bg-[#f3f4f3] border border-[#e1e3e2] flex flex-col gap-1">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-ink-primary">agent-docs</span>
+              <span class="text-[9px] px-1.5 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COST RAIL FOOTER -->
+    <div class="pt-3 border-t border-[#d9e1de] text-[10px] font-mono text-ink-tertiary flex items-center justify-between">
+      <span>AgentDeck Core</span>
+      <span class="text-[#0d7a70] font-bold">µUSD Ledger</span>
+    </div>
+  </aside>
+
+</body>
+</html>

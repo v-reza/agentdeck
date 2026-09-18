@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — Formulir Agent (Blueprint C)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --rail-bg: #e8ecea;
+      --sidebar-bg: #f6f7f6;
+      --canvas-bg: #f6f7f6;
+      --card-bg: #ffffff;
+      --cost-rail-bg: #eef1f0;
+      --accent: #0d7a70;
+      --accent-hover: #0a635b;
+      --accent-tint: #e6f3f1;
+      --ink-primary: #0e1110;
+      --ink-secondary: #4d5553;
+      --ink-tertiary: #6b7370;
+      --border-subtle: rgba(12, 26, 22, 0.07);
+      --border-standard: rgba(12, 26, 22, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-sans);
+      background-color: var(--canvas-bg);
+      color: var(--ink-primary);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      font-size: 13px;
+      line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
+    }
+    .font-mono { font-family: var(--font-mono); }
+    .tnum { font-feature-settings: "tnum"; }
+    
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(12, 26, 22, 0.15); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(12, 26, 22, 0.25); }
+  </style>
+</head>
+<body class="flex flex-row select-none">
+
+  <!-- ================= RAIL KIRI (44px) ================= -->
+  <aside style="width: 44px; min-width: 44px; max-width: 44px; background-color: var(--rail-bg); border-right: 1px solid var(--border-standard);" 
+         class="h-full flex flex-col justify-between items-center py-3 z-30 shrink-0">
+    <!-- Top Icons -->
+    <div class="flex flex-col items-center gap-4 w-full">
+      <!-- Logo Mark -->
+      <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] text-white flex items-center justify-center font-bold text-[11px] tracking-tight shadow-sm cursor-pointer">
+        AD
+      </div>
+      <div class="w-5 h-[1px] bg-[rgba(12,26,22,0.1)] my-0.5"></div>
+      
+      <!-- Nav Icons (Rail: icon-only, no label) -->
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.06)] transition-colors" title="Workspace & Projects">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+          <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+          <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+          <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+        </svg>
+      </button>
+
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.06)] transition-colors" title="Boards">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 3h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
+          <path d="M9 3v18"></path>
+          <path d="M15 3v18"></path>
+        </svg>
+      </button>
+
+      <!-- Active Rail Icon: Agents -->
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center bg-[#ffffff] text-[#0d7a70] shadow-sm transition-colors" title="Agent Registry">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+          <rect x="9" y="9" width="6" height="6"></rect>
+          <path d="M9 1v3"></path>
+          <path d="M15 1v3"></path>
+          <path d="M9 20v3"></path>
+          <path d="M15 20v3"></path>
+          <path d="M20 9h3"></path>
+          <path d="M20 14h3"></path>
+          <path d="M1 9h3"></path>
+          <path d="M1 14h3"></path>
+        </svg>
+      </button>
+
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.06)] transition-colors" title="Telemetry & Cost">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Bottom Icon -->
+    <div class="flex flex-col items-center gap-2">
+      <div class="w-2 h-2 rounded-full bg-[#16a34a]" title="Daemon online :8080"></div>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#6b7370] hover:text-[#0e1110] transition-colors" title="Settings">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ================= SIDEBAR (224px) ================= -->
+  <nav style="width: 224px; min-width: 224px; max-width: 224px; background-color: var(--sidebar-bg); border-right: 1px solid var(--border-standard);" 
+       class="h-full flex flex-col justify-between p-3 z-20 shrink-0">
+    
+    <div class="flex flex-col gap-4">
+      <!-- Workspace Selector Header -->
+      <div class="flex flex-col gap-1 pb-2 border-b border-[rgba(12,26,22,0.07)]">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-semibold tracking-wider uppercase text-[#6b7370]">WORKSPACE</span>
+          <span class="inline-flex items-center gap-1 text-[10px] font-mono text-[#0d7a70] bg-[#e6f3f1] px-1.5 py-0.2 rounded-[4px]">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+            prod-internal
+          </span>
+        </div>
+        <div class="font-mono text-[12px] font-semibold text-[#0e1110] truncate" title="ws_8f12a (isolated)">
+          ws_8f12a (isolated)
+        </div>
+        <div class="text-[11px] text-[#6b7370] flex items-center gap-1">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          Org Scoped (US-AD96)
+        </div>
+      </div>
+
+      <!-- Navigation Links -->
+      <div class="flex flex-col gap-0.5">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-[#6b7370] px-2 py-1">NAVIGASI</div>
+        
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.04)] text-[12px] transition-colors">
+          <span class="flex items-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            Semua Proyek
+          </span>
+          <span class="text-[11px] font-mono text-[#6b7370]">3</span>
+        </a>
+
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.04)] text-[12px] transition-colors">
+          <span class="flex items-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+            Semua Board
+          </span>
+          <span class="text-[11px] font-mono text-[#6b7370]">6</span>
+        </a>
+
+        <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#ffffff] text-[#0d7a70] font-medium text-[12px] shadow-sm border border-[rgba(12,26,22,0.07)]">
+          <span class="flex items-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect></svg>
+            Agent Registry
+          </span>
+          <span class="text-[11px] font-mono text-[#0d7a70] font-semibold bg-[#e6f3f1] px-1.5 py-0.2 rounded">5</span>
+        </a>
+      </div>
+
+      <!-- Agent Status Sub-filter -->
+      <div class="flex flex-col gap-1 pt-2 border-t border-[rgba(12,26,22,0.07)]">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-[#6b7370] px-2">ARMADA TERDAFTAR</div>
+        
+        <div class="flex items-center justify-between px-2 py-1 text-[11px] text-[#4d5553]">
+          <span class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+            Active (Assign Ready)
+          </span>
+          <span class="font-mono text-[11px]">3</span>
+        </div>
+
+        <div class="flex items-center justify-between px-2 py-1 text-[11px] text-[#4d5553]">
+          <span class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#d97706]"></span>
+            Unconfigured (AC5)
+          </span>
+          <span class="font-mono text-[11px]">1</span>
+        </div>
+
+        <div class="flex items-center justify-between px-2 py-1 text-[11px] text-[#4d5553]">
+          <span class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#94a3b8]"></span>
+            Archived (US-AD73)
+          </span>
+          <span class="font-mono text-[11px]">1</span>
+        </div>
+      </div>
+
+      <!-- Settings Subnav -->
+      <div class="flex flex-col gap-0.5 pt-2 border-t border-[rgba(12,26,22,0.07)]">
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-[#6b7370] px-2">PENGATURAN</div>
+        <a href="#" class="px-2 py-1 rounded text-[11px] text-[#4d5553] hover:text-[#0e1110]">API Keys (4)</a>
+        <a href="#" class="px-2 py-1 rounded text-[11px] text-[#4d5553] hover:text-[#0e1110]">Webhooks (3)</a>
+        <a href="#" class="px-2 py-1 rounded text-[11px] text-[#4d5553] hover:text-[#0e1110]">Pagu Anggaran</a>
+      </div>
+    </div>
+
+    <!-- User Profile Badge (AC4: Logged in as Owner) -->
+    <div class="pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <!-- avatar user 26px -->
+        <div style="width: 26px; height: 26px;" class="rounded-full bg-[#e8ecea] border border-[rgba(12,26,22,0.1)] flex items-center justify-center font-bold text-[11px] text-[#0d7a70]">
+          RZ
+        </div>
+        <div class="flex flex-col">
+          <div class="text-[12px] font-medium leading-tight text-[#0e1110]">Reza</div>
+          <div class="text-[10px] font-mono text-[#6b7370]">ws_8f12a</div>
+        </div>
+      </div>
+      <span class="text-[9px] font-mono font-semibold px-1.5 py-0.5 bg-[#e6f3f1] text-[#0d7a70] border border-[rgba(13,122,112,0.2)] rounded-[4px]" title="US-AD96 AC4: Akses penuh kredensial">
+        OWNER
+      </span>
+    </div>
+  </nav>
+
+  <!-- ================= AREA TENGAH: TOPBAR + PANE KONTEN + DRAWER (BLUEPRINT C) ================= -->
+  <div class="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#f6f7f6]">
+    
+    <!-- TOPBAR 52px: HANYA membentang di atas pane konten (tidak tembus rail/sidebar/cost rail) -->
+    <header style="height: 52px; min-height: 52px; max-height: 52px; background-color: #ffffff; border-bottom: 1px solid var(--border-standard);" 
+            class="w-full flex items-center justify-between px-4 z-10 shrink-0">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <h1 class="text-[15px] font-bold text-[#0e1110] tracking-tight">Formulir Agent</h1>
+        <span class="font-mono text-[11px] text-[#0d7a70] bg-[#e6f3f1] px-2 py-0.5 rounded-[4px] border border-[rgba(13,122,112,0.15)]">
+          /agents/new
+        </span>
+        <span class="text-[#6b7370] text-[12px] hidden md:inline">• Tambah worker AI baru ke armada armada</span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Search bar kecil -->
+        <div class="relative hidden sm:block">
+          <input type="text" placeholder="Cari agent, model..." 
+                 class="h-[28px] w-44 pl-7 pr-2 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] text-[11px] focus:outline-none focus:border-[#0d7a70] font-sans">
+          <svg class="absolute left-2 top-2 text-[#6b7370]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </div>
+
+        <div class="h-4 w-[1px] bg-[rgba(12,26,22,0.1)]"></div>
+
+        <!-- Mode Blueprint Indicator -->
+        <span class="text-[10px] font-mono text-[#6b7370] bg-[#f6f7f6] px-2 py-1 rounded-[4px] border border-[rgba(12,26,22,0.07)]">
+          Blueprint C (420px Drawer)
+        </span>
+      </div>
+    </header>
+
+    <!-- CONTAINER HORIZONTAL: KONTEN KIRI (SCROLL) + DRAWER KANAN (420px DI ANTARA KONTEN & COST RAIL) -->
+    <div class="flex-1 flex flex-row min-h-0 overflow-hidden relative">
+      
+      <!-- ================= KONTEN BACKGROUND (SCROLL SENDIRI) ================= -->
+      <main class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+        
+        <!-- Context Card Info -->
+        <div style="border-radius: 10px; padding: 10px; border: 1px solid var(--border-standard);" class="bg-[#ffffff] flex items-start justify-between gap-3 shadow-sm">
+          <div class="flex items-start gap-2.5">
+            <div class="w-6 h-6 rounded-[6px] bg-[#e6f3f1] text-[#0d7a70] flex items-center justify-center shrink-0 mt-0.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            </div>
+            <div>
+              <div class="text-[12px] font-semibold text-[#0e1110]">Pendaftaran Armada Baru via REST & Web UI</div>
+              <div class="text-[11px] text-[#4d5553] mt-0.5 leading-relaxed">
+                Daemon memvalidasi pasangan <code class="font-mono text-[#0d7a70] bg-[#e6f3f1] px-1 rounded">provider</code> + <code class="font-mono text-[#0d7a70] bg-[#e6f3f1] px-1 rounded">model</code> terhadap tabel harga internal Go (<code class="font-mono text-[10px]">internal/pricing</code>). Kombinasi di luar daftar ditolak HTTP 400 sebelum eksekusi dimulai.
+              </div>
+            </div>
+          </div>
+          <span class="text-[10px] font-mono text-[#0d7a70] bg-[#e6f3f1] px-2 py-0.5 rounded-[4px] shrink-0 border border-[rgba(13,122,112,0.2)]">
+            POST /api/v1/agents
+          </span>
+        </div>
+
+        <!-- Tabel Registry yang sedang aktif (Sebagai latar belakang Blueprint C) -->
+        <div style="border-radius: 10px; border: 1px solid var(--border-standard);" class="bg-[#ffffff] overflow-hidden shadow-sm">
+          <div style="height: 32px; padding: 0 12px;" class="bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-[#4d5553]">Armada Aktif di Workspace</span>
+              <span class="text-[10px] font-mono text-[#6b7370]">(5 agent)</span>
+            </div>
+            <div class="text-[10px] font-mono text-[#6b7370]">
+              Baris: 28px density • Header: 32px
+            </div>
+          </div>
+
+          <!-- Table Items: Header 32px, Rows 28px -->
+          <div class="w-full overflow-x-auto text-[11px]">
+            <!-- Header 32px -->
+            <div style="height: 32px;" class="grid grid-cols-12 items-center px-3 font-semibold text-[#6b7370] border-b border-[rgba(12,26,22,0.07)] bg-[#ffffff]">
+              <div class="col-span-3">AGENT & ID</div>
+              <div class="col-span-2">PROVIDER</div>
+              <div class="col-span-3">MODEL</div>
+              <div class="col-span-2">STATUS</div>
+              <div class="col-span-2 text-right">RUNS / SPEND</div>
+            </div>
+
+            <!-- Row 1 (28px) -->
+            <div style="height: 28px;" class="grid grid-cols-12 items-center px-3 border-b border-[rgba(12,26,22,0.04)] hover:bg-[#f6f7f6] transition-colors">
+              <div class="col-span-3 flex items-center gap-1.5 truncate">
+                <div style="width: 20px; height: 20px;" class="rounded-full bg-[#e6f3f1] text-[#0d7a70] flex items-center justify-center font-mono text-[9px] font-bold">be</div>
+                <span class="font-medium text-[#0e1110]">agent-backend</span>
+              </div>
+              <div class="col-span-2 font-mono text-[#4d5553]">openai</div>
+              <div class="col-span-3 font-mono text-[#0d7a70] truncate">gpt-4o</div>
+              <div class="col-span-2"><span class="px-1.5 py-0.2 rounded bg-[#dcfce7] text-[#16a34a] font-mono text-[9px] font-semibold">ACTIVE</span></div>
+              <div class="col-span-2 text-right font-mono text-[#4d5553] tnum">36 • $1.84</div>
+            </div>
+
+            <!-- Row 2 (28px) -->
+            <div style="height: 28px;" class="grid grid-cols-12 items-center px-3 border-b border-[rgba(12,26,22,0.04)] hover:bg-[#f6f7f6] transition-colors">
+              <div class="col-span-3 flex items-center gap-1.5 truncate">
+                <div style="width: 20px; height: 20px;" class="rounded-full bg-[#e6f3f1] text-[#0d7a70] flex items-center justify-center font-mono text-[9px] font-bold">dt</div>
+                <span class="font-medium text-[#0e1110]">agent-data</span>
+              </div>
+              <div class="col-span-2 font-mono text-[#4d5553]">deepseek</div>
+              <div class="col-span-3 font-mono text-[#0d7a70] truncate">deepseek-coder</div>
+              <div class="col-span-2"><span class="px-1.5 py-0.2 rounded bg-[#dcfce7] text-[#16a34a] font-mono text-[9px] font-semibold">ACTIVE</span></div>
+              <div class="col-span-2 text-right font-mono text-[#4d5553] tnum">14 • $1.42</div>
+            </div>
+
+            <!-- Row 3 (28px) -->
+            <div style="height: 28px;" class="grid grid-cols-12 items-center px-3 border-b border-[rgba(12,26,22,0.04)] hover:bg-[#f6f7f6] transition-colors">
+              <div class="col-span-3 flex items-center gap-1.5 truncate">
+                <div style="width: 20px; height: 20px;" class="rounded-full bg-[#e6f3f1] text-[#0d7a70] flex items-center justify-center font-mono text-[9px] font-bold">dc</div>
+                <span class="font-medium text-[#0e1110]">agent-docs</span>
+              </div>
+              <div class="col-span-2 font-mono text-[#4d5553]">anthropic</div>
+              <div class="col-span-3 font-mono text-[#0d7a70] truncate">claude-3-5-sonnet</div>
+              <div class="col-span-2"><span class="px-1.5 py-0.2 rounded bg-[#dcfce7] text-[#16a34a] font-mono text-[9px] font-semibold">ACTIVE</span></div>
+              <div class="col-span-2 text-right font-mono text-[#4d5553] tnum">22 • $0.91</div>
+            </div>
+
+            <!-- Row 4 (28px) -->
+            <div style="height: 28px;" class="grid grid-cols-12 items-center px-3 border-b border-[rgba(12,26,22,0.04)] hover:bg-[#f6f7f6] transition-colors bg-[#fefce8]/40">
+              <div class="col-span-3 flex items-center gap-1.5 truncate">
+                <div style="width: 20px; height: 20px;" class="rounded-full bg-[#fef3c7] text-[#d97706] flex items-center justify-center font-mono text-[9px] font-bold">rw</div>
+                <span class="font-medium text-[#0e1110]">agent-reviewer</span>
+              </div>
+              <div class="col-span-2 font-mono text-[#4d5553]">anthropic</div>
+              <div class="col-span-3 font-mono text-[#d97706] truncate">claude-3-opus</div>
+              <div class="col-span-2"><span class="px-1.5 py-0.2 rounded bg-[#fef3c7] text-[#d97706] font-mono text-[9px] font-semibold">UNCONFIGURED</span></div>
+              <div class="col-span-2 text-right font-mono text-[#6b7370] tnum">0 • $0.00</div>
+            </div>
+
+            <!-- Row 5 (28px) -->
+            <div style="height: 28px;" class="grid grid-cols-12 items-center px-3 hover:bg-[#f6f7f6] transition-colors opacity-60">
+              <div class="col-span-3 flex items-center gap-1.5 truncate">
+                <div style="width: 20px; height: 20px;" class="rounded-full bg-[#f1f5f9] text-[#64748b] flex items-center justify-center font-mono text-[9px] font-bold">qa</div>
+                <span class="font-medium line-through text-[#64748b]">agent-legacy-qa</span>
+              </div>
+              <div class="col-span-2 font-mono text-[#64748b]">openai</div>
+              <div class="col-span-3 font-mono text-[#64748b] truncate">gpt-3.5-turbo</div>
+              <div class="col-span-2"><span class="px-1.5 py-0.2 rounded bg-[#f1f5f9] text-[#64748b] font-mono text-[9px]">ARCHIVED</span></div>
+              <div class="col-span-2 text-right font-mono text-[#64748b] tnum">1 • $0.02</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Matriks Validasi Harga Go (internal/pricing) - Visual Proof of US-AD67 & US-AD96 AC1 -->
+        <div style="border-radius: 10px; padding: 10px; border: 1px solid var(--border-standard);" class="bg-[#ffffff] shadow-sm">
+          <div class="flex items-center justify-between pb-2 border-b border-[rgba(12,26,22,0.07)]">
+            <div class="flex items-center gap-2">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0d7a70" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-[#0e1110]">Daftar Harga Go (internal/pricing)</span>
+            </div>
+            <span class="text-[10px] font-mono text-[#16a34a] bg-[#dcfce7] px-1.5 py-0.5 rounded">
+              US-AD67 AC1 & AC2 Validated
+            </span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mt-2">
+            <div class="p-2 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.06)] text-[11px]">
+              <div class="font-mono font-semibold text-[#0d7a70]">openai</div>
+              <div class="text-[10px] text-[#4d5553] mt-1 font-mono">
+                • gpt-4o ($2.50 / $10.00)<br>
+                • gpt-4o-mini ($0.15 / $0.60)<br>
+                • o1-preview ($15.00 / $60.00)
+              </div>
+            </div>
+            <div class="p-2 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.06)] text-[11px]">
+              <div class="font-mono font-semibold text-[#0d7a70]">anthropic</div>
+              <div class="text-[10px] text-[#4d5553] mt-1 font-mono">
+                • claude-3-5-sonnet ($3.00 / $15.00)<br>
+                • claude-3-opus ($15.00 / $75.00)<br>
+                • claude-3-5-haiku ($0.80 / $4.00)
+              </div>
+            </div>
+            <div class="p-2 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.06)] text-[11px]">
+              <div class="font-mono font-semibold text-[#0d7a70]">deepseek</div>
+              <div class="text-[10px] text-[#4d5553] mt-1 font-mono">
+                • deepseek-chat ($0.14 / $0.28)<br>
+                • deepseek-coder ($0.14 / $0.28)<br>
+                • deepseek-r1 ($0.55 / $2.19)
+              </div>
+            </div>
+          </div>
+          <div class="text-[10px] text-[#6b7370] mt-2 font-mono flex items-center gap-1">
+            <span class="text-[#dc2626] font-bold">!</span> Pasangan di luar tabel di atas akan ditolak secara sinkron oleh API daemon (HTTP 400 Bad Request).
+          </div>
+        </div>
+
+      </main>
+
+      <!-- ================= DRAWER 420px (BLUEPRINT C) ================= -->
+      <!-- Tepat berada DI ANTARA konten dan cost rail kanan -->
+      <aside style="width: 420px; min-width: 420px; max-width: 420px; background-color: #ffffff; border-left: 1px solid var(--border-standard);" 
+             class="h-full flex flex-col justify-between z-20 shadow-[-4px_0_12px_rgba(0,0,0,0.03)] shrink-0">
+        
+        <!-- Drawer Header (52px align) -->
+        <div style="height: 52px; min-height: 52px;" class="px-4 border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between bg-[#ffffff]">
+          <div class="flex items-center gap-2 min-w-0">
+            <!-- avatar agent 20px placeholder -->
+            <div style="width: 20px; height: 20px;" class="rounded-full bg-[#e6f3f1] text-[#0d7a70] flex items-center justify-center font-mono text-[9px] font-bold">
+              +
+            </div>
+            <div class="flex flex-col">
+              <span class="text-[13px] font-bold text-[#0e1110] truncate">Buat Agent Baru</span>
+              <span class="text-[10px] font-mono text-[#6b7370]">POST /api/v1/agents</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="text-[10px] font-mono text-[#0d7a70] bg-[#e6f3f1] px-1.5 py-0.5 rounded border border-[rgba(13,122,112,0.2)]">
+              State: default
+            </span>
+            <button class="w-6 h-6 rounded flex items-center justify-center text-[#6b7370] hover:text-[#0e1110] hover:bg-[#f6f7f6]" title="Tutup drawer">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Drawer Body Form (Scrollable) -->
+        <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+          
+          <!-- Section 1: Identitas Agent -->
+          <div class="flex flex-col gap-3">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-[#6b7370] flex items-center justify-between">
+              <span>IDENTITAS AGENT</span>
+              <span class="font-mono text-[9px] text-[#0d7a70] font-normal">Wajib diisi</span>
+            </div>
+
+            <!-- Nama Agent (slug) -->
+            <div class="flex flex-col gap-1">
+              <label class="text-[11px] font-semibold text-[#0e1110] flex items-center justify-between">
+                <span>Nama Agent (Slug Identifier) *</span>
+                <span class="text-[10px] font-mono text-[#6b7370]">a-z, 0-9, dash</span>
+              </label>
+              <input type="text" value="agent-qa-orchestrator" 
+                     class="h-[30px] px-2.5 rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] text-[12px] font-mono text-[#0e1110] focus:outline-none focus:border-[#0d7a70] focus:ring-1 focus:ring-[#0d7a70]">
+              <span class="text-[10px] text-[#6b7370]">ID unik untuk routing task daemon: <code class="font-mono text-[#0e1110]">agt_qa_orch_01</code></span>
+            </div>
+
+            <!-- Deskripsi Tugas -->
+            <div class="flex flex-col gap-1">
+              <label class="text-[11px] font-semibold text-[#0e1110]">Tujuan & Peran</label>
+              <input type="text" value="Otomasi verifikasi integrasi E2E & regresi nightly" 
+                     class="h-[30px] px-2.5 rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] text-[12px] text-[#0e1110] focus:outline-none focus:border-[#0d7a70]">
+            </div>
+          </div>
+
+          <!-- Section 2: Model & Provider (US-AD67 AC1 & AC2, US-AD96 AC1) -->
+          <div style="border-radius: 8px; padding: 10px; border: 1px solid var(--border-standard);" class="bg-[#f6f7f6]/70 flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold text-[#0e1110] flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d7a70" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                PROVIDER & MODEL (US-AD67)
+              </span>
+              <span class="text-[9px] font-mono text-[#16a34a] bg-[#dcfce7] px-1.5 py-0.2 rounded font-semibold">
+                PRICING MATCHED
+              </span>
+            </div>
+
+            <!-- Provider Select -->
+            <div class="flex flex-col gap-1">
+              <label class="text-[11px] font-semibold text-[#0e1110] flex items-center justify-between">
+                <span>Provider LLM *</span>
+                <span class="text-[10px] font-mono text-[#0d7a70]">internal/pricing verified</span>
+              </label>
+              <div class="relative">
+                <select class="w-full h-[30px] px-2.5 rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] text-[12px] font-mono text-[#0e1110] appearance-none focus:outline-none focus:border-[#0d7a70]">
+                  <option value="openai" selected>openai (OpenAI API Compatible)</option>
+                  <option value="anthropic">anthropic (Claude Series)</option>
+                  <option value="deepseek">deepseek (DeepSeek V3 / R1)</option>
+                </select>
+                <div class="pointer-events-none absolute right-2.5 top-2.5 text-[#6b7370]">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Model Select (Dependent on Provider) -->
+            <div class="flex flex-col gap-1">
+              <label class="text-[11px] font-semibold text-[#0e1110] flex items-center justify-between">
+                <span>Model Engine *</span>
+                <span class="text-[10px] font-mono text-[#6b7370]">Snapshot 2026</span>
+              </label>
+              <div class="relative">
+                <select class="w-full h-[30px] px-2.5 rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] text-[12px] font-mono text-[#0e1110] appearance-none focus:outline-none focus:border-[#0d7a70]">
+                  <option value="gpt-4o" selected>gpt-4o (128k ctx • $2.50 in / $10.00 out)</option>
+                  <option value="gpt-4o-mini">gpt-4o-mini (128k ctx • $0.15 in / $0.60 out)</option>
+                  <option value="o1-preview">o1-preview (Reasoning • $15.00 in / $60.00 out)</option>
+                </select>
+                <div class="pointer-events-none absolute right-2.5 top-2.5 text-[#6b7370]">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 mt-1 text-[10px] text-[#16a34a] font-mono bg-[#dcfce7] p-1.5 rounded-[4px]">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"></path></svg>
+                <span>Valid: Kombinasi <strong class="font-bold">openai + gpt-4o</strong> terdaftar di tabel harga Go. Diterima daemon.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 3: Kredensial Tulis-Saja & Permission Owner/Admin (US-AD96 AC2, AC4, AC5) -->
+          <div style="border-radius: 8px; padding: 10px; border: 1px solid var(--border-standard);" class="bg-[#ffffff] flex flex-col gap-3 shadow-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold text-[#0e1110] flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d7a70" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                KREDENSIAL PROVIDER (US-AD96)
+              </span>
+              <!-- AC4: Permission indicator -->
+              <span class="text-[9px] font-mono text-[#0d7a70] bg-[#e6f3f1] px-1.5 py-0.2 rounded border border-[rgba(13,122,112,0.2)]">
+                AC4: Akses Owner/Admin
+              </span>
+            </div>
+
+            <!-- AC2: Kolom kredensial tulis-saja & ter-mask -->
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
+                <label class="text-[11px] font-semibold text-[#0e1110]">API Key / Token Kredensial *</label>
+                <span class="text-[10px] font-mono text-[#6b7370]">Write-only (Tulis-saja)</span>
+              </div>
+              <div class="relative">
+                <!-- AC2: Nilai ter-mask sk-...XXXX -->
+                <input type="text" value="sk-proj-live-89f4••••••••••••••••••••••••3a19" readonly
+                       class="w-full h-[30px] pl-2.5 pr-14 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] text-[12px] font-mono text-[#0e1110] cursor-not-allowed">
+                <span class="absolute right-2 top-1.5 text-[9px] font-mono px-1.5 py-0.5 bg-[#e8ecea] text-[#4d5553] rounded-[4px] border border-[rgba(12,26,22,0.07)]">
+                  MASKED
+                </span>
+              </div>
+              <span class="text-[10px] text-[#6b7370] leading-tight">
+                <strong>AC2 Keamanan:</strong> Kredensial disimpan hashed di database daemon. Nilai asli tidak pernah dikembalikan utuh oleh endpoint GET.
+              </span>
+            </div>
+
+            <!-- AC5: Tombol "Uji kredensial" dengan hasil inline -->
+            <div class="pt-2 border-t border-[rgba(12,26,22,0.07)] flex flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <div class="text-[11px] font-semibold text-[#0e1110]">Validasi Konektivitas Kredensial</div>
+                <!-- AC5: Button Uji Kredensial -->
+                <button type="button" 
+                        class="h-[28px] px-3 rounded-[6px] bg-[#ffffff] hover:bg-[#f6f7f6] border border-[#0d7a70] text-[#0d7a70] text-[11px] font-semibold flex items-center gap-1.5 shadow-xs transition-colors">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                  Uji kredensial
+                </button>
+              </div>
+
+              <!-- AC5: Hasil Inline Berhasil (POST /api/v1/agents/{id}/validate) -->
+              <div style="border-radius: 6px; padding: 8px;" class="bg-[#dcfce7]/70 border border-[#16a34a]/30 flex items-start gap-2">
+                <div class="w-4 h-4 rounded-full bg-[#16a34a] text-white flex items-center justify-center shrink-0 mt-0.5">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <div class="flex-1 flex flex-col gap-0.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold text-[#16a34a]">Validasi Berhasil (HTTP 200 OK)</span>
+                    <span class="text-[10px] font-mono text-[#16a34a] tnum">latency: 142ms</span>
+                  </div>
+                  <div class="text-[10px] font-mono text-[#4d5553]">
+                    POST /api/v1/agents/agt_qa_orch_01/validate • Model `gpt-4o` siap menerima prompt payload. Quota aktif.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- AC4 Note Box -->
+            <div class="p-2 rounded-[4px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.06)] text-[10px] text-[#6b7370] leading-tight">
+              <span class="font-semibold text-[#0e1110]">Aturan Izin (US-AD96 AC4):</span> Form ini menampilkan bagian kredensial karena peran Anda adalah <strong>Owner</strong>. Anggota dengan role <em>member</em> atau <em>viewer</em> melihat form tanpa blok API Key ini.
+            </div>
+          </div>
+
+          <!-- Section 4: Konfigurasi Runtime & Budget Cap -->
+          <div class="flex flex-col gap-3">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-[#6b7370]">RUNTIME & LIMIT ANGGARAN</div>
+            
+            <div class="grid grid-cols-2 gap-2">
+              <div class="flex flex-col gap-1">
+                <label class="text-[11px] font-semibold text-[#0e1110]">Max Runtime (detik)</label>
+                <input type="number" value="1800" 
+                       class="h-[30px] px-2.5 rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] text-[12px] font-mono text-[#0e1110]">
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-[11px] font-semibold text-[#0e1110]">Batas Pagu Harian ($)</label>
+                <input type="text" value="5.00" 
+                       class="h-[30px] px-2.5 rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] text-[12px] font-mono text-[#0e1110]">
+              </div>
+            </div>
+
+            <!-- Retry Policy -->
+            <div class="flex flex-col gap-1">
+              <label class="text-[11px] font-semibold text-[#0e1110]">Kebijakan Retry Otomatis</label>
+              <select class="w-full h-[30px] px-2.5 rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] text-[11px] text-[#0e1110]">
+                <option selected>Exponential backoff (3x percobaan, max delay 60s)</option>
+                <option>Linear backoff (5x percobaan)</option>
+                <option>No retry (Fail-fast)</option>
+              </select>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Drawer Footer: Action Buttons (Sticky Bottom) -->
+        <div style="padding: 12px 16px; border-top: 1px solid var(--border-standard);" class="bg-[#ffffff] flex items-center justify-between shrink-0">
+          <button type="button" class="h-[32px] px-3 rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] text-[#4d5553] hover:text-[#0e1110] text-[12px] font-medium transition-colors">
+            Batal
+          </button>
+          
+          <div class="flex items-center gap-2">
+            <button type="button" class="h-[32px] px-3 rounded-[6px] bg-[#f6f7f6] hover:bg-[#e8ecea] text-[#0e1110] text-[12px] font-medium transition-colors">
+              Simpan Draf
+            </button>
+            <!-- Primary CTA Signal Teal -->
+            <button type="button" 
+                    style="background-color: var(--accent);" 
+                    class="h-[32px] px-4 rounded-[6px] text-white text-[12px] font-semibold hover:bg-[#0a635b] shadow-sm flex items-center gap-1.5 transition-colors">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+              Daftarkan Agent
+            </button>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </div>
+
+  <!-- ================= COST RAIL KANAN (264px) ================= -->
+  <!-- Blueprint A/B/C isi tetap: TODAY, 7-DAY, TOP SPENDERS, RUNNING NOW. JANGAN tambah isi lain. -->
+  <aside style="width: 264px; min-width: 264px; max-width: 264px; background-color: var(--cost-rail-bg); border-left: 1px solid var(--border-standard);" 
+         class="h-full flex flex-col justify-between p-3.5 z-30 shrink-0 overflow-y-auto">
+    
+    <div class="flex flex-col gap-4">
+      
+      <!-- 1. TODAY (biaya + meter pagu: budget meter 6px) -->
+      <div class="flex flex-col gap-1.5 pb-3 border-b border-[rgba(12,26,22,0.08)]">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-[#6b7370]">TODAY</span>
+          <span class="text-[10px] font-mono text-[#6b7370]">CAP $20.00</span>
+        </div>
+        
+        <div class="flex items-baseline gap-1">
+          <span class="text-[24px] font-bold font-mono text-[#0e1110] tracking-tight tnum">$4.82</span>
+          <span class="text-[11px] font-mono text-[#6b7370]">/ $20.00</span>
+        </div>
+
+        <!-- Budget meter 6px -->
+        <div style="height: 6px;" class="w-full rounded-full bg-[rgba(12,26,22,0.08)] overflow-hidden">
+          <div style="width: 24.1%; height: 6px; background-color: var(--accent);" class="rounded-full"></div>
+        </div>
+
+        <div class="flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+          <span>24.1% terpakai</span>
+          <span>Sisa $15.18</span>
+        </div>
+      </div>
+
+      <!-- 2. 7-DAY (sparkline) -->
+      <div class="flex flex-col gap-2 pb-3 border-b border-[rgba(12,26,22,0.08)]">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-[#6b7370]">7-DAY</span>
+          <span class="text-[9px] font-mono text-[#6b7370]">SEP 12 — SEP 18</span>
+        </div>
+
+        <!-- Sparkline bars: 7 hari -->
+        <div class="flex items-end justify-between gap-1.5 h-10 pt-1">
+          <!-- 12 -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div style="height: 45%; background-color: var(--accent);" class="w-full rounded-t-[2px] opacity-75"></div>
+            <span class="text-[8px] font-mono text-[#6b7370]">12</span>
+          </div>
+          <!-- 13 -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div style="height: 60%; background-color: var(--accent);" class="w-full rounded-t-[2px] opacity-80"></div>
+            <span class="text-[8px] font-mono text-[#6b7370]">13</span>
+          </div>
+          <!-- 14 -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div style="height: 35%; background-color: var(--accent);" class="w-full rounded-t-[2px] opacity-70"></div>
+            <span class="text-[8px] font-mono text-[#6b7370]">14</span>
+          </div>
+          <!-- 15 -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div style="height: 75%; background-color: var(--accent);" class="w-full rounded-t-[2px] opacity-85"></div>
+            <span class="text-[8px] font-mono text-[#6b7370]">15</span>
+          </div>
+          <!-- 16 -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div style="height: 85%; background-color: var(--accent);" class="w-full rounded-t-[2px] opacity-90"></div>
+            <span class="text-[8px] font-mono text-[#6b7370]">16</span>
+          </div>
+          <!-- 17 -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div style="height: 70%; background-color: var(--accent);" class="w-full rounded-t-[2px] opacity-80"></div>
+            <span class="text-[8px] font-mono text-[#6b7370]">17</span>
+          </div>
+          <!-- 18 (Today) -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div style="height: 95%; background-color: var(--accent);" class="w-full rounded-t-[2px]"></div>
+            <span class="text-[8px] font-mono font-bold text-[#0d7a70]">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. TOP SPENDERS (3 baris) -->
+      <div class="flex flex-col gap-2 pb-3 border-b border-[rgba(12,26,22,0.08)]">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-[#6b7370]">TOP SPENDERS</span>
+          <span class="text-[9px] font-mono text-[#6b7370]">TODAY</span>
+        </div>
+
+        <!-- Baris 1: agent-backend -->
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="font-mono text-[#0e1110] truncate">agent-backend</span>
+            <span class="font-mono font-semibold text-[#0e1110] tnum">$1.84</span>
+          </div>
+          <div style="height: 3px;" class="w-full rounded-full bg-[rgba(12,26,22,0.08)] overflow-hidden">
+            <div style="width: 72%; height: 3px; background-color: var(--accent);" class="rounded-full"></div>
+          </div>
+        </div>
+
+        <!-- Baris 2: agent-data -->
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="font-mono text-[#0e1110] truncate">agent-data</span>
+            <span class="font-mono font-semibold text-[#0e1110] tnum">$1.42</span>
+          </div>
+          <div style="height: 3px;" class="w-full rounded-full bg-[rgba(12,26,22,0.08)] overflow-hidden">
+            <div style="width: 55%; height: 3px; background-color: var(--accent);" class="rounded-full"></div>
+          </div>
+        </div>
+
+        <!-- Baris 3: agent-docs -->
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="font-mono text-[#0e1110] truncate">agent-docs</span>
+            <span class="font-mono font-semibold text-[#0e1110] tnum">$0.91</span>
+          </div>
+          <div style="height: 3px;" class="w-full rounded-full bg-[rgba(12,26,22,0.08)] overflow-hidden">
+            <div style="width: 35%; height: 3px; background-color: var(--accent);" class="rounded-full"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 4. RUNNING NOW (Bagian paling bawah cost rail) -->
+    <div class="pt-2 border-t border-[rgba(12,26,22,0.08)] flex flex-col gap-1">
+      <span class="text-[9px] font-bold uppercase tracking-wider text-[#6b7370]">RUNNING NOW</span>
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-[#d97706] animate-pulse"></span>
+        <span class="text-[12px] font-semibold text-[#0e1110]">2 agents active</span>
+      </div>
+      <div class="text-[10px] font-mono text-[#6b7370]">
+        task execution: running
+      </div>
+    </div>
+
+  </aside>
+
+</body>
+</html>

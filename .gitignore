@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Frontend build output
+dist/
+apps/web/dist/
+
+# Local verification artifacts
+apps/web/verification/*.png
+.playwright-mcp/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary reports
+*.log
+*.tsbuildinfo

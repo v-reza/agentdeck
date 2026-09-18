@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgentDeck — Dokumentasi: Skema Telemetri (06c-docs-telemetry)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            teal: {
+              accent: '#0d7a70',
+              hover: '#0a645c',
+              tint: '#eef7f5'
+            },
+            neutral: {
+              page: '#f6f7f6',
+              panel: '#ffffff',
+              code: '#eef1f0',
+              dark: '#0e1110'
+            },
+            text: {
+              main: '#0e1110',
+              muted: '#4d5553',
+              subtle: '#6b7370',
+              label: '#98a09d'
+            },
+            border: {
+              subtle: 'rgba(12, 26, 22, 0.07)',
+              standard: 'rgba(12, 26, 22, 0.12)'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #f6f7f6;
+      color: #0e1110;
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#f6f7f6] text-[#0e1110]">
+
+  <!-- TOP NAV PUBLIK (64px sticky, Blueprint P) -->
+  <header class="sticky top-0 z-50 h-16 w-full bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)]">
+    <div class="max-w-[1120px] h-full mx-auto px-6 flex items-center justify-between">
+      <!-- Kiri: Wordmark + Mark Aksen -->
+      <a href="/05-landing" class="flex items-center gap-2.5 text-[#0e1110] no-underline group">
+        <div class="w-4 h-4 rounded-[4px] bg-[#0d7a70] flex items-center justify-center shadow-sm">
+          <div class="w-1.5 h-1.5 bg-white rounded-[1px]"></div>
+        </div>
+        <span class="font-semibold text-[15px] tracking-tight text-[#0e1110]">AgentDeck</span>
+      </a>
+
+      <!-- Tengah: Nav Links Inter 14 -->
+      <nav class="hidden md:flex items-center gap-8 text-[14px]">
+        <a href="/09-features" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">Product</a>
+        <a href="/07-pricing" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">Pricing</a>
+        <a href="/docs/quickstart" class="text-[#0d7a70] font-semibold">Docs</a>
+        <a href="/github" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">GitHub</a>
+      </nav>
+
+      <!-- Kanan: Sign In & CTA Button -->
+      <div class="flex items-center gap-5 text-[14px]">
+        <a href="/login" class="text-[#4d5553] hover:text-[#0e1110] font-medium transition-colors">Sign in</a>
+        <a href="/register" class="h-9 px-3.5 bg-[#0d7a70] hover:bg-[#0a645c] text-white font-medium rounded-[6px] flex items-center justify-center transition-colors shadow-sm text-[13px]">
+          Get started free
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- KONTEN DOKUMENTASI DUA KOLOM (Max-width 1120px di tengah, Blueprint P-DOCS) -->
+  <main class="flex-1 max-w-[1120px] w-full mx-auto px-6 py-12 flex flex-col md:flex-row gap-12 items-start">
+    
+    <!-- NAV DOKUMEN (240px, daftar link teks biasa, tinggi mengikuti isi) -->
+    <aside class="w-full md:w-[240px] shrink-0">
+      <div class="space-y-7 text-[13px]">
+        <!-- Group: MEMULAI -->
+        <div>
+          <div class="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#98a09d] mb-2.5">Memulai</div>
+          <ul class="space-y-2">
+            <li><a href="/docs/quickstart" class="block text-[#4d5553] hover:text-[#0e1110] transition-colors">Mulai Cepat</a></li>
+            <li><a href="/docs/architecture" class="block text-[#4d5553] hover:text-[#0e1110] transition-colors">Arsitektur &amp; Daemon</a></li>
+            <li><a href="/docs/yaml" class="block text-[#4d5553] hover:text-[#0e1110] transition-colors">Konfigurasi YAML</a></li>
+          </ul>
+        </div>
+
+        <!-- Group: ORKESTRASI -->
+        <div>
+          <div class="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#98a09d] mb-2.5">Orkestrasi</div>
+          <ul class="space-y-2">
+            <li><a href="/docs/agents" class="block text-[#4d5553] hover:text-[#0e1110] transition-colors">Pendaftaran Agent</a></li>
+            <li><a href="/docs/lifecycle" class="block text-[#4d5553] hover:text-[#0e1110] transition-colors">Siklus Hidup Run</a></li>
+            <li><a href="/docs/approval" class="block text-[#4d5553] hover:text-[#0e1110] transition-colors">Approval Gates</a></li>
+          </ul>
+        </div>
+
+        <!-- Group: REFERENSI API -->
+        <div>
+          <div class="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#98a09d] mb-2.5">Referensi API</div>
+          <ul class="space-y-2">
+            <li><a href="/docs/api" class="block text-[#4d5553] hover:text-[#0e1110] transition-colors">REST Endpoints</a></li>
+            <li><a href="/docs/webhooks" class="block text-[#4d5553] hover:text-[#0e1110] transition-colors">Webhooks &amp; Event</a></li>
+            <!-- Item Aktif: Skema Telemetri -->
+            <li><a href="/docs/telemetry" class="block text-[#0d7a70] font-semibold">Skema Telemetri</a></li>
+            <li><a href="/docs/cli" class="block text-[#4d5553] hover:text-[#0e1110] transition-colors">CLI Reference</a></li>
+            <li><a href="/docs/rbac" class="block text-[#4d5553] hover:text-[#0e1110] transition-colors">Kode Error &amp; RBAC</a></li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ARTIKEL UTAMA (Max-width 720px) -->
+    <article class="flex-1 max-w-[720px] w-full space-y-10">
+      
+      <!-- Header Artikel & Breadcrumbs -->
+      <div class="border-b border-[rgba(12,26,22,0.07)] pb-6">
+        <div class="flex items-center gap-2 text-[12px] text-[#6b7370] mb-2 font-mono">
+          <span>Dokumentasi</span>
+          <span>/</span>
+          <span>Referensi API</span>
+          <span>/</span>
+          <span class="text-[#0d7a70]">Skema Telemetri</span>
+          <span class="ml-2 inline-block px-1.5 py-0.5 text-[10px] font-semibold bg-[#eef7f5] text-[#0d7a70] rounded">US-AD105</span>
+        </div>
+        <h1 class="text-3xl font-bold tracking-tight text-[#0e1110]">Skema Telemetri Run &amp; SSE</h1>
+        <p class="mt-3 text-[15px] leading-relaxed text-[#4d5553]">
+          Spesifikasi resmi stream Server-Sent Events (SSE) dan payload telemetri eksekusi run pada daemon lokal AgentDeck Core. Seluruh telemetri biaya dan token dihitung dengan presisi integer tetap tanpa deviasi <em>floating point</em>.
+        </p>
+      </div>
+
+      <!-- Section 1: Skema Event SSE (AC1 & AC3) -->
+      <section class="space-y-4">
+        <div>
+          <h2 class="text-xl font-bold text-[#0e1110] tracking-tight">1. Skema Event Stream SSE (AC1)</h2>
+          <p class="text-[13px] text-[#4d5553] mt-1 leading-relaxed">
+            Daemon memancarkan frame SSE pada endpoint streaming <code class="font-mono text-[12px] bg-[#eef1f0] px-1.5 py-0.5 rounded text-[#0d7a70]">/api/v1/runs/{id}/events</code>. Setiap baris stream mengikuti spesifikasi envelope berikut:
+          </p>
+        </div>
+
+        <!-- Tabel Field Envelope SSE -->
+        <div class="overflow-x-auto border border-[rgba(12,26,22,0.07)] rounded-[10px] bg-white">
+          <table class="w-full text-left text-[13px] border-collapse">
+            <thead>
+              <tr class="bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)] text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                <th class="py-2.5 px-3.5">Field</th>
+                <th class="py-2.5 px-3.5">Tipe</th>
+                <th class="py-2.5 px-3.5">Sifat (AC3)</th>
+                <th class="py-2.5 px-3.5">Deskripsi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[rgba(12,26,22,0.05)] text-[#0e1110]">
+              <tr>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] text-[#0d7a70] font-medium">id</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px]">integer</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#0d7a70]">Wajib</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Nomor urut sekuensial event (seq counter) untuk reconnect Last-Event-ID.</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] text-[#0d7a70] font-medium">event</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px]">string</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#0d7a70]">Wajib</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Nama event: <code class="font-mono text-[11px] bg-[#eef1f0] px-1 rounded">step.started</code>, <code class="font-mono text-[11px] bg-[#eef1f0] px-1 rounded">step.finished</code>, <code class="font-mono text-[11px] bg-[#eef1f0] px-1 rounded">run.completed</code>, <code class="font-mono text-[11px] bg-[#eef1f0] px-1 rounded">run.failed</code>.</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] text-[#0d7a70] font-medium">retry</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px]">integer</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#6b7370]">Opsional</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Interval milidetik rekoneksi klien browser jika koneksi terputus (default: 3000ms).</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] text-[#0d7a70] font-medium">data</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px]">object (JSON)</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#0d7a70]">Wajib</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Payload objek data step atau run terstruktur sesuai spesifikasi di bawah.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Section 2: Skema Payload Step & Biaya Token (AC1, AC2, AC3) -->
+      <section class="space-y-4">
+        <div>
+          <h2 class="text-xl font-bold text-[#0e1110] tracking-tight">2. Skema Payload Step (<code class="font-mono text-lg text-[#0d7a70]">step.finished</code>)</h2>
+          <p class="text-[13px] text-[#4d5553] mt-1 leading-relaxed">
+            Struktur atribut di dalam objek <code class="font-mono text-[12px] bg-[#eef1f0] px-1.5 py-0.5 rounded text-[#0d7a70]">data</code> saat event penyelesaian langkah dipancarkan:
+          </p>
+        </div>
+
+        <!-- Tabel Spesifikasi Field Payload -->
+        <div class="overflow-x-auto border border-[rgba(12,26,22,0.07)] rounded-[10px] bg-white">
+          <table class="w-full text-left text-[13px] border-collapse">
+            <thead>
+              <tr class="bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)] text-[11px] font-semibold text-[#6b7370] uppercase tracking-wider">
+                <th class="py-2.5 px-3.5">Nama Field</th>
+                <th class="py-2.5 px-3.5">Tipe Data</th>
+                <th class="py-2.5 px-3.5">Satuan</th>
+                <th class="py-2.5 px-3.5">Sifat (AC3)</th>
+                <th class="py-2.5 px-3.5">Keterangan</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[rgba(12,26,22,0.05)] text-[#0e1110]">
+              <tr>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-medium text-[#0e1110]">run_id</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px]">string</td>
+                <td class="py-2.5 px-3.5 text-[#6b7370]">—</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#0d7a70]">Wajib</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">UUID pengidentifikasi eksekusi run aktif.</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-medium text-[#0e1110]">step_index</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px]">integer</td>
+                <td class="py-2.5 px-3.5 text-[#6b7370]">indeks</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#0d7a70]">Wajib</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Urutan langkah dalam run (0-indexed).</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-medium text-[#0e1110]">tool_name</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px]">string</td>
+                <td class="py-2.5 px-3.5 text-[#6b7370]">—</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#6b7370]">Dapat null</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Nama tool yang dieksekusi; bernilai <code class="font-mono text-[11px] bg-[#eef1f0] px-1 rounded">null</code> bila penalaran langsung.</td>
+              </tr>
+              <!-- AC2: Field Token Ditandai Satuan & Tipe -->
+              <tr class="bg-[#fcfdfc]">
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-semibold text-[#0d7a70]">tokens_input</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-semibold">integer</td>
+                <td class="py-2.5 px-3.5 font-medium text-[#0d7a70]">jumlah token</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#0d7a70]">Wajib</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Token prompt/instruksi yang dikirimkan ke model.</td>
+              </tr>
+              <tr class="bg-[#fcfdfc]">
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-semibold text-[#0d7a70]">tokens_output</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-semibold">integer</td>
+                <td class="py-2.5 px-3.5 font-medium text-[#0d7a70]">jumlah token</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#0d7a70]">Wajib</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Token penyelesaian yang dihasilkan oleh model.</td>
+              </tr>
+              <tr class="bg-[#fcfdfc]">
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-semibold text-[#0d7a70]">tokens_cached</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-semibold">integer</td>
+                <td class="py-2.5 px-3.5 font-medium text-[#0d7a70]">jumlah token</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#6b7370]">Dapat null</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Token terbaca dari cache penyedia; bernilai <code class="font-mono text-[11px] bg-[#eef1f0] px-1 rounded">null</code> saat eksekusi dingin.</td>
+              </tr>
+              <!-- AC2: Field Biaya Ditandai Satuan & Tipe -->
+              <tr class="bg-[#fcfdfc]">
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-semibold text-[#0d7a70]">cost_micro_usd</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-semibold">integer</td>
+                <td class="py-2.5 px-3.5 font-medium text-[#0d7a70]">micro-USD</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#0d7a70]">Wajib</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Biaya komputasi step ($1 = 1.000.000 µUSD). Contoh: $0.00142 = <code class="font-mono text-[11px] bg-[#eef1f0] px-1 rounded">1420</code>.</td>
+              </tr>
+              <tr class="bg-[#fcfdfc]">
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-semibold text-[#0d7a70]">cumulative_cost_micro_usd</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-semibold">integer</td>
+                <td class="py-2.5 px-3.5 font-medium text-[#0d7a70]">micro-USD</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#0d7a70]">Wajib</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Total biaya terkumpul dari step awal hingga step saat ini.</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-medium text-[#0e1110]">latency_ms</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px]">integer</td>
+                <td class="py-2.5 px-3.5 text-[#6b7370]">milidetik</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#0d7a70]">Wajib</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Lama eksekusi internal step dari pemanggilan hingga output parsing.</td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-medium text-[#0e1110]">exit_code</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px]">integer</td>
+                <td class="py-2.5 px-3.5 text-[#6b7370]">posix code</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#6b7370]">Dapat null</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Kode return tool (0 = sukses). Bernilai <code class="font-mono text-[11px] bg-[#eef1f0] px-1 rounded">null</code> bila step bukan eksekusi CLI.</td>
+              </tr>
+              <!-- AC3: Jalur Gagal / Error Payload Eksplisit Null -->
+              <tr>
+                <td class="py-2.5 px-3.5 font-mono text-[12px] font-medium text-[#0e1110]">error_payload</td>
+                <td class="py-2.5 px-3.5 font-mono text-[12px]">object (JSON)</td>
+                <td class="py-2.5 px-3.5 text-[#6b7370]">—</td>
+                <td class="py-2.5 px-3.5"><span class="text-[11px] font-medium text-[#6b7370]">Dapat null</span></td>
+                <td class="py-2.5 px-3.5 text-[#4d5553]">Eksplisit bernilai <code class="font-mono text-[11px] bg-[#eef1f0] px-1 rounded">null</code> jika langkah sukses; berisi kode kesalahan jika gagal.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Section 3: Blok Kode Contoh Frame SSE (AC1, AC2, AC3) -->
+      <section class="space-y-3">
+        <h2 class="text-xl font-bold text-[#0e1110] tracking-tight">3. Contoh Raw Frame SSE</h2>
+        <p class="text-[13px] text-[#4d5553]">
+          Contoh payload mentah event <code class="font-mono text-[12px] bg-[#eef1f0] px-1.5 py-0.5 rounded text-[#0d7a70]">step.finished</code> yang diterima klien saat step berhasil diselesaikan:
+        </p>
+
+        <!-- Blok Kode: bg #eef1f0, radius 10px, JetBrains Mono 13px, padding 14px -->
+        <div class="bg-[#eef1f0] rounded-[10px] p-[14px] font-mono text-[13px] text-[#0e1110] overflow-x-auto border border-[rgba(12,26,22,0.06)] leading-relaxed">
+<pre class="m-0"><code><span class="text-[#0d7a70] font-semibold">id:</span> 1042
+<span class="text-[#0d7a70] font-semibold">event:</span> step.finished
+<span class="text-[#0d7a70] font-semibold">retry:</span> 3000
+<span class="text-[#0d7a70] font-semibold">data:</span> {
+  "run_id": "run_9b42f1a0e88c",
+  "step_index": 2,
+  "tool_name": "postgres_query",
+  "status": "COMPLETED",
+  "tokens_input": 1280,              <span class="text-[#6b7370]">// tipe: integer, satuan: jumlah token</span>
+  "tokens_output": 164,              <span class="text-[#6b7370]">// tipe: integer, satuan: jumlah token</span>
+  "tokens_cached": null,             <span class="text-[#6b7370]">// tipe: integer, sifat: dapat bernilai null saat eksekusi dingin</span>
+  "cost_micro_usd": 1420,            <span class="text-[#6b7370]">// tipe: integer, satuan: micro-USD ($0.001420)</span>
+  "cumulative_cost_micro_usd": 27400,<span class="text-[#6b7370]">// tipe: integer, satuan: micro-USD ($0.027400)</span>
+  "latency_ms": 412,
+  "exit_code": 0,
+  "error_payload": null,             <span class="text-[#6b7370]">// sifat: eksplisit null karena step berakhir sukses</span>
+  "timestamp": 1726658402000
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- Card Tautan Navigasi Lanjutan -->
+      <div class="p-6 bg-white border border-[rgba(12,26,22,0.07)] rounded-[10px] space-y-2">
+        <h3 class="font-bold text-[15px] text-[#0e1110]">Langkah Selanjutnya</h3>
+        <p class="text-[13px] text-[#4d5553] leading-relaxed">
+          Pelajari cara menggunakan token ledger mikro-dolar pada aplikasi klien atau integrasikan webhook tanda tangan HMAC-SHA256 untuk pemantauan otomatis.
+        </p>
+        <div class="pt-2 flex flex-wrap gap-4 text-[13px] font-semibold text-[#0d7a70]">
+          <a href="/docs/api" class="hover:underline flex items-center gap-1">Jelajahi REST Endpoints &rarr;</a>
+          <a href="/docs/webhooks" class="hover:underline flex items-center gap-1">Konfigurasi Webhooks &rarr;</a>
+        </div>
+      </div>
+
+    </article>
+  </main>
+
+  <!-- FOOTER PUBLIK (Border-top rgba(12,26,22,0.07), 4 kolom link Inter 13 #4d5553, padding 40px 0, Blueprint P) -->
+  <footer class="w-full bg-[#f6f7f6] border-t border-[rgba(12,26,22,0.07)] py-10 mt-auto">
+    <div class="max-w-[1120px] mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-[13px]">
+      <!-- Kolom 1: Produk -->
+      <div>
+        <div class="font-semibold text-[#0e1110] mb-3">Produk</div>
+        <ul class="space-y-2">
+          <li><a href="/09-features" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">Fitur Inti</a></li>
+          <li><a href="/07-pricing" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">Harga Solo &amp; Pro</a></li>
+          <li><a href="/08-changelog" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">Catatan Rilis</a></li>
+        </ul>
+      </div>
+
+      <!-- Kolom 2: Dokumentasi -->
+      <div>
+        <div class="font-semibold text-[#0e1110] mb-3">Dokumentasi</div>
+        <ul class="space-y-2">
+          <li><a href="/docs/quickstart" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">Mulai Cepat</a></li>
+          <li><a href="/docs/api" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">REST Endpoints</a></li>
+          <li><a href="/docs/telemetry" class="text-[#0d7a70] font-semibold">Skema Telemetri</a></li>
+          <li><a href="/docs/cli" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">CLI Reference</a></li>
+        </ul>
+      </div>
+
+      <!-- Kolom 3: Ekosistem -->
+      <div>
+        <div class="font-semibold text-[#0e1110] mb-3">Ekosistem</div>
+        <ul class="space-y-2">
+          <li><a href="/github" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">GitHub Repository</a></li>
+          <li><a href="/09c-community" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">Komunitas Discord</a></li>
+          <li><a href="/license" class="text-[#4d5553] hover:text-[#0e1110] transition-colors">Keamanan &amp; Lisensi</a></li>
+        </ul>
+      </div>
+
+      <!-- Kolom 4: Lisensi -->
+      <div>
+        <div class="font-semibold text-[#0e1110] mb-3">Lisensi</div>
+        <p class="text-[#4d5553] leading-relaxed mb-2">
+          Papan orkestrasi mandiri untuk armada agen AI otonom. Biner tunggal Go, presisi mikro-dolar.
+        </p>
+        <span class="inline-block font-mono text-[11px] text-[#6b7370] bg-[#eef1f0] px-2 py-0.5 rounded">v2.4-stable (Single Binary)</span>
+      </div>
+    </div>
+
+    <div class="max-w-[1120px] mx-auto px-6 mt-8 pt-6 border-t border-[rgba(12,26,22,0.04)] flex flex-col md:flex-row items-center justify-between text-[12px] text-[#6b7370]">
+      <p>&copy; 2026 AgentDeck Core. Lisensi Open-Source MIT.</p>
+      <p class="mt-2 md:mt-0">Designed for autonomous AI agents fleet orchestration</p>
+    </div>
+  </footer>
+
+</body>
+</html>

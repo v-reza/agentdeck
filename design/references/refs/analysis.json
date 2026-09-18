@@ -1,0 +1,101 @@
+[
+ {
+  "n": "01",
+  "w": 1600,
+  "h": 1200,
+  "ratio": 1.33,
+  "lum": 233,
+  "dark": 0,
+  "white": 64,
+  "mode": "light",
+  "shape": "desktop"
+ },
+ {
+  "n": "02",
+  "w": 1600,
+  "h": 1200,
+  "ratio": 1.33,
+  "lum": 239,
+  "dark": 0,
+  "white": 53,
+  "mode": "light",
+  "shape": "desktop"
+ },
+ {
+  "n": "03",
+  "w": 1600,
+  "h": 1200,
+  "ratio": 1.33,
+  "lum": 49,
+  "dark": 81,
+  "white": 0,
+  "mode": "DARK",
+  "shape": "desktop"
+ },
+ {
+  "n": "04",
+  "w": 2880,
+  "h": 2160,
+  "ratio": 1.33,
+  "lum": 143,
+  "dark": 23,
+  "white": 32,
+  "mode": "mid",
+  "shape": "desktop"
+ },
+ {
+  "n": "05",
+  "w": 1600,
+  "h": 1200,
+  "ratio": 1.33,
+  "lum": 246,
+  "dark": 0,
+  "white": 90,
+  "mode": "light",
+  "shape": "desktop"
+ },
+ {
+  "n": "06",
+  "w": 1600,
+  "h": 1200,
+  "ratio": 1.33,
+  "lum": 27,
+  "dark": 97,
+  "white": 0,
+  "mode": "DARK",
+  "shape": "desktop"
+ },
+ {
+  "n": "07",
+  "w": 1600,
+  "h": 1200,
+  "ratio": 1.33,
+  "lum": 198,
+  "dark": 11,
+  "white": 48,
+  "mode": "light",
+  "shape": "desktop"
+ },
+ {
+  "n": "08",
+  "w": 1600,
+  "h": 1200,
+  "ratio": 1.33,
+  "lum": 164,
+  "dark": 20,
+  "white": 29,
+  "mode": "mid",
+  "shape": "desktop"
+ },
+ {
+  "n": "09",
+  "w": 1600,
+  "h": 1200,
+  "ratio": 1.33,
+  "lum": 230,
+  "dark": 0,
+  "white": 17,
+  "mode": "light",
+  "shape": "desktop"
+ }
+]

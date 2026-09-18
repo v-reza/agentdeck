@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — Orchestration Board for AI Agent Fleets</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            page: '#f6f7f6',
+            panel: '#ffffff',
+            problem: '#eef1f0',
+            darkblock: '#0e1110',
+            teal: {
+              brand: '#0d7a70',
+              hover: '#0a625a',
+              tint: '#e6f2f0',
+            },
+            ink: {
+              primary: '#0e1110',
+              secondary: '#4d5553',
+              tertiary: '#6b7370',
+              quaternary: '#98a09d',
+            },
+            hairline: {
+              subtle: 'rgba(12,26,22,0.07)',
+              strong: 'rgba(12,26,22,0.12)',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #f6f7f6;
+      color: #0e1110;
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    .hairline-b { border-bottom: 1px solid rgba(12,26,22,0.07); }
+    .hairline-t { border-top: 1px solid rgba(12,26,22,0.07); }
+    .hairline-border { border: 1px solid rgba(12,26,22,0.07); }
+    .hairline-border-strong { border: 1px solid rgba(12,26,22,0.12); }
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+  </style>
+</head>
+<body class="bg-page text-ink-primary antialiased selection:bg-teal-tint selection:text-teal-brand">
+
+  <!-- 1. Nav (tinggi 64px, sticky, background page + border-bottom hairline) -->
+  <header class="sticky top-0 z-50 bg-page hairline-b h-[64px] flex items-center">
+    <div class="max-w-[1120px] w-full mx-auto px-6 flex items-center justify-between">
+      <!-- Kiri: wordmark "AgentDeck" Inter 16 weight 700 + titik teal 6px setelah teks -->
+      <a href="/" class="flex items-center gap-1 text-[16px] font-bold tracking-tight text-ink-primary hover:opacity-90">
+        <span>AgentDeck</span>
+        <span class="w-[6px] h-[6px] rounded-full bg-teal-brand inline-block"></span>
+      </a>
+
+      <!-- Tengah: 4 link Inter 14 #4d5553 -->
+      <nav class="hidden md:flex items-center gap-8 text-[14px] text-ink-secondary">
+        <a href="#product" class="hover:text-ink-primary transition-colors">Product</a>
+        <a href="/pricing" class="hover:text-ink-primary transition-colors">Pricing</a>
+        <a href="/docs/quickstart" class="hover:text-ink-primary transition-colors">Docs</a>
+        <a href="/github" class="hover:text-ink-primary transition-colors">GitHub</a>
+      </nav>
+
+      <!-- Kanan: link "Sign in" (/login) + tombol primary teal "Get started" (/register, radius 6, padding 8px 16px) -->
+      <div class="flex items-center gap-5">
+        <a href="/login" class="text-[14px] text-ink-secondary hover:text-ink-primary font-medium transition-colors">Sign in</a>
+        <a href="/register" class="bg-teal-brand hover:bg-teal-hover text-white text-[14px] font-medium px-4 py-2 rounded-[6px] transition-colors">Get started</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- 2. Hero (padding atas 72px, bawah 56px) -->
+    <section class="pt-[72px] pb-[56px]">
+      <div class="max-w-[1120px] mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+        
+        <!-- Hero Copy (Kiri) -->
+        <div class="lg:col-span-7 flex flex-col items-start text-left">
+          <!-- Eyebrow pill: border hairline, radius full, padding 4px 10px, Inter 12 #4d5553: "v0.1 · self-hosted · single binary". Tanpa ikon. -->
+          <div class="inline-flex items-center hairline-border rounded-full px-[10px] py-[4px] text-[12px] font-medium text-ink-secondary mb-6 bg-panel">
+            v0.1 · self-hosted · single binary
+          </div>
+
+          <!-- H1 Inter 56px weight 700, line-height 1.05, letter-spacing -0.03em, max 2 baris -->
+          <h1 class="text-[52px] md:text-[56px] font-bold text-ink-primary leading-[1.05] tracking-[-0.03em] mb-6 max-w-[620px]">
+            Your agents run all night. You should know what they cost.
+          </h1>
+
+          <!-- Subhead Inter 17px #4d5553, max-width 560px -->
+          <p class="text-[17px] leading-[1.5] text-ink-secondary max-w-[560px] mb-8">
+            AgentDeck is the orchestration board for AI agent fleets. Every run priced to the micro-cent, every risky action gated behind a human approval, all in one Go binary you host yourself.
+          </p>
+
+          <!-- Dua tombol: primary teal "Get started free" (/register) + ghost (border hairline, background putih) "Read the docs" (/docs/quickstart) dengan ikon panah 14px -->
+          <div class="flex flex-wrap items-center gap-3 mb-5">
+            <a href="/register" class="bg-teal-brand hover:bg-teal-hover text-white text-[14px] font-medium px-5 py-2.5 rounded-[6px] transition-colors">
+              Get started free
+            </a>
+            <a href="/docs/quickstart" class="bg-panel hairline-border hover:bg-page text-ink-primary text-[14px] font-medium px-5 py-2.5 rounded-[6px] inline-flex items-center gap-2 transition-colors">
+              <span>Read the docs</span>
+              <svg class="w-[14px] h-[14px] text-ink-secondary" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 8h10M9 4l4 4-4 4"/>
+              </svg>
+            </a>
+          </div>
+
+          <!-- Di bawah tombol, satu baris Inter 13 #6b7370 -->
+          <p class="text-[13px] text-ink-tertiary">
+            No credit card · Postgres + one binary · ~80 MB idle RAM
+          </p>
+        </div>
+
+        <!-- Kanan hero: visual produk. Mini board: 3 kolom (Running / Awaiting approval / Done), 2 kartu per kolom -->
+        <div class="lg:col-span-5 w-full">
+          <div class="bg-panel hairline-border rounded-[8px] p-4 text-left">
+            <div class="flex items-center justify-between pb-3 mb-3 hairline-b text-[12px] font-mono text-ink-tertiary">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>Fleet: production-west</span>
+              </div>
+              <span>6 active tasks · $1.439 today</span>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2.5">
+              <!-- Kolom 1: Running -->
+              <div class="bg-page/70 rounded-[6px] p-2 flex flex-col gap-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-ink-secondary mb-0.5">
+                  <span class="flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    Running
+                  </span>
+                  <span class="font-mono text-[10px] text-ink-quaternary">2</span>
+                </div>
+
+                <!-- Kartu 1 -->
+                <div class="bg-panel hairline-border rounded-[6px] p-2 flex flex-col gap-1.5">
+                  <div class="text-[13px] font-medium text-ink-primary leading-tight">Refactor auth module</div>
+                  <div class="flex items-center justify-between font-mono text-[11px] text-ink-secondary">
+                    <span>agent-backend</span>
+                    <span class="text-[12px] font-semibold text-[#0d7a70]">$0.318</span>
+                  </div>
+                </div>
+
+                <!-- Kartu 2 -->
+                <div class="bg-panel hairline-border rounded-[6px] p-2 flex flex-col gap-1.5">
+                  <div class="text-[13px] font-medium text-ink-primary leading-tight">Generate release notes</div>
+                  <div class="flex items-center justify-between font-mono text-[11px] text-ink-secondary">
+                    <span>agent-docs</span>
+                    <span class="text-[12px] font-semibold text-[#0d7a70]">$0.102</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Kolom 2: Awaiting approval (dengan 1 kartu border kiri 3px #6d28d9 + strip tombol Approve/Reject) -->
+              <div class="bg-page/70 rounded-[6px] p-2 flex flex-col gap-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-ink-secondary mb-0.5">
+                  <span class="flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-purple-600"></span>
+                    Awaiting
+                  </span>
+                  <span class="font-mono text-[10px] text-ink-quaternary">2</span>
+                </div>
+
+                <!-- Kartu 1: Awaiting Approval Special Card -->
+                <div class="bg-panel hairline-border rounded-[6px] p-2 flex flex-col gap-1.5 border-l-[3px] border-l-[#6d28d9]">
+                  <div class="text-[13px] font-medium text-ink-primary leading-tight">Audit dependencies</div>
+                  <div class="flex items-center justify-between font-mono text-[11px] text-ink-secondary">
+                    <span>agent-sec</span>
+                    <span class="text-[12px] font-semibold text-[#0d7a70]">$0.305</span>
+                  </div>
+                  <div class="grid grid-cols-2 gap-1 pt-1 hairline-t mt-0.5">
+                    <button type="button" class="bg-teal-brand text-white text-[10px] font-medium py-1 px-1.5 rounded text-center">Approve</button>
+                    <button type="button" class="bg-page hairline-border text-ink-secondary text-[10px] font-medium py-1 px-1.5 rounded text-center">Reject</button>
+                  </div>
+                </div>
+
+                <!-- Kartu 2 -->
+                <div class="bg-panel hairline-border rounded-[6px] p-2 flex flex-col gap-1.5">
+                  <div class="text-[13px] font-medium text-ink-primary leading-tight">Drop stale replicas</div>
+                  <div class="flex items-center justify-between font-mono text-[11px] text-ink-secondary">
+                    <span>agent-infra</span>
+                    <span class="text-[12px] font-semibold text-[#0d7a70]">$0.044</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Kolom 3: Done -->
+              <div class="bg-page/70 rounded-[6px] p-2 flex flex-col gap-2">
+                <div class="flex items-center justify-between text-[11px] font-semibold text-ink-secondary mb-0.5">
+                  <span class="flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Done
+                  </span>
+                  <span class="font-mono text-[10px] text-ink-quaternary">2</span>
+                </div>
+
+                <!-- Kartu 1 -->
+                <div class="bg-panel hairline-border rounded-[6px] p-2 flex flex-col gap-1.5">
+                  <div class="text-[13px] font-medium text-ink-primary leading-tight">Rotate API keys</div>
+                  <div class="flex items-center justify-between font-mono text-[11px] text-ink-secondary">
+                    <span>agent-sec</span>
+                    <span class="text-[12px] font-semibold text-[#0d7a70]">$0.011</span>
+                  </div>
+                </div>
+
+                <!-- Kartu 2 -->
+                <div class="bg-panel hairline-border rounded-[6px] p-2 flex flex-col gap-1.5">
+                  <div class="text-[13px] font-medium text-ink-primary leading-tight">Tag release v2.4.1</div>
+                  <div class="flex items-center justify-between font-mono text-[11px] text-ink-secondary">
+                    <span>agent-docs</span>
+                    <span class="text-[12px] font-semibold text-[#0d7a70]">$0.008</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 3. Strip masalah (satu baris, background #eef1f0, padding 28px 0) -->
+    <section class="bg-problem py-[28px]">
+      <div class="max-w-[1120px] mx-auto px-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[rgba(12,26,22,0.07)] text-left">
+          <!-- Item 1 -->
+          <div class="py-3 md:py-0 md:px-8 first:pl-0 flex flex-col items-start">
+            <span class="font-mono text-[28px] font-bold text-ink-primary tracking-tight leading-tight mb-1">$0.00</span>
+            <span class="text-[13px] text-ink-secondary">what you actually spent</span>
+          </div>
+          <!-- Item 2 -->
+          <div class="py-3 md:py-0 md:px-8 flex flex-col items-start">
+            <span class="font-mono text-[28px] font-bold text-ink-primary tracking-tight leading-tight mb-1">?</span>
+            <span class="text-[13px] text-ink-secondary">what your agent just did</span>
+          </div>
+          <!-- Item 3 -->
+          <div class="py-3 md:py-0 md:px-8 last:pr-0 flex flex-col items-start">
+            <span class="font-mono text-[28px] font-bold text-ink-primary tracking-tight leading-tight mb-1">3 a.m.</span>
+            <span class="text-[13px] text-ink-secondary">when you find out</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Tiga pilar fitur (section utama) -->
+    <section id="product" class="py-[96px]">
+      <div class="max-w-[1120px] mx-auto px-6">
+        <!-- Judul: Inter 32px weight 700 -->
+        <h2 class="text-[32px] font-bold text-ink-primary tracking-[-0.02em] mb-14 text-left">
+          Built for the parts nobody demos.
+        </h2>
+
+        <!-- 3 blok bersusun vertikal (BUKAN 3 kartu sejajar) -->
+        <div class="flex flex-col gap-16">
+          
+          <!-- Pilar 1 -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center text-left">
+            <div class="lg:col-span-6 max-w-[460px]">
+              <h3 class="text-[20px] font-bold text-ink-primary tracking-tight mb-3">
+                Every run is priced. Per step.
+              </h3>
+              <p class="text-[15px] leading-[1.6] text-ink-secondary">
+                Token in, token out, cache read, cache write — written to a ledger row the moment the step finishes. Prices live in a versioned snapshot, so an old run still costs what it cost.
+              </p>
+            </div>
+            <div class="lg:col-span-6 w-full">
+              <!-- Visual: potongan tabel 3 baris — Step | Tokens | Cost, angka mono, baris terakhir highlight tint #e6f2f0 -->
+              <div class="bg-panel hairline-border rounded-[10px] overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="h-[32px] bg-problem hairline-b text-[12px] font-mono text-ink-secondary">
+                      <th class="px-4 font-medium">Step</th>
+                      <th class="px-4 font-medium">Tokens</th>
+                      <th class="px-4 font-medium text-right">Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody class="text-[12px] font-mono">
+                    <tr class="h-[28px] hairline-b text-ink-primary">
+                      <td class="px-4">step_01_query</td>
+                      <td class="px-4 text-ink-secondary">1,420 in / 184 out</td>
+                      <td class="px-4 text-right font-medium text-teal-brand">$0.0028</td>
+                    </tr>
+                    <tr class="h-[28px] hairline-b text-ink-primary">
+                      <td class="px-4">step_02_decompose</td>
+                      <td class="px-4 text-ink-secondary">8,940 in / 2,104 out</td>
+                      <td class="px-4 text-right font-medium text-teal-brand">$0.0242</td>
+                    </tr>
+                    <tr class="h-[28px] bg-teal-tint text-ink-primary font-semibold">
+                      <td class="px-4">step_03_codegen</td>
+                      <td class="px-4 text-ink-secondary">14,880 in / 4,320 out</td>
+                      <td class="px-4 text-right text-teal-brand">$0.0581</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Divider vertikal subtle antar pilar -->
+          <div class="hairline-b"></div>
+
+          <!-- Pilar 2 -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center text-left">
+            <div class="lg:col-span-6 max-w-[460px]">
+              <h3 class="text-[20px] font-bold text-ink-primary tracking-tight mb-3">
+                Risky actions stop and wait for you.
+              </h3>
+              <p class="text-[15px] leading-[1.6] text-ink-secondary">
+                Gate any tool behind approval. The agent pauses in <code class="font-mono text-[13px] bg-problem px-1.5 py-0.5 rounded text-ink-primary">awaiting_approval</code>, you get a diff of exactly what it wants to do, and it only continues when you say so.
+              </p>
+            </div>
+            <div class="lg:col-span-6 w-full">
+              <!-- Visual: panel approval mini — header "agent-backend wants to run", blok kode mono 2 baris, dua tombol Approve/Reject -->
+              <div class="bg-panel hairline-border rounded-[10px] p-4 text-left">
+                <div class="flex items-center gap-2 mb-3 text-[12px] font-mono text-ink-secondary">
+                  <span class="w-2 h-2 rounded-full bg-purple-600"></span>
+                  <span class="font-semibold text-ink-primary">agent-backend wants to run</span>
+                </div>
+                <div class="bg-problem rounded-[6px] p-3 font-mono text-[12px] text-ink-primary mb-3 leading-relaxed hairline-border">
+                  <div>- EXEC tool="migrate_dns" zone="prod.internal" ttl=60</div>
+                  <div class="text-teal-brand">+ REPLACE A 10.0.1.4 → 10.0.2.18 ttl=300</div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button type="button" class="bg-teal-brand hover:bg-teal-hover text-white text-[12px] font-medium px-4 py-1.5 rounded-[6px] transition-colors">
+                    Approve
+                  </button>
+                  <button type="button" class="bg-panel hairline-border hover:bg-page text-ink-secondary text-[12px] font-medium px-4 py-1.5 rounded-[6px] transition-colors">
+                    Reject
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Divider vertikal subtle antar pilar -->
+          <div class="hairline-b"></div>
+
+          <!-- Pilar 3 -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center text-left">
+            <div class="lg:col-span-6 max-w-[460px]">
+              <h3 class="text-[20px] font-bold text-ink-primary tracking-tight mb-3">
+                Cheap to run, because it does less.
+              </h3>
+              <p class="text-[15px] leading-[1.6] text-ink-secondary">
+                One Go binary, one Postgres. No Redis, no Kafka, no queue service, no Kubernetes. Idles under 80 MB and fits in a $6 VPS.
+              </p>
+            </div>
+            <div class="lg:col-span-6 w-full">
+              <!-- Visual: baris mono terminal -->
+              <div class="bg-darkblock rounded-[10px] p-4 font-mono text-[13px] hairline-border text-left">
+                <div class="flex items-center gap-1.5 mb-2.5">
+                  <div class="w-2 h-2 rounded-full bg-white/20"></div>
+                  <div class="w-2 h-2 rounded-full bg-white/20"></div>
+                  <div class="w-2 h-2 rounded-full bg-white/20"></div>
+                  <span class="text-white/40 text-[11px] ml-2">daemon status</span>
+                </div>
+                <div class="text-[#8fa8a4] leading-relaxed">
+                  <span class="text-white/40">$</span> agentdeck top<br>
+                  <span class="text-[#5eead4]">PID 4192:</span> resident 76.4 MB · 0.1% CPU · 24 goroutines<br>
+                  <span class="text-white/60">DB pool:</span> 4 idle / 8 max · latency 0.38ms (unix socket)
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Cara kerjanya (3 langkah, sejajar horizontal) -->
+    <section class="py-[96px] hairline-t">
+      <div class="max-w-[1120px] mx-auto px-6 text-left">
+        <h2 class="text-[32px] font-bold text-ink-primary tracking-[-0.02em] mb-12">
+          Three commands to a running fleet.
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- Langkah 1: "Point it at Postgres" — mono agentdeck migrate -->
+          <div class="bg-panel hairline-border rounded-[10px] p-5 flex flex-col justify-between">
+            <div>
+              <span class="font-mono text-[12px] text-teal-brand font-semibold mb-2 block">01</span>
+              <h3 class="text-[15px] font-semibold text-ink-primary mb-2">Point it at Postgres</h3>
+              <p class="text-[13px] text-ink-secondary mb-4 leading-relaxed">Initialize relational schema & token audit tables.</p>
+            </div>
+            <div class="bg-problem font-mono text-[13px] text-ink-primary px-3 py-2 rounded-[6px] hairline-border">
+              agentdeck migrate
+            </div>
+          </div>
+
+          <!-- Langkah 2: "Start the binary" — mono agentdeck serve -->
+          <div class="bg-panel hairline-border rounded-[10px] p-5 flex flex-col justify-between">
+            <div>
+              <span class="font-mono text-[12px] text-teal-brand font-semibold mb-2 block">02</span>
+              <h3 class="text-[15px] font-semibold text-ink-primary mb-2">Start the binary</h3>
+              <p class="text-[13px] text-ink-secondary mb-4 leading-relaxed">Runs dashboard, gRPC ingestion, and REST API.</p>
+            </div>
+            <div class="bg-problem font-mono text-[13px] text-ink-primary px-3 py-2 rounded-[6px] hairline-border">
+              agentdeck serve
+            </div>
+          </div>
+
+          <!-- Langkah 3: "Register an agent" — mono agentdeck agent add --provider openai -->
+          <div class="bg-panel hairline-border rounded-[10px] p-5 flex flex-col justify-between">
+            <div>
+              <span class="font-mono text-[12px] text-teal-brand font-semibold mb-2 block">03</span>
+              <h3 class="text-[15px] font-semibold text-ink-primary mb-2">Register an agent</h3>
+              <p class="text-[13px] text-ink-secondary mb-4 leading-relaxed">Binds worker slug with encrypted credentials.</p>
+            </div>
+            <div class="bg-problem font-mono text-[13px] text-ink-primary px-3 py-2 rounded-[6px] hairline-border overflow-x-auto whitespace-nowrap">
+              agentdeck agent add --provider openai
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5b. Panel terminal (blok gelap) -->
+    <section class="pb-[96px]">
+      <div class="max-w-[1120px] mx-auto px-6">
+        <!-- Panel: background #0e1110, radius 14px, padding 20px, border hairline rgba(255,255,255,0.08) -->
+        <div class="bg-darkblock rounded-[14px] p-5 border border-white/[0.08] text-left">
+          <!-- Titlebar: 3 titik 10px rgba(255,255,255,0.18), judul mono 12px rgba(255,255,255,0.55) = "agentdeck — fleet: production-west" -->
+          <div class="flex items-center gap-2 pb-4 mb-4 border-b border-white/[0.08]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-[10px] h-[10px] rounded-full bg-white/[0.18] inline-block"></span>
+              <span class="w-[10px] h-[10px] rounded-full bg-white/[0.18] inline-block"></span>
+              <span class="w-[10px] h-[10px] rounded-full bg-white/[0.18] inline-block"></span>
+            </div>
+            <span class="font-mono text-[12px] text-white/55 ml-2">agentdeck — fleet: production-west</span>
+          </div>
+
+          <!-- Isi mono 13px, 5 baris: 
+               1. $ ./agentdeck --config agentdeck.yaml warna #e8ecea
+               2. listening on :8080 · 21 tables · 108 routes warna #8fa8a4
+               3. [ok] postgres pool 8/8 · migrations up to date warna #5eead4
+               4. [warn] budget 88% of $300 — approval gate armed warna #fcd34d
+               5. kursor blok ▌ warna #0d7a70
+          -->
+          <div class="font-mono text-[13px] leading-[1.8] flex flex-col">
+            <div class="text-[#e8ecea]">$ ./agentdeck --config agentdeck.yaml</div>
+            <div class="text-[#8fa8a4]">listening on :8080 · 21 tables · 108 routes</div>
+            <div class="text-[#5eead4]">[ok] postgres pool 8/8 · migrations up to date</div>
+            <div class="text-[#fcd34d]">[warn] budget 88% of $300 — approval gate armed</div>
+            <div class="text-[#0d7a70]">▌</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Baris angka (background #0e1110 gelap, padding 40px 0, teks putih) -->
+    <!-- Empat angka mono besar + label kecil Inter 12 rgba(255,255,255,0.6): "108" / "API endpoints" · "21" / "tables, no ORM magic" · "30 MB" / "binary size cap" · "80 MB" / "idle RAM" -->
+    <section class="bg-darkblock py-[40px]">
+      <div class="max-w-[1120px] mx-auto px-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-left">
+          <div class="flex flex-col items-start">
+            <span class="font-mono text-[36px] md:text-[40px] font-bold text-white tracking-tight leading-none mb-1.5">108</span>
+            <span class="text-[12px] text-white/60">API endpoints</span>
+          </div>
+          <div class="flex flex-col items-start">
+            <span class="font-mono text-[36px] md:text-[40px] font-bold text-white tracking-tight leading-none mb-1.5">21</span>
+            <span class="text-[12px] text-white/60">tables, no ORM magic</span>
+          </div>
+          <div class="flex flex-col items-start">
+            <span class="font-mono text-[36px] md:text-[40px] font-bold text-white tracking-tight leading-none mb-1.5">30 MB</span>
+            <span class="text-[12px] text-white/60">binary size cap</span>
+          </div>
+          <div class="flex flex-col items-start">
+            <span class="font-mono text-[36px] md:text-[40px] font-bold text-white tracking-tight leading-none mb-1.5">80 MB</span>
+            <span class="text-[12px] text-white/60">idle RAM</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Harga (flat, self-host, TANPA seat) -->
+    <section id="pricing" class="py-[96px]">
+      <div class="max-w-[1120px] mx-auto px-6 text-left">
+        <!-- Judul: "Priced for one developer, not a procurement team." -->
+        <h2 class="text-[32px] font-bold text-ink-primary tracking-[-0.02em] mb-12">
+          Priced for one developer, not a procurement team.
+        </h2>
+
+        <!-- Dua kartu sejajar, lebar sama -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch mb-6">
+          
+          <!-- Kartu Solo: $0 / selamanya. Untuk 1 developer. -->
+          <div class="bg-panel hairline-border rounded-[10px] p-8 flex flex-col justify-between">
+            <div>
+              <div class="text-[18px] font-bold text-ink-primary mb-1">Solo</div>
+              <p class="text-[13px] text-ink-secondary mb-6">Untuk 1 developer.</p>
+              
+              <div class="flex items-baseline gap-1 mb-8">
+                <span class="font-mono text-[40px] font-bold text-ink-primary leading-none">$0</span>
+                <span class="text-[14px] text-ink-tertiary">/ selamanya</span>
+              </div>
+
+              <!-- Daftar isi Solo -->
+              <ul class="flex flex-col gap-3 text-[14px] text-ink-secondary mb-8">
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-4 h-4 text-teal-brand flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline>
+                  </svg>
+                  <span>Self-host, unlimited agents</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-4 h-4 text-teal-brand flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline>
+                  </svg>
+                  <span>Cost ledger + approval gates</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-4 h-4 text-teal-brand flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline>
+                  </svg>
+                  <span>Community support</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Tombol ghost "Download" (/register) -->
+            <a href="/register" class="bg-panel hairline-border hover:bg-page text-ink-primary text-[14px] font-medium py-2.5 px-4 rounded-[6px] text-center transition-colors">
+              Download
+            </a>
+          </div>
+
+          <!-- Kartu Pro: $5 / bulan, flat. KARTU INI DI-HIGHLIGHT: border 2px teal, badge kecil "Most popular" di atas -->
+          <div class="bg-panel border-2 border-teal-brand rounded-[10px] p-8 relative flex flex-col justify-between">
+            <div class="absolute -top-3 right-6 bg-teal-brand text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+              Most popular
+            </div>
+
+            <div>
+              <div class="text-[18px] font-bold text-ink-primary mb-1">Pro</div>
+              <p class="text-[13px] text-ink-secondary mb-6">Flat, bukan per seat.</p>
+
+              <!-- Harga Pro sudah ditetapkan: $5 / bulan, flat -->
+              <div class="flex items-baseline gap-1.5 mb-8">
+                <span class="font-mono text-[36px] font-bold text-ink-primary leading-none">$5</span>
+                <span class="text-[14px] text-ink-tertiary">/ bulan, flat</span>
+              </div>
+
+              <!-- Daftar isi Pro -->
+              <ul class="flex flex-col gap-3 text-[14px] text-ink-secondary mb-8">
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-4 h-4 text-teal-brand flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline>
+                  </svg>
+                  <span>Everything in Solo</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-4 h-4 text-teal-brand flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline>
+                  </svg>
+                  <span>Unlimited teammates, no per-seat fee</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-4 h-4 text-teal-brand flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline>
+                  </svg>
+                  <span>Shared boards + role controls</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-4 h-4 text-teal-brand flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline>
+                  </svg>
+                  <span>Webhook + audit log</span>
+                </li>
+                <li class="flex items-center gap-2.5">
+                  <svg class="w-4 h-4 text-teal-brand flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3.5 8.5 6.5 11.5 12.5 4.5"></polyline>
+                  </svg>
+                  <span>Priority support</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Tombol primary teal "Start free trial" (/register) -->
+            <a href="/register" class="bg-teal-brand hover:bg-teal-hover text-white text-[14px] font-medium py-2.5 px-4 rounded-[6px] text-center transition-colors">
+              Start free trial
+            </a>
+          </div>
+
+        </div>
+
+        <!-- Di bawah kartu, satu baris Inter 13 #6b7370 -->
+        <p class="text-[13px] text-ink-tertiary">
+          Prices in USD. Cancel anytime. Self-hosted — your data never leaves your infrastructure.
+        </p>
+      </div>
+    </section>
+
+    <!-- 8. FAQ (4 item, accordion, semua TERTUTUP default) -->
+    <section class="py-[96px] hairline-t">
+      <div class="max-w-[1120px] mx-auto px-6 text-left">
+        <h2 class="text-[32px] font-bold text-ink-primary tracking-[-0.02em] mb-12">
+          Frequently asked questions
+        </h2>
+
+        <div class="flex flex-col divide-y divide-[rgba(12,26,22,0.07)] max-w-[840px]">
+          <!-- Item 1 -->
+          <details class="group py-5">
+            <summary class="flex items-center justify-between cursor-pointer select-none text-[16px] font-medium text-ink-primary">
+              <span>Do I need Kubernetes?</span>
+              <span class="text-ink-secondary text-[18px] group-open:rotate-45 transition-transform font-mono">+</span>
+            </summary>
+            <div class="pt-3 text-[14px] text-ink-secondary leading-relaxed">
+              No. One binary and a Postgres connection string.
+            </div>
+          </details>
+
+          <!-- Item 2 -->
+          <details class="group py-5">
+            <summary class="flex items-center justify-between cursor-pointer select-none text-[16px] font-medium text-ink-primary">
+              <span>Where does my agent code run?</span>
+              <span class="text-ink-secondary text-[18px] group-open:rotate-45 transition-transform font-mono">+</span>
+            </summary>
+            <div class="pt-3 text-[14px] text-ink-secondary leading-relaxed">
+              On your machine. AgentDeck schedules and records; it does not execute your code.
+            </div>
+          </details>
+
+          <!-- Item 3 -->
+          <details class="group py-5">
+            <summary class="flex items-center justify-between cursor-pointer select-none text-[16px] font-medium text-ink-primary">
+              <span>Can I gate only some tools?</span>
+              <span class="text-ink-secondary text-[18px] group-open:rotate-45 transition-transform font-mono">+</span>
+            </summary>
+            <div class="pt-3 text-[14px] text-ink-secondary leading-relaxed">
+              Yes, per agent. Set the gate mode to require, auto, or off.
+            </div>
+          </details>
+
+          <!-- Item 4 -->
+          <details class="group py-5">
+            <summary class="flex items-center justify-between cursor-pointer select-none text-[16px] font-medium text-ink-primary">
+              <span>What happens when I hit a budget cap?</span>
+              <span class="text-ink-secondary text-[18px] group-open:rotate-45 transition-transform font-mono">+</span>
+            </summary>
+            <div class="pt-3 text-[14px] text-ink-secondary leading-relaxed">
+              The run stops with outcome budget_exceeded and the task goes back to ready. Nothing is silently dropped.
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. CTA penutup (background tint teal #e6f2f0, padding 64px, border-top+bottom hairline) -->
+    <!-- H2 Inter 32 "Ship the fleet. Keep the receipt." + tombol primary teal "Get started free" (/register) + baris kecil "Self-hosted · MIT-licensed core". -->
+    <section class="bg-teal-tint py-[64px] border-y border-[rgba(12,26,22,0.07)]">
+      <div class="max-w-[1120px] mx-auto px-6 text-left">
+        <h2 class="text-[32px] font-bold text-ink-primary tracking-[-0.02em] mb-5">
+          Ship the fleet. Keep the receipt.
+        </h2>
+        <div class="mb-4">
+          <a href="/register" class="bg-teal-brand hover:bg-teal-hover text-white text-[14px] font-medium px-5 py-2.5 rounded-[6px] inline-block transition-colors">
+            Get started free
+          </a>
+        </div>
+        <p class="text-[12px] text-ink-secondary font-mono">
+          Self-hosted · MIT-licensed core
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 10. Footer (background page, border-top hairline, padding 40px 0) -->
+  <footer class="bg-page hairline-t py-[40px] text-left">
+    <div class="max-w-[1120px] mx-auto px-6">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-10 mb-12">
+        <!-- Kiri: wordmark + "Orchestration board for AI agent fleets." -->
+        <div class="md:col-span-5 flex flex-col items-start">
+          <div class="flex items-center gap-1 text-[16px] font-bold tracking-tight text-ink-primary mb-2">
+            <span>AgentDeck</span>
+            <span class="w-[6px] h-[6px] rounded-full bg-teal-brand inline-block"></span>
+          </div>
+          <p class="text-[13px] text-ink-secondary">
+            Orchestration board for AI agent fleets.
+          </p>
+        </div>
+
+        <!-- Kanan: 3 kolom link kecil Inter 13 -->
+        <div class="md:col-span-7 grid grid-cols-3 gap-8">
+          <!-- Kolom 1: Product -->
+          <div class="flex flex-col gap-2.5">
+            <span class="text-[12px] font-semibold text-ink-primary uppercase tracking-wider">Product</span>
+            <a href="/product" class="text-[13px] text-ink-secondary hover:text-ink-primary transition-colors">Features</a>
+            <a href="/pricing" class="text-[13px] text-ink-secondary hover:text-ink-primary transition-colors">Pricing</a>
+            <a href="/changelog" class="text-[13px] text-ink-secondary hover:text-ink-primary transition-colors">Changelog</a>
+          </div>
+
+          <!-- Kolom 2: Developers -->
+          <div class="flex flex-col gap-2.5">
+            <span class="text-[12px] font-semibold text-ink-primary uppercase tracking-wider">Developers</span>
+            <a href="/docs/quickstart" class="text-[13px] text-ink-secondary hover:text-ink-primary transition-colors">Docs</a>
+            <a href="/docs/api" class="text-[13px] text-ink-secondary hover:text-ink-primary transition-colors">API</a>
+            <a href="/github" class="text-[13px] text-ink-secondary hover:text-ink-primary transition-colors">GitHub</a>
+          </div>
+
+          <!-- Kolom 3: Company -->
+          <div class="flex flex-col gap-2.5">
+            <span class="text-[12px] font-semibold text-ink-primary uppercase tracking-wider">Company</span>
+            <a href="/community" class="text-[13px] text-ink-secondary hover:text-ink-primary transition-colors">Community</a>
+            <a href="/github" class="text-[13px] text-ink-secondary hover:text-ink-primary transition-colors">Releases</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Baris bawah: "© 2026 AgentDeck" + "Built with Go and Postgres." -->
+      <div class="hairline-t pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[12px] text-ink-tertiary">
+        <span>© 2026 AgentDeck</span>
+        <span class="font-mono text-[11px]">Built with Go and Postgres.</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

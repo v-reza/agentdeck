@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>AgentDeck — Detail Step & Payload (/runs/:id/steps/:index)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            teal: {
+              accent: '#0d7a70',
+              hover: '#095d56',
+              light: '#e6f3f1',
+              subtle: '#eef7f5'
+            },
+            ink: {
+              primary: '#0e1110',
+              secondary: '#4d5553',
+              tertiary: '#6b7370'
+            },
+            surface: {
+              rail: '#e8ecea',
+              sidebar: '#f6f7f6',
+              card: '#ffffff',
+              canvas: '#f6f7f6',
+              costrail: '#eef1f0'
+            },
+            border: {
+              subtle: 'rgba(12,26,22,0.07)',
+              standard: 'rgba(12,26,22,0.12)'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-size: 18px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(12,26,22,0.15);
+      border-radius: 4px;
+    }
+    .tnum {
+      font-feature-settings: "tnum";
+    }
+  </style>
+</head>
+<body class="bg-surface-canvas text-ink-primary font-sans antialiased overflow-hidden h-screen w-screen flex select-none text-[13px]">
+
+  <!-- RAIL KIRI: 44px, #e8ecea -->
+  <aside class="w-[44px] shrink-0 bg-surface-rail border-r border-border-standard flex flex-col items-center justify-between py-3.5 z-20">
+    <div class="flex flex-col items-center gap-4">
+      <!-- AD Badge Hijau -->
+      <div class="w-7 h-7 rounded-[6px] bg-teal-accent flex items-center justify-center text-white font-bold text-[11px] font-mono tracking-tight shadow-sm cursor-pointer" title="AgentDeck Core">
+        AD
+      </div>
+      <div class="w-6 h-[1px] bg-border-standard"></div>
+      <!-- Rail Icons (ikon saja, tanpa label) -->
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-black/5 transition-colors" title="Semua Proyek">
+        <span class="material-symbols-outlined">folder</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] bg-[#d9e1de] text-teal-accent flex items-center justify-center shadow-xs" title="Papan Kanban">
+        <span class="material-symbols-outlined">view_kanban</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-black/5 transition-colors" title="Agent Registry">
+        <span class="material-symbols-outlined">smart_toy</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-black/5 transition-colors" title="Antrean Approval">
+        <span class="material-symbols-outlined">verified_user</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-black/5 transition-colors" title="Dokumentasi & API">
+        <span class="material-symbols-outlined">description</span>
+      </button>
+    </div>
+    <div class="flex flex-col items-center gap-3">
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-black/5 transition-colors" title="Pengaturan">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+      <!-- Avatar user: 26px -->
+      <div class="relative cursor-pointer" title="Reza (Solo Owner)">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#191c1c] text-white text-[10px] font-bold flex items-center justify-center border border-white">
+          RZ
+        </div>
+        <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-teal-accent border-2 border-surface-rail rounded-full"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR: 224px, #f6f7f6 -->
+  <nav class="w-[224px] shrink-0 bg-surface-sidebar border-r border-border-standard flex flex-col justify-between overflow-y-auto text-[12px] z-10">
+    <div class="p-3">
+      <!-- Workspace Badge & Status -->
+      <div class="flex items-center justify-between pb-3 border-b border-border-subtle">
+        <div class="min-w-0">
+          <div class="text-[10px] font-mono uppercase text-ink-tertiary font-bold tracking-wider">WORKSPACE</div>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="w-2 h-2 rounded-full bg-teal-accent"></span>
+            <span class="font-bold text-[12px] text-ink-primary font-mono truncate">ws_8f12a (core)</span>
+          </div>
+        </div>
+        <span class="text-[9px] font-mono uppercase bg-[#e1e3e2] text-ink-secondary px-1.5 py-0.5 rounded font-bold">B2C SOLO</span>
+      </div>
+
+      <!-- Navigation Section -->
+      <div class="mt-4 space-y-4">
+        <div>
+          <div class="flex items-center justify-between px-2 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">
+            <span>Papan Kanban</span>
+            <span class="font-mono text-[10px]">4</span>
+          </div>
+          <div class="mt-1.5 space-y-0.5">
+            <div class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] bg-teal-light text-teal-accent font-semibold">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined text-[16px]">grid_view</span>
+                <span class="truncate">Sprint 24</span>
+              </div>
+              <span class="text-[11px] font-mono bg-teal-accent/15 px-1.5 rounded-full">12</span>
+            </div>
+            <div class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-ink-secondary hover:bg-black/5 cursor-pointer">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined text-[16px]">grid_view</span>
+                <span class="truncate">Sprint 23</span>
+              </div>
+              <span class="text-[11px] font-mono text-ink-tertiary">24</span>
+            </div>
+            <div class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-ink-secondary hover:bg-black/5 cursor-pointer">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined text-[16px]">inventory_2</span>
+                <span class="truncate">Backlog grooming</span>
+              </div>
+              <span class="text-[11px] font-mono text-ink-tertiary">38</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="px-2 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">
+            Eksekusi Run
+          </div>
+          <div class="mt-1.5 space-y-0.5">
+            <div class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-ink-secondary hover:bg-black/5 cursor-pointer">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined text-[16px]">timeline</span>
+                <span class="truncate">Run Timeline</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-ink-secondary hover:bg-black/5 cursor-pointer">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined text-[16px]">verified</span>
+                <span class="truncate">Antrean Approval</span>
+              </div>
+              <span class="text-[10px] font-mono bg-amber-100 text-amber-800 px-1.5 rounded-full font-bold">1</span>
+            </div>
+            <div class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-ink-secondary hover:bg-black/5 cursor-pointer">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined text-[16px]">receipt_long</span>
+                <span class="truncate">Cost Ledger</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between px-2 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">
+            <span>Armada Terdaftar</span>
+            <span class="font-mono text-[10px] text-teal-accent font-semibold">2 RUNNING</span>
+          </div>
+          <div class="mt-1.5 space-y-1.5">
+            <div class="p-2 rounded-[6px] bg-white border border-border-subtle flex items-center justify-between">
+              <div class="flex items-center gap-2 min-w-0">
+                <!-- Avatar agent: 20px -->
+                <div class="w-5 h-5 rounded-full bg-teal-light text-teal-accent font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
+                  be
+                </div>
+                <span class="font-mono text-[11px] truncate">agent-backend</span>
+              </div>
+              <span class="w-1.5 h-1.5 rounded-full bg-teal-accent animate-pulse"></span>
+            </div>
+            <div class="p-2 rounded-[6px] bg-white border border-border-subtle flex items-center justify-between">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-5 h-5 rounded-full bg-teal-light text-teal-accent font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
+                  dt
+                </div>
+                <span class="font-mono text-[11px] truncate">agent-data</span>
+              </div>
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daemon Footer in Sidebar -->
+    <div class="p-2.5 border-t border-border-standard bg-[#eef1f0]">
+      <div class="flex items-center justify-between text-[11px] font-mono text-ink-secondary">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-teal-accent"></span>
+          <span>daemon :8080</span>
+        </div>
+        <span class="text-ink-tertiary">v2.4</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- PUSAT: TOPBAR + PANE KONTEN (SCROLL) -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-surface-canvas">
+    <!-- TOPBAR: 52px, #ffffff, HANYA di atas pane konten -->
+    <header class="h-[52px] shrink-0 bg-surface-card border-b border-border-standard px-4 flex items-center justify-between gap-3 z-10">
+      <!-- Breadcrumbs & Navigasi -->
+      <div class="flex items-center gap-2 text-[12px] min-w-0">
+        <span class="text-ink-tertiary hover:text-ink-primary cursor-pointer">Sprint 24</span>
+        <span class="text-ink-tertiary">/</span>
+        <span class="text-ink-tertiary hover:text-ink-primary cursor-pointer">Runs</span>
+        <span class="text-ink-tertiary">/</span>
+        <span class="font-mono text-ink-secondary">run_9b42f1</span>
+        <span class="text-ink-tertiary">/</span>
+        <span class="font-semibold text-ink-primary truncate">Step 2 (step_02_decompose)</span>
+      </div>
+
+      <div class="flex items-center gap-2.5 shrink-0">
+        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] bg-teal-light text-teal-accent font-mono text-[11px] font-semibold border border-teal-accent/20">
+          <span class="w-1.5 h-1.5 rounded-full bg-teal-accent animate-pulse"></span>
+          SSE Ingest: step.finished
+        </span>
+        <div class="h-4 w-[1px] bg-border-standard"></div>
+        <button class="h-7 px-2.5 text-[11px] font-medium text-ink-secondary hover:text-ink-primary hover:bg-black/5 rounded-[6px] border border-border-standard flex items-center gap-1">
+          <span class="material-symbols-outlined text-[15px]">arrow_back</span>
+          <span>Timeline</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- PANE KONTEN KIRI: Scrollable, menyajikan konteks run & daftar step -->
+    <main class="flex-1 overflow-y-auto p-4 space-y-4">
+      <!-- Context Card: Run Overview -->
+      <div class="bg-surface-card border border-border-standard rounded-[10px] p-[10px] shadow-xs">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] bg-teal-light text-teal-accent font-mono text-[10px] font-bold border border-teal-accent/20">
+                <span class="material-symbols-outlined text-[13px]">verified</span>
+                US-AD94 COMPLIANT
+              </span>
+              <span class="font-mono text-[11px] text-ink-tertiary">Task: task-771b</span>
+              <span class="text-ink-tertiary">•</span>
+              <span class="font-medium text-[12px] text-ink-primary truncate">Refactor auth module & telemetry pipeline</span>
+            </div>
+            <p class="text-[12px] text-ink-secondary mt-1">
+              Run ID: <code class="font-mono text-[11px] bg-black/5 px-1 rounded text-ink-primary">run_9b42f1</code> • Menjalankan migrasi state session ke Postgres internal daemon.
+            </p>
+          </div>
+          <div class="shrink-0 text-right">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] bg-emerald-50 text-emerald-700 font-mono text-[11px] font-semibold border border-emerald-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+              2/4 Step Selesai
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stepper List (Langkah-langkah dalam run) -->
+      <div class="bg-surface-card border border-border-standard rounded-[10px] p-[10px] shadow-xs">
+        <div class="flex items-center justify-between pb-2 border-b border-border-subtle">
+          <div class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px] text-teal-accent">format_list_numbered</span>
+            <span class="font-semibold text-[12px] text-ink-primary">Daftar Step pada Run Terpilih</span>
+          </div>
+          <span class="text-[11px] font-mono text-ink-tertiary">Step 2 aktif di panel drawer kanan</span>
+        </div>
+
+        <div class="mt-2 space-y-2">
+          <!-- Step 1: Selesai -->
+          <div class="p-2.5 rounded-[6px] border border-border-subtle hover:border-border-standard bg-white flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-6 h-6 rounded-full bg-emerald-50 text-emerald-700 font-mono text-[11px] font-bold flex items-center justify-center shrink-0 border border-emerald-200">
+                1
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono font-semibold text-[12px] text-ink-primary">step_01_query</span>
+                  <span class="text-[10px] font-mono text-ink-tertiary">read_file • 18s</span>
+                </div>
+                <div class="text-[11px] text-ink-secondary truncate">Audit file konfigurasi redis dan inisialisasi koneksi internal</div>
+              </div>
+            </div>
+            <div class="shrink-0 text-right">
+              <div class="font-mono text-[11px] text-teal-accent font-semibold tnum">$0.0028</div>
+              <span class="text-[9px] font-mono uppercase text-emerald-700 bg-emerald-50 px-1 rounded">SELESAI</span>
+            </div>
+          </div>
+
+          <!-- Step 2: Aktif Terpilih (Ditampilkan di drawer) -->
+          <div class="p-2.5 rounded-[6px] border-2 border-teal-accent bg-teal-subtle/50 flex items-center justify-between gap-2 shadow-xs">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-6 h-6 rounded-full bg-teal-accent text-white font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
+                2
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono font-bold text-[12px] text-teal-accent">step_02_decompose</span>
+                  <span class="text-[9px] font-mono bg-teal-accent/15 text-teal-accent px-1.5 py-0.2 rounded font-bold uppercase">TERPILIH</span>
+                  <span class="text-[10px] font-mono text-ink-tertiary">model_invocation • 46s</span>
+                </div>
+                <div class="text-[11px] text-ink-secondary truncate">Dekomposisi tugas refactor dan kalkulasi payload migrasi</div>
+              </div>
+            </div>
+            <div class="shrink-0 text-right">
+              <div class="font-mono text-[11px] text-teal-accent font-bold tnum">$0.0242</div>
+              <span class="text-[9px] font-mono uppercase text-emerald-700 bg-emerald-50 px-1 rounded">SELESAI</span>
+            </div>
+          </div>
+
+          <!-- Step 3: Sedang Berjalan (AC3 Visualisasi) -->
+          <div class="p-2.5 rounded-[6px] border border-amber-200 bg-amber-50/40 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-6 h-6 rounded-full bg-amber-100 text-amber-800 font-mono text-[11px] font-bold flex items-center justify-center shrink-0 border border-amber-300">
+                3
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono font-semibold text-[12px] text-ink-primary">step_03_codegen</span>
+                  <span class="text-[10px] font-mono text-ink-tertiary">bash_exec • 14,880 in / 4,320 out</span>
+                </div>
+                <div class="text-[11px] text-ink-secondary truncate">Eksekusi migrasi schema SQL dan penulisan test runner</div>
+              </div>
+            </div>
+            <div class="shrink-0 text-right">
+              <div class="font-mono text-[11px] text-amber-800 font-semibold tnum">$0.0581</div>
+              <span class="text-[9px] font-mono uppercase text-amber-800 bg-amber-100 px-1 rounded animate-pulse">RUNNING</span>
+            </div>
+          </div>
+
+          <!-- Step 4: Menunggu -->
+          <div class="p-2.5 rounded-[6px] border border-border-subtle bg-white/60 flex items-center justify-between gap-2 opacity-75">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-6 h-6 rounded-full bg-black/5 text-ink-tertiary font-mono text-[11px] font-bold flex items-center justify-center shrink-0">
+                4
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-[12px] text-ink-secondary">step_04_verify_auth</span>
+                </div>
+                <div class="text-[11px] text-ink-tertiary truncate">Verifikasi endpoint JWT dan rollback test bila terjadi galat</div>
+              </div>
+            </div>
+            <div class="shrink-0 text-right">
+              <span class="text-[9px] font-mono uppercase text-ink-tertiary bg-black/5 px-1 rounded">MENUNGGU</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Info Kepatuhan User Story US-AD94 -->
+      <div class="bg-surface-card border border-border-standard rounded-[10px] p-[10px] shadow-xs space-y-2">
+        <div class="flex items-center gap-2 text-ink-primary font-semibold text-[12px]">
+          <span class="material-symbols-outlined text-[16px] text-teal-accent">info</span>
+          <span>Spesifikasi Drawer Kanan (US-AD94 Blueprint C)</span>
+        </div>
+        <p class="text-[12px] text-ink-secondary leading-relaxed">
+          Panel drawer di sisi kanan (<code class="font-mono text-[11px] text-teal-accent font-bold">420px</code>) menampilkan visualisasi mendalam seluruh atribut step (AC1), telemetri konsumsi token tabular, cache read/write, kalkulasi micro-dollar tanpa floating-point drift, serta blok input/output payload JSON berfitur lipat kode (AC2).
+        </p>
+      </div>
+    </main>
+  </div>
+
+  <!-- DRAWER BLUEPRINT C: 420px DI ANTARA KONTEN DAN COST RAIL -->
+  <aside class="w-[420px] shrink-0 bg-surface-card border-l border-border-standard flex flex-col justify-between overflow-y-auto text-[12px] z-10 shadow-sm">
+    <!-- Header Drawer (Sticky Top) -->
+    <div class="p-3.5 border-b border-border-standard bg-surface-card flex items-center justify-between">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-teal-accent text-[18px]">terminal</span>
+          <h2 class="font-bold text-[13px] text-ink-primary truncate">Detail Step & Payload</h2>
+          <span class="text-[9px] font-mono bg-teal-light text-teal-accent px-1.5 py-0.2 rounded font-bold">US-AD94</span>
+        </div>
+        <div class="text-[11px] font-mono text-ink-tertiary mt-0.5">Route: (panel) • Blueprint C</div>
+      </div>
+      <button class="w-6 h-6 rounded flex items-center justify-center text-ink-tertiary hover:text-ink-primary hover:bg-black/5 transition-colors" title="Tutup Panel">
+        <span class="material-symbols-outlined text-[16px]">close</span>
+      </button>
+    </div>
+
+    <!-- Konten Scrollable Drawer -->
+    <div class="p-3.5 space-y-3.5 flex-1 overflow-y-auto">
+      
+      <!-- AC1: IDENTITAS & STATUS STEP -->
+      <div class="bg-surface-canvas rounded-[8px] p-3 border border-border-subtle space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-[10px] uppercase text-ink-tertiary font-bold tracking-wider">NAMA STEP</span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[6px] bg-emerald-50 text-emerald-700 font-mono text-[10px] font-bold border border-emerald-200">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+            SELESAI (Exit 0)
+          </span>
+        </div>
+        <div class="font-mono font-bold text-[14px] text-ink-primary break-all">
+          step_02_decompose
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 pt-1 border-t border-border-subtle text-[11px]">
+          <div>
+            <span class="text-ink-tertiary block text-[10px] font-mono uppercase">JENIS STEP</span>
+            <span class="font-mono font-semibold text-ink-primary">model_invocation</span>
+          </div>
+          <div>
+            <span class="text-ink-tertiary block text-[10px] font-mono uppercase">DURASI STEP</span>
+            <span class="font-mono font-semibold text-ink-primary tnum">46s (46,210 ms)</span>
+          </div>
+          <div>
+            <span class="text-ink-tertiary block text-[10px] font-mono uppercase">AGENT EKSEKUTOR</span>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <span class="w-4 h-4 rounded-full bg-teal-light text-teal-accent font-mono text-[9px] font-bold flex items-center justify-center">be</span>
+              <span class="font-mono text-ink-primary">agent-backend</span>
+            </div>
+          </div>
+          <div>
+            <span class="text-ink-tertiary block text-[10px] font-mono uppercase">MODEL LLM</span>
+            <span class="font-mono text-ink-primary">gpt-4o (2026-09)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- AC1: TABEL TELEMETRI TOKEN, CACHE, & BIAYA (FONT MONOSPACE TABULAR / tnum) -->
+      <div class="border border-border-standard rounded-[8px] overflow-hidden bg-white shadow-2xs">
+        <div class="px-3 py-2 bg-[#f8fcfb] border-b border-border-standard flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[16px] text-teal-accent">calculate</span>
+            <span class="font-semibold text-[11px] uppercase tracking-wider text-ink-primary">TELEMETRI TOKEN & BIAYA (AC1)</span>
+          </div>
+          <span class="text-[9px] font-mono text-teal-accent font-bold bg-teal-light px-1.5 rounded">tnum monospace</span>
+        </div>
+
+        <table class="w-full text-left text-[11px] font-mono divide-y divide-border-subtle">
+          <tbody class="divide-y divide-border-subtle">
+            <tr class="hover:bg-black/[0.02]">
+              <td class="py-1.5 px-3 text-ink-secondary">Token Masuk (Input Prompt)</td>
+              <td class="py-1.5 px-3 text-right font-bold text-ink-primary tnum">8,940 tok</td>
+            </tr>
+            <tr class="hover:bg-black/[0.02]">
+              <td class="py-1.5 px-3 text-ink-secondary">Token Keluar (Output Completion)</td>
+              <td class="py-1.5 px-3 text-right font-bold text-ink-primary tnum">2,104 tok</td>
+            </tr>
+            <tr class="hover:bg-black/[0.02]">
+              <td class="py-1.5 px-3 text-ink-secondary">Cache Read</td>
+              <td class="py-1.5 px-3 text-right font-semibold text-teal-accent tnum">2,048 tok (read)</td>
+            </tr>
+            <tr class="hover:bg-black/[0.02]">
+              <td class="py-1.5 px-3 text-ink-secondary">Cache Write</td>
+              <td class="py-1.5 px-3 text-right text-ink-tertiary tnum">0 tok (write)</td>
+            </tr>
+            <tr class="bg-teal-subtle/50">
+              <td class="py-2 px-3 font-semibold text-teal-accent">Biaya Step (Fixed µUSD)</td>
+              <td class="py-2 px-3 text-right font-bold text-teal-accent text-[12px] tnum">$0.024200 (24,200 µUSD)</td>
+            </tr>
+            <tr class="bg-black/[0.02]">
+              <td class="py-1.5 px-3 text-ink-tertiary text-[10px]">Akumulasi Run s.d. Step Ini</td>
+              <td class="py-1.5 px-3 text-right font-mono text-ink-secondary text-[10px] tnum">$0.027000 (27,000 µUSD)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- AC2: BLOK KODE PAYLOAD MASUK (DAPAT DILIPAT / COLLAPSIBLE) -->
+      <div class="border border-border-standard rounded-[8px] overflow-hidden bg-surface-card">
+        <div class="px-3 py-2 bg-[#191c1c] text-white flex items-center justify-between">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="material-symbols-outlined text-[15px] text-teal-300">input</span>
+            <span class="font-mono text-[11px] font-bold text-white">Payload Masuk (Input)</span>
+            <span class="text-[9px] font-mono text-ink-tertiary ml-1">JSON (840 B)</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button class="text-[10px] font-mono text-ink-tertiary hover:text-white px-1.5 py-0.5 rounded bg-white/10 flex items-center gap-1 transition-colors" title="Salin Payload JSON">
+              <span class="material-symbols-outlined text-[12px]">content_copy</span>
+              <span>Salin</span>
+            </button>
+            <button class="text-[10px] font-mono text-teal-300 hover:text-white px-1.5 py-0.5 rounded bg-white/10 flex items-center gap-1 transition-colors" title="Lipat / Bentangkan">
+              <span class="material-symbols-outlined text-[12px]">unfold_less</span>
+              <span>Lipat</span>
+            </button>
+          </div>
+        </div>
+        <div class="p-3 bg-[#191c1c] text-[#d9dad9] font-mono text-[11px] leading-relaxed overflow-x-auto border-t border-white/10">
+<pre><code>{
+  <span class="text-teal-300">"task_id"</span>: <span class="text-amber-300">"task-771b"</span>,
+  <span class="text-teal-300">"instruction"</span>: <span class="text-[#a5d6a7]">"Decompose Redis-less session auth into 21 DDL tables"</span>,
+  <span class="text-teal-300">"context_files"</span>: [
+    <span class="text-[#a5d6a7]">"internal/auth/session.go"</span>,
+    <span class="text-[#a5d6a7]">"migrations/004_auth_ledger.sql"</span>
+  ],
+  <span class="text-teal-300">"parameters"</span>: {
+    <span class="text-teal-300">"target_db"</span>: <span class="text-amber-300">"PostgreSQL 14+"</span>,
+    <span class="text-teal-300">"max_tokens_budget"</span>: <span class="text-amber-300">12000</span>,
+    <span class="text-teal-300">"strict_schema"</span>: <span class="text-teal-300">true</span>
+  }
+}</code></pre>
+        </div>
+      </div>
+
+      <!-- AC2: BLOK KODE PAYLOAD KELUAR DENGAN PENANDA POTONGAN "TAMPILKAN SELENGKAPNYA" -->
+      <div class="border border-border-standard rounded-[8px] overflow-hidden bg-surface-card">
+        <div class="px-3 py-2 bg-[#191c1c] text-white flex items-center justify-between">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="material-symbols-outlined text-[15px] text-teal-300">output</span>
+            <span class="font-mono text-[11px] font-bold text-white">Payload Keluar (Output)</span>
+            <span class="text-[9px] font-mono text-amber-300 ml-1 bg-amber-900/40 px-1 py-0.2 rounded border border-amber-500/30">Besar (14.2 KB)</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button class="text-[10px] font-mono text-ink-tertiary hover:text-white px-1.5 py-0.5 rounded bg-white/10 flex items-center gap-1 transition-colors" title="Salin Payload JSON">
+              <span class="material-symbols-outlined text-[12px]">content_copy</span>
+              <span>Salin</span>
+            </button>
+            <button class="text-[10px] font-mono text-teal-300 hover:text-white px-1.5 py-0.5 rounded bg-white/10 flex items-center gap-1 transition-colors" title="Lipat / Bentangkan">
+              <span class="material-symbols-outlined text-[12px]">unfold_less</span>
+              <span>Lipat</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Kode truncated dengan gradient overlay penanda selengkapnya (AC2) -->
+        <div class="relative bg-[#191c1c] text-[#d9dad9] font-mono text-[11px] leading-relaxed overflow-hidden border-t border-white/10">
+          <div class="p-3 max-h-[140px] overflow-hidden">
+<pre><code>{
+  <span class="text-teal-300">"status"</span>: <span class="text-amber-300">"SUCCESS"</span>,
+  <span class="text-teal-300">"plan"</span>: {
+    <span class="text-teal-300">"modules"</span>: [
+      {
+        <span class="text-teal-300">"file"</span>: <span class="text-[#a5d6a7]">"internal/auth/daemon_token.go"</span>,
+        <span class="text-teal-300">"action"</span>: <span class="text-[#a5d6a7]">"CREATE_TABLE"</span>,
+        <span class="text-teal-300">"columns"</span>: [<span class="text-[#a5d6a7]">"session_id"</span>, <span class="text-[#a5d6a7]">"nonce"</span>, <span class="text-[#a5d6a7]">"created_at"</span>]
+      },
+      {
+        <span class="text-teal-300">"file"</span>: <span class="text-[#a5d6a7]">"internal/telemetry/gRPC_sync.go"</span>,
+        <span class="text-teal-300">"action"</span>: <span class="text-[#a5d6a7]">"APPEND_HANDLER"</span>
+      }
+    ]
+  },
+  <span class="text-teal-300">"checksum_sha256"</span>: <span class="text-amber-300">"4a8b7e2190f..."</span>
+}</code></pre>
+          </div>
+          <!-- Penanda Potongan AC2: Tampilkan Selengkapnya -->
+          <div class="absolute inset-x-0 bottom-0 pt-8 pb-2 px-3 bg-gradient-to-t from-[#191c1c] via-[#191c1c]/90 to-transparent flex items-center justify-between border-t border-white/5">
+            <span class="text-[10px] font-mono text-ink-tertiary">Dipotong 42 baris tambahan (AC2)</span>
+            <button class="h-6 px-2 text-[10px] font-mono font-medium text-teal-accent bg-teal-light hover:bg-teal-accent hover:text-white rounded-[6px] flex items-center gap-1 transition-colors">
+              <span class="material-symbols-outlined text-[13px]">expand_more</span>
+              <span>Tampilkan selengkapnya (14.2 KB)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Keterangan Kebijakan Error & Retensi AC3 & AC4 -->
+      <div class="p-2.5 rounded-[8px] bg-black/[0.02] border border-border-subtle text-[11px] text-ink-secondary space-y-1">
+        <div class="font-semibold text-ink-primary flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px] text-teal-accent">rule</span>
+          <span>Protokol Integritas Payload & Retensi (AC3, AC4)</span>
+        </div>
+        <p class="text-[10px] text-ink-tertiary leading-normal">
+          Bila step masih aktif, durasi tercatat &quot;sedang berjalan&quot; dan biaya sementara. Bila payload terhapus retensi daemon, label &quot;payload tidak tersedia&quot; aktif tanpa menghilangkan rekaman ledger token.
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Drawer Footer -->
+    <div class="p-3 border-t border-border-standard bg-surface-card flex items-center justify-between">
+      <div class="flex items-center gap-1.5 text-[11px] font-mono text-ink-tertiary">
+        <span class="w-2 h-2 rounded-full bg-teal-accent"></span>
+        <span>Telemetri Ingest: gRPC :8080</span>
+      </div>
+      <button class="h-7 px-3 text-[11px] font-medium text-ink-secondary hover:text-ink-primary hover:bg-black/5 rounded-[6px] border border-border-standard">
+        Tutup Panel
+      </button>
+    </div>
+  </aside>
+
+  <!-- COST RAIL KANAN: 264px, #eef1f0, border-l -->
+  <aside class="w-[264px] shrink-0 bg-surface-costrail border-l border-border-standard flex flex-col justify-between p-3.5 text-[12px] z-20">
+    <div class="space-y-4">
+      <!-- HEADER COST RAIL -->
+      <div class="flex items-center justify-between border-b border-border-subtle pb-2">
+        <div class="flex items-center gap-1.5 font-bold text-ink-primary text-[12px]">
+          <span class="material-symbols-outlined text-[16px] text-teal-accent">account_balance_wallet</span>
+          <span>COST LEDGER</span>
+        </div>
+        <span class="text-[9px] font-mono font-bold bg-[#d9e1de] text-teal-accent px-1.5 py-0.5 rounded">REALTIME</span>
+      </div>
+
+      <!-- TODAY (BIAYA + METER PAGU 6px) -->
+      <div class="bg-surface-card p-3 rounded-[8px] border border-border-subtle shadow-2xs">
+        <div class="flex items-center justify-between text-[11px] text-ink-secondary font-mono">
+          <span class="font-bold text-ink-primary uppercase">TODAY</span>
+          <span>CAP $20.00</span>
+        </div>
+        <div class="mt-1 flex items-baseline justify-between">
+          <div class="text-xl font-bold font-mono text-ink-primary tracking-tight tnum">$4.82</div>
+          <div class="text-[11px] font-mono text-ink-tertiary">Sisa: <span class="font-semibold text-teal-accent tnum">$15.18</span></div>
+        </div>
+        <!-- Meter Bar (height 6px, 24.1% terpakai) -->
+        <div class="w-full bg-[#edeeed] h-[6px] rounded-full mt-2.5 overflow-hidden">
+          <div class="bg-teal-accent h-full rounded-full" style="width: 24.1%;"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] font-mono text-ink-tertiary mt-1.5">
+          <span>24.1% terpakai</span>
+          <span>Pagu aman</span>
+        </div>
+      </div>
+
+      <!-- 7-DAY (SPARKLINE BAR SEP 12 - SEP 18) -->
+      <div class="bg-surface-card p-3 rounded-[8px] border border-border-subtle shadow-2xs">
+        <div class="flex items-center justify-between text-[11px] font-mono text-ink-secondary mb-2">
+          <span class="font-bold text-ink-primary uppercase">7-DAY</span>
+          <span>Sep 12 — Sep 18</span>
+        </div>
+        <!-- Sparkline Bars -->
+        <div class="h-14 flex items-end justify-between gap-1 pt-2 px-1">
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 45%;" title="Sep 12: $3.10"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">12</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 60%;" title="Sep 13: $4.20"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">13</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 30%;" title="Sep 14: $2.05"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">14</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 75%;" title="Sep 15: $5.40"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">15</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 50%;" title="Sep 16: $3.50"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">16</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 85%;" title="Sep 17: $6.12"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">17</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-teal-accent rounded-t" style="height: 68%;" title="Sep 18 (Today): $4.82"></div>
+            <span class="text-[9px] font-mono font-bold text-teal-accent">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP SPENDERS (3 BARIS) -->
+      <div class="bg-surface-card p-3 rounded-[8px] border border-border-subtle shadow-2xs">
+        <div class="text-[11px] font-mono text-ink-secondary uppercase font-bold mb-2.5">TOP SPENDERS</div>
+        <div class="space-y-2">
+          <!-- Spender 1 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-teal-accent"></span>
+                <span class="font-mono text-ink-primary truncate">agent-backend</span>
+              </div>
+              <span class="font-mono font-bold text-ink-primary tnum">$1.84</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-teal-accent h-full" style="width: 38.1%;"></div>
+            </div>
+          </div>
+          <!-- Spender 2 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-teal-accent"></span>
+                <span class="font-mono text-ink-primary truncate">agent-data</span>
+              </div>
+              <span class="font-mono font-bold text-ink-primary tnum">$1.42</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-teal-accent/80 h-full" style="width: 29.4%;"></div>
+            </div>
+          </div>
+          <!-- Spender 3 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-teal-accent"></span>
+                <span class="font-mono text-ink-primary truncate">agent-docs</span>
+              </div>
+              <span class="font-mono font-bold text-ink-primary tnum">$0.91</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-teal-accent/60 h-full" style="width: 18.8%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RUNNING NOW -->
+      <div class="bg-surface-card p-3 rounded-[8px] border border-border-subtle shadow-2xs">
+        <div class="flex items-center justify-between text-[11px] font-mono text-ink-secondary mb-2">
+          <span class="font-bold text-ink-primary uppercase">RUNNING NOW</span>
+          <span class="flex items-center gap-1 text-teal-accent font-bold">
+            <span class="w-1.5 h-1.5 rounded-full bg-teal-accent animate-pulse"></span>
+            2 Active
+          </span>
+        </div>
+        <div class="space-y-1.5 text-[11px] font-mono">
+          <div class="p-1.5 rounded bg-surface-canvas border border-border-subtle flex items-center justify-between">
+            <span class="font-bold text-ink-primary">agent-backend</span>
+            <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+          </div>
+          <div class="p-1.5 rounded bg-surface-canvas border border-border-subtle flex items-center justify-between">
+            <span class="font-bold text-ink-primary">agent-docs</span>
+            <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COST RAIL FOOTER -->
+    <div class="pt-2.5 border-t border-border-standard text-[10px] font-mono text-ink-tertiary flex items-center justify-between">
+      <span>AgentDeck Core</span>
+      <span class="text-teal-accent">µUSD Ledger</span>
+    </div>
+  </aside>
+
+</body>
+</html>

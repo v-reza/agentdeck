@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgentDeck — Tutup Akun (/settings/close)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            teal: {
+              accent: '#0d7a70',
+              hover: '#0a635b',
+              subtle: '#eef7f5',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(12, 26, 22, 0.15);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(12, 26, 22, 0.28);
+    }
+  </style>
+</head>
+<body class="bg-[#f6f7f6] text-[#0e1110] font-sans antialiased overflow-hidden h-screen w-screen flex select-none text-[13px]">
+
+  <!-- RAIL KIRI (44px, #e8ecea) -->
+  <aside class="w-[44px] shrink-0 bg-[#e8ecea] border-r border-[rgba(12,26,22,0.12)] flex flex-col items-center justify-between py-3.5 z-30">
+    <div class="flex flex-col items-center gap-3">
+      <!-- AD Logo Badge -->
+      <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] flex items-center justify-center text-white font-bold text-[11px] font-mono shadow-sm cursor-pointer" title="AgentDeck Core">
+        AD
+      </div>
+      <div class="w-6 h-[1px] bg-[rgba(12,26,22,0.12)] my-0.5"></div>
+      <!-- Rail Icons (Ikon saja tanpa label) -->
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Semua Board">
+        <span class="material-symbols-outlined">dashboard</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Agent Registry">
+        <span class="material-symbols-outlined">smart_toy</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Antrean Approval">
+        <span class="material-symbols-outlined">verified_user</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Cost Ledger">
+        <span class="material-symbols-outlined">payments</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Audit Log">
+        <span class="material-symbols-outlined">history</span>
+      </button>
+    </div>
+    
+    <div class="flex flex-col items-center gap-3">
+      <!-- Active Settings Icon -->
+      <button class="w-8 h-8 rounded-[6px] bg-[#d9e1de] text-[#0d7a70] flex items-center justify-center" title="Pengaturan Akun (Aktif)">
+        <span class="material-symbols-outlined filled">settings</span>
+      </button>
+      <!-- Avatar User 26px -->
+      <div class="relative cursor-pointer" title="Masuk sebagai Reza (reza@core-platform.internal)">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#101014] text-white text-[10px] font-bold flex items-center justify-center border border-white">
+          RZ
+        </div>
+        <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-[#0d7a70] border-2 border-[#e8ecea] rounded-full"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR (224px, #f6f7f6) -->
+  <nav class="w-[224px] shrink-0 bg-[#f6f7f6] border-r border-[rgba(12,26,22,0.12)] flex flex-col justify-between overflow-y-auto text-[13px] z-20">
+    <div class="flex flex-col">
+      <!-- Header Workspace Info -->
+      <div class="p-3.5 pb-3 border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-bold font-mono tracking-wider uppercase text-[#6b7370] block">Workspace</span>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+            <span class="font-bold text-[12px] text-[#0e1110] font-mono truncate max-w-[120px]">ws_8f12a</span>
+          </div>
+        </div>
+        <span class="text-[9px] font-mono uppercase bg-[#d9e1de] text-[#0d7a70] px-1.5 py-0.5 rounded-[6px] font-bold">B2C SOLO</span>
+      </div>
+
+      <!-- Navigation Section -->
+      <div class="p-2 space-y-4">
+        <!-- GROUP: PENGATURAN AKUN -->
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-[#6b7370]">Pengaturan Akun</span>
+          <ul class="mt-1 space-y-0.5">
+            <li>
+              <a href="/settings/profile" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">person</span>
+                  <span>Profil Saya</span>
+                </div>
+              </a>
+            </li>
+            <li>
+              <a href="/settings/security" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">shield</span>
+                  <span>Keamanan &amp; Sesi</span>
+                </div>
+              </a>
+            </li>
+            <li>
+              <a href="/settings/workspace" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">domain</span>
+                  <span>Ruang Kerja</span>
+                </div>
+              </a>
+            </li>
+            <li>
+              <a href="/settings/members" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">group</span>
+                  <span>Anggota &amp; Role</span>
+                </div>
+              </a>
+            </li>
+            <li>
+              <a href="/settings/apikeys" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">key</span>
+                  <span>API Keys</span>
+                </div>
+              </a>
+            </li>
+            <li>
+              <a href="/settings/webhooks" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">webhook</span>
+                  <span>Webhooks</span>
+                </div>
+              </a>
+            </li>
+            <li>
+              <a href="/settings/audit" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">receipt_long</span>
+                  <span>Audit Log</span>
+                </div>
+              </a>
+            </li>
+            <!-- Active item: Tutup Akun -->
+            <li>
+              <a href="/settings/close" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] font-semibold border-l-2 border-[#0d7a70]">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined filled text-[16px] text-[#0d7a70]">person_remove</span>
+                  <span>Tutup Akun</span>
+                </div>
+                <span class="text-[9px] font-mono bg-red-50 text-red-700 px-1 py-0.2 rounded-[6px] font-bold border border-red-200">Destruktif</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- GROUP: NAVIGASI UTAMA -->
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-[#6b7370]">Navigasi Utama</span>
+          <ul class="mt-1 space-y-0.5">
+            <li>
+              <a href="/boards" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">view_kanban</span>
+                  <span>Semua Board</span>
+                </div>
+                <span class="text-[11px] font-mono text-[#6b7370]">6</span>
+              </a>
+            </li>
+            <li>
+              <a href="/agents" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">smart_toy</span>
+                  <span>Agent Registry</span>
+                </div>
+                <span class="text-[11px] font-mono text-[#6b7370]">5</span>
+              </a>
+            </li>
+            <li>
+              <a href="/approvals" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-[#6b7370]">verified_user</span>
+                  <span>Antrean Approval</span>
+                </div>
+                <span class="text-[10px] font-mono font-bold bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded-[6px]">1</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Daemon Status -->
+    <div class="p-2 border-t border-[rgba(12,26,22,0.07)] bg-[#f0f2f1]">
+      <div class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] bg-[rgba(12,26,22,0.05)] text-[11px] font-mono text-[#4d5553]">
+        <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+        <span class="truncate">daemon :8080 • v2.4</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- PUSAT: TOPBAR + KONTEN UTAMA + DRAWER (BLUEPRINT C) -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f6f7f6]">
+    <!-- TOPBAR (52px, #ffffff, HANYA membentang di atas pane konten) -->
+    <header class="h-[52px] shrink-0 bg-[#ffffff] border-b border-[rgba(12,26,22,0.12)] px-5 flex items-center justify-between gap-4 z-10">
+      <!-- Breadcrumbs -->
+      <div class="flex items-center gap-2 text-[12px] min-w-0">
+        <span class="text-[#6b7370] hover:text-[#0e1110] cursor-pointer">Pengaturan</span>
+        <span class="text-[#6b7370] text-[10px]">/</span>
+        <span class="text-[#6b7370] hover:text-[#0e1110] cursor-pointer">Akun</span>
+        <span class="text-[#6b7370] text-[10px]">/</span>
+        <span class="font-semibold text-[#0e1110] truncate">Tutup Akun</span>
+        <span class="font-mono text-[10px] text-[#0d7a70] bg-[#eef7f5] px-1.5 py-0.5 rounded-[6px] border border-[rgba(13,122,112,0.2)]">/settings/close</span>
+      </div>
+
+      <!-- Compliance Tag & User Badge -->
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#eef7f5] border border-[#0d7a70]/30 text-[#0d7a70] text-[11px] font-mono font-medium">
+          <span class="material-symbols-outlined filled text-[14px]">verified</span>
+          <span>US-AD98 (AC1 COMPLIANT)</span>
+        </div>
+        <div class="h-4 w-[1px] bg-[rgba(12,26,22,0.12)]"></div>
+        <div class="text-[11px] font-mono text-[#4d5553]">
+          Akun: <span class="text-[#0e1110] font-semibold">reza@core-platform.internal</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENT BODY (Pane Konten Scrollable + Drawer 420px Blueprint C) -->
+    <div class="flex-1 flex min-w-0 overflow-hidden relative">
+      
+      <!-- PANE KONTEN KIRI (Scrollable vertikal, #f6f7f6) -->
+      <main class="flex-1 overflow-y-auto p-5 space-y-4">
+        
+        <!-- Header Ringkasan Permintaan -->
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.12)] rounded-[10px] p-[10px] shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-[6px] bg-red-50 border border-red-200 text-red-700 font-mono text-[11px] font-bold">
+                US-AD98
+              </span>
+              <span class="text-[11px] font-mono text-[#6b7370]">M6 Milestone • Should-have</span>
+              <span class="text-[11px] font-mono text-[#6b7370]">State: default</span>
+            </div>
+            <span class="text-[11px] font-mono text-[#0d7a70] bg-[#eef7f5] px-2 py-0.5 rounded-[6px] border border-[rgba(13,122,112,0.2)] font-medium">
+              Drawer Konfirmasi Aktif (420px)
+            </span>
+          </div>
+          <h1 class="text-[16px] font-bold text-[#0e1110] tracking-tight">Penutupan Akun Mandiri</h1>
+          <p class="text-[12px] text-[#4d5553] mt-1 leading-relaxed">
+            Menghapus identitas pengguna, mencabut seluruh sesi JWT aktif, serta melepaskan seluruh kunci enkripsi kredensial provider LLM dari database internal daemon.
+          </p>
+        </div>
+
+        <!-- Kartu Spesifikasi US-AD98 AC1 -->
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.12)] rounded-[10px] p-[10px] shadow-sm">
+          <div class="flex items-center gap-2 text-[#0d7a70] mb-2 font-semibold text-[13px]">
+            <span class="material-symbols-outlined text-[16px]">verified</span>
+            <span>Spesifikasi Kepatuhan US-AD98 AC1</span>
+          </div>
+          <div class="p-3 bg-[#f6f7f6] rounded-[6px] border border-[rgba(12,26,22,0.07)] space-y-2 text-[12px] text-[#4d5553]">
+            <div class="flex items-start gap-2">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70] mt-1.5 shrink-0"></span>
+              <div>
+                <strong class="text-[#0e1110]">AC1 — Pengetikan Ulang Email Wajib:</strong>
+                Permintaan penutupan memerlukan pengetikan ulang email akun secara tepat sebagai konfirmasi, bukan sekadar menekan tombol. Tombol submit penutupan tetap dinonaktifkan (disabled) hingga string email cocok sepenuhnya dengan akun terdaftar.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kartu Ringkasan Data Akun Terkait -->
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.12)] rounded-[10px] p-[10px] shadow-sm">
+          <div class="flex items-center justify-between pb-2 border-b border-[rgba(12,26,22,0.07)]">
+            <span class="text-[12px] font-bold text-[#0e1110] uppercase tracking-wide">Ringkasan Entitas yang Akan Ditutup</span>
+            <span class="text-[11px] font-mono text-[#6b7370]">USR ID: usr_8f12a_reza</span>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-3 mt-3">
+            <div class="p-2.5 bg-[#f6f7f6] rounded-[6px] border border-[rgba(12,26,22,0.07)]">
+              <span class="text-[10px] font-mono uppercase text-[#6b7370] block font-semibold">Email Terdaftar</span>
+              <span class="text-[12px] font-mono font-semibold text-[#0e1110] mt-0.5 block truncate" title="reza@core-platform.internal">
+                reza@core-platform.internal
+              </span>
+            </div>
+
+            <div class="p-2.5 bg-[#f6f7f6] rounded-[6px] border border-[rgba(12,26,22,0.07)]">
+              <span class="text-[10px] font-mono uppercase text-[#6b7370] block font-semibold">Nama Tampilan</span>
+              <span class="text-[12px] font-semibold text-[#0e1110] mt-0.5 block">Reza</span>
+            </div>
+
+            <div class="p-2.5 bg-[#f6f7f6] rounded-[6px] border border-[rgba(12,26,22,0.07)]">
+              <span class="text-[10px] font-mono uppercase text-[#6b7370] block font-semibold">Workspace Personal</span>
+              <span class="text-[12px] font-mono text-[#0e1110] mt-0.5 block">ws_8f12a (core)</span>
+            </div>
+
+            <div class="p-2.5 bg-[#f6f7f6] rounded-[6px] border border-[rgba(12,26,22,0.07)]">
+              <span class="text-[10px] font-mono uppercase text-[#6b7370] block font-semibold">Status Kepemilikan</span>
+              <span class="text-[12px] text-[#0e1110] mt-0.5 block">Solo Owner (B2C)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Peringatan Dampak Penutupan -->
+        <div class="bg-[#ffffff] border border-red-200 rounded-[10px] p-[10px] shadow-sm">
+          <div class="flex items-center gap-2 text-red-700 font-semibold text-[12px] mb-2">
+            <span class="material-symbols-outlined text-[16px] text-red-600">warning</span>
+            <span>Dampak Tindakan Permanen</span>
+          </div>
+          <ul class="text-[12px] text-[#4d5553] space-y-1.5 pl-4 list-disc">
+            <li>Sesi login aktif pada perangkat web browser dan runner CLI akan segera diputus (revoked).</li>
+            <li>Token bearer JWT yang terkait dengan identitas pengguna tidak lagi dapat digunakan untuk otentikasi.</li>
+            <li>Ledger telemetri historis tetap diarsipkan untuk integritas audit daemon lokal tanpa mengekspos identitas pribadi.</li>
+          </ul>
+        </div>
+
+      </main>
+
+      <!-- DRAWER BLUEPRINT C (420px DI ANTARA konten dan cost rail, #ffffff, border-l) -->
+      <aside class="w-[420px] shrink-0 bg-[#ffffff] border-l border-[rgba(12,26,22,0.12)] flex flex-col justify-between z-20 shadow-[-4px_0_12px_rgba(0,0,0,0.03)]">
+        
+        <!-- Header Drawer -->
+        <div class="h-[52px] px-4 border-b border-[rgba(12,26,22,0.12)] flex items-center justify-between bg-[#ffffff]">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-red-600 text-[18px]">no_accounts</span>
+            <div>
+              <h2 class="text-[13px] font-bold text-[#0e1110]">Konfirmasi Tutup Akun</h2>
+              <span class="text-[10px] font-mono text-[#6b7370] block">Blueprint C Drawer • 420px</span>
+            </div>
+          </div>
+          <button class="w-7 h-7 rounded-[6px] hover:bg-[rgba(12,26,22,0.05)] text-[#6b7370] flex items-center justify-center transition-colors" title="Tutup Drawer">
+            <span class="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        </div>
+
+        <!-- Isi Drawer (Scrollable jika tinggi terbatas) -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+          
+          <!-- Banner Penjelasan Konfirmasi -->
+          <div class="p-3 bg-red-50/70 rounded-[10px] border border-red-200/80">
+            <div class="flex items-center gap-2 text-red-800 font-bold text-[12px]">
+              <span class="material-symbols-outlined text-[16px]">error</span>
+              <span>Tindakan Tidak Dapat Dibatalkan</span>
+            </div>
+            <p class="text-[11px] text-red-700 mt-1 leading-relaxed">
+              Setelah akun ditutup, akses login akan diputus seketika. Anda tidak dapat masuk kembali menggunakan kredensial yang sama.
+            </p>
+          </div>
+
+          <!-- US-AD98 AC1: Form Pengetikan Ulang Email -->
+          <div class="bg-[#f6f7f6] rounded-[10px] border border-[rgba(12,26,22,0.07)] p-3.5 space-y-3">
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-[11px] font-bold uppercase tracking-wider text-[#0e1110]">
+                  Verifikasi Email Akun <span class="text-red-600">*</span>
+                </label>
+                <span class="text-[10px] font-mono px-1.5 py-0.2 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] border border-[rgba(13,122,112,0.2)] font-bold">
+                  US-AD98 AC1
+                </span>
+              </div>
+              <p class="text-[11px] text-[#4d5553] mb-2 leading-relaxed">
+                Ketik ulang alamat email akun Anda di bawah untuk mengonfirmasi penutupan:
+              </p>
+              
+              <!-- Petunjuk email target -->
+              <div class="p-2 rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] flex items-center justify-between mb-2">
+                <span class="text-[10px] font-mono text-[#6b7370]">Target Email:</span>
+                <span class="text-[11px] font-mono font-bold text-[#0e1110]">reza@core-platform.internal</span>
+              </div>
+
+              <!-- Input text pengetikan ulang email -->
+              <div class="relative">
+                <input 
+                  type="email" 
+                  value="" 
+                  placeholder="Ketik reza@core-platform.internal" 
+                  class="w-full h-9 px-3 text-[12px] font-mono rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.18)] focus:border-red-600 focus:ring-1 focus:ring-red-600 focus:outline-none placeholder:text-[#6b7370] text-[#0e1110]"
+                />
+              </div>
+              <div class="flex items-center gap-1.5 mt-1.5 text-[10px] text-[#6b7370] font-mono">
+                <span class="material-symbols-outlined text-[13px] text-[#6b7370]">info</span>
+                <span>Tombol konfirmasi aktif bila email cocok sempurna</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pilihan Alasan Penutupan (Opsional) -->
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-bold uppercase tracking-wider text-[#6b7370] block">
+              Alasan Penutupan (Opsional)
+            </label>
+            <select class="w-full h-8 px-2.5 text-[12px] rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.12)] text-[#0e1110] focus:border-[#0d7a70] focus:outline-none">
+              <option value="">Pilih alasan penutupan akun...</option>
+              <option value="temporary">Hanya pengujian sementara (testing/evaluasi)</option>
+              <option value="switch_workspace">Beralih ke instance daemon lain</option>
+              <option value="not_needed">Tidak lagi membutuhkan orkestrator</option>
+              <option value="other">Alasan lainnya</option>
+            </select>
+          </div>
+
+          <!-- Pernyataan Kepahaman Pengguna -->
+          <div class="p-3 bg-[#f6f7f6] rounded-[10px] border border-[rgba(12,26,22,0.07)] flex items-start gap-2.5">
+            <input 
+              type="checkbox" 
+              id="ack_close" 
+              class="w-4 h-4 mt-0.5 rounded-[4px] border-[rgba(12,26,22,0.18)] text-red-600 focus:ring-red-500"
+            />
+            <label for="ack_close" class="text-[11px] text-[#4d5553] leading-snug cursor-pointer select-none">
+              Saya memahami bahwa akun saya akan dinonaktifkan secara permanen dan seluruh sesi login aktif akan segera dibatalkan.
+            </label>
+          </div>
+
+        </div>
+
+        <!-- Footer Action Drawer -->
+        <div class="p-4 border-t border-[rgba(12,26,22,0.12)] bg-[#ffffff] space-y-2">
+          <!-- Tombol Destruktif Tutup Akun Permanen (disabled pada state default karena email belum diketik ulang) -->
+          <button 
+            type="button" 
+            disabled 
+            class="w-full h-9 rounded-[6px] bg-red-600/50 text-white font-medium text-[12px] flex items-center justify-center gap-2 cursor-not-allowed opacity-60 shadow-none transition-all"
+            title="Ketik ulang email di atas untuk mengaktifkan tombol ini"
+          >
+            <span class="material-symbols-outlined text-[16px]">delete_forever</span>
+            <span>Tutup Akun Saya Permanen</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="w-full h-8 rounded-[6px] bg-transparent hover:bg-[rgba(12,26,22,0.05)] text-[#4d5553] text-[12px] font-medium transition-colors"
+          >
+            Batal
+          </button>
+        </div>
+
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- COST RAIL KANAN (264px, #eef1f0, border-l) -->
+  <!-- Isi tetap sesuai kontrak: TODAY, 7-DAY sparkline, TOP SPENDERS, RUNNING NOW. JANGAN tambah isi lain. -->
+  <aside class="w-[264px] shrink-0 bg-[#eef1f0] border-l border-[rgba(12,26,22,0.12)] flex flex-col justify-between p-3.5 text-[12px] z-30">
+    <div class="space-y-4">
+      
+      <!-- 1. TODAY (Biaya + Meter Pagu 6px) -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] mb-1">
+          <span class="font-bold text-[#0e1110] uppercase tracking-wider">Today</span>
+          <span class="text-[#0d7a70] font-bold">CAP $20.00</span>
+        </div>
+        <div class="flex items-baseline justify-between">
+          <div class="text-[20px] font-bold font-mono text-[#0e1110] tracking-tight">$4.82</div>
+          <div class="text-[11px] font-mono text-[#6b7370]">Sisa: <span class="font-semibold text-[#0d7a70]">$15.18</span></div>
+        </div>
+        <!-- Budget meter: 6px -->
+        <div class="w-full bg-[rgba(12,26,22,0.10)] h-[6px] rounded-[9999px] mt-2 overflow-hidden">
+          <div class="bg-[#0d7a70] h-full rounded-[9999px]" style="width: 24.1%;"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] font-mono text-[#6b7370] mt-1">
+          <span>24.1% terpakai</span>
+          <span>Pagu aman</span>
+        </div>
+      </div>
+
+      <div class="h-[1px] bg-[rgba(12,26,22,0.07)]"></div>
+
+      <!-- 2. 7-DAY (Sparkline Bar) -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] mb-2">
+          <span class="font-bold text-[#0e1110] uppercase tracking-wider">7-Day</span>
+          <span>Sep 12 — Sep 18</span>
+        </div>
+        <!-- Sparkline Bars Container (Height 48px) -->
+        <div class="h-12 flex items-end justify-between gap-1 px-0.5">
+          <!-- Sep 12 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[rgba(13,122,112,0.3)] rounded-t-[2px]" style="height: 42%;" title="Sep 12: $2.80"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">12</span>
+          </div>
+          <!-- Sep 13 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[rgba(13,122,112,0.3)] rounded-t-[2px]" style="height: 55%;" title="Sep 13: $3.60"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">13</span>
+          </div>
+          <!-- Sep 14 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[rgba(13,122,112,0.3)] rounded-t-[2px]" style="height: 25%;" title="Sep 14: $1.90"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">14</span>
+          </div>
+          <!-- Sep 15 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[rgba(13,122,112,0.3)] rounded-t-[2px]" style="height: 70%;" title="Sep 15: $4.90"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">15</span>
+          </div>
+          <!-- Sep 16 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[rgba(13,122,112,0.3)] rounded-t-[2px]" style="height: 48%;" title="Sep 16: $3.20"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">16</span>
+          </div>
+          <!-- Sep 17 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[rgba(13,122,112,0.3)] rounded-t-[2px]" style="height: 80%;" title="Sep 17: $5.80"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">17</span>
+          </div>
+          <!-- Sep 18 (Today - Highlighted) -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70] rounded-t-[2px]" style="height: 65%;" title="Sep 18 (Today): $4.82"></div>
+            <span class="text-[9px] font-mono font-bold text-[#0d7a70]">18</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="h-[1px] bg-[rgba(12,26,22,0.07)]"></div>
+
+      <!-- 3. TOP SPENDERS (3 Baris) -->
+      <div>
+        <div class="text-[11px] font-mono text-[#6b7370] uppercase font-bold tracking-wider mb-2">
+          Top Spenders
+        </div>
+        <div class="space-y-2">
+          <!-- 1. agent-backend -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-backend</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$1.84</span>
+            </div>
+            <div class="w-full bg-[rgba(12,26,22,0.08)] h-[3px] rounded-full overflow-hidden mt-1">
+              <div class="bg-[#0d7a70] h-full" style="width: 38.1%;"></div>
+            </div>
+          </div>
+          <!-- 2. agent-data -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-data</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$1.42</span>
+            </div>
+            <div class="w-full bg-[rgba(12,26,22,0.08)] h-[3px] rounded-full overflow-hidden mt-1">
+              <div class="bg-[#0d7a70]/80 h-full" style="width: 29.4%;"></div>
+            </div>
+          </div>
+          <!-- 3. agent-docs -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-docs</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$0.91</span>
+            </div>
+            <div class="w-full bg-[rgba(12,26,22,0.08)] h-[3px] rounded-full overflow-hidden mt-1">
+              <div class="bg-[#0d7a70]/60 h-full" style="width: 18.8%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="h-[1px] bg-[rgba(12,26,22,0.07)]"></div>
+
+      <!-- 4. RUNNING NOW -->
+      <div>
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] mb-2">
+          <span class="font-bold text-[#0e1110] uppercase tracking-wider">Running Now</span>
+          <span class="flex items-center gap-1 text-[#0d7a70] font-bold">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70] animate-pulse"></span>
+            2 Active
+          </span>
+        </div>
+        <div class="space-y-1.5 text-[11px] font-mono">
+          <div class="p-1.5 px-2 rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="font-bold text-[#0e1110]">agent-backend</span>
+            <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+          </div>
+          <div class="p-1.5 px-2 rounded-[6px] bg-[#ffffff] border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="font-bold text-[#0e1110]">agent-docs</span>
+            <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer Cost Rail -->
+    <div class="pt-3 border-t border-[rgba(12,26,22,0.07)] text-[10px] font-mono text-[#6b7370] flex items-center justify-between">
+      <span>AgentDeck Core</span>
+      <span class="text-[#0d7a70] font-bold">µUSD Ledger</span>
+    </div>
+  </aside>
+
+</body>
+</html>

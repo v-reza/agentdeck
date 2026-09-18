@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentDeck — Task Detail Drawer (Blueprint C)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: #f6f7f6;
+    color: #0e1110;
+    font-size: 13px;
+    line-height: 1.4;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Color Tokens */
+  :root {
+    --rail-bg: #e8ecea;
+    --sidebar-bg: #f6f7f6;
+    --costrail-bg: #eef1f0;
+    --canvas-bg: #f6f7f6;
+    --card-bg: #ffffff;
+    --topbar-bg: #ffffff;
+    --accent: #0d7a70;
+    --accent-hover: #0b6860;
+    --accent-tint: #eaf4f2;
+    --ink-primary: #0e1110;
+    --ink-secondary: #4d5553;
+    --ink-muted: #6b7370;
+    --border-subtle: rgba(12, 26, 22, 0.07);
+    --border-std: rgba(12, 26, 22, 0.12);
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  /* 1. Left Rail (44px) */
+  .app-rail {
+    width: 44px;
+    background-color: var(--rail-bg);
+    border-right: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    flex-shrink: 0;
+    z-index: 30;
+  }
+  .rail-top, .rail-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  .rail-brand {
+    width: 28px;
+    height: 28px;
+    background-color: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  .rail-icon {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    color: var(--ink-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .rail-icon:hover {
+    background: rgba(13, 122, 112, 0.08);
+    color: var(--accent);
+  }
+  .rail-icon.active {
+    background: var(--accent-tint);
+    color: var(--accent);
+  }
+  .rail-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 9999px;
+    background-color: #16a34a;
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2);
+  }
+
+  /* 2. Sidebar (224px) */
+  .app-sidebar {
+    width: 224px;
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 14px 12px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    z-index: 20;
+  }
+  .sidebar-section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: var(--ink-muted);
+    margin-bottom: 8px;
+    padding: 0 4px;
+  }
+  .sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 20px;
+  }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 6px;
+    color: var(--ink-secondary);
+    font-size: 12.5px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .sidebar-item:hover {
+    background-color: rgba(12, 26, 22, 0.04);
+    color: var(--ink-primary);
+  }
+  .sidebar-item.active {
+    background-color: var(--accent-tint);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .sidebar-item .item-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sidebar-item .badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: rgba(12, 26, 22, 0.05);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  .sidebar-agent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .agent-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--ink-secondary);
+  }
+  .agent-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 9999px;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 9px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    text-transform: lowercase;
+  }
+  .agent-avatar.teal {
+    background: var(--accent-tint);
+    color: var(--accent);
+  }
+  .agent-avatar.blue {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+  .agent-avatar.purple {
+    background: #f5f3ff;
+    color: #7c3aed;
+  }
+  .agent-avatar.amber {
+    background: #fffbeb;
+    color: #d97706;
+  }
+  .user-footer {
+    padding-top: 10px;
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .user-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 9999px;
+    background: #e2e8f0;
+    color: var(--ink-primary);
+    font-size: 10px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .user-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-primary);
+  }
+  .user-badge {
+    font-size: 9px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    background: rgba(12, 26, 22, 0.05);
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: var(--ink-muted);
+  }
+
+  /* Main Workspace Area (Content + Topbar) */
+  .workspace-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    min-width: 0;
+    position: relative;
+    background: var(--canvas-bg);
+  }
+
+  /* Topbar (52px) */
+  .app-topbar {
+    height: 52px;
+    background-color: var(--topbar-bg);
+    border-bottom: 1px solid var(--border-std);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .board-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .task-count-pill {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    background: #f1f3f2;
+    padding: 2px 7px;
+    border-radius: 10px;
+    color: var(--ink-muted);
+    font-weight: 500;
+  }
+  .view-switchers {
+    display: flex;
+    background: #f1f3f2;
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .view-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--ink-secondary);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+  }
+  .view-btn.active {
+    background: #ffffff;
+    color: var(--ink-primary);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    font-weight: 600;
+  }
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .search-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f6f7f6;
+    border: 1px solid var(--border-std);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    width: 210px;
+    color: var(--ink-secondary);
+  }
+  .filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border: 1px solid var(--border-std);
+    border-radius: 6px;
+    background: #ffffff;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-secondary);
+    cursor: pointer;
+  }
+  .filter-toggle.active {
+    background: var(--accent-tint);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .btn-primary-sm {
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  /* Content + Drawer layout wrapper */
+  .workspace-body {
+    flex: 1;
+    display: flex;
+    height: calc(100vh - 52px);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Kanban Background / Underlay (Columns) */
+  .kanban-underlay {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: var(--canvas-bg);
+  }
+  .kanban-col {
+    width: 268px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: #f0f2f1;
+    border-radius: 8px;
+    overflow: hidden;
+    height: 100%;
+  }
+  .col-header {
+    height: 30px;
+    background: #f0f2f1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink-primary);
+  }
+  .col-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .col-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 9999px;
+  }
+  .col-cards {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .kanban-card {
+    background: var(--card-bg);
+    border-radius: 6px;
+    padding: 10px;
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    cursor: pointer;
+  }
+  .kanban-card.selected {
+    border: 1.5px solid var(--accent);
+    box-shadow: 0 0 0 2px rgba(13, 122, 112, 0.15);
+  }
+  .card-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-primary);
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+  .card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+  }
+  .card-agent {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--ink-secondary);
+  }
+  .card-cost {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  /* 3. Task Detail Drawer (420px) - Blueprint C */
+  .task-drawer {
+    width: 420px;
+    background: #ffffff;
+    border-left: 1px solid var(--border-std);
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    height: 100%;
+    z-index: 25;
+    position: relative;
+  }
+  .drawer-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .drawer-header-left {
+    flex: 1;
+    min-width: 0;
+  }
+  .task-key-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-bottom: 4px;
+  }
+  .task-drawer-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink-primary);
+    line-height: 1.3;
+    word-break: break-word;
+  }
+  .drawer-close-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-muted);
+    cursor: pointer;
+  }
+  .drawer-close-btn:hover {
+    background: #f6f7f6;
+    color: var(--ink-primary);
+  }
+
+  /* Drawer Tab Bar (AC2) */
+  .drawer-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-std);
+    background: #ffffff;
+    padding: 0 16px;
+    gap: 16px;
+  }
+  .drawer-tab {
+    padding: 9px 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-secondary);
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .drawer-tab:hover {
+    color: var(--ink-primary);
+  }
+  .drawer-tab.active {
+    color: var(--accent);
+    font-weight: 600;
+    border-bottom-color: var(--accent);
+  }
+  .tab-count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    background: rgba(12, 26, 22, 0.06);
+    padding: 1px 5px;
+    border-radius: 9999px;
+    color: var(--ink-secondary);
+  }
+  .drawer-tab.active .tab-count {
+    background: var(--accent-tint);
+    color: var(--accent);
+  }
+
+  /* Drawer Scrollable Body */
+  .drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: #ffffff;
+  }
+
+  /* Core Task Details Card (AC1) */
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    row-gap: 10px;
+    column-gap: 8px;
+    align-items: center;
+    background: #fafbfa;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .detail-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--ink-muted);
+  }
+  .detail-value {
+    font-size: 12px;
+    color: var(--ink-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  /* Status and Priority Badges */
+  .badge-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .status-running {
+    background: #fffbeb;
+    color: #d97706;
+    border: 1px solid rgba(217, 119, 6, 0.25);
+  }
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+  }
+  .status-running .status-dot {
+    background: #d97706;
+  }
+  .badge-priority {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #fee2e2;
+    color: #dc2626;
+  }
+
+  /* Reassign Selector (US-AD79 AC1) */
+  .reassign-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+  }
+  .agent-select {
+    font-size: 11.5px;
+    font-family: inherit;
+    color: var(--ink-primary);
+    border: 1px solid var(--border-std);
+    border-radius: 6px;
+    padding: 4px 6px;
+    background: #ffffff;
+    cursor: pointer;
+    font-weight: 500;
+    flex: 1;
+  }
+  .reassign-hint {
+    font-size: 10px;
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+  }
+
+  /* Dependencies (AC1) */
+  .dep-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    background: #eef1f0;
+    color: var(--ink-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border-subtle);
+  }
+
+  /* Cost Highlight */
+  .cost-highlight {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+  .cost-sub {
+    font-size: 10px;
+    color: var(--ink-muted);
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+  }
+
+  /* Task Body section (AC1) */
+  .task-body-box {
+    border: 1px solid var(--border-subtle);
+    background: #fafbfa;
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .section-subtitle {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    color: var(--ink-muted);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .task-body-text {
+    font-size: 12px;
+    color: var(--ink-secondary);
+    line-height: 1.5;
+  }
+  .task-body-text code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: #eef1f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: var(--ink-primary);
+  }
+
+  /* Recent Events List (AC1 & US-AD40 AC1) */
+  .timeline-events-container {
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: #ffffff;
+    overflow: hidden;
+  }
+  .timeline-events-header {
+    background: #fafbfa;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-secondary);
+  }
+  .event-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    position: relative;
+  }
+  .event-item:last-child {
+    border-bottom: none;
+  }
+  .event-dot-track {
+    width: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 3px;
+    flex-shrink: 0;
+  }
+  .event-node {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: #cbd5e1;
+  }
+  .event-node.active {
+    background: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-tint);
+  }
+  .event-node.warning {
+    background: #f59e0b;
+  }
+  .event-node.blue {
+    background: #3b82f6;
+  }
+  .event-node.purple {
+    background: #8b5cf6;
+  }
+  .event-content {
+    flex: 1;
+    min-width: 0;
+  }
+  .event-type-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 2px;
+  }
+  .event-name {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-primary);
+  }
+  .event-time {
+    font-size: 10px;
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+  }
+  .event-desc {
+    font-size: 11px;
+    color: var(--ink-secondary);
+    line-height: 1.35;
+  }
+
+  /* Drawer Footer Actions (US-AD59, US-AD13 AC4 viewer permission guard) */
+  .drawer-footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border-std);
+    background: #fafbfa;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .drawer-action-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .btn-drawer {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px;
+    border: 1px solid var(--border-std);
+    background: #ffffff;
+    color: var(--ink-primary);
+    cursor: pointer;
+  }
+  .btn-drawer:hover {
+    background: #f6f7f6;
+  }
+  .btn-drawer.danger {
+    color: #dc2626;
+    border-color: rgba(220, 38, 38, 0.25);
+  }
+  .btn-drawer.danger:hover {
+    background: #fee2e2;
+  }
+  .btn-drawer.archive {
+    color: var(--ink-secondary);
+  }
+  .btn-drawer.archive:hover {
+    color: var(--ink-primary);
+    background: #eef1f0;
+  }
+  .rbac-note {
+    font-size: 10px;
+    color: var(--ink-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1.2;
+  }
+
+  /* 4. Cost Rail Right (264px) - Blueprint A/B/C Fixed */
+  .cost-rail {
+    width: 264px;
+    background-color: var(--costrail-bg);
+    border-left: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 14px;
+    flex-shrink: 0;
+    gap: 20px;
+    z-index: 20;
+    overflow-y: auto;
+  }
+  .cost-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .cost-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .cost-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+  }
+  .cost-cap {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--ink-muted);
+  }
+  .cost-amount-large {
+    font-size: 24px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--ink-primary);
+    letter-spacing: -0.5px;
+    margin: 2px 0 4px;
+  }
+  .cost-bar-container {
+    width: 100%;
+    height: 6px;
+    background: rgba(12, 26, 22, 0.08);
+    border-radius: 9999px;
+    overflow: hidden;
+    margin-bottom: 4px;
+  }
+  .cost-bar-fill {
+    height: 100%;
+    width: 24.1%;
+    background: var(--accent);
+    border-radius: 9999px;
+  }
+  .cost-subtext {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10.5px;
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+  }
+
+  /* 7-Day Sparkline */
+  .sparkline-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .sparkline-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ink-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .sparkline-range {
+    font-size: 9.5px;
+    font-family: var(--font-mono);
+    color: var(--ink-muted);
+  }
+  .sparkline-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 38px;
+    padding-top: 4px;
+  }
+  .spark-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .spark-bar {
+    width: 100%;
+    background: #0d7a70;
+    opacity: 0.45;
+    border-radius: 2px;
+  }
+  .spark-bar.today {
+    opacity: 0.95;
+  }
+  .spark-label {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--ink-muted);
+  }
+
+  /* Top Spenders */
+  .spenders-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .spender-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .spender-text {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 11.5px;
+  }
+  .spender-name {
+    font-family: var(--font-mono);
+    color: var(--ink-primary);
+    font-weight: 500;
+    font-size: 11px;
+  }
+  .spender-val {
+    font-family: var(--font-mono);
+    color: var(--ink-primary);
+    font-weight: 600;
+  }
+  .spender-meter {
+    height: 3px;
+    background: rgba(12, 26, 22, 0.08);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+  .spender-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 9999px;
+  }
+
+  /* Running Now */
+  .running-now-card {
+    margin-top: auto;
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-subtle);
+  }
+  .running-now-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: #d97706;
+  }
+  .running-agent-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-primary);
+  }
+  .running-agent-sub {
+    font-size: 10.5px;
+    color: var(--ink-muted);
+    font-family: var(--font-mono);
+  }
+
+  /* SVG Icons */
+  .icon-svg {
+    width: 15px;
+    height: 15px;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+</style>
+</head>
+<body>
+
+  <!-- 1. RAIL KIRI (44px) -->
+  <aside class="app-rail">
+    <div class="rail-top">
+      <div class="rail-brand">AD</div>
+      <div class="rail-icon">
+        <svg class="icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      </div>
+      <div class="rail-icon active">
+        <svg class="icon-svg" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+      </div>
+      <div class="rail-icon">
+        <svg class="icon-svg" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </div>
+      <div class="rail-icon">
+        <svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </div>
+    </div>
+    <div class="rail-bottom">
+      <div class="rail-status-dot" title="Fleet Daemon: active :8080"></div>
+    </div>
+  </aside>
+
+  <!-- 2. SIDEBAR (224px) -->
+  <aside class="app-sidebar">
+    <div>
+      <div class="sidebar-section-title">Papan Kanban</div>
+      <div class="sidebar-menu">
+        <a class="sidebar-item active">
+          <div class="item-left">
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+            <span>Sprint 24</span>
+          </div>
+          <span class="badge">12</span>
+        </a>
+        <a class="sidebar-item">
+          <div class="item-left">
+            <svg class="icon-svg" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+            <span>Sprint 23</span>
+          </div>
+          <span class="badge">24</span>
+        </a>
+        <a class="sidebar-item">
+          <div class="item-left">
+            <svg class="icon-svg" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            <span>Backlog grooming</span>
+          </div>
+          <span class="badge">38</span>
+        </a>
+        <a class="sidebar-item">
+          <div class="item-left">
+            <svg class="icon-svg" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            <span>Agent ops</span>
+          </div>
+          <span class="badge">6</span>
+        </a>
+      </div>
+
+      <div class="sidebar-section-title">Armada Aktif</div>
+      <div class="sidebar-agent-list">
+        <div class="agent-row">
+          <span class="agent-avatar teal">be</span>
+          <span>agent-backend</span>
+        </div>
+        <div class="agent-row">
+          <span class="agent-avatar blue">dt</span>
+          <span>agent-data</span>
+        </div>
+        <div class="agent-row">
+          <span class="agent-avatar purple">dc</span>
+          <span>agent-docs</span>
+        </div>
+        <div class="agent-row">
+          <span class="agent-avatar amber">sc</span>
+          <span>agent-security</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- US-AD13 AC4 User context (Viewer vs Owner) -->
+    <div class="user-footer">
+      <div class="user-info">
+        <div class="user-avatar">RZ</div>
+        <div>
+          <div class="user-name">Reza</div>
+          <span class="user-badge">OWNER</span>
+        </div>
+      </div>
+      <svg class="icon-svg" style="color: var(--ink-muted);" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </div>
+  </aside>
+
+  <!-- WORKSPACE MAIN (Topbar + Body) -->
+  <main class="workspace-main">
+    
+    <!-- TOPBAR (52px) -->
+    <header class="app-topbar">
+      <div class="topbar-left">
+        <h1 class="board-title">
+          Sprint 24
+          <span class="task-count-pill">12 task</span>
+        </h1>
+        <div class="view-switchers">
+          <button class="view-btn active">
+            <svg class="icon-svg" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="10" rx="1"/></svg>
+            Board
+          </button>
+          <button class="view-btn">
+            <svg class="icon-svg" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Table
+          </button>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="search-box">
+          <svg class="icon-svg" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Cari task, ID, agent..." style="border:none; background:transparent; outline:none; font-size:12px; width:100%; color:inherit;">
+        </div>
+        <!-- US-AD59 AC1: Filter archived toggle -->
+        <button class="filter-toggle" title="Filter Board">
+          <svg class="icon-svg" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          <span>Filter</span>
+        </button>
+        <button class="filter-toggle" title="US-AD59: Toggle tampilkan task archived">
+          <svg class="icon-svg" viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+          <span>Archived: Tutup</span>
+        </button>
+        <button class="btn-primary-sm">
+          <svg class="icon-svg" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Buat Task
+        </button>
+      </div>
+    </header>
+
+    <!-- WORKSPACE BODY (Kanban + 420px Drawer) -->
+    <div class="workspace-body">
+      
+      <!-- Underlay Kanban Board Content -->
+      <section class="kanban-underlay">
+        
+        <!-- Col 1: Backlog -->
+        <div class="kanban-col" style="border-top: 3px solid #64748b;">
+          <div class="col-header">
+            <div class="col-header-left">
+              <span class="col-dot" style="background:#64748b;"></span>
+              <span>Backlog</span>
+            </div>
+            <span class="task-count-pill">3</span>
+          </div>
+          <div class="col-cards">
+            <div class="kanban-card">
+              <div class="card-title">Upgrade Postgres schema v2</div>
+              <div class="card-meta">
+                <span class="card-agent"><span class="agent-avatar" style="background:#f1f5f9; color:#475569;">db</span> agent-db</span>
+                <span class="card-cost">$0.000</span>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="card-title">Migrate sessions to Redis-less</div>
+              <div class="card-meta">
+                <span class="card-agent"><span class="agent-avatar teal">be</span> agent-backend</span>
+                <span class="card-cost">$0.000</span>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="card-title">Investigate cold start 900ms</div>
+              <div class="card-meta">
+                <span class="card-agent"><span class="agent-avatar" style="background:#f3e8ff; color:#7e22ce;">pf</span> agent-perf</span>
+                <span class="card-cost">$0.000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col 2: Ready -->
+        <div class="kanban-col" style="border-top: 3px solid #2563eb;">
+          <div class="col-header">
+            <div class="col-header-left">
+              <span class="col-dot" style="background:#2563eb;"></span>
+              <span>Ready</span>
+            </div>
+            <span class="task-count-pill">3</span>
+          </div>
+          <div class="col-cards">
+            <div class="kanban-card">
+              <div class="card-title">Fix payment webhook retry backoff</div>
+              <div class="card-meta">
+                <span class="card-agent"><span class="agent-avatar" style="background:#fee2e2; color:#b91c1c;">pm</span> agent-pay</span>
+                <span class="card-cost">$0.000</span>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="card-title">Backfill user analytics ledger</div>
+              <div class="card-meta">
+                <span class="card-agent"><span class="agent-avatar blue">dt</span> agent-data</span>
+                <span class="card-cost">$0.000</span>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="card-title">Audit node dependency licenses</div>
+              <div class="card-meta">
+                <span class="card-agent"><span class="agent-avatar amber">sc</span> agent-security</span>
+                <span class="card-cost">$0.000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col 3: Running (Active Task selected) -->
+        <div class="kanban-col" style="border-top: 3px solid #d97706;">
+          <div class="col-header">
+            <div class="col-header-left">
+              <span class="col-dot" style="background:#d97706;"></span>
+              <span>Running</span>
+            </div>
+            <span class="task-count-pill">2</span>
+          </div>
+          <div class="col-cards">
+            <!-- SELECTED CARD OPENED IN DRAWER -->
+            <div class="kanban-card selected">
+              <div class="card-title">Refactor auth module & telemetry pipeline</div>
+              <div class="card-meta">
+                <span class="card-agent"><span class="agent-avatar teal">be</span> agent-backend</span>
+                <span class="card-cost">$0.318</span>
+              </div>
+            </div>
+            <div class="kanban-card">
+              <div class="card-title">Generate release notes v2.4 API</div>
+              <div class="card-meta">
+                <span class="card-agent"><span class="agent-avatar purple">dc</span> agent-docs</span>
+                <span class="card-cost">$0.102</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- 3. TASK DETAIL DRAWER (420px) — BLUEPRINT C -->
+      <aside class="task-drawer" aria-label="Task Detail Drawer">
+        
+        <!-- Drawer Header (AC1: Title, Route tag, Close) -->
+        <div class="drawer-header">
+          <div class="drawer-header-left">
+            <div class="task-key-tag">
+              <span>task-771b</span>
+              <span>•</span>
+              <span>Sprint 24</span>
+              <span>•</span>
+              <span style="color: var(--accent); font-weight:600;">(drawer)</span>
+            </div>
+            <h2 class="task-drawer-title">Refactor auth module & telemetry pipeline</h2>
+          </div>
+          <button class="drawer-close-btn" title="Tutup Drawer">
+            <svg class="icon-svg" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <!-- Drawer Tabs (US-AD13 AC2: Timeline, Logs, Artifacts, Approvals) -->
+        <div class="drawer-tabs">
+          <div class="drawer-tab active">
+            <span>Timeline</span>
+            <span class="tab-count">5</span>
+          </div>
+          <div class="drawer-tab">
+            <span>Logs</span>
+            <span class="tab-count">148</span>
+          </div>
+          <div class="drawer-tab">
+            <span>Artifacts</span>
+            <!-- US-AD48 AC1 & AC2 notice -->
+            <span class="tab-count">3</span>
+          </div>
+          <div class="drawer-tab">
+            <span>Approvals</span>
+            <span class="tab-count" style="background:#ecfdf5; color:#059669;">1</span>
+          </div>
+        </div>
+
+        <!-- Drawer Body Content (State: default) -->
+        <div class="drawer-body">
+          
+          <!-- Core Properties Card (US-AD13 AC1, US-AD79 AC1) -->
+          <div class="detail-grid">
+            
+            <!-- Status -->
+            <div class="detail-label">Status</div>
+            <div class="detail-value">
+              <span class="badge-status status-running">
+                <span class="status-dot"></span>
+                <span>Running</span>
+              </span>
+              <span style="font-size: 10.5px; color: var(--ink-muted); font-family: var(--font-mono);">step 02/04</span>
+            </div>
+
+            <!-- Priority -->
+            <div class="detail-label">Priority</div>
+            <div class="detail-value">
+              <span class="badge-priority">P0 • Blocker</span>
+            </div>
+
+            <!-- Assignee Agent (US-AD79 AC1: Reassign agent dropdown & emit task.assigned) -->
+            <div class="detail-label">Assignee Agent</div>
+            <div class="detail-value">
+              <div class="reassign-control">
+                <select class="agent-select" title="US-AD79: Reassign task ke agent lain (emit task.assigned)">
+                  <option value="agent-backend" selected>be • agent-backend (aktif)</option>
+                  <option value="agent-data">dt • agent-data</option>
+                  <option value="agent-docs">dc • agent-docs</option>
+                  <option value="agent-security">sc • agent-security</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Dependencies -->
+            <div class="detail-label">Dependencies</div>
+            <div class="detail-value">
+              <span class="dep-tag">
+                <svg class="icon-svg" style="width:12px;height:12px;" viewBox="0 0 24 24"><polyline points="15 10 20 15 15 20"/><path d="M4 4v7a4 4 0 0 0 4 4h12"/></svg>
+                dep: 1 parent (task-419b)
+              </span>
+            </div>
+
+            <!-- Total Cost (AC1) -->
+            <div class="detail-label">Total Cost</div>
+            <div class="detail-value">
+              <div class="cost-highlight">
+                $0.3180
+                <span class="cost-sub">(38,620 token • gpt-4o)</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Body / Task Description Box (AC1) -->
+          <div class="task-body-box">
+            <div class="section-subtitle">
+              <span>Task Body</span>
+              <span style="font-size:10px; font-family:var(--font-mono); color:var(--ink-muted);">markdown</span>
+            </div>
+            <p class="task-body-text">
+              Migrasi session state ke backend PostgreSQL internal tanpa ketergantungan Redis luar. Integrasikan envelope nonce <code>agents.provider_api_key_enc</code> dan pastikan seluruh telemetry event terpancar via daemon gRPC port <code>:8080</code>.
+            </p>
+          </div>
+
+          <!-- Recent Events (US-AD13 AC1: 5 terakhir & US-AD40 AC1: sequential event types) -->
+          <div class="timeline-events-container">
+            <div class="timeline-events-header">
+              <span>Recent Events (5 terakhir)</span>
+              <span style="font-family:var(--font-mono); font-size:10px; color:var(--accent);">US-AD40 AC1</span>
+            </div>
+
+            <!-- Event 1 (Terbaru): step.finished -->
+            <div class="event-item">
+              <div class="event-dot-track">
+                <div class="event-node active"></div>
+              </div>
+              <div class="event-content">
+                <div class="event-type-line">
+                  <span class="event-name">step.finished</span>
+                  <span class="event-time">14:22:18</span>
+                </div>
+                <div class="event-desc">
+                  Step <code>step_01_query</code> selesai dieksekusi oleh <strong>agent-backend</strong> (18s • $0.0028).
+                </div>
+              </div>
+            </div>
+
+            <!-- Event 2: run.claimed -->
+            <div class="event-item">
+              <div class="event-dot-track">
+                <div class="event-node blue"></div>
+              </div>
+              <div class="event-content">
+                <div class="event-type-line">
+                  <span class="event-name">run.claimed</span>
+                  <span class="event-time">14:22:04</span>
+                </div>
+                <div class="event-desc">
+                  Daemon armada mengklaim eksekusi <code>run_9b42f1</code> pada worker Go binary.
+                </div>
+              </div>
+            </div>
+
+            <!-- Event 3: status_changed -->
+            <div class="event-item">
+              <div class="event-dot-track">
+                <div class="event-node warning"></div>
+              </div>
+              <div class="event-content">
+                <div class="event-type-line">
+                  <span class="event-name">status_changed</span>
+                  <span class="event-time">14:22:00</span>
+                </div>
+                <div class="event-desc">
+                  Status task berubah dari <code>ready</code> menjadi <code>running</code>.
+                </div>
+              </div>
+            </div>
+
+            <!-- Event 4: task.assigned (US-AD79 AC1 event) -->
+            <div class="event-item">
+              <div class="event-dot-track">
+                <div class="event-node purple"></div>
+              </div>
+              <div class="event-content">
+                <div class="event-type-line">
+                  <span class="event-name">task.assigned</span>
+                  <span class="event-time">14:21:40</span>
+                </div>
+                <div class="event-desc">
+                  Ditugaskan ke <strong>agent-backend</strong> (sebelumnya tidak ada assignee).
+                </div>
+              </div>
+            </div>
+
+            <!-- Event 5: created -->
+            <div class="event-item">
+              <div class="event-dot-track">
+                <div class="event-node"></div>
+              </div>
+              <div class="event-content">
+                <div class="event-type-line">
+                  <span class="event-name">created</span>
+                  <span class="event-time">14:10:00</span>
+                </div>
+                <div class="event-desc">
+                  Task dibuat oleh <strong>Reza (Owner)</strong> pada board Sprint 24.
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- US-AD48 Preview Snippet in Default View -->
+          <div style="background:#fafbfa; border:1px solid var(--border-subtle); border-radius:6px; padding:8px 10px; display:flex; align-items:center; justify-content:space-between; font-size:11px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <svg class="icon-svg" style="width:13px;height:13px;color:var(--accent);" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span><strong>3 Artifacts terlampir</strong> (cursor paginated US-AD48)</span>
+            </div>
+            <span style="font-family:var(--font-mono); color:var(--ink-muted);">Buka tab Artifacts →</span>
+          </div>
+
+        </div>
+
+        <!-- Drawer Footer (US-AD59: Task archived, US-AD80: Soft delete, US-AD13 AC4 viewer permission guard) -->
+        <div class="drawer-footer">
+          <div class="drawer-action-row">
+            <!-- US-AD59 AC1: Arsip task -->
+            <button class="btn-drawer archive" title="US-AD59 AC1: Arsipkan task (status -> archived)">
+              <svg class="icon-svg" viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+              <span>Arsipkan Task</span>
+            </button>
+            
+            <div style="display:flex; gap:6px;">
+              <!-- US-AD80: Soft delete task -->
+              <button class="btn-drawer danger" title="US-AD80: Hapus task (soft delete)">
+                <svg class="icon-svg" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span>Hapus</span>
+              </button>
+              
+              <!-- Primary action -->
+              <button class="btn-primary-sm" style="padding: 6px 10px;">
+                Simpan Perubahan
+              </button>
+            </div>
+          </div>
+
+          <!-- US-AD13 AC4 Permission Indicator -->
+          <div class="rbac-note">
+            <svg class="icon-svg" style="width:11px;height:11px;color:#16a34a;" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Izin Akses: <strong>Owner/Admin</strong> (mutasi aktif). Pada role <code>viewer</code> tombol aksi mutasi tidak dirender (US-AD13 AC4).</span>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </main>
+
+  <!-- 4. COST RAIL KANAN (264px) — Blueprint A/B/C Patokan Tetap -->
+  <aside class="cost-rail">
+    
+    <!-- TODAY -->
+    <div class="cost-card">
+      <div class="cost-header">
+        <span class="cost-title">Today</span>
+        <span class="cost-cap">CAP $20.00</span>
+      </div>
+      <div class="cost-amount-large">$4.82</div>
+      <div class="cost-bar-container">
+        <div class="cost-bar-fill"></div>
+      </div>
+      <div class="cost-subtext">
+        <span>24.1% terpakai</span>
+        <span>Sisa $15.18</span>
+      </div>
+    </div>
+
+    <!-- 7-DAY SPARKLINE -->
+    <div class="sparkline-container">
+      <div class="sparkline-header">
+        <span>7-Day</span>
+        <span class="sparkline-range">Sep 12 — Sep 18</span>
+      </div>
+      <div class="sparkline-bars">
+        <div class="spark-col">
+          <div class="spark-bar" style="height: 18px;"></div>
+          <span class="spark-label">12</span>
+        </div>
+        <div class="spark-col">
+          <div class="spark-bar" style="height: 24px;"></div>
+          <span class="spark-label">13</span>
+        </div>
+        <div class="spark-col">
+          <div class="spark-bar" style="height: 14px;"></div>
+          <span class="spark-label">14</span>
+        </div>
+        <div class="spark-col">
+          <div class="spark-bar" style="height: 28px;"></div>
+          <span class="spark-label">15</span>
+        </div>
+        <div class="spark-col">
+          <div class="spark-bar" style="height: 32px;"></div>
+          <span class="spark-label">16</span>
+        </div>
+        <div class="spark-col">
+          <div class="spark-bar" style="height: 22px;"></div>
+          <span class="spark-label">17</span>
+        </div>
+        <div class="spark-col">
+          <div class="spark-bar today" style="height: 36px;"></div>
+          <span class="spark-label" style="font-weight:700; color:var(--accent);">18</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP SPENDERS (3 baris) -->
+    <div class="spenders-card">
+      <div class="sparkline-header">
+        <span>Top Spenders</span>
+        <span class="sparkline-range">Today</span>
+      </div>
+      <div class="spender-row">
+        <div class="spender-text">
+          <span class="spender-name">agent-backend</span>
+          <span class="spender-val">$1.84</span>
+        </div>
+        <div class="spender-meter">
+          <div class="spender-fill" style="width: 82%;"></div>
+        </div>
+      </div>
+      <div class="spender-row">
+        <div class="spender-text">
+          <span class="spender-name">agent-data</span>
+          <span class="spender-val">$1.42</span>
+        </div>
+        <div class="spender-meter">
+          <div class="spender-fill" style="width: 64%;"></div>
+        </div>
+      </div>
+      <div class="spender-row">
+        <div class="spender-text">
+          <span class="spender-name">agent-docs</span>
+          <span class="spender-val">$0.91</span>
+        </div>
+        <div class="spender-meter">
+          <div class="spender-fill" style="width: 42%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RUNNING NOW -->
+    <div class="running-now-card">
+      <div class="running-now-title">
+        <span class="pulse-dot"></span>
+        <span>Running Now</span>
+      </div>
+      <div class="running-agent-count">2 agents active</div>
+      <div class="running-agent-sub">task execution: running</div>
+    </div>
+
+  </aside>
+
+</body>
+</html>

@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgentDeck — Cost Ledger (/cost/ledger)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#0d7a70",
+            "primary-hover": "#0a635b",
+            "primary-tint": "#eef7f5",
+            "ink-primary": "#0e1110",
+            "ink-secondary": "#4d5553",
+            "ink-tertiary": "#6b7370",
+            "rail-left": "#e8ecea",
+            "sidebar-bg": "#f6f7f6",
+            "canvas-bg": "#f6f7f6",
+            "cost-rail-bg": "#eef1f0",
+            "card-bg": "#ffffff",
+            "border-subtle": "rgba(12,26,22,0.07)",
+            "border-std": "rgba(12,26,22,0.12)"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+    /* Tabular figures for monospace numbers */
+    .tnum {
+      font-variant-numeric: tabular-nums;
+    }
+    /* Custom clean scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(12,26,22,0.15);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(12,26,22,0.25);
+    }
+  </style>
+</head>
+<body class="bg-canvas-bg text-ink-primary font-sans antialiased overflow-hidden h-screen w-screen flex select-none">
+
+  <!-- 1. RAIL KIRI: 44px, background #e8ecea, ikon saja tanpa label -->
+  <aside class="w-[44px] shrink-0 bg-rail-left border-r border-border-std flex flex-col items-center justify-between py-3.5 z-20">
+    <div class="flex flex-col items-center gap-3.5">
+      <!-- AD Badge (28px, radius 6px) -->
+      <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] text-white flex items-center justify-center font-mono font-bold text-[11px] tracking-tight cursor-pointer" title="AgentDeck Core">
+        AD
+      </div>
+      <div class="w-6 h-[1px] bg-border-std"></div>
+      <!-- Rail Icons -->
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-[#dce4e1] transition-colors" title="Workspace & Board">
+        <span class="material-symbols-outlined">dashboard</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-[#dce4e1] transition-colors" title="Semua Board">
+        <span class="material-symbols-outlined">view_kanban</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-[#dce4e1] transition-colors" title="Agent Registry">
+        <span class="material-symbols-outlined">smart_toy</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-[#dce4e1] transition-colors" title="Antrean Approval">
+        <span class="material-symbols-outlined">verified_user</span>
+      </button>
+      <!-- Active Cost Navigation Icon -->
+      <button class="w-8 h-8 rounded-[6px] bg-[#d9e1de] text-primary flex items-center justify-center shadow-xs" title="Ledger & Biaya">
+        <span class="material-symbols-outlined filled">payments</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-[#dce4e1] transition-colors" title="Dokumentasi">
+        <span class="material-symbols-outlined">description</span>
+      </button>
+    </div>
+    <div class="flex flex-col items-center gap-3">
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-ink-secondary hover:bg-[#dce4e1] transition-colors" title="Pengaturan Sistem">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+      <!-- Avatar User RZ (26px, radius full) -->
+      <div class="relative cursor-pointer" title="Reza (Owner)">
+        <div class="w-[26px] h-[26px] rounded-full bg-ink-primary text-white text-[10px] font-bold flex items-center justify-center border border-white">
+          RZ
+        </div>
+        <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-[#0d7a70] border-2 border-rail-left rounded-full"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 2. SIDEBAR: 224px, background #f6f7f6 -->
+  <nav class="w-[224px] shrink-0 bg-sidebar-bg border-r border-border-std flex flex-col justify-between overflow-y-auto text-[13px] z-10">
+    <div>
+      <!-- Header Sidebar / Workspace selector -->
+      <div class="p-3.5 pb-2.5 border-b border-border-subtle flex items-center justify-between">
+        <div>
+          <div class="text-[10px] font-mono uppercase tracking-wider text-ink-tertiary">WORKSPACE</div>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="w-2 h-2 rounded-full bg-primary"></span>
+            <span class="font-bold text-[12px] text-ink-primary font-mono truncate">ws_8f12a</span>
+          </div>
+        </div>
+        <span class="text-[9px] font-mono uppercase bg-[#d9e1de] text-primary px-1.5 py-0.5 rounded-[4px] font-bold">core</span>
+      </div>
+
+      <!-- Nav Items -->
+      <div class="p-2 space-y-4">
+        <!-- Group: Navigasi Utama -->
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">Navigasi Utama</span>
+          <ul class="mt-1 space-y-0.5">
+            <li>
+              <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-ink-secondary hover:bg-[#edeeed] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-ink-tertiary">folder</span>
+                  <span class="text-[12px]">Semua Proyek</span>
+                </div>
+                <span class="text-[11px] font-mono text-ink-tertiary">3</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-ink-secondary hover:bg-[#edeeed] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-ink-tertiary">view_kanban</span>
+                  <span class="text-[12px]">Semua Board</span>
+                </div>
+                <span class="text-[11px] font-mono text-ink-tertiary">6</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-ink-secondary hover:bg-[#edeeed] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-ink-tertiary">smart_toy</span>
+                  <span class="text-[12px]">Agent Registry</span>
+                </div>
+                <span class="text-[11px] font-mono text-ink-tertiary">5</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-ink-secondary hover:bg-[#edeeed] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-ink-tertiary">verified_user</span>
+                  <span class="text-[12px]">Antrean Approval</span>
+                </div>
+                <span class="text-[10px] font-bold font-mono px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800">3</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Group: Telemetri & Biaya (Active) -->
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">Audit &amp; Biaya</span>
+          <ul class="mt-1 space-y-0.5">
+            <li>
+              <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-ink-secondary hover:bg-[#edeeed] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-ink-tertiary">query_stats</span>
+                  <span class="text-[12px]">Ringkasan Biaya</span>
+                </div>
+              </a>
+            </li>
+            <!-- Active item: Cost Ledger -->
+            <li>
+              <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-primary-tint text-primary font-semibold border-l-2 border-primary">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined filled text-[16px] text-primary">receipt_long</span>
+                  <span class="text-[12px] truncate">Cost Ledger</span>
+                </div>
+                <span class="text-[9px] font-mono bg-[#d9e1de] text-primary px-1 py-0.2 rounded-[4px] font-bold">LIVE</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-ink-secondary hover:bg-[#edeeed] transition-colors">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-ink-tertiary">history_edu</span>
+                  <span class="text-[12px]">Audit Log</span>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Group: Papan Aktif -->
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-ink-tertiary">Papan Aktif</span>
+          <ul class="mt-1 space-y-0.5 text-[12px]">
+            <li class="flex items-center justify-between px-2 py-1 text-ink-secondary">
+              <span class="truncate flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span> Sprint 24</span>
+              <span class="font-mono text-[11px] text-ink-tertiary">12</span>
+            </li>
+            <li class="flex items-center justify-between px-2 py-1 text-ink-secondary">
+              <span class="truncate flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Sprint 23</span>
+              <span class="font-mono text-[11px] text-ink-tertiary">24</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Sidebar: Daemon status info -->
+    <div class="p-2.5 border-t border-border-subtle bg-[#f0f2f1]">
+      <div class="flex items-center justify-between text-[11px] font-mono text-ink-secondary px-1">
+        <span class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+          <span>daemon :8080</span>
+        </span>
+        <span class="text-[10px] text-ink-tertiary">v2.4.1</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 3. MAIN COLUMN: TOPBAR (52px) + PANE KONTEN (SCROLLABLE) -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-canvas-bg">
+    
+    <!-- TOPBAR: 52px, #ffffff, HANYA membentang di atas pane konten -->
+    <header class="h-[52px] shrink-0 bg-[#ffffff] border-b border-border-std px-5 flex items-center justify-between gap-4 z-10">
+      <!-- Breadcrumbs & route identifier -->
+      <div class="flex items-center gap-2 text-[12px] min-w-0">
+        <span class="text-ink-secondary hover:text-ink-primary cursor-pointer">Biaya</span>
+        <span class="text-ink-tertiary text-[10px]">/</span>
+        <span class="font-semibold text-ink-primary truncate">Cost Ledger</span>
+        <span class="font-mono text-[11px] text-primary bg-primary-tint px-1.5 py-0.5 rounded-[4px] border border-border-subtle">/cost/ledger</span>
+      </div>
+
+      <!-- Controls & Search -->
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="relative flex items-center">
+          <span class="material-symbols-outlined absolute left-2.5 text-ink-tertiary text-[16px]">search</span>
+          <input type="text" placeholder="Filter ledger (agent, model, task)..." class="h-8 pl-8 pr-12 text-[12px] rounded-[6px] bg-[#f6f7f6] border border-border-subtle focus:border-primary focus:bg-white focus:outline-none w-64 placeholder:text-ink-tertiary text-ink-primary"/>
+          <kbd class="absolute right-2 text-[10px] font-mono bg-[#e8ecea] text-ink-tertiary px-1.5 py-0.5 rounded-[4px] border border-border-subtle">⌘K</kbd>
+        </div>
+        <div class="h-4 w-[1px] bg-border-std"></div>
+        <!-- Status sinkronisasi micro-dollar ledger -->
+        <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-primary-tint border border-primary/20 text-primary text-[11px] font-mono font-medium">
+          <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+          <span>Sync: Ingested (0 drift)</span>
+        </div>
+        <!-- Export button -->
+        <button class="h-8 px-2.5 text-[12px] font-medium text-ink-secondary hover:text-ink-primary hover:bg-[#f6f7f6] rounded-[6px] border border-border-std flex items-center gap-1.5 transition-colors" title="Ekspor baris ledger ke CSV">
+          <span class="material-symbols-outlined text-[16px]">download</span>
+          <span>Ekspor CSV</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- PANE KONTEN: overflow-y-auto, padding 16px, background #f6f7f6 -->
+    <main class="flex-1 overflow-y-auto p-4 space-y-3.5">
+
+      <!-- Spec Header Banner (US-AD27 AC4 & AC5) -->
+      <div class="bg-card-bg border border-border-std rounded-[10px] p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div class="space-y-0.5">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-primary-tint border border-primary/30 text-primary font-mono text-[10px] font-bold">
+              <span class="material-symbols-outlined filled text-[13px]">verified</span>
+              US-AD27 (AC4, AC5) COMPLIANT
+            </span>
+            <span class="text-[11px] font-mono text-ink-tertiary">M2 Milestone: Cost Ledger Per Step</span>
+            <span class="text-[11px] font-mono text-ink-tertiary">Precision: 1 µUSD ($0.000001)</span>
+          </div>
+          <h1 class="text-sm font-bold text-ink-primary tracking-tight">Ledger Pemakaian Token &amp; Biaya Komputasi per Step</h1>
+        </div>
+
+        <!-- Filter bar (Agent, Model, Date Range Picker) -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <!-- Date Range Pill Button -->
+          <div class="flex items-center gap-1.5 h-7 px-2.5 rounded-[6px] bg-[#f6f7f6] border border-border-std text-[11px] text-ink-primary font-medium cursor-pointer hover:bg-[#edeeed] transition-colors" title="Pilih rentang tanggal ledger">
+            <span class="material-symbols-outlined text-[15px] text-ink-tertiary">calendar_today</span>
+            <span>18 Sep 2026 (Hari ini)</span>
+            <span class="material-symbols-outlined text-[14px] text-ink-tertiary">arrow_drop_down</span>
+          </div>
+          <!-- Agent Filter -->
+          <div class="flex items-center gap-1.5 h-7 px-2.5 rounded-[6px] bg-[#f6f7f6] border border-border-std text-[11px] text-ink-primary font-medium cursor-pointer hover:bg-[#edeeed] transition-colors" title="Filter berdasarkan agent">
+            <span class="text-ink-tertiary">Agent:</span>
+            <span class="font-semibold">Semua (5)</span>
+            <span class="material-symbols-outlined text-[14px] text-ink-tertiary">arrow_drop_down</span>
+          </div>
+          <!-- Model Filter -->
+          <div class="flex items-center gap-1.5 h-7 px-2.5 rounded-[6px] bg-[#f6f7f6] border border-border-std text-[11px] text-ink-primary font-medium cursor-pointer hover:bg-[#edeeed] transition-colors" title="Filter model LLM">
+            <span class="text-ink-tertiary">Model:</span>
+            <span class="font-semibold">Semua Model</span>
+            <span class="material-symbols-outlined text-[14px] text-ink-tertiary">arrow_drop_down</span>
+          </div>
+          <button class="h-7 px-2 rounded-[6px] text-ink-secondary hover:bg-[#f6f7f6] border border-border-subtle text-[11px] flex items-center gap-1" title="Reset filter">
+            <span class="material-symbols-outlined text-[14px]">refresh</span>
+            <span>Reset</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Metric Summary Strip (Kompak, tinggi efisien) -->
+      <div class="grid grid-cols-4 gap-3">
+        <div class="bg-card-bg border border-border-std rounded-[10px] p-2.5 shadow-xs">
+          <div class="text-[10px] font-mono text-ink-tertiary uppercase">Total Ledger Entries</div>
+          <div class="text-lg font-bold font-mono text-ink-primary mt-0.5 tnum">1,428 <span class="text-[10px] font-sans font-normal text-ink-tertiary">step tercatat</span></div>
+        </div>
+        <div class="bg-card-bg border border-border-std rounded-[10px] p-2.5 shadow-xs">
+          <div class="text-[10px] font-mono text-ink-tertiary uppercase">Total Token Masuk (Prompt)</div>
+          <div class="text-lg font-bold font-mono text-blue-700 mt-0.5 tnum">2,841,200 <span class="text-[10px] font-sans font-normal text-ink-tertiary">tok</span></div>
+        </div>
+        <div class="bg-card-bg border border-border-std rounded-[10px] p-2.5 shadow-xs">
+          <div class="text-[10px] font-mono text-ink-tertiary uppercase">Total Token Keluar (Completion)</div>
+          <div class="text-lg font-bold font-mono text-purple-700 mt-0.5 tnum">386,410 <span class="text-[10px] font-sans font-normal text-ink-tertiary">tok</span></div>
+        </div>
+        <div class="bg-card-bg border border-border-std rounded-[10px] p-2.5 shadow-xs">
+          <div class="text-[10px] font-mono text-ink-tertiary uppercase">Total Biaya Hari Ini</div>
+          <div class="text-lg font-bold font-mono text-primary mt-0.5 tnum">$4.820 <span class="text-[10px] font-sans font-normal text-ink-tertiary">($4,820,000 µUSD)</span></div>
+        </div>
+      </div>
+
+      <!-- TABEL PADAT PER BARIS LEDGER (US-AD27 AC4) -->
+      <!-- Header tabel 32px, Baris tabel 28px, Angka monospace tabular figures -->
+      <div class="bg-card-bg border border-border-std rounded-[10px] overflow-hidden shadow-xs flex flex-col">
+        <!-- Table Top Control & Status Row -->
+        <div class="h-8 px-3.5 bg-[#fbfcfb] border-b border-border-subtle flex items-center justify-between text-[11px] text-ink-secondary">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-ink-primary uppercase tracking-wider text-[10px] font-mono">Tabel Ledger Transaksi</span>
+            <span class="text-border-std">|</span>
+            <span>Menampilkan 12 step terakhir dari 1,428 baris</span>
+          </div>
+          <div class="flex items-center gap-3 font-mono text-[10px]">
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-600"></span> Exact Integer Micro-USD</span>
+            <span class="text-ink-tertiary">Sort: Waktu (Terbaru)</span>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <!-- Header tabel pas 32px -->
+              <tr class="h-[32px] bg-[#f6f7f6] border-b border-border-std text-[11px] font-mono text-ink-secondary uppercase select-none">
+                <th class="px-3 font-semibold w-[130px]">Waktu (UTC+7)</th>
+                <th class="px-2 font-semibold w-[140px]">Agent</th>
+                <th class="px-2 font-semibold w-[140px]">Model</th>
+                <th class="px-2 font-semibold text-right w-[110px]">Token Masuk</th>
+                <th class="px-2 font-semibold text-right w-[110px]">Token Keluar</th>
+                <th class="px-2 font-semibold text-right w-[130px]">Cache Read/Write</th>
+                <th class="px-3 font-semibold text-right w-[110px]">Biaya ($)</th>
+                <th class="px-3 font-semibold w-[100px]">Versi Harga</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border-subtle text-[12px] font-sans">
+              
+              <!-- Baris 1: 28px -->
+              <tr class="h-[28px] hover:bg-primary-tint/30 transition-colors">
+                <td class="px-3 font-mono text-[11px] text-ink-secondary tnum">18 Sep 14:22:18</td>
+                <td class="px-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-primary-tint text-primary font-mono font-bold text-[9px] flex items-center justify-center shrink-0">be</span>
+                    <span class="font-mono text-[11px] font-medium text-ink-primary truncate">agent-backend</span>
+                  </div>
+                </td>
+                <td class="px-2 font-mono text-[11px] text-ink-secondary truncate">gpt-4o</td>
+                <td class="px-2 font-mono text-[11px] text-right text-blue-700 tnum">1,420</td>
+                <td class="px-2 font-mono text-[11px] text-right text-purple-700 tnum">184</td>
+                <td class="px-2 font-mono text-[11px] text-right text-ink-secondary tnum">512 <span class="text-ink-tertiary">/ 0</span></td>
+                <td class="px-3 font-mono text-[11px] text-right font-bold text-primary tnum">$0.0028</td>
+                <td class="px-3 font-mono text-[10px] text-ink-tertiary"><span class="px-1.5 py-0.2 rounded bg-[#f0f2f1] text-ink-secondary border border-border-subtle">v4.2026.09</span></td>
+              </tr>
+
+              <!-- Baris 2: 28px -->
+              <tr class="h-[28px] hover:bg-primary-tint/30 transition-colors">
+                <td class="px-3 font-mono text-[11px] text-ink-secondary tnum">18 Sep 14:21:46</td>
+                <td class="px-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-primary-tint text-primary font-mono font-bold text-[9px] flex items-center justify-center shrink-0">be</span>
+                    <span class="font-mono text-[11px] font-medium text-ink-primary truncate">agent-backend</span>
+                  </div>
+                </td>
+                <td class="px-2 font-mono text-[11px] text-ink-secondary truncate">gpt-4o</td>
+                <td class="px-2 font-mono text-[11px] text-right text-blue-700 tnum">8,940</td>
+                <td class="px-2 font-mono text-[11px] text-right text-purple-700 tnum">2,104</td>
+                <td class="px-2 font-mono text-[11px] text-right text-ink-secondary tnum">2,048 <span class="text-ink-tertiary">/ 0</span></td>
+                <td class="px-3 font-mono text-[11px] text-right font-bold text-primary tnum">$0.0242</td>
+                <td class="px-3 font-mono text-[10px] text-ink-tertiary"><span class="px-1.5 py-0.2 rounded bg-[#f0f2f1] text-ink-secondary border border-border-subtle">v4.2026.09</span></td>
+              </tr>
+
+              <!-- Baris 3: 28px -->
+              <tr class="h-[28px] hover:bg-primary-tint/30 transition-colors">
+                <td class="px-3 font-mono text-[11px] text-ink-secondary tnum">18 Sep 14:19:02</td>
+                <td class="px-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-blue-50 text-blue-700 font-mono font-bold text-[9px] flex items-center justify-center shrink-0">dt</span>
+                    <span class="font-mono text-[11px] font-medium text-ink-primary truncate">agent-data</span>
+                  </div>
+                </td>
+                <td class="px-2 font-mono text-[11px] text-ink-secondary truncate">deepseek-coder</td>
+                <td class="px-2 font-mono text-[11px] text-right text-blue-700 tnum">14,880</td>
+                <td class="px-2 font-mono text-[11px] text-right text-purple-700 tnum">4,320</td>
+                <td class="px-2 font-mono text-[11px] text-right text-ink-secondary tnum">8,192 <span class="text-ink-tertiary">/ 0</span></td>
+                <td class="px-3 font-mono text-[11px] text-right font-bold text-primary tnum">$0.0581</td>
+                <td class="px-3 font-mono text-[10px] text-ink-tertiary"><span class="px-1.5 py-0.2 rounded bg-[#f0f2f1] text-ink-secondary border border-border-subtle">v4.2026.09</span></td>
+              </tr>
+
+              <!-- Baris 4: 28px -->
+              <tr class="h-[28px] hover:bg-primary-tint/30 transition-colors">
+                <td class="px-3 font-mono text-[11px] text-ink-secondary tnum">18 Sep 14:15:30</td>
+                <td class="px-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-emerald-50 text-emerald-700 font-mono font-bold text-[9px] flex items-center justify-center shrink-0">dc</span>
+                    <span class="font-mono text-[11px] font-medium text-ink-primary truncate">agent-docs</span>
+                  </div>
+                </td>
+                <td class="px-2 font-mono text-[11px] text-ink-secondary truncate">claude-3-5-sonnet</td>
+                <td class="px-2 font-mono text-[11px] text-right text-blue-700 tnum">4,210</td>
+                <td class="px-2 font-mono text-[11px] text-right text-purple-700 tnum">890</td>
+                <td class="px-2 font-mono text-[11px] text-right text-ink-secondary tnum">1,024 <span class="text-ink-tertiary">/ 512</span></td>
+                <td class="px-3 font-mono text-[11px] text-right font-bold text-primary tnum">$0.0156</td>
+                <td class="px-3 font-mono text-[10px] text-ink-tertiary"><span class="px-1.5 py-0.2 rounded bg-[#f0f2f1] text-ink-secondary border border-border-subtle">v4.2026.09</span></td>
+              </tr>
+
+              <!-- Baris 5: 28px -->
+              <tr class="h-[28px] hover:bg-primary-tint/30 transition-colors">
+                <td class="px-3 font-mono text-[11px] text-ink-secondary tnum">18 Sep 14:10:04</td>
+                <td class="px-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-purple-50 text-purple-700 font-mono font-bold text-[9px] flex items-center justify-center shrink-0">sc</span>
+                    <span class="font-mono text-[11px] font-medium text-ink-primary truncate">agent-security</span>
+                  </div>
+                </td>
+                <td class="px-2 font-mono text-[11px] text-ink-secondary truncate">claude-3-5-sonnet</td>
+                <td class="px-2 font-mono text-[11px] text-right text-blue-700 tnum">12,940</td>
+                <td class="px-2 font-mono text-[11px] text-right text-purple-700 tnum">3,310</td>
+                <td class="px-2 font-mono text-[11px] text-right text-ink-secondary tnum">4,096 <span class="text-ink-tertiary">/ 0</span></td>
+                <td class="px-3 font-mono text-[11px] text-right font-bold text-primary tnum">$0.0305</td>
+                <td class="px-3 font-mono text-[10px] text-ink-tertiary"><span class="px-1.5 py-0.2 rounded bg-[#f0f2f1] text-ink-secondary border border-border-subtle">v4.2026.09</span></td>
+              </tr>
+
+              <!-- Baris 6: 28px -->
+              <tr class="h-[28px] hover:bg-primary-tint/30 transition-colors">
+                <td class="px-3 font-mono text-[11px] text-ink-secondary tnum">18 Sep 14:02:11</td>
+                <td class="px-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-amber-50 text-amber-700 font-mono font-bold text-[9px] flex items-center justify-center shrink-0">ai</span>
+                    <span class="font-mono text-[11px] font-medium text-ink-primary truncate">agent-infra</span>
+                  </div>
+                </td>
+                <td class="px-2 font-mono text-[11px] text-ink-secondary truncate">gpt-4o-mini</td>
+                <td class="px-2 font-mono text-[11px] text-right text-blue-700 tnum">1,820</td>
+                <td class="px-2 font-mono text-[11px] text-right text-purple-700 tnum">320</td>
+                <td class="px-2 font-mono text-[11px] text-right text-ink-secondary tnum">0 <span class="text-ink-tertiary">/ 0</span></td>
+                <td class="px-3 font-mono text-[11px] text-right font-bold text-primary tnum">$0.0004</td>
+                <td class="px-3 font-mono text-[10px] text-ink-tertiary"><span class="px-1.5 py-0.2 rounded bg-[#f0f2f1] text-ink-secondary border border-border-subtle">v4.2026.09</span></td>
+              </tr>
+
+              <!-- Baris 7: 28px -->
+              <tr class="h-[28px] hover:bg-primary-tint/30 transition-colors">
+                <td class="px-3 font-mono text-[11px] text-ink-secondary tnum">18 Sep 13:58:45</td>
+                <td class="px-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-primary-tint text-primary font-mono font-bold text-[9px] flex items-center justify-center shrink-0">be</span>
+                    <span class="font-mono text-[11px] font-medium text-ink-primary truncate">agent-backend</span>
+                  </div>
+                </td>
+                <td class="px-2 font-mono text-[11px] text-ink-secondary truncate">gpt-4o</td>
+                <td class="px-2 font-mono text-[11px] text-right text-blue-700 tnum">16,400</td>
+                <td class="px-2 font-mono text-[11px] text-right text-purple-700 tnum">3,890</td>
+                <td class="px-2 font-mono text-[11px] text-right text-ink-secondary tnum">4,096 <span class="text-ink-tertiary">/ 0</span></td>
+                <td class="px-3 font-mono text-[11px] text-right font-bold text-primary tnum">$0.0410</td>
+                <td class="px-3 font-mono text-[10px] text-ink-tertiary"><span class="px-1.5 py-0.2 rounded bg-[#f0f2f1] text-ink-secondary border border-border-subtle">v4.2026.09</span></td>
+              </tr>
+
+              <!-- Baris 8: 28px -->
+              <tr class="h-[28px] hover:bg-primary-tint/30 transition-colors">
+                <td class="px-3 font-mono text-[11px] text-ink-secondary tnum">18 Sep 13:45:19</td>
+                <td class="px-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-blue-50 text-blue-700 font-mono font-bold text-[9px] flex items-center justify-center shrink-0">dt</span>
+                    <span class="font-mono text-[11px] font-medium text-ink-primary truncate">agent-data</span>
+                  </div>
+                </td>
+                <td class="px-2 font-mono text-[11px] text-ink-secondary truncate">deepseek-chat</td>
+                <td class="px-2 font-mono text-[11px] text-right text-blue-700 tnum">42,700</td>
+                <td class="px-2 font-mono text-[11px] text-right text-purple-700 tnum">9,800</td>
+                <td class="px-2 font-mono text-[11px] text-right text-ink-secondary tnum">16,384 <span class="text-ink-tertiary">/ 0</span></td>
+                <td class="px-3 font-mono text-[11px] text-right font-bold text-primary tnum">$0.0087</td>
+                <td class="px-3 font-mono text-[10px] text-ink-tertiary"><span class="px-1.5 py-0.2 rounded bg-[#f0f2f1] text-ink-secondary border border-border-subtle">v4.2026.09</span></td>
+              </tr>
+
+              <!-- Baris 9: 28px -->
+              <tr class="h-[28px] hover:bg-primary-tint/30 transition-colors">
+                <td class="px-3 font-mono text-[11px] text-ink-secondary tnum">18 Sep 13:30:02</td>
+                <td class="px-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-emerald-50 text-emerald-700 font-mono font-bold text-[9px] flex items-center justify-center shrink-0">dc</span>
+                    <span class="font-mono text-[11px] font-medium text-ink-primary truncate">agent-docs</span>
+                  </div>
+                </td>
+                <td class="px-2 font-mono text-[11px] text-ink-secondary truncate">gpt-4o-mini</td>
+                <td class="px-2 font-mono text-[11px] text-right text-blue-700 tnum">8,100</td>
+                <td class="px-2 font-mono text-[11px] text-right text-purple-700 tnum">2,050</td>
+                <td class="px-2 font-mono text-[11px] text-right text-ink-secondary tnum">2,048 <span class="text-ink-tertiary">/ 0</span></td>
+                <td class="px-3 font-mono text-[11px] text-right font-bold text-primary tnum">$0.0024</td>
+                <td class="px-3 font-mono text-[10px] text-ink-tertiary"><span class="px-1.5 py-0.2 rounded bg-[#f0f2f1] text-ink-secondary border border-border-subtle">v4.2026.09</span></td>
+              </tr>
+
+              <!-- Baris 10: 28px -->
+              <tr class="h-[28px] hover:bg-primary-tint/30 transition-colors">
+                <td class="px-3 font-mono text-[11px] text-ink-secondary tnum">18 Sep 13:12:51</td>
+                <td class="px-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-primary-tint text-primary font-mono font-bold text-[9px] flex items-center justify-center shrink-0">be</span>
+                    <span class="font-mono text-[11px] font-medium text-ink-primary truncate">agent-backend</span>
+                  </div>
+                </td>
+                <td class="px-2 font-mono text-[11px] text-ink-secondary truncate">gpt-4o</td>
+                <td class="px-2 font-mono text-[11px] text-right text-blue-700 tnum">31,400</td>
+                <td class="px-2 font-mono text-[11px] text-right text-purple-700 tnum">7,200</td>
+                <td class="px-2 font-mono text-[11px] text-right text-ink-secondary tnum">8,192 <span class="text-ink-tertiary">/ 0</span></td>
+                <td class="px-3 font-mono text-[11px] text-right font-bold text-primary tnum">$0.0785</td>
+                <td class="px-3 font-mono text-[10px] text-ink-tertiary"><span class="px-1.5 py-0.2 rounded bg-[#f0f2f1] text-ink-secondary border border-border-subtle">v4.2026.09</span></td>
+              </tr>
+
+              <!-- Baris 11: 28px -->
+              <tr class="h-[28px] hover:bg-primary-tint/30 transition-colors">
+                <td class="px-3 font-mono text-[11px] text-ink-secondary tnum">18 Sep 12:50:14</td>
+                <td class="px-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-purple-50 text-purple-700 font-mono font-bold text-[9px] flex items-center justify-center shrink-0">sc</span>
+                    <span class="font-mono text-[11px] font-medium text-ink-primary truncate">agent-security</span>
+                  </div>
+                </td>
+                <td class="px-2 font-mono text-[11px] text-ink-secondary truncate">claude-3-5-sonnet</td>
+                <td class="px-2 font-mono text-[11px] text-right text-blue-700 tnum">9,400</td>
+                <td class="px-2 font-mono text-[11px] text-right text-purple-700 tnum">2,200</td>
+                <td class="px-2 font-mono text-[11px] text-right text-ink-secondary tnum">2,048 <span class="text-ink-tertiary">/ 0</span></td>
+                <td class="px-3 font-mono text-[11px] text-right font-bold text-primary tnum">$0.0214</td>
+                <td class="px-3 font-mono text-[10px] text-ink-tertiary"><span class="px-1.5 py-0.2 rounded bg-[#f0f2f1] text-ink-secondary border border-border-subtle">v4.2026.09</span></td>
+              </tr>
+
+              <!-- Baris 12: 28px -->
+              <tr class="h-[28px] hover:bg-primary-tint/30 transition-colors">
+                <td class="px-3 font-mono text-[11px] text-ink-secondary tnum">18 Sep 12:35:40</td>
+                <td class="px-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-[20px] h-[20px] rounded-full bg-primary-tint text-primary font-mono font-bold text-[9px] flex items-center justify-center shrink-0">be</span>
+                    <span class="font-mono text-[11px] font-medium text-ink-primary truncate">agent-backend</span>
+                  </div>
+                </td>
+                <td class="px-2 font-mono text-[11px] text-ink-secondary truncate">gpt-4o</td>
+                <td class="px-2 font-mono text-[11px] text-right text-blue-700 tnum">22,150</td>
+                <td class="px-2 font-mono text-[11px] text-right text-purple-700 tnum">5,100</td>
+                <td class="px-2 font-mono text-[11px] text-right text-ink-secondary tnum">4,096 <span class="text-ink-tertiary">/ 0</span></td>
+                <td class="px-3 font-mono text-[11px] text-right font-bold text-primary tnum">$0.0554</td>
+                <td class="px-3 font-mono text-[10px] text-ink-tertiary"><span class="px-1.5 py-0.2 rounded bg-[#f0f2f1] text-ink-secondary border border-border-subtle">v4.2026.09</span></td>
+              </tr>
+
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination & Ledger Summary Footer -->
+        <div class="h-9 px-3.5 bg-[#fbfcfb] border-t border-border-std flex items-center justify-between text-[11px] text-ink-secondary">
+          <div class="flex items-center gap-1.5 font-mono text-[10px]">
+            <span>Halaman 1 dari 119</span>
+            <span class="text-ink-tertiary">•</span>
+            <span class="text-ink-tertiary">Agregasi Subtotal Halaman: $0.2605</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <button class="h-6 px-2 rounded-[4px] border border-border-std text-ink-tertiary bg-white hover:bg-[#f6f7f6] disabled:opacity-50" disabled>Sebelumnya</button>
+            <button class="h-6 w-6 rounded-[4px] bg-primary text-white font-mono font-bold text-[10px] flex items-center justify-center">1</button>
+            <button class="h-6 w-6 rounded-[4px] border border-border-std text-ink-secondary bg-white hover:bg-[#f6f7f6] font-mono text-[10px] flex items-center justify-center">2</button>
+            <button class="h-6 w-6 rounded-[4px] border border-border-std text-ink-secondary bg-white hover:bg-[#f6f7f6] font-mono text-[10px] flex items-center justify-center">3</button>
+            <span class="px-1 text-ink-tertiary">...</span>
+            <button class="h-6 w-6 rounded-[4px] border border-border-std text-ink-secondary bg-white hover:bg-[#f6f7f6] font-mono text-[10px] flex items-center justify-center">119</button>
+            <button class="h-6 px-2 rounded-[4px] border border-border-std text-ink-secondary bg-white hover:bg-[#f6f7f6]">Berikutnya</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Informasi Skema Penulisan Ledger (AC4 Footer Note) -->
+      <div class="p-3 bg-card-bg border border-border-subtle rounded-[10px] text-[11px] text-ink-secondary flex items-start gap-2.5">
+        <span class="material-symbols-outlined text-[18px] text-primary shrink-0 mt-0.5">info</span>
+        <div class="space-y-0.5">
+          <span class="font-semibold text-ink-primary">Integritas Audit Ledger (US-AD27 AC4):</span>
+          <p class="text-ink-secondary leading-relaxed">
+            Setiap invocation model LLM dicatat langsung secara permanen pada tabel ledger internal PostgreSQL daemon. Seluruh perhitungan biaya menggunakan presisi mikro-dolar (1 USD = 1.000.000 µUSD) untuk menjamin akurasi billing tanpa distorsi bilangan pecahan IEEE-754.
+          </p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- 4. COST RAIL KANAN: 264px, background #eef1f0, border-l border-border-std -->
+  <!-- ISI TETAP SESUAI KONTRAK: TODAY, 7-DAY, TOP SPENDERS, RUNNING NOW. JANGAN TAMBAH ISI LAIN. -->
+  <aside class="w-[264px] shrink-0 bg-cost-rail-bg border-l border-border-std flex flex-col justify-between p-3.5 text-[12px] z-20">
+    <div class="space-y-4">
+
+      <!-- HEADER COST RAIL -->
+      <div class="flex items-center justify-between border-b border-border-std pb-2">
+        <div class="flex items-center gap-1.5 font-bold text-ink-primary text-[12px]">
+          <span class="material-symbols-outlined text-[16px] text-primary">account_balance_wallet</span>
+          <span>COST LEDGER</span>
+        </div>
+        <span class="text-[10px] font-mono font-bold bg-[#d9e1de] text-primary px-1.5 py-0.5 rounded-[4px]">REALTIME</span>
+      </div>
+
+      <!-- 1. TODAY (biaya + meter pagu 6px) -->
+      <div class="bg-card-bg p-3 rounded-[10px] border border-border-subtle shadow-xs">
+        <div class="flex items-center justify-between text-[11px] text-ink-tertiary font-mono">
+          <span class="font-bold text-ink-primary uppercase">TODAY</span>
+          <span>CAP $20.00</span>
+        </div>
+        <div class="mt-1 flex items-baseline justify-between">
+          <div class="text-xl font-bold font-mono text-ink-primary tracking-tight tnum">$4.82</div>
+          <div class="text-[11px] font-mono text-ink-tertiary">Sisa: <span class="font-semibold text-primary tnum">$15.18</span></div>
+        </div>
+        <!-- Budget meter: tinggi 6px -->
+        <div class="w-full bg-[#edeeed] h-[6px] rounded-full mt-2.5 overflow-hidden">
+          <div class="bg-primary h-full rounded-full" style="width: 24.1%;"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] font-mono text-ink-tertiary mt-1.5">
+          <span>24.1% terpakai</span>
+          <span class="text-primary font-medium">Pagu aman</span>
+        </div>
+      </div>
+
+      <!-- 2. 7-DAY (sparkline bar: Sep 12 - Sep 18) -->
+      <div class="bg-card-bg p-3 rounded-[10px] border border-border-subtle shadow-xs">
+        <div class="flex items-center justify-between text-[11px] font-mono text-ink-tertiary mb-2">
+          <span class="font-bold text-ink-primary uppercase">7-DAY</span>
+          <span>SEP 12 — SEP 18</span>
+        </div>
+        <!-- Bars Container (Tinggi 64px) -->
+        <div class="h-16 flex items-end justify-between gap-1 pt-2 px-1">
+          <!-- Sep 12 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-primary rounded-t-[2px] transition-all" style="height: 45%;" title="Sep 12: $3.10"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">12</span>
+          </div>
+          <!-- Sep 13 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-primary rounded-t-[2px] transition-all" style="height: 60%;" title="Sep 13: $4.20"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">13</span>
+          </div>
+          <!-- Sep 14 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-primary rounded-t-[2px] transition-all" style="height: 30%;" title="Sep 14: $2.05"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">14</span>
+          </div>
+          <!-- Sep 15 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-primary rounded-t-[2px] transition-all" style="height: 75%;" title="Sep 15: $5.40"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">15</span>
+          </div>
+          <!-- Sep 16 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-primary rounded-t-[2px] transition-all" style="height: 50%;" title="Sep 16: $3.50"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">16</span>
+          </div>
+          <!-- Sep 17 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] hover:bg-primary rounded-t-[2px] transition-all" style="height: 85%;" title="Sep 17: $6.12"></div>
+            <span class="text-[9px] font-mono text-ink-tertiary">17</span>
+          </div>
+          <!-- Sep 18 (Today - Highlighted Teal) -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-primary rounded-t-[2px]" style="height: 68%;" title="Sep 18 (Today): $4.82"></div>
+            <span class="text-[9px] font-mono font-bold text-primary">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. TOP SPENDERS (3 baris tetap) -->
+      <div class="bg-card-bg p-3 rounded-[10px] border border-border-subtle shadow-xs">
+        <div class="text-[11px] font-mono text-ink-tertiary uppercase font-bold mb-2.5">TOP SPENDERS</div>
+        <div class="space-y-2">
+          <!-- Row 1: agent-backend -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                <span class="font-mono text-ink-primary truncate">agent-backend</span>
+              </div>
+              <span class="font-mono font-bold text-ink-primary tnum">$1.84</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-primary h-full" style="width: 38.1%;"></div>
+            </div>
+          </div>
+          <!-- Row 2: agent-data -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                <span class="font-mono text-ink-primary truncate">agent-data</span>
+              </div>
+              <span class="font-mono font-bold text-ink-primary tnum">$1.42</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-primary/80 h-full" style="width: 29.4%;"></div>
+            </div>
+          </div>
+          <!-- Row 3: agent-docs -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                <span class="font-mono text-ink-primary truncate">agent-docs</span>
+              </div>
+              <span class="font-mono font-bold text-ink-primary tnum">$0.91</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-primary/60 h-full" style="width: 18.8%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. RUNNING NOW -->
+      <div class="bg-card-bg p-3 rounded-[10px] border border-border-subtle shadow-xs">
+        <div class="flex items-center justify-between text-[11px] font-mono text-ink-tertiary mb-2">
+          <span class="font-bold text-ink-primary uppercase">RUNNING NOW</span>
+          <span class="flex items-center gap-1 text-primary font-bold">
+            <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+            2 active
+          </span>
+        </div>
+        <div class="space-y-1.5 text-[11px] font-mono">
+          <div class="flex items-center justify-between py-1 px-1.5 rounded-[4px] bg-[#f6f7f6]">
+            <span class="text-ink-primary font-medium">agent-backend</span>
+            <span class="text-[10px] text-primary font-semibold">RUNNING</span>
+          </div>
+          <div class="flex items-center justify-between py-1 px-1.5 rounded-[4px] bg-[#f6f7f6]">
+            <span class="text-ink-primary font-medium">agent-docs</span>
+            <span class="text-[10px] text-primary font-semibold">RUNNING</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- COST RAIL FOOTER -->
+    <div class="pt-3 border-t border-border-std text-[10px] font-mono text-ink-tertiary flex items-center justify-between">
+      <span>AgentDeck Core</span>
+      <span class="text-primary font-medium">µUSD Ledger</span>
+    </div>
+  </aside>
+
+</body>
+</html>

@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — Kanban Board (Blueprint B)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --rail-bg: #e8ecea;
+      --sidebar-bg: #f6f7f6;
+      --card-bg: #ffffff;
+      --costrail-bg: #eef1f0;
+      --canvas-bg: #f6f7f6;
+      
+      --signal-teal: #0d7a70;
+      --signal-teal-hover: #0a655d;
+      --signal-teal-light: #eef7f5;
+      
+      --text-main: #0e1110;
+      --text-muted: #4d5553;
+      --text-tertiary: #6b7370;
+      
+      --border-subtle: rgba(12, 26, 22, 0.07);
+      --border-standard: rgba(12, 26, 22, 0.12);
+      
+      --col-backlog: #64748b;
+      --col-ready: #2563eb;
+      --col-running: #d97706;
+      --col-approval: #7c3aed;
+      --col-done: #16a34a;
+
+      --cost-green: #16a34a;
+      --cost-green-bg: #eaf7ed;
+      --cost-yellow: #d97706;
+      --cost-yellow-bg: #fef7ea;
+      --cost-red: #dc2626;
+      --cost-red-bg: #fee2e2;
+
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--canvas-bg);
+      color: var(--text-main);
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Rail Kiri (44px) */
+    .app-rail {
+      width: 44px;
+      min-width: 44px;
+      height: 100vh;
+      background: var(--rail-bg);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 0;
+      z-index: 30;
+    }
+
+    .rail-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--signal-teal);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: -0.05em;
+      margin-bottom: 20px;
+    }
+
+    .rail-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      width: 100%;
+    }
+
+    .rail-item {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      transition: all 0.15s ease;
+    }
+
+    .rail-item:hover {
+      background: rgba(12, 26, 22, 0.05);
+      color: var(--text-main);
+    }
+
+    .rail-item.active {
+      background: var(--signal-teal-light);
+      color: var(--signal-teal);
+    }
+
+    .rail-bottom {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Sidebar Kiri (224px) */
+    .app-sidebar {
+      width: 224px;
+      min-width: 224px;
+      height: 100vh;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      z-index: 20;
+    }
+
+    .sidebar-header {
+      padding: 14px 16px 10px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .workspace-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--signal-teal);
+    }
+
+    .sidebar-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-tertiary);
+      padding: 16px 16px 8px 16px;
+    }
+
+    .sidebar-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 0 8px;
+      list-style: none;
+    }
+
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .sidebar-item:hover {
+      background: rgba(12, 26, 22, 0.04);
+      color: var(--text-main);
+    }
+
+    .sidebar-item.active {
+      background: var(--signal-teal-light);
+      color: var(--signal-teal);
+      font-weight: 600;
+    }
+
+    .sidebar-count {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .agent-avatar {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      color: #334155;
+      font-size: 9px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    .user-profile-bar {
+      margin-top: auto;
+      padding: 12px 14px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--sidebar-bg);
+    }
+
+    .user-avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .user-meta {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+    }
+
+    .user-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .user-role {
+      font-size: 10px;
+      color: var(--text-tertiary);
+    }
+
+    /* Area Utama (Topbar 52px + Konten) */
+    .app-main {
+      flex: 1;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+      background: var(--canvas-bg);
+    }
+
+    /* Topbar (52px HANYA membentang di atas pane konten) */
+    .app-topbar {
+      height: 52px;
+      min-height: 52px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 10;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .board-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .board-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.01em;
+    }
+
+    .board-count-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 6px;
+      background: var(--canvas-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      color: var(--text-muted);
+    }
+
+    .view-switcher {
+      display: flex;
+      background: var(--canvas-bg);
+      padding: 2px;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .view-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border: none;
+      background: transparent;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .view-btn.active {
+      background: #ffffff;
+      color: var(--text-main);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: var(--canvas-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 4px 8px;
+      width: 170px;
+      gap: 6px;
+    }
+
+    .search-input {
+      border: none;
+      background: transparent;
+      font-size: 11px;
+      color: var(--text-main);
+      width: 100%;
+      outline: none;
+      font-family: var(--font-sans);
+    }
+
+    .filter-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .btn-new-task {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--signal-teal);
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .btn-new-task:hover {
+      background: var(--signal-teal-hover);
+    }
+
+    /* Sub-bar / Filter Pill Bar */
+    .filter-meta-bar {
+      height: 38px;
+      min-height: 38px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 11px;
+    }
+
+    .filter-pills-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-tertiary);
+    }
+
+    .filter-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      background: var(--canvas-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      color: var(--text-muted);
+      font-size: 10.5px;
+    }
+
+    .tag-close {
+      cursor: pointer;
+      color: var(--text-tertiary);
+    }
+
+    .tag-close:hover {
+      color: var(--text-main);
+    }
+
+    .ac-notice {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-tertiary);
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    /* Pane Konten Kanban (Blueprint B: 5 kolom x 268px, gap 8px, overflow-x auto) */
+    .kanban-pane {
+      flex: 1;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 12px 16px;
+      display: flex;
+      gap: 8px;
+      background: var(--canvas-bg);
+    }
+
+    /* Kolom Kanban (Lebar 268px, border-top 3px warna status, scroll sendiri) */
+    .kanban-col {
+      width: 268px;
+      min-width: 268px;
+      max-width: 268px;
+      height: 100%;
+      background: #eef1f0;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      border: 1px solid var(--border-subtle);
+      border-top-width: 3px;
+      border-top-style: solid;
+      box-shadow: 0 1px 3px rgba(12, 26, 22, 0.02);
+    }
+
+    .col-backlog { border-top-color: var(--col-backlog); }
+    .col-ready { border-top-color: var(--col-ready); }
+    .col-running { border-top-color: var(--col-running); }
+    .col-approval { border-top-color: var(--col-approval); }
+    .col-done { border-top-color: var(--col-done); }
+
+    /* Header Kolom (30px) */
+    .col-header {
+      height: 30px;
+      min-height: 30px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+    }
+
+    .col-header:hover {
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    .col-title-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .col-status-indicator {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .ind-backlog { background: var(--col-backlog); }
+    .ind-ready { background: var(--col-ready); }
+    .ind-running { background: var(--col-running); }
+    .ind-approval { background: var(--col-approval); }
+    .ind-done { background: var(--col-done); }
+
+    .col-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .col-count {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-tertiary);
+      background: rgba(12, 26, 22, 0.06);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    .col-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-tertiary);
+    }
+
+    .col-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 3px;
+    }
+
+    .col-btn:hover {
+      background: rgba(12, 26, 22, 0.08);
+      color: var(--text-main);
+    }
+
+    /* List Kartu Dalam Kolom: scroll sendiri, independen */
+    .col-cards {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 8px 12px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Kartu Task (Padding 10px, radius 6px, bg #ffffff) */
+    .task-card {
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 10px;
+      box-shadow: 0 1px 2px rgba(12, 26, 22, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      cursor: grab;
+      position: relative;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+
+    .task-card:hover {
+      border-color: var(--border-standard);
+      box-shadow: 0 2px 5px rgba(12, 26, 22, 0.06);
+    }
+
+    .task-card:active {
+      cursor: grabbing;
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .task-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+      line-height: 1.35;
+      flex: 1;
+    }
+
+    .task-priority-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+
+    .p-urgent { background: #dc2626; box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15); }
+    .p-high { background: #ea580c; }
+    .p-medium { background: #3b82f6; }
+    .p-low { background: #94a3b8; }
+
+    /* Visualisasi Dependensi (US-AD19 AC1) */
+    .card-dep-relation {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding-top: 1px;
+    }
+
+    .dep-line {
+      width: 14px;
+      height: 8px;
+      border-left: 1.5px solid var(--signal-teal);
+      border-bottom: 1.5px solid var(--signal-teal);
+      border-bottom-left-radius: 3px;
+      margin-left: 2px;
+    }
+
+    .dep-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 9.5px;
+      font-weight: 600;
+      color: var(--signal-teal);
+      background: var(--signal-teal-light);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+    }
+
+    /* Assignee & Tags */
+    .card-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      margin-top: 2px;
+    }
+
+    .assignee-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+
+    .assignee-avatar-sm {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      color: #1e293b;
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .unassigned-badge {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      font-style: italic;
+    }
+
+    /* Badge Biaya Task (US-AD32 AC1 & AC2: <0.50 hijau, 0.50-1.50 kuning, >1.50 merah) */
+    .cost-badge {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .cost-green {
+      color: var(--cost-green);
+      background: var(--cost-green-bg);
+      border: 1px solid rgba(22, 163, 74, 0.2);
+    }
+
+    .cost-yellow {
+      color: var(--cost-yellow);
+      background: var(--cost-yellow-bg);
+      border: 1px solid rgba(217, 119, 6, 0.2);
+    }
+
+    .cost-red {
+      color: var(--cost-red);
+      background: var(--cost-red-bg);
+      border: 1px solid rgba(220, 38, 38, 0.2);
+    }
+
+    /* Running indicator pill */
+    .running-pulse {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 9.5px;
+      color: #d97706;
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+
+    .pulse-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #d97706;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+
+    /* Cost Rail Kanan (264px, bg #eef1f0) */
+    .app-costrail {
+      width: 264px;
+      min-width: 264px;
+      height: 100vh;
+      background: var(--costrail-bg);
+      border-left: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 18px;
+      overflow-y: auto;
+      z-index: 20;
+    }
+
+    .costrail-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .costrail-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .costrail-cap-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--text-tertiary);
+    }
+
+    /* Blok TODAY */
+    .today-amount {
+      font-family: var(--font-mono);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+
+    .today-subtext {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-tertiary);
+      margin-top: 1px;
+    }
+
+    /* Budget Meter (6px height) */
+    .budget-meter-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(12, 26, 22, 0.08);
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .budget-meter-fill {
+      height: 100%;
+      border-radius: 9999px;
+      background: var(--signal-teal);
+      width: 24.1%; /* $4.82 of $20.00 */
+    }
+
+    /* Blok 7-DAY Sparkline */
+    .sparkline-container {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 48px;
+      padding-top: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 8px;
+    }
+
+    .sparkline-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      height: 100%;
+      justify-content: flex-end;
+    }
+
+    .sparkline-bar {
+      width: 100%;
+      background: var(--signal-teal);
+      border-radius: 2px 2px 0 0;
+      min-height: 4px;
+    }
+
+    .sparkline-bar.warning {
+      background: #d97706; /* Hari lewat batas */
+    }
+
+    .sparkline-label {
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      color: var(--text-tertiary);
+    }
+
+    /* Blok TOP SPENDERS (3 baris) */
+    .spenders-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .spender-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+    }
+
+    .spender-name {
+      font-family: var(--font-mono);
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .spender-val {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .spender-bar-bg {
+      width: 100%;
+      height: 3px;
+      background: rgba(12, 26, 22, 0.06);
+      border-radius: 9999px;
+      margin-top: 3px;
+      overflow: hidden;
+    }
+
+    .spender-bar-fill {
+      height: 100%;
+      background: var(--signal-teal);
+      border-radius: 9999px;
+    }
+
+    /* Blok RUNNING NOW */
+    .running-now-box {
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .running-agent-count {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .running-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #d97706;
+    }
+
+    .running-caption {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      margin-left: 14px;
+      margin-top: 2px;
+    }
+
+    /* Icons SVG inline */
+    .icon {
+      width: 14px;
+      height: 14px;
+      stroke-width: 1.8;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- RAIL KIRI (44px, background #e8ecea, ikon saja tanpa label) -->
+  <aside class="app-rail">
+    <div class="rail-logo">AD</div>
+    
+    <nav class="rail-nav">
+      <!-- Grid / Overview -->
+      <button class="rail-item" title="Semua Proyek">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+      </button>
+      
+      <!-- Boards (Active) -->
+      <button class="rail-item active" title="Kanban Board">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M4 4h4v16H4zm6 0h4v10h-4zm6 0h4v12h-4z"></path></svg>
+      </button>
+
+      <!-- Tasks / Checklist -->
+      <button class="rail-item" title="Daftar Task">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+      </button>
+
+      <!-- Agent Registry -->
+      <button class="rail-item" title="Armada Agen">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
+      </button>
+
+      <!-- Cost & Ledger -->
+      <button class="rail-item" title="Ledger Biaya">
+        <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+      </button>
+    </nav>
+
+    <div class="rail-bottom">
+      <button class="rail-item" title="Pengaturan">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
+      <div style="width: 6px; height: 6px; border-radius: 50%; background: #16a34a;" title="Connected to Daemon :8080"></div>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR KIRI (224px, background #f6f7f6) -->
+  <aside class="app-sidebar">
+    <div class="sidebar-header">
+      <div class="workspace-pill">
+        <span class="status-dot"></span>
+        <span style="font-family: var(--font-mono);">ws_8f12a</span>
+        <span style="color: var(--text-tertiary); font-size: 10px;">(B2C)</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section-title">Papan Kanban</div>
+    <ul class="sidebar-list">
+      <li>
+        <a class="sidebar-item active" href="#sprint24">
+          <span>Sprint 24</span>
+          <span class="sidebar-count">12</span>
+        </a>
+      </li>
+      <li>
+        <a class="sidebar-item" href="#sprint23">
+          <span>Sprint 23</span>
+          <span class="sidebar-count">24</span>
+        </a>
+      </li>
+      <li>
+        <a class="sidebar-item" href="#backlog">
+          <span>Backlog grooming</span>
+          <span class="sidebar-count">38</span>
+        </a>
+      </li>
+      <li>
+        <a class="sidebar-item" href="#agent-ops">
+          <span>Agent ops</span>
+          <span class="sidebar-count">6</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-section-title">Armada Aktif</div>
+    <ul class="sidebar-list">
+      <li>
+        <a class="sidebar-item" href="#agent-db">
+          <div style="display: flex; align-items: center;">
+            <span class="agent-avatar">db</span>
+            <span>agent-db</span>
+          </div>
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: #16a34a;"></span>
+        </a>
+      </li>
+      <li>
+        <a class="sidebar-item" href="#agent-backend">
+          <div style="display: flex; align-items: center;">
+            <span class="agent-avatar">be</span>
+            <span>agent-backend</span>
+          </div>
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: #d97706;"></span>
+        </a>
+      </li>
+      <li>
+        <a class="sidebar-item" href="#agent-docs">
+          <div style="display: flex; align-items: center;">
+            <span class="agent-avatar">dc</span>
+            <span>agent-docs</span>
+          </div>
+          <span style="width: 5px; height: 5px; border-radius: 50%; background: #d97706;"></span>
+        </a>
+      </li>
+    </ul>
+
+    <!-- Profil Pengguna di Bawah Sidebar (Member role - US-AD12 AC4) -->
+    <div class="user-profile-bar">
+      <div class="user-avatar">RZ</div>
+      <div class="user-meta">
+        <span class="user-name">Reza</span>
+        <span class="user-role">Member (dapat drag)</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- PANE UTAMA (Topbar 52px + Subbar Filter + Kanban 5 Kolom) -->
+  <main class="app-main">
+    <!-- Topbar (52px HANYA membentang di atas pane konten) -->
+    <header class="app-topbar">
+      <div class="topbar-left">
+        <div class="board-title-group">
+          <h1 class="board-title">Sprint 24</h1>
+          <span class="board-count-badge">12 task</span>
+        </div>
+
+        <div class="view-switcher">
+          <button class="view-btn active" title="Kanban Board (Blueprint B)">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M4 4h4v16H4zm6 0h4v10h-4zm6 0h4v12h-4z"></path></svg>
+            <span>Board</span>
+          </button>
+          <button class="view-btn" title="Table View (Blueprint A)">
+            <svg class="icon" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            <span>Table</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <!-- Cari Task (US-AD16) -->
+        <div class="search-box">
+          <svg class="icon" viewBox="0 0 24 24" style="color: var(--text-tertiary);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" class="search-input" placeholder="Cari task..." value="">
+        </div>
+
+        <!-- Filter Status & Assignee (US-AD15) -->
+        <button class="filter-btn" title="Filter Task (AND combination - US-AD15 AC2)">
+          <svg class="icon" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          <span>Filter</span>
+        </button>
+
+        <!-- Buat Task (US-AD11: B2C tanpa assignee valid langsung backlog) -->
+        <button class="btn-new-task" title="Buat Task Baru (+ New Task)">
+          <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>Buat Task</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Sub-bar Filter & Board Metadata (US-AD15, US-AD59, US-AD81) -->
+    <div class="filter-meta-bar">
+      <div class="filter-pills-left">
+        <span>Filter aktif (AND):</span>
+        <span class="filter-tag">
+          <span>Org: ws_8f12a</span>
+        </span>
+        <span class="filter-tag" title="US-AD59 AC1: Arsip disembunyikan secara default">
+          <span>Status ≠ archived</span>
+        </span>
+        <span class="filter-tag" style="background: transparent; border-style: dashed; cursor: pointer;">
+          <span>+ Assignee</span>
+        </span>
+      </div>
+
+      <div class="ac-notice">
+        <!-- US-AD81 AC1: Klik header kolom untuk fokus satu kolom, atau Show all -->
+        <span>Klik header kolom: Fokus kolom | Mode: <strong style="color: var(--signal-teal);">Show all (5 kolom)</strong></span>
+      </div>
+    </div>
+
+    <!-- PANE KONTEN KANBAN (Blueprint B: 5 kolom x 268px, gap 8px, scroll sendiri) -->
+    <div class="kanban-pane">
+      
+      <!-- KOLOM 1: BACKLOG (#64748b, US-AD11 AC5 tanpa assignee tetap valid masuk sini) -->
+      <section class="kanban-col col-backlog" id="col-backlog">
+        <header class="col-header" title="Klik untuk fokus kolom Backlog (US-AD81 AC1)">
+          <div class="col-title-group">
+            <span class="col-status-indicator ind-backlog"></span>
+            <span class="col-title">Backlog</span>
+            <span class="col-count">3</span>
+          </div>
+          <div class="col-actions">
+            <button class="col-btn" title="Tambah task ke Backlog">+</button>
+          </div>
+        </header>
+
+        <div class="col-cards">
+          <!-- Task 1: B2C tanpa assignee (US-AD11 AC5) -->
+          <article class="task-card">
+            <div class="card-top">
+              <h2 class="task-title">Migrate sessions to Redis-less</h2>
+              <span class="task-priority-dot p-high" title="Priority: High (US-AD17)"></span>
+            </div>
+            
+            <div class="card-meta-row">
+              <!-- B2C unassigned: valid & tetap backlog (US-AD11 AC5) -->
+              <span class="unassigned-badge">Belum ada agent</span>
+              <!-- Biaya: US-AD32 AC1 & AC2: $0.00 (< $0.50 hijau) -->
+              <span class="cost-badge cost-green">$0.00</span>
+            </div>
+          </article>
+
+          <!-- Task 2: Dengan dependensi (US-AD19 AC1) -->
+          <article class="task-card">
+            <div class="card-top">
+              <h2 class="task-title">Upgrade Postgres schema v2</h2>
+              <span class="task-priority-dot p-medium" title="Priority: Medium (US-AD17)"></span>
+            </div>
+
+            <!-- Dependensi visualisasi (US-AD19 AC1) -->
+            <div class="card-dep-relation">
+              <div class="dep-line"></div>
+              <span class="dep-badge">dep: 1 parent</span>
+            </div>
+
+            <div class="card-meta-row">
+              <div class="assignee-badge">
+                <span class="assignee-avatar-sm">db</span>
+                <span>agent-db</span>
+              </div>
+              <span class="cost-badge cost-green">$0.00</span>
+            </div>
+          </article>
+
+          <!-- Task 3 -->
+          <article class="task-card">
+            <div class="card-top">
+              <h2 class="task-title">Investigate cold start 900ms</h2>
+              <span class="task-priority-dot p-low" title="Priority: Low"></span>
+            </div>
+            
+            <div class="card-meta-row">
+              <span class="unassigned-badge">Belum ada agent</span>
+              <span class="cost-badge cost-green">$0.00</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- KOLOM 2: READY (#2563eb) -->
+      <section class="kanban-col col-ready" id="col-ready">
+        <header class="col-header" title="Klik untuk fokus kolom Ready (US-AD81 AC1)">
+          <div class="col-title-group">
+            <span class="col-status-indicator ind-ready"></span>
+            <span class="col-title">Ready</span>
+            <span class="col-count">3</span>
+          </div>
+          <div class="col-actions">
+            <button class="col-btn" title="Tambah task ke Ready">+</button>
+          </div>
+        </header>
+
+        <div class="col-cards">
+          <!-- Task 4 -->
+          <article class="task-card">
+            <div class="card-top">
+              <h2 class="task-title">Fix webhook signature retry</h2>
+              <span class="task-priority-dot p-urgent" title="Priority: Urgent (US-AD17)"></span>
+            </div>
+            
+            <div class="card-meta-row">
+              <div class="assignee-badge">
+                <span class="assignee-avatar-sm">be</span>
+                <span>agent-backend</span>
+              </div>
+              <span class="cost-badge cost-green">$0.00</span>
+            </div>
+          </article>
+
+          <!-- Task 5: Dependensi multi-parent (US-AD19 AC1) -->
+          <article class="task-card">
+            <div class="card-top">
+              <h2 class="task-title">Backfill user analytics ledger</h2>
+              <span class="task-priority-dot p-medium"></span>
+            </div>
+
+            <!-- Dependensi visualisasi -->
+            <div class="card-dep-relation">
+              <div class="dep-line"></div>
+              <span class="dep-badge">dep: 2 parents</span>
+            </div>
+
+            <div class="card-meta-row">
+              <div class="assignee-badge">
+                <span class="assignee-avatar-sm">be</span>
+                <span>agent-backend</span>
+              </div>
+              <span class="cost-badge cost-green">$0.00</span>
+            </div>
+          </article>
+
+          <!-- Task 6 -->
+          <article class="task-card">
+            <div class="card-top">
+              <h2 class="task-title">Audit node dependency licenses</h2>
+              <span class="task-priority-dot p-low"></span>
+            </div>
+
+            <div class="card-meta-row">
+              <div class="assignee-badge">
+                <span class="assignee-avatar-sm">dc</span>
+                <span>agent-docs</span>
+              </div>
+              <span class="cost-badge cost-green">$0.00</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- KOLOM 3: RUNNING (#d97706) -->
+      <section class="kanban-col col-running" id="col-running">
+        <header class="col-header" title="Klik untuk fokus kolom Running (US-AD81 AC1)">
+          <div class="col-title-group">
+            <span class="col-status-indicator ind-running"></span>
+            <span class="col-title">Running</span>
+            <span class="col-count">2</span>
+          </div>
+          <div class="col-actions">
+            <span class="running-pulse"><span class="pulse-dot"></span>2 aktif</span>
+          </div>
+        </header>
+
+        <div class="col-cards">
+          <!-- Task 7: Running, Biaya Hijau (< $0.50 -> $0.318) -->
+          <article class="task-card" style="border-left: 2px solid #d97706;">
+            <div class="card-top">
+              <h2 class="task-title">Refactor auth module & telemetry</h2>
+              <span class="task-priority-dot p-urgent" title="Priority: Urgent"></span>
+            </div>
+
+            <!-- Dependensi visualisasi (US-AD19 AC1) -->
+            <div class="card-dep-relation">
+              <div class="dep-line"></div>
+              <span class="dep-badge">dep: 1 parent</span>
+            </div>
+
+            <div class="card-meta-row">
+              <div class="assignee-badge">
+                <span class="assignee-avatar-sm" style="background: #fef3c7; color: #b45309;">be</span>
+                <span>agent-backend</span>
+              </div>
+              <!-- Biaya: US-AD32 AC1 & AC2: $0.32 (< $0.50 hijau) -->
+              <span class="cost-badge cost-green" title="Total akumulasi biaya step">$0.32</span>
+            </div>
+          </article>
+
+          <!-- Task 8: Running, Biaya Hijau ($0.10) -->
+          <article class="task-card" style="border-left: 2px solid #d97706;">
+            <div class="card-top">
+              <h2 class="task-title">Generate v2.4 API release notes</h2>
+              <span class="task-priority-dot p-medium"></span>
+            </div>
+
+            <div class="card-meta-row">
+              <div class="assignee-badge">
+                <span class="assignee-avatar-sm" style="background: #fef3c7; color: #b45309;">dc</span>
+                <span>agent-docs</span>
+              </div>
+              <span class="cost-badge cost-green">$0.10</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- KOLOM 4: AWAITING APPROVAL (#7c3aed) -->
+      <section class="kanban-col col-approval" id="col-approval">
+        <header class="col-header" title="Klik untuk fokus kolom Awaiting Approval (US-AD81 AC1)">
+          <div class="col-title-group">
+            <span class="col-status-indicator ind-approval"></span>
+            <span class="col-title">Awaiting Approval</span>
+            <span class="col-count">2</span>
+          </div>
+          <div class="col-actions">
+            <button class="col-btn" title="Filter approval">⚡</button>
+          </div>
+        </header>
+
+        <div class="col-cards">
+          <!-- Task 9: Biaya Kuning ($0.50-$1.50 -> $0.84) - US-AD32 AC2 -->
+          <article class="task-card" style="border-left: 2px solid #7c3aed;">
+            <div class="card-top">
+              <h2 class="task-title">Rotate production API keys</h2>
+              <span class="task-priority-dot p-urgent" title="Urgent"></span>
+            </div>
+
+            <div class="card-meta-row">
+              <div class="assignee-badge">
+                <span class="assignee-avatar-sm">be</span>
+                <span>agent-backend</span>
+              </div>
+              <!-- US-AD32 AC2: $0.84 berada di antara $0.50 - $1.50 -> KUNING -->
+              <span class="cost-badge cost-yellow" title="Biaya $0.50-$1.50 berwarna kuning">$0.84</span>
+            </div>
+          </article>
+
+          <!-- Task 10: Biaya Merah (> $1.50 -> $1.84) - US-AD32 AC2 -->
+          <article class="task-card" style="border-left: 2px solid #7c3aed;">
+            <div class="card-top">
+              <h2 class="task-title">Drop stale replica DB instances</h2>
+              <span class="task-priority-dot p-high"></span>
+            </div>
+
+            <div class="card-dep-relation">
+              <div class="dep-line"></div>
+              <span class="dep-badge">dep: 1 parent</span>
+            </div>
+
+            <div class="card-meta-row">
+              <div class="assignee-badge">
+                <span class="assignee-avatar-sm">db</span>
+                <span>agent-db</span>
+              </div>
+              <!-- US-AD32 AC2: $1.84 > $1.50 -> MERAH -->
+              <span class="cost-badge cost-red" title="Biaya > $1.50 berwarna merah">$1.84</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- KOLOM 5: DONE (#16a34a) -->
+      <section class="kanban-col col-done" id="col-done">
+        <header class="col-header" title="Klik untuk fokus kolom Done (US-AD81 AC1)">
+          <div class="col-title-group">
+            <span class="col-status-indicator ind-done"></span>
+            <span class="col-title">Done</span>
+            <span class="col-count">2</span>
+          </div>
+          <div class="col-actions">
+            <button class="col-btn" title="Selesai">✓</button>
+          </div>
+        </header>
+
+        <div class="col-cards">
+          <!-- Task 11 -->
+          <article class="task-card">
+            <div class="card-top">
+              <h2 class="task-title" style="text-decoration: line-through; color: var(--text-muted);">Sync Stripe invoice telemetry</h2>
+              <span class="task-priority-dot p-low"></span>
+            </div>
+
+            <div class="card-meta-row">
+              <div class="assignee-badge">
+                <span class="assignee-avatar-sm">be</span>
+                <span>agent-backend</span>
+              </div>
+              <span class="cost-badge cost-green">$0.42</span>
+            </div>
+          </article>
+
+          <!-- Task 12: Biaya Merah ($1.62) -->
+          <article class="task-card">
+            <div class="card-top">
+              <h2 class="task-title" style="text-decoration: line-through; color: var(--text-muted);">Initial database migration core</h2>
+              <span class="task-priority-dot p-medium"></span>
+            </div>
+
+            <div class="card-meta-row">
+              <div class="assignee-badge">
+                <span class="assignee-avatar-sm">db</span>
+                <span>agent-db</span>
+              </div>
+              <!-- Biaya: US-AD32 AC2: $1.62 > $1.50 -> MERAH -->
+              <span class="cost-badge cost-red">$1.62</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- COST RAIL KANAN (264px, background #eef1f0, US-AD97: 4 blok tetap) -->
+  <aside class="app-costrail">
+    <!-- BLOK 1: TODAY (Biaya + meter pagu 6px, US-AD97 AC1 & AC2) -->
+    <section class="costrail-section">
+      <div class="costrail-title">
+        <span>TODAY</span>
+        <span class="costrail-cap-label">CAP $20.00</span>
+      </div>
+      <div class="today-amount">$4.82</div>
+      <div class="today-subtext">/ $20.00 batas harian (24.1%)</div>
+      
+      <!-- Budget meter 6px height -->
+      <div class="budget-meter-track" title="Pagu harian: 24.1% terpakai">
+        <div class="budget-meter-fill"></div>
+      </div>
+    </section>
+
+    <!-- BLOK 2: 7-DAY (Sparkline 7 batang, US-AD97 AC1 & AC3) -->
+    <section class="costrail-section">
+      <div class="costrail-title">
+        <span>7-DAY</span>
+        <span class="costrail-cap-label">SEP 12 – SEP 18</span>
+      </div>
+      
+      <div class="sparkline-container">
+        <!-- Day 1 -->
+        <div class="sparkline-col">
+          <div class="sparkline-bar" style="height: 18px;" title="12 Sep: $1.80"></div>
+          <span class="sparkline-label">12</span>
+        </div>
+        <!-- Day 2 -->
+        <div class="sparkline-col">
+          <div class="sparkline-bar" style="height: 28px;" title="13 Sep: $2.90"></div>
+          <span class="sparkline-label">13</span>
+        </div>
+        <!-- Day 3 -->
+        <div class="sparkline-col">
+          <div class="sparkline-bar" style="height: 14px;" title="14 Sep: $1.20"></div>
+          <span class="sparkline-label">14</span>
+        </div>
+        <!-- Day 4 -->
+        <div class="sparkline-col">
+          <div class="sparkline-bar" style="height: 32px;" title="15 Sep: $3.40"></div>
+          <span class="sparkline-label">15</span>
+        </div>
+        <!-- Day 5 -->
+        <div class="sparkline-col">
+          <div class="sparkline-bar warning" style="height: 44px;" title="16 Sep: $5.10 (Warning)"></div>
+          <span class="sparkline-label">16</span>
+        </div>
+        <!-- Day 6 -->
+        <div class="sparkline-col">
+          <div class="sparkline-bar" style="height: 36px;" title="17 Sep: $3.80"></div>
+          <span class="sparkline-label">17</span>
+        </div>
+        <!-- Day 7 (Today) -->
+        <div class="sparkline-col">
+          <div class="sparkline-bar" style="height: 42px;" title="18 Sep (Hari ini): $4.82"></div>
+          <span class="sparkline-label">18</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- BLOK 3: TOP SPENDERS (3 baris tetap, US-AD97 AC1) -->
+    <section class="costrail-section">
+      <div class="costrail-title">
+        <span>TOP SPENDERS</span>
+        <span class="costrail-cap-label">TODAY</span>
+      </div>
+
+      <div class="spenders-list">
+        <!-- Spender 1 -->
+        <div>
+          <div class="spender-item">
+            <span class="spender-name">agent-backend</span>
+            <span class="spender-val">$1.84</span>
+          </div>
+          <div class="spender-bar-bg">
+            <div class="spender-bar-fill" style="width: 82%;"></div>
+          </div>
+        </div>
+
+        <!-- Spender 2 -->
+        <div>
+          <div class="spender-item">
+            <span class="spender-name">agent-db</span>
+            <span class="spender-val">$1.42</span>
+          </div>
+          <div class="spender-bar-bg">
+            <div class="spender-bar-fill" style="width: 63%;"></div>
+          </div>
+        </div>
+
+        <!-- Spender 3 -->
+        <div>
+          <div class="spender-item">
+            <span class="spender-name">agent-docs</span>
+            <span class="spender-val">$0.91</span>
+          </div>
+          <div class="spender-bar-bg">
+            <div class="spender-bar-fill" style="width: 40%;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BLOK 4: RUNNING NOW (US-AD97 AC1) -->
+    <div class="running-now-box">
+      <div class="costrail-title" style="margin-bottom: 6px;">
+        <span>STATUS FLEET</span>
+      </div>
+      <div class="running-agent-count">
+        <span class="running-dot"></span>
+        <span>2 agents active</span>
+      </div>
+      <div class="running-caption">task execution: running</div>
+    </div>
+  </aside>
+
+</body>
+</html>

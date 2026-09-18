@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>AgentDeck — Graf Dependency (/boards/:id/graph)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-rail": "#e8ecea",
+            "surface-sidebar": "#f6f7f6",
+            "surface-cost": "#eef1f0",
+            "surface-page": "#f6f7f6",
+            "surface-card": "#ffffff",
+            "brand-teal": "#0d7a70",
+            "brand-teal-hover": "#0b635b",
+            "brand-teal-tint": "#eef7f5",
+            "ink-primary": "#0e1110",
+            "ink-secondary": "#4d5553",
+            "ink-tertiary": "#6b7370",
+            "border-subtle": "rgba(12,26,22,0.07)",
+            "border-std": "rgba(12,26,22,0.12)",
+            "status-backlog": "#64748b",
+            "status-ready": "#2563eb",
+            "status-running": "#d97706",
+            "status-review": "#0891b2",
+            "status-done": "#16a34a",
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(12,26,22,0.15);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(12,26,22,0.25);
+    }
+  </style>
+</head>
+<body class="bg-[#f6f7f6] text-[#0e1110] font-sans antialiased overflow-hidden h-screen w-screen flex select-none">
+
+  <!-- 1. RAIL KIRI (44px, background #e8ecea) -->
+  <aside class="w-[44px] shrink-0 bg-[#e8ecea] border-r border-[rgba(12,26,22,0.12)] flex flex-col items-center justify-between py-3.5 z-30">
+    <div class="flex flex-col items-center gap-4">
+      <!-- AD Badge -->
+      <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] flex items-center justify-center text-white font-bold text-[11px] font-mono tracking-tight shadow-sm cursor-pointer" title="AgentDeck v2">
+        AD
+      </div>
+      <div class="w-6 h-[1px] bg-[rgba(12,26,22,0.12)]"></div>
+      <!-- Rail Icons (Ikon saja tanpa label) -->
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Semua Proyek">
+        <span class="material-symbols-outlined">folder_open</span>
+      </button>
+      <!-- Active Board Icon -->
+      <button class="w-8 h-8 rounded-[6px] bg-[#d9e1de] text-[#0d7a70] flex items-center justify-center" title="Papan Kanban & Graf">
+        <span class="material-symbols-outlined filled">view_kanban</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Armada Agent">
+        <span class="material-symbols-outlined">smart_toy</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Antrean Approval">
+        <span class="material-symbols-outlined">verified_user</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Audit & Ledger">
+        <span class="material-symbols-outlined">account_balance_wallet</span>
+      </button>
+    </div>
+    <div class="flex flex-col items-center gap-3">
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dce4e1] transition-colors" title="Pengaturan">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+      <!-- Avatar User RZ (26px) -->
+      <div class="relative cursor-pointer" title="Reza (Owner)">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#0e1110] text-[#f6f7f6] text-[10px] font-bold flex items-center justify-center border border-white">
+          RZ
+        </div>
+        <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-[#0d7a70] border-2 border-[#e8ecea] rounded-full"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 2. SIDEBAR (224px, background #f6f7f6) -->
+  <nav class="w-[224px] shrink-0 bg-[#f6f7f6] border-r border-[rgba(12,26,22,0.12)] flex flex-col justify-between overflow-y-auto text-[13px] z-20">
+    <div class="flex flex-col">
+      <!-- Workspace Badge Box -->
+      <div class="p-3 border-b border-[rgba(12,26,22,0.07)]">
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] mb-1">
+          <span class="font-bold tracking-wider uppercase">WORKSPACE</span>
+          <span class="text-[9px] bg-[#eef7f5] text-[#0d7a70] font-bold px-1.5 py-0.5 rounded-[6px] border border-[#0d7a70]/20">B2C SOLO</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+          <span class="font-mono text-[12px] font-semibold text-[#0e1110] truncate">ws_8f12a (core)</span>
+        </div>
+      </div>
+
+      <!-- Section: Papan Kanban & Tampilan -->
+      <div class="p-2 space-y-4">
+        <div>
+          <div class="px-2 py-1 flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-[#6b7370]">
+            <span>Papan Kanban</span>
+            <span class="font-semibold text-[10px]">4</span>
+          </div>
+          <div class="mt-1 space-y-0.5">
+            <!-- Active board: Sprint 24 -->
+            <a href="/boards/sprint-24" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#d9e1de]/80 text-[#0d7a70] font-semibold">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined text-[16px] text-[#0d7a70]">view_kanban</span>
+                <span class="truncate text-[12px]">Sprint 24</span>
+              </div>
+              <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#0d7a70]/10 text-[#0d7a70] font-bold">12</span>
+            </a>
+            <a href="#sprint23" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edeeed] transition-colors">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">grid_view</span>
+                <span class="truncate text-[12px]">Sprint 23</span>
+              </div>
+              <span class="text-[11px] font-mono text-[#6b7370]">24</span>
+            </a>
+            <a href="#backlog" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edeeed] transition-colors">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">format_list_bulleted</span>
+                <span class="truncate text-[12px]">Backlog grooming</span>
+              </div>
+              <span class="text-[11px] font-mono text-[#6b7370]">38</span>
+            </a>
+            <a href="#agentops" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edeeed] transition-colors">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined text-[16px] text-[#6b7370]">tune</span>
+                <span class="truncate text-[12px]">Agent ops</span>
+              </div>
+              <span class="text-[11px] font-mono text-[#6b7370]">6</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Mode Navigasi Board -->
+        <div>
+          <div class="px-2 py-1 text-[11px] font-mono uppercase tracking-wider text-[#6b7370]">
+            <span>Mode Tampilan</span>
+          </div>
+          <div class="mt-1 space-y-0.5">
+            <a href="/boards/sprint-24" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edeeed] transition-colors">
+              <span class="material-symbols-outlined text-[16px] text-[#6b7370]">view_kanban</span>
+              <span class="text-[12px]">Board View</span>
+            </a>
+            <a href="/boards/sprint-24/table" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edeeed] transition-colors">
+              <span class="material-symbols-outlined text-[16px] text-[#6b7370]">table_chart</span>
+              <span class="text-[12px]">Table View</span>
+            </a>
+            <!-- Active Graf Dependency View -->
+            <a href="/boards/sprint-24/graph" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] font-semibold border-l-2 border-[#0d7a70]">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="material-symbols-outlined filled text-[16px] text-[#0d7a70]">account_tree</span>
+                <span class="text-[12px]">Graf Dependency</span>
+              </div>
+              <span class="text-[9px] font-mono bg-[#0d7a70]/10 text-[#0d7a70] px-1 rounded font-bold">AD19</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Section: Armada Terdaftar -->
+        <div>
+          <div class="px-2 py-1 flex items-center justify-between text-[11px] font-mono uppercase tracking-wider text-[#6b7370]">
+            <span>Armada Terdaftar</span>
+            <span class="text-[10px] font-mono text-[#0d7a70] font-bold">2 RUNNING</span>
+          </div>
+          <div class="mt-1 space-y-1">
+            <div class="flex items-center justify-between px-2 py-1 rounded-[6px] bg-white border border-[rgba(12,26,22,0.07)] text-[11px] font-mono">
+              <div class="flex items-center gap-1.5">
+                <span class="w-[20px] h-[20px] rounded-full bg-[#0d7a70]/10 text-[#0d7a70] font-bold flex items-center justify-center text-[10px]">be</span>
+                <span class="text-[#0e1110]">agent-backend</span>
+              </div>
+              <span class="w-2 h-2 rounded-full bg-[#0d7a70] animate-pulse"></span>
+            </div>
+            <div class="flex items-center justify-between px-2 py-1 rounded-[6px] bg-white border border-[rgba(12,26,22,0.07)] text-[11px] font-mono">
+              <div class="flex items-center gap-1.5">
+                <span class="w-[20px] h-[20px] rounded-full bg-[#2563eb]/10 text-[#2563eb] font-bold flex items-center justify-center text-[10px]">dc</span>
+                <span class="text-[#0e1110]">agent-docs</span>
+              </div>
+              <span class="w-2 h-2 rounded-full bg-[#0d7a70] animate-pulse"></span>
+            </div>
+            <div class="flex items-center justify-between px-2 py-1 rounded-[6px] text-[11px] font-mono text-[#6b7370]">
+              <div class="flex items-center gap-1.5">
+                <span class="w-[20px] h-[20px] rounded-full bg-[#64748b]/10 text-[#64748b] font-bold flex items-center justify-center text-[10px]">dt</span>
+                <span>agent-data</span>
+              </div>
+              <span class="text-[9px] text-[#6b7370]">idle</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daemon Footer -->
+    <div class="p-2 border-t border-[rgba(12,26,22,0.07)] bg-[#f0f2f1]">
+      <div class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#e1e3e2] text-[11px] font-mono text-[#4d5553]">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+          <span class="truncate">daemon :8080</span>
+        </div>
+        <span class="text-[10px] text-[#6b7370]">v2.4</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 3. PUSAT: TOPBAR + KONTEN BLUEPRINT B (5 Kolom x 268px, gap 8px) -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f6f7f6]">
+
+    <!-- TOPBAR 52px (#ffffff, border-b standard, HANYA di atas pane konten) -->
+    <header class="h-[52px] shrink-0 bg-[#ffffff] border-b border-[rgba(12,26,22,0.12)] px-4 flex items-center justify-between gap-4 z-20 shadow-sm">
+      <!-- Kiri: Board Title, task badge, & View Switchers -->
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="flex items-center gap-2">
+          <h1 class="text-[16px] font-bold text-[#0e1110] tracking-tight truncate">Sprint 24</h1>
+          <span class="text-[11px] font-mono text-[#4d5553] bg-[#f6f7f6] px-2 py-0.5 rounded-[6px] border border-[rgba(12,26,22,0.07)]">
+            12 task
+          </span>
+        </div>
+
+        <div class="h-4 w-[1px] bg-[rgba(12,26,22,0.12)]"></div>
+
+        <!-- View Switcher Tabs -->
+        <div class="flex items-center bg-[#f6f7f6] p-0.5 rounded-[6px] border border-[rgba(12,26,22,0.07)]">
+          <a href="/boards/sprint-24" class="flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-[12px] font-medium text-[#4d5553] hover:text-[#0e1110]">
+            <span class="material-symbols-outlined text-[15px]">view_kanban</span>
+            <span>Board</span>
+          </a>
+          <a href="/boards/sprint-24/table" class="flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-[12px] font-medium text-[#4d5553] hover:text-[#0e1110]">
+            <span class="material-symbols-outlined text-[15px]">table_chart</span>
+            <span>Table</span>
+          </a>
+          <!-- Active Graph Tab -->
+          <a href="/boards/sprint-24/graph" class="flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-[12px] font-semibold bg-[#ffffff] text-[#0d7a70] shadow-xs border border-[rgba(12,26,22,0.07)]">
+            <span class="material-symbols-outlined filled text-[15px] text-[#0d7a70]">account_tree</span>
+            <span>Graf Dependency</span>
+          </a>
+        </div>
+
+        <!-- Route & Acceptance Criteria Pill -->
+        <div class="hidden xl:flex items-center gap-1.5 px-2 py-0.5 rounded-[6px] bg-[#eef7f5] border border-[#0d7a70]/30 text-[#0d7a70] font-mono text-[11px]">
+          <span class="material-symbols-outlined filled text-[14px]">verified</span>
+          <span class="font-bold">US-AD19 AC1</span>
+          <span class="text-[#6b7370]">• /boards/:id/graph</span>
+        </div>
+      </div>
+
+      <!-- Kanan: Legend Dependensi, Search, Filter, Buat Task -->
+      <div class="flex items-center gap-2.5 shrink-0">
+        <!-- Dependency Legend Badge -->
+        <div class="flex items-center gap-2 px-2.5 py-1 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] text-[11px] font-mono">
+          <span class="flex items-center gap-1 text-[#6b7370]">
+            <span class="w-3 h-0.5 bg-[#0d7a70]"></span>
+            <span>Garis ke Parent</span>
+          </span>
+          <span class="text-[#6b7370]">•</span>
+          <span class="flex items-center gap-1 text-[#0d7a70] font-semibold">
+            <span class="px-1 py-0.2 rounded bg-[#0d7a70]/10 text-[10px]">dep: N</span>
+            <span>Badge Terkunci/Prasyarat</span>
+          </span>
+        </div>
+
+        <!-- Filter & Search -->
+        <div class="relative flex items-center">
+          <span class="material-symbols-outlined absolute left-2 text-[#6b7370] text-[15px]">search</span>
+          <input type="text" placeholder="Cari task atau dependency..." class="h-8 pl-7 pr-3 text-[12px] rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] focus:border-[#0d7a70] focus:bg-white focus:outline-none w-44 placeholder:text-[#6b7370] text-[#0e1110]"/>
+        </div>
+
+        <button class="h-8 px-3 rounded-[6px] bg-[#0d7a70] hover:bg-[#0b635b] text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-xs transition-colors">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>Buat Task</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- BLUEPRINT B BOARD PANE: 5 Kolom x 268px, gap 8px, padding 12px, tiap kolom scroll sendiri -->
+    <main class="flex-1 overflow-x-auto p-3 relative flex items-start justify-start">
+      
+      <!-- WRAPPER RELATIF UNTUK KOLOM + OVERLAY SVG GARIS DEPENDENCY -->
+      <div class="relative flex gap-[8px] min-w-max h-[calc(100vh-52px-24px)]" id="board-graph-viewport">
+
+        <!-- ================================================================= -->
+        <!-- SVG OVERLAY: GARIS TIPIS KE PARENT (US-AD19 AC1)                   -->
+        <!-- Menggambar kurva bezier / orthogonal yang menghubungkan child ke parent -->
+        <!-- ================================================================= -->
+        <svg class="absolute inset-0 w-full h-full pointer-events-none z-10" xmlns="http://www.w3.org/2000/svg" style="min-width: 1372px; min-height: 100%;">
+          <defs>
+            <!-- Marker Panah Aksen Signal Teal -->
+            <marker id="arrow-teal" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0d7a70" />
+            </marker>
+            <!-- Marker Panah Warning untuk Task Blocked/Running Dependency -->
+            <marker id="arrow-amber" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#d97706" />
+            </marker>
+            <!-- Marker Panah Netral Secondary -->
+            <marker id="arrow-slate" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748b" />
+            </marker>
+          </defs>
+
+          <!-- 1. Garis Dependensi: task-882c (Backfill user analytics, Kolom 2) -> Parent task-771b (Refactor auth module, Kolom 3) -->
+          <!-- Posisi Child: Kolom 2 (x: 276..544) Card 2 (y: ~190). Posisi Parent: Kolom 3 (x: 552..820) Card 1 (y: ~95) -->
+          <path d="M 544 205 C 570 205, 530 110, 552 110" 
+                fill="none" 
+                stroke="#0d7a70" 
+                stroke-width="1.5" 
+                stroke-dasharray="3 3"
+                marker-end="url(#arrow-teal)" />
+          <!-- Tag Label Garis Dependensi -->
+          <rect x="532" y="148" width="58" height="18" rx="4" fill="#ffffff" stroke="#0d7a70" stroke-width="1" />
+          <text x="561" y="161" fill="#0d7a70" font-size="9.5" font-family="JetBrains Mono" font-weight="600" text-anchor="middle">parent #1</text>
+
+          <!-- 2. Garis Dependensi: task-882c (Backfill, Kolom 2) -> Parent task-115f (Upgrade Postgres, Kolom 1) -->
+          <!-- Posisi Child: Kolom 2 (x: 276) Card 2. Posisi Parent: Kolom 1 (x: 268) Card 1 -->
+          <path d="M 276 220 C 240 220, 290 110, 268 110" 
+                fill="none" 
+                stroke="#0d7a70" 
+                stroke-width="1.5" 
+                marker-end="url(#arrow-teal)" />
+          <rect x="246" y="156" width="58" height="18" rx="4" fill="#ffffff" stroke="#0d7a70" stroke-width="1" />
+          <text x="275" y="169" fill="#0d7a70" font-size="9.5" font-family="JetBrains Mono" font-weight="600" text-anchor="middle">parent #2</text>
+
+          <!-- 3. Garis Dependensi: task-930a (Generate release notes, Kolom 3) -> Parent task-771b (Refactor auth module, Kolom 3) -->
+          <!-- Intra-kolom Kolom 3: Card 2 (y: ~255) -> Card 1 (y: ~135) -->
+          <path d="M 565 240 C 535 240, 535 135, 565 135" 
+                fill="none" 
+                stroke="#d97706" 
+                stroke-width="1.5" 
+                stroke-dasharray="3 3"
+                marker-end="url(#arrow-amber)" />
+          <rect x="522" y="180" width="50" height="18" rx="4" fill="#ffffff" stroke="#d97706" stroke-width="1" />
+          <text x="547" y="193" fill="#d97706" font-size="9.5" font-family="JetBrains Mono" font-weight="600" text-anchor="middle">requires</text>
+
+          <!-- 4. Garis Dependensi: task-612f (Audit dependencies, Kolom 4) -> Parent task-882c (Backfill, Kolom 2) -->
+          <!-- Kolom 4 (x: 828) Card 1 (y: ~110) -> Kolom 2 (x: 544) Card 2 (y: ~235) -->
+          <path d="M 828 110 C 730 110, 650 225, 544 225" 
+                fill="none" 
+                stroke="#64748b" 
+                stroke-width="1.5" 
+                marker-end="url(#arrow-slate)" />
+          <rect x="672" y="160" width="54" height="18" rx="4" fill="#ffffff" stroke="#64748b" stroke-width="1" />
+          <text x="699" y="173" fill="#4d5553" font-size="9.5" font-family="JetBrains Mono" font-weight="600" text-anchor="middle">dep chain</text>
+        </svg>
+
+        <!-- ================================================================= -->
+        <!-- KOLOM 1: BACKLOG (268px, top edge 3px warna status #64748b)       -->
+        <!-- ================================================================= -->
+        <section class="w-[268px] shrink-0 bg-[#f6f7f6] rounded-[10px] border border-[rgba(12,26,22,0.07)] flex flex-col h-full overflow-hidden shadow-xs">
+          <!-- Top edge 3px status color -->
+          <div class="h-[3px] w-full bg-[#64748b]"></div>
+
+          <!-- Header Kolom 30px -->
+          <div class="h-[30px] px-3 bg-[#ffffff] border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#64748b]"></span>
+              <span class="font-bold text-[12px] text-[#0e1110]">Backlog</span>
+              <span class="text-[10px] font-mono text-[#6b7370] bg-[#f6f7f6] px-1.5 rounded">3</span>
+            </div>
+            <button class="text-[#6b7370] hover:text-[#0e1110]" title="Tambah task ke Backlog">
+              <span class="material-symbols-outlined text-[16px]">add</span>
+            </button>
+          </div>
+
+          <!-- List Task Kolom 1 (Scroll mandiri) -->
+          <div class="flex-1 overflow-y-auto p-2 space-y-2">
+
+            <!-- KARTU 1: Upgrade Postgres schema v2 (Root parent bagi task-882c) -->
+            <div class="bg-[#ffffff] rounded-[8px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[#0d7a70]/40 transition-shadow shadow-xs relative group" id="card-task-115f">
+              <div class="flex items-center justify-between gap-1 text-[11px] font-mono mb-1">
+                <span class="font-semibold text-[#0d7a70]">task-115f</span>
+                <span class="text-[10px] text-[#6b7370]">$0.000</span>
+              </div>
+              <h2 class="text-[12px] font-semibold text-[#0e1110] leading-snug">
+                Upgrade Postgres schema v2
+              </h2>
+              <p class="text-[11px] text-[#4d5553] mt-1 line-clamp-2">
+                Migrasi 21 tabel internal daemon dan inisialisasi ledger micro-usd.
+              </p>
+
+              <!-- Parent Indicator Box -->
+              <div class="mt-2.5 pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono">
+                <div class="flex items-center gap-1 text-[#0d7a70] bg-[#eef7f5] px-1.5 py-0.5 rounded-[4px] border border-[#0d7a70]/20 font-medium">
+                  <span class="material-symbols-outlined text-[12px]">hub</span>
+                  <span>Root Parent (1 child)</span>
+                </div>
+                <div class="flex items-center gap-1 text-[#6b7370]">
+                  <span class="w-[18px] h-[18px] rounded-full bg-[#64748b]/15 text-[#64748b] text-[9px] font-bold flex items-center justify-center">db</span>
+                  <span>agent-db</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- KARTU 2: Migrate sessions to Redis-less (Mandiri) -->
+            <div class="bg-[#ffffff] rounded-[8px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.18)] transition-shadow shadow-xs">
+              <div class="flex items-center justify-between gap-1 text-[11px] font-mono mb-1">
+                <span class="font-semibold text-[#6b7370]">task-192e</span>
+                <span class="text-[10px] text-[#6b7370]">$0.000</span>
+              </div>
+              <h2 class="text-[12px] font-semibold text-[#0e1110] leading-snug">
+                Migrate sessions to Redis-less
+              </h2>
+              <p class="text-[11px] text-[#4d5553] mt-1 line-clamp-2">
+                Penyimpanan sesi lokal pada PostgreSQL terenkripsi AES-256.
+              </p>
+              <div class="mt-2.5 pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono">
+                <span class="text-[#6b7370]">Tanpa dependency</span>
+                <span class="text-[#6b7370]">Belum ada agent</span>
+              </div>
+            </div>
+
+            <!-- KARTU 3: Investigate cold start 900ms -->
+            <div class="bg-[#ffffff] rounded-[8px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.18)] transition-shadow shadow-xs">
+              <div class="flex items-center justify-between gap-1 text-[11px] font-mono mb-1">
+                <span class="font-semibold text-[#6b7370]">task-084d</span>
+                <span class="text-[10px] text-[#6b7370]">$0.000</span>
+              </div>
+              <h2 class="text-[12px] font-semibold text-[#0e1110] leading-snug">
+                Investigate cold start 900ms
+              </h2>
+              <p class="text-[11px] text-[#4d5553] mt-1 line-clamp-2">
+                Profiling biner Go 1.22 pada VPS memory rendah (&lt;80MB).
+              </p>
+              <div class="mt-2.5 pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono">
+                <span class="text-[#6b7370]">Tanpa dependency</span>
+                <div class="flex items-center gap-1 text-[#6b7370]">
+                  <span class="w-[18px] h-[18px] rounded-full bg-[#64748b]/15 text-[#64748b] text-[9px] font-bold flex items-center justify-center">pf</span>
+                  <span>agent-perf</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- KOLOM 2: READY (268px, top edge 3px warna status #2563eb)         -->
+        <!-- ================================================================= -->
+        <section class="w-[268px] shrink-0 bg-[#f6f7f6] rounded-[10px] border border-[rgba(12,26,22,0.07)] flex flex-col h-full overflow-hidden shadow-xs">
+          <!-- Top edge 3px status color -->
+          <div class="h-[3px] w-full bg-[#2563eb]"></div>
+
+          <!-- Header Kolom 30px -->
+          <div class="h-[30px] px-3 bg-[#ffffff] border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#2563eb]"></span>
+              <span class="font-bold text-[12px] text-[#0e1110]">Ready</span>
+              <span class="text-[10px] font-mono text-[#6b7370] bg-[#f6f7f6] px-1.5 rounded">3</span>
+            </div>
+            <button class="text-[#6b7370] hover:text-[#0e1110]" title="Tambah task ke Ready">
+              <span class="material-symbols-outlined text-[16px]">add</span>
+            </button>
+          </div>
+
+          <!-- List Task Kolom 2 -->
+          <div class="flex-1 overflow-y-auto p-2 space-y-2">
+
+            <!-- KARTU 1: Fix webhook signature retry (Mandiri) -->
+            <div class="bg-[#ffffff] rounded-[8px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.18)] transition-shadow shadow-xs">
+              <div class="flex items-center justify-between gap-1 text-[11px] font-mono mb-1">
+                <span class="font-semibold text-[#6b7370]">task-201a</span>
+                <span class="text-[10px] text-[#6b7370]">$0.000</span>
+              </div>
+              <h2 class="text-[12px] font-semibold text-[#0e1110] leading-snug">
+                Fix payment webhook retry backoff
+              </h2>
+              <p class="text-[11px] text-[#4d5553] mt-1 line-clamp-2">
+                Exponential backoff 3x dengan verifikasi header HMAC-SHA256.
+              </p>
+              <div class="mt-2.5 pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono">
+                <span class="text-[#6b7370]">Tanpa dependency</span>
+                <div class="flex items-center gap-1 text-[#6b7370]">
+                  <span class="w-[18px] h-[18px] rounded-full bg-[#0d7a70]/15 text-[#0d7a70] text-[9px] font-bold flex items-center justify-center">be</span>
+                  <span>agent-backend</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ================================================================= -->
+            <!-- KARTU 2: Backfill user analytics (US-AD19 AC1 COMPLIANT)           -->
+            <!-- Memiliki 2 parents: task-771b & task-115f. Tampil badge + garis tipis -->
+            <!-- ================================================================= -->
+            <div class="bg-[#ffffff] rounded-[8px] p-[10px] border-2 border-[#0d7a70] shadow-sm relative" id="card-task-882c">
+              
+              <!-- Badge Dependency US-AD19 AC1 -->
+              <div class="flex items-center justify-between gap-1 text-[11px] font-mono mb-1.5">
+                <span class="font-bold text-[#0d7a70]">task-882c</span>
+                <!-- BADGE JUMLAH DEPENDENCY (US-AD19 AC1) -->
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-[#0d7a70] text-white font-mono text-[10px] font-bold shadow-xs">
+                  <span class="material-symbols-outlined text-[12px]">account_tree</span>
+                  <span>2 dependensi</span>
+                </span>
+              </div>
+
+              <h2 class="text-[12px] font-bold text-[#0e1110] leading-snug">
+                Backfill user analytics ledger
+              </h2>
+              
+              <!-- Sub-rincian Parent (AC1: Garis tipis ke parent) -->
+              <div class="mt-2 p-1.5 rounded-[6px] bg-[#eef7f5] border border-[#0d7a70]/20 text-[10px] font-mono space-y-1">
+                <div class="flex items-center justify-between text-[#0d7a70]">
+                  <span class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[12px]">subdirectory_arrow_right</span>
+                    <span>Parent 1:</span>
+                  </span>
+                  <span class="font-semibold">task-771b (Running)</span>
+                </div>
+                <div class="flex items-center justify-between text-[#0d7a70]">
+                  <span class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[12px]">subdirectory_arrow_right</span>
+                    <span>Parent 2:</span>
+                  </span>
+                  <span class="font-semibold">task-115f (Backlog)</span>
+                </div>
+              </div>
+
+              <!-- Footer Kartu -->
+              <div class="mt-2 pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono">
+                <span class="text-[#d97706] font-semibold flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[12px]">lock_clock</span>
+                  <span>Terkunci parent</span>
+                </span>
+                <div class="flex items-center gap-1 text-[#4d5553]">
+                  <span class="w-[18px] h-[18px] rounded-full bg-[#2563eb]/15 text-[#2563eb] text-[9px] font-bold flex items-center justify-center">dt</span>
+                  <span>agent-data</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- KARTU 3: Audit dependencies & licenses (1 dep ke task-882c) -->
+            <div class="bg-[#ffffff] rounded-[8px] p-[10px] border border-[rgba(12,26,22,0.12)] hover:border-[#0d7a70]/40 transition-shadow shadow-xs">
+              <div class="flex items-center justify-between gap-1 text-[11px] font-mono mb-1">
+                <span class="font-semibold text-[#6b7370]">task-612f</span>
+                <!-- BADGE JUMLAH DEPENDENCY (US-AD19 AC1) -->
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#f6f7f6] text-[#4d5553] border border-[rgba(12,26,22,0.12)] font-mono text-[10px] font-semibold">
+                  <span class="material-symbols-outlined text-[11px] text-[#0d7a70]">link</span>
+                  <span>1 dep</span>
+                </span>
+              </div>
+              <h2 class="text-[12px] font-semibold text-[#0e1110] leading-snug">
+                Audit dependencies & license report
+              </h2>
+              <div class="mt-2 text-[10px] font-mono text-[#6b7370] flex items-center gap-1">
+                <span class="material-symbols-outlined text-[11px]">arrow_back</span>
+                <span>Menunggu task-882c selesai</span>
+              </div>
+              <div class="mt-2 pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono">
+                <span class="text-[#6b7370]">$0.000</span>
+                <div class="flex items-center gap-1 text-[#6b7370]">
+                  <span class="w-[18px] h-[18px] rounded-full bg-[#64748b]/15 text-[#64748b] text-[9px] font-bold flex items-center justify-center">sc</span>
+                  <span>agent-security</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- KOLOM 3: RUNNING (268px, top edge 3px warna status #d97706)       -->
+        <!-- ================================================================= -->
+        <section class="w-[268px] shrink-0 bg-[#f6f7f6] rounded-[10px] border border-[rgba(12,26,22,0.07)] flex flex-col h-full overflow-hidden shadow-xs">
+          <!-- Top edge 3px status color -->
+          <div class="h-[3px] w-full bg-[#d97706]"></div>
+
+          <!-- Header Kolom 30px -->
+          <div class="h-[30px] px-3 bg-[#ffffff] border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#d97706] animate-ping"></span>
+              <span class="font-bold text-[12px] text-[#0e1110]">Running</span>
+              <span class="text-[10px] font-mono text-[#0d7a70] bg-[#eef7f5] px-1.5 rounded font-bold">2</span>
+            </div>
+            <span class="text-[10px] font-mono text-[#d97706] font-semibold">gRPC active</span>
+          </div>
+
+          <!-- List Task Kolom 3 -->
+          <div class="flex-1 overflow-y-auto p-2 space-y-2">
+
+            <!-- ================================================================= -->
+            <!-- KARTU 1: Refactor auth module (PARENT UTAMA bagi task-882c & 930a) -->
+            <!-- ================================================================= -->
+            <div class="bg-[#ffffff] rounded-[8px] p-[10px] border-2 border-[#d97706] shadow-sm relative" id="card-task-771b">
+              <div class="flex items-center justify-between gap-1 text-[11px] font-mono mb-1">
+                <span class="font-bold text-[#d97706]">task-771b</span>
+                <span class="font-mono text-[11px] font-bold text-[#0d7a70]">$0.318</span>
+              </div>
+              <h2 class="text-[12px] font-bold text-[#0e1110] leading-snug">
+                Refactor auth module & telemetry pipeline
+              </h2>
+
+              <!-- Status Eksekusi Running -->
+              <div class="mt-2 flex items-center justify-between text-[10px] font-mono text-[#4d5553]">
+                <span class="flex items-center gap-1 text-[#d97706] font-semibold">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#d97706] animate-pulse"></span>
+                  <span>Step 2 / 4 (codegen)</span>
+                </span>
+                <span>31.4k in / 7.2k out</span>
+              </div>
+              <div class="w-full bg-[#edeeed] h-1.5 rounded-full overflow-hidden mt-1.5">
+                <div class="bg-[#d97706] h-full rounded-full" style="width: 50%;"></div>
+              </div>
+
+              <!-- Parent Node Highlight -->
+              <div class="mt-2.5 pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono">
+                <div class="flex items-center gap-1 text-[#0d7a70] bg-[#eef7f5] px-1.5 py-0.5 rounded-[4px] font-bold">
+                  <span class="material-symbols-outlined text-[12px]">account_tree</span>
+                  <span>Parent ke 2 Child</span>
+                </div>
+                <div class="flex items-center gap-1 text-[#0e1110]">
+                  <span class="w-[18px] h-[18px] rounded-full bg-[#0d7a70]/15 text-[#0d7a70] text-[9px] font-bold flex items-center justify-center">be</span>
+                  <span class="font-semibold">agent-backend</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ================================================================= -->
+            <!-- KARTU 2: Generate release notes (US-AD19 AC1 COMPLIANT)            -->
+            <!-- Memiliki 1 dependency ke task-771b (dalam kolom yang sama)         -->
+            <!-- ================================================================= -->
+            <div class="bg-[#ffffff] rounded-[8px] p-[10px] border border-[rgba(12,26,22,0.12)] shadow-xs relative" id="card-task-930a">
+              <div class="flex items-center justify-between gap-1 text-[11px] font-mono mb-1">
+                <span class="font-semibold text-[#0d7a70]">task-930a</span>
+                <!-- BADGE JUMLAH DEPENDENCY (US-AD19 AC1) -->
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-[#d97706]/15 text-[#d97706] font-mono text-[10px] font-bold">
+                  <span class="material-symbols-outlined text-[11px]">link</span>
+                  <span>1 dependensi</span>
+                </span>
+              </div>
+              <h2 class="text-[12px] font-semibold text-[#0e1110] leading-snug">
+                Generate release notes v2.4
+              </h2>
+
+              <!-- Status Info -->
+              <div class="mt-2 p-1.5 rounded-[6px] bg-[#fffbeb] border border-[#d97706]/20 text-[10px] font-mono text-[#b45309]">
+                <div class="flex items-center justify-between">
+                  <span>Parent: task-771b</span>
+                  <span class="font-semibold">Menunggu output codegen</span>
+                </div>
+              </div>
+
+              <div class="mt-2.5 pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono">
+                <span class="text-[#0d7a70] font-semibold">$0.102</span>
+                <div class="flex items-center gap-1 text-[#4d5553]">
+                  <span class="w-[18px] h-[18px] rounded-full bg-[#2563eb]/15 text-[#2563eb] text-[9px] font-bold flex items-center justify-center">dc</span>
+                  <span>agent-docs</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- KOLOM 4: REVIEW / AWAITING (268px, top edge 3px status #0891b2)   -->
+        <!-- ================================================================= -->
+        <section class="w-[268px] shrink-0 bg-[#f6f7f6] rounded-[10px] border border-[rgba(12,26,22,0.07)] flex flex-col h-full overflow-hidden shadow-xs">
+          <!-- Top edge 3px status color -->
+          <div class="h-[3px] w-full bg-[#0891b2]"></div>
+
+          <!-- Header Kolom 30px -->
+          <div class="h-[30px] px-3 bg-[#ffffff] border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#0891b2]"></span>
+              <span class="font-bold text-[12px] text-[#0e1110]">Review</span>
+              <span class="text-[10px] font-mono text-[#6b7370] bg-[#f6f7f6] px-1.5 rounded">2</span>
+            </div>
+            <span class="text-[10px] font-mono text-[#0891b2]">Approval gates</span>
+          </div>
+
+          <!-- List Task Kolom 4 -->
+          <div class="flex-1 overflow-y-auto p-2 space-y-2">
+
+            <!-- KARTU 1: Security scan weekly automated pass -->
+            <div class="bg-[#ffffff] rounded-[8px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.18)] transition-shadow shadow-xs">
+              <div class="flex items-center justify-between gap-1 text-[11px] font-mono mb-1">
+                <span class="font-semibold text-[#6b7370]">task-554e</span>
+                <span class="text-[10px] font-mono font-semibold text-[#0d7a70]">$0.214</span>
+              </div>
+              <h2 class="text-[12px] font-semibold text-[#0e1110] leading-snug">
+                Security scan weekly automated pass
+              </h2>
+              <p class="text-[11px] text-[#4d5553] mt-1 line-clamp-2">
+                Pemeriksaan vulnerability dependensi k8s dan reverse proxy TLS.
+              </p>
+              <div class="mt-2.5 pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono">
+                <span class="text-[#0891b2] font-medium bg-[#eefafc] px-1.5 py-0.5 rounded">awaiting sign</span>
+                <div class="flex items-center gap-1 text-[#4d5553]">
+                  <span class="w-[18px] h-[18px] rounded-full bg-[#64748b]/15 text-[#64748b] text-[9px] font-bold flex items-center justify-center">sc</span>
+                  <span>agent-security</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- KARTU 2: Clean image storage registry garbage collection -->
+            <div class="bg-[#ffffff] rounded-[8px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.18)] transition-shadow shadow-xs">
+              <div class="flex items-center justify-between gap-1 text-[11px] font-mono mb-1">
+                <span class="font-semibold text-[#6b7370]">task-419b</span>
+                <span class="text-[10px] font-mono text-[#6b7370]">$0.044</span>
+              </div>
+              <h2 class="text-[12px] font-semibold text-[#0e1110] leading-snug">
+                Drop stale replica instances & reset pool DNS
+              </h2>
+              <div class="mt-2.5 pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono">
+                <span class="text-[#b45309] font-medium bg-amber-50 px-1.5 py-0.5 rounded">Risk: High</span>
+                <div class="flex items-center gap-1 text-[#4d5553]">
+                  <span class="w-[18px] h-[18px] rounded-full bg-[#7c3aed]/15 text-[#7c3aed] text-[9px] font-bold flex items-center justify-center">in</span>
+                  <span>agent-infra</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- KOLOM 5: DONE (268px, top edge 3px warna status #16a34a)          -->
+        <!-- ================================================================= -->
+        <section class="w-[268px] shrink-0 bg-[#f6f7f6] rounded-[10px] border border-[rgba(12,26,22,0.07)] flex flex-col h-full overflow-hidden shadow-xs">
+          <!-- Top edge 3px status color -->
+          <div class="h-[3px] w-full bg-[#16a34a]"></div>
+
+          <!-- Header Kolom 30px -->
+          <div class="h-[30px] px-3 bg-[#ffffff] border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-[#16a34a]"></span>
+              <span class="font-bold text-[12px] text-[#0e1110]">Done</span>
+              <span class="text-[10px] font-mono text-[#6b7370] bg-[#f6f7f6] px-1.5 rounded">2</span>
+            </div>
+            <span class="text-[10px] font-mono text-[#16a34a]">Verified</span>
+          </div>
+
+          <!-- List Task Kolom 5 -->
+          <div class="flex-1 overflow-y-auto p-2 space-y-2">
+
+            <!-- KARTU 1: Rotate API keys and TLS certificates -->
+            <div class="bg-[#ffffff] rounded-[8px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.18)] transition-shadow shadow-xs">
+              <div class="flex items-center justify-between gap-1 text-[11px] font-mono mb-1">
+                <span class="font-semibold text-[#6b7370]">task-305d</span>
+                <span class="text-[10px] font-mono font-semibold text-[#0d7a70]">$0.011</span>
+              </div>
+              <h2 class="text-[12px] font-semibold text-[#0e1110] leading-snug">
+                Rotate API keys & TLS certificates
+              </h2>
+              <div class="mt-2.5 pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono">
+                <span class="text-[#16a34a] font-medium flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[12px]">check_circle</span>
+                  <span>Selesai</span>
+                </span>
+                <div class="flex items-center gap-1 text-[#4d5553]">
+                  <span class="w-[18px] h-[18px] rounded-full bg-[#64748b]/15 text-[#64748b] text-[9px] font-bold flex items-center justify-center">sc</span>
+                  <span>agent-security</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- KARTU 2: Tag release v2.4.1 binary and docker image -->
+            <div class="bg-[#ffffff] rounded-[8px] p-[10px] border border-[rgba(12,26,22,0.07)] hover:border-[rgba(12,26,22,0.18)] transition-shadow shadow-xs">
+              <div class="flex items-center justify-between gap-1 text-[11px] font-mono mb-1">
+                <span class="font-semibold text-[#6b7370]">task-289c</span>
+                <span class="text-[10px] font-mono font-semibold text-[#0d7a70]">$0.008</span>
+              </div>
+              <h2 class="text-[12px] font-semibold text-[#0e1110] leading-snug">
+                Tag release v2.4.1 binary & container
+              </h2>
+              <div class="mt-2.5 pt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono">
+                <span class="text-[#16a34a] font-medium flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[12px]">check_circle</span>
+                  <span>Selesai</span>
+                </span>
+                <div class="flex items-center gap-1 text-[#4d5553]">
+                  <span class="w-[18px] h-[18px] rounded-full bg-[#2563eb]/15 text-[#2563eb] text-[9px] font-bold flex items-center justify-center">dc</span>
+                  <span>agent-docs</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- 4. COST RAIL KANAN (264px, background #eef1f0, isi tetap Blueprint A/B/C) -->
+  <aside class="w-[264px] shrink-0 bg-[#eef1f0] border-l border-[rgba(12,26,22,0.12)] flex flex-col justify-between p-3.5 text-[12px] z-20 overflow-y-auto">
+    <div class="space-y-4">
+      <!-- HEADER COST RAIL -->
+      <div class="flex items-center justify-between border-b border-[rgba(12,26,22,0.12)] pb-2">
+        <div class="flex items-center gap-1.5 font-bold text-[#0e1110] text-[12px]">
+          <span class="material-symbols-outlined text-[16px] text-[#0d7a70]">account_balance_wallet</span>
+          <span>COST LEDGER</span>
+        </div>
+        <span class="text-[10px] font-mono font-bold bg-[#d9e1de] text-[#0d7a70] px-1.5 py-0.5 rounded">REALTIME</span>
+      </div>
+
+      <!-- 1. TODAY (biaya + meter pagu 6px) -->
+      <div class="bg-[#ffffff] p-3 rounded-[8px] border border-[rgba(12,26,22,0.07)] shadow-xs">
+        <div class="flex items-center justify-between text-[11px] text-[#6b7370] font-mono">
+          <span class="font-bold text-[#0e1110] uppercase">TODAY</span>
+          <span>CAP $20.00</span>
+        </div>
+        <div class="mt-1 flex items-baseline justify-between">
+          <div class="text-xl font-bold font-mono text-[#0e1110] tracking-tight">$4.82</div>
+          <div class="text-[11px] font-mono text-[#6b7370]">Sisa: <span class="font-semibold text-[#0d7a70]">$15.18</span></div>
+        </div>
+        <!-- Budget meter bar: 6px height -->
+        <div class="w-full bg-[#edeeed] h-[6px] rounded-full mt-2.5 overflow-hidden">
+          <div class="bg-[#0d7a70] h-full rounded-full" style="width: 24.1%;"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] font-mono text-[#6b7370] mt-1.5">
+          <span>24.1% terpakai</span>
+          <span>Pagu aman</span>
+        </div>
+      </div>
+
+      <!-- 2. 7-DAY (sparkline) -->
+      <div class="bg-[#ffffff] p-3 rounded-[8px] border border-[rgba(12,26,22,0.07)] shadow-xs">
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] mb-2">
+          <span class="font-bold text-[#0e1110] uppercase">7-DAY</span>
+          <span>SEP 12 — SEP 18</span>
+        </div>
+        <!-- Sparkline Bar Container -->
+        <div class="h-14 flex items-end justify-between gap-1 pt-2 px-1">
+          <!-- 12 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 40%;" title="Sep 12: $3.10"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">12</span>
+          </div>
+          <!-- 13 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 55%;" title="Sep 13: $4.20"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">13</span>
+          </div>
+          <!-- 14 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 25%;" title="Sep 14: $2.05"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">14</span>
+          </div>
+          <!-- 15 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 70%;" title="Sep 15: $5.40"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">15</span>
+          </div>
+          <!-- 16 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 48%;" title="Sep 16: $3.50"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">16</span>
+          </div>
+          <!-- 17 -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 80%;" title="Sep 17: $6.12"></div>
+            <span class="text-[9px] font-mono text-[#6b7370]">17</span>
+          </div>
+          <!-- 18 (Today - Highlighted) -->
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70] rounded-t" style="height: 65%;" title="Sep 18 (Today): $4.82"></div>
+            <span class="text-[9px] font-mono font-bold text-[#0d7a70]">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. TOP SPENDERS (3 baris) -->
+      <div class="bg-[#ffffff] p-3 rounded-[8px] border border-[rgba(12,26,22,0.07)] shadow-xs">
+        <div class="text-[11px] font-mono text-[#6b7370] uppercase font-bold mb-2.5">TOP SPENDERS</div>
+        <div class="space-y-2">
+          <!-- Baris 1: agent-backend -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-backend</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$1.84</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-[#0d7a70] h-full" style="width: 38.1%;"></div>
+            </div>
+          </div>
+          <!-- Baris 2: agent-data -->
+          <div class="pt-1">
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-data</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$1.42</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-[#0d7a70]/80 h-full" style="width: 29.4%;"></div>
+            </div>
+          </div>
+          <!-- Baris 3: agent-docs -->
+          <div class="pt-1">
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-docs</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$0.91</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-[#0d7a70]/60 h-full" style="width: 18.8%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. RUNNING NOW -->
+      <div class="bg-[#ffffff] p-3 rounded-[8px] border border-[rgba(12,26,22,0.07)] shadow-xs">
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] mb-2">
+          <span class="font-bold text-[#0e1110] uppercase">RUNNING NOW</span>
+          <span class="flex items-center gap-1 text-[#0d7a70] font-bold">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70] animate-pulse"></span>
+            2 ACTIVE
+          </span>
+        </div>
+        <div class="space-y-1.5 text-[11px] font-mono">
+          <div class="p-2 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="font-bold text-[#0e1110]">agent-backend</span>
+            <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+          </div>
+          <div class="p-2 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="font-bold text-[#0e1110]">agent-docs</span>
+            <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Cost Rail -->
+    <div class="pt-3 border-t border-[rgba(12,26,22,0.12)] text-[10px] font-mono text-[#6b7370] flex items-center justify-between">
+      <span>AgentDeck Core</span>
+      <span class="text-[#0d7a70] font-bold">µUSD Ledger</span>
+    </div>
+  </aside>
+
+</body>
+</html>

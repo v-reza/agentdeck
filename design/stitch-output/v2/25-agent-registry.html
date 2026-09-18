@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentDeck — Agent Registry (Blueprint A)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Scrollbar halus untuk pane konten */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(12, 26, 22, 0.15);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(12, 26, 22, 0.25);
+    }
+  </style>
+</head>
+<body class="m-0 p-0 overflow-hidden bg-[#f6f7f6] text-[#0e1110] antialiased text-[13px] select-none h-screen flex">
+
+  <!-- ==================== 1. RAIL KIRI (44px) ==================== -->
+  <aside class="w-[44px] shrink-0 h-screen bg-[#e8ecea] border-r border-[rgba(12,26,22,0.07)] flex flex-col items-center py-3 z-30 justify-between">
+    <!-- Brand mark & nav icons -->
+    <div class="flex flex-col items-center gap-4 w-full">
+      <div class="w-[28px] h-[28px] rounded-[6px] bg-[#0d7a70] text-white flex items-center justify-center font-bold text-[12px] shadow-sm tracking-tighter">
+        AD
+      </div>
+      <div class="w-[24px] h-[1px] bg-[rgba(12,26,22,0.12)]"></div>
+      
+      <!-- Workspace / Overview -->
+      <button title="Workspace" class="w-[32px] h-[32px] rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+        <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+      </button>
+
+      <!-- Projects / Boards -->
+      <button title="Proyek & Board" class="w-[32px] h-[32px] rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+        <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+      </button>
+
+      <!-- Agents (Active) -->
+      <button title="Agent Registry" class="w-[32px] h-[32px] rounded-[6px] flex items-center justify-center text-white bg-[#0d7a70] shadow-sm transition-colors">
+        <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M9 15h6" stroke-linecap="round"/></svg>
+      </button>
+
+      <!-- Cost / Telemetry -->
+      <button title="Biaya & Telemetri" class="w-[32px] h-[32px] rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+        <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      </button>
+    </div>
+
+    <!-- Bottom Settings & Status -->
+    <div class="flex flex-col items-center gap-3 w-full">
+      <button title="Pengaturan" class="w-[32px] h-[32px] rounded-[6px] flex items-center justify-center text-[#4d5553] hover:text-[#0e1110] hover:bg-[rgba(12,26,22,0.05)] transition-colors">
+        <svg class="w-[16px] h-[16px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </button>
+      <div class="w-[8px] h-[8px] rounded-full bg-[#16a34a]" title="Daemon connected :8080"></div>
+    </div>
+  </aside>
+
+  <!-- ==================== 2. SIDEBAR (224px) ==================== -->
+  <aside class="w-[224px] shrink-0 h-screen bg-[#f6f7f6] border-r border-[rgba(12,26,22,0.07)] flex flex-col justify-between text-[12px]">
+    <!-- Workspace Head & Nav items -->
+    <div class="flex flex-col">
+      <!-- Workspace Selector Header -->
+      <div class="p-3 border-b border-[rgba(12,26,22,0.07)]">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[10px] uppercase tracking-wider font-semibold text-[#6b7370]">WORKSPACE</span>
+          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#eef7f5] text-[#0d7a70] text-[10px] font-mono font-medium">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+            prod-internal
+          </span>
+        </div>
+        <div class="font-semibold text-[13px] text-[#0e1110] truncate">ws_8f12a (isolated)</div>
+        <div class="flex items-center gap-1 mt-1 text-[11px] text-[#6b7370]">
+          <svg class="w-3 h-3 text-[#6b7370]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" stroke-width="2"/><path d="M7 11V7a5 5 0 0110 0v4" stroke-width="2"/></svg>
+          <span class="font-mono text-[10px]">US-AD20 / US-AD73 Scoped</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tree -->
+      <div class="p-2 flex flex-col gap-0.5">
+        <div class="px-2 py-1 text-[10px] uppercase tracking-wider font-semibold text-[#6b7370] mt-1">NAVIGASI</div>
+        
+        <a href="#projects" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.04)] hover:text-[#0e1110] transition-colors">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-[#6b7370]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+            Semua Proyek
+          </span>
+          <span class="font-mono text-[11px] text-[#6b7370]">3</span>
+        </a>
+
+        <a href="#boards" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[rgba(12,26,22,0.04)] hover:text-[#0e1110] transition-colors">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-[#6b7370]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="18" rx="1.5"/><rect x="14" y="3" width="7" height="11" rx="1.5"/></svg>
+            Semua Board
+          </span>
+          <span class="font-mono text-[11px] text-[#6b7370]">6</span>
+        </a>
+
+        <a href="#agents" class="flex items-center justify-between px-2.5 py-1.5 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] font-semibold transition-colors">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-[#0d7a70]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="10" r="1.5" fill="currentColor"/><path d="M9 15h6" stroke-linecap="round"/></svg>
+            Agent Registry
+          </span>
+          <span class="font-mono text-[11px] px-1.5 py-0.2 rounded-[4px] bg-[#d5ede8] text-[#0d7a70]">5</span>
+        </a>
+
+        <div class="px-2 py-1 text-[10px] uppercase tracking-wider font-semibold text-[#6b7370] mt-3">STATUS REGISTRY</div>
+        
+        <div class="px-2.5 py-1.5 rounded-[6px] flex items-center justify-between text-[#4d5553]">
+          <span class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#16a34a]"></span>
+            Active (Assign Ready)
+          </span>
+          <span class="font-mono text-[11px] text-[#0e1110] font-medium">3</span>
+        </div>
+
+        <div class="px-2.5 py-1.5 rounded-[6px] flex items-center justify-between text-[#4d5553]">
+          <span class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#d97706]"></span>
+            Unconfigured (AC5)
+          </span>
+          <span class="font-mono text-[11px] text-[#d97706] font-medium">1</span>
+        </div>
+
+        <div class="px-2.5 py-1.5 rounded-[6px] flex items-center justify-between text-[#4d5553]">
+          <span class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#94a3b8]"></span>
+            Archived (US-AD73)
+          </span>
+          <span class="font-mono text-[11px] text-[#6b7370] font-medium">1</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current User Foot -->
+    <div class="p-2 border-t border-[rgba(12,26,22,0.07)]">
+      <div class="flex items-center justify-between p-1.5 rounded-[6px] hover:bg-[rgba(12,26,22,0.04)]">
+        <div class="flex items-center gap-2">
+          <div class="w-[26px] h-[26px] rounded-full bg-[#e8ecea] text-[#0e1110] font-semibold text-[11px] flex items-center justify-center border border-[rgba(12,26,22,0.12)]">
+            RZ
+          </div>
+          <div class="flex flex-col">
+            <span class="font-medium text-[12px] leading-tight text-[#0e1110]">Reza</span>
+            <span class="font-mono text-[10px] text-[#6b7370] leading-tight">ws_8f12a</span>
+          </div>
+        </div>
+        <span class="px-1.5 py-0.5 rounded-[4px] bg-[rgba(12,26,22,0.06)] text-[9px] font-semibold tracking-wider uppercase text-[#4d5553]">OWNER</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==================== 3. AREA TENGAH: TOPBAR + PANE KONTEN SCROLLABLE ==================== -->
+  <div class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-[#f6f7f6]">
+
+    <!-- Topbar (52px) - HANYA di atas pane konten -->
+    <header class="h-[52px] shrink-0 bg-[#ffffff] border-b border-[rgba(12,26,22,0.07)] px-5 flex items-center justify-between z-10">
+      <!-- Title & Breadcrumb -->
+      <div class="flex items-center gap-3">
+        <h1 class="text-[15px] font-bold tracking-tight text-[#0e1110]">Agent Registry</h1>
+        <span class="font-mono text-[11px] px-2 py-0.5 rounded-[4px] bg-[#f6f7f6] text-[#4d5553] border border-[rgba(12,26,22,0.07)]">
+          /agents
+        </span>
+        <span class="text-[12px] text-[#6b7370]">5 agent terdaftar (3 aktif, 1 butuh kredensial, 1 diarsip)</span>
+      </div>
+
+      <!-- Action & Search -->
+      <div class="flex items-center gap-2.5">
+        <!-- Search input -->
+        <div class="relative">
+          <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6b7370]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input 
+            type="text" 
+            placeholder="Cari agent, model, atau skill..." 
+            class="h-[30px] pl-8 pr-3 text-[12px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] rounded-[6px] text-[#0e1110] placeholder-[#6b7370] focus:outline-none focus:border-[#0d7a70] w-[220px]"
+            readonly
+          >
+        </div>
+
+        <!-- Filter status dropdown dummy -->
+        <button class="h-[30px] px-2.5 rounded-[6px] border border-[rgba(12,26,22,0.12)] bg-[#ffffff] text-[#4d5553] text-[12px] font-medium flex items-center gap-1.5 hover:bg-[#f6f7f6]">
+          <svg class="w-3.5 h-3.5 text-[#6b7370]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 4h18l-7 8v6l-4 2v-8z"/></svg>
+          <span>Semua Status</span>
+        </button>
+
+        <!-- New Agent Button (AC1 / 201 Created Trigger) -->
+        <button class="h-[30px] px-3 rounded-[6px] bg-[#0d7a70] text-white text-[12px] font-semibold flex items-center gap-1.5 shadow-sm hover:bg-[#0c6b62] transition-colors">
+          <svg class="w-3.5 h-3.5 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Daftarkan Agent Baru</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Pane Konten (Scrollable) -->
+    <main class="flex-1 overflow-y-auto p-5 space-y-4">
+
+      <!-- Banner Penjelasan Acceptance Criteria (AC1, AC5, US-AD73 AC1 & AC2) -->
+      <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] p-3 flex items-center justify-between shadow-xs">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <div>
+            <div class="text-[12px] font-semibold text-[#0e1110] flex items-center gap-2">
+              <span>Aturan Orkestrasi &amp; Fleet Lifecycle AgentDeck</span>
+              <span class="px-1.5 py-0.2 rounded-[4px] bg-[rgba(12,26,22,0.06)] font-mono text-[10px] text-[#4d5553]">US-AD20 • US-AD73</span>
+            </div>
+            <p class="text-[11px] text-[#4d5553] mt-0.5">
+              Agent baru dibuat via endpoint <code class="font-mono bg-[#f6f7f6] px-1 py-0.5 rounded border border-[rgba(12,26,22,0.07)]">POST /api/agents (201 Created)</code>. Agent diarsip tidak muncul di dropdown penugasan task baru namun tetap menyelesaikan task yang sedang running.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] font-mono text-[11px] border border-[#d5ede8]">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+            Daemon Fleet Active :8080
+          </span>
+        </div>
+      </div>
+
+      <!-- TABEL UTAMA REGISTRY AGENT (Header 32px, Baris 28px basis / metadata expanded) -->
+      <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] shadow-xs overflow-hidden">
+        
+        <!-- Header Section Info Tabel -->
+        <div class="px-4 py-2.5 border-b border-[rgba(12,26,22,0.07)] flex items-center justify-between bg-[#ffffff]">
+          <div class="flex items-center gap-2">
+            <span class="font-semibold text-[13px] text-[#0e1110]">Daftar Armada Agent Terdaftar</span>
+            <span class="font-mono text-[11px] text-[#6b7370]">| Skema CRUD Lengkap (AC1)</span>
+          </div>
+          <div class="flex items-center gap-3 text-[11px] text-[#6b7370] font-mono">
+            <span>Tinggi baris: 28px density / 32px header</span>
+            <span>•</span>
+            <span>Auto-sync schema: active</span>
+          </div>
+        </div>
+
+        <!-- Tabel Data -->
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="h-[32px] bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.07)] text-[11px] uppercase tracking-wider text-[#6b7370] font-semibold">
+              <th class="w-[40px] px-3 text-center">#</th>
+              <th class="px-3 min-w-[190px]">Agent / ID</th>
+              <th class="px-3 w-[110px]">Provider</th>
+              <th class="px-3 w-[150px]">Model</th>
+              <th class="px-3 w-[120px]">Reasoning</th>
+              <th class="px-3 w-[110px]">Status Fleet</th>
+              <th class="px-3 w-[120px]">Runtime &amp; Retry</th>
+              <th class="px-3 w-[130px]">Tools / Skills</th>
+              <th class="px-3 w-[100px] text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[rgba(12,26,22,0.07)] text-[12px]">
+
+            <!-- ================= ROW 1: ACTIVE AGENT 1 (agent-backend) ================= -->
+            <tr class="h-[28px] hover:bg-[rgba(12,26,22,0.02)] transition-colors group">
+              <td class="px-3 text-center">
+                <input type="checkbox" class="rounded-[3px] accent-[#0d7a70]">
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-2">
+                  <div class="w-[20px] h-[20px] rounded-full bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center font-mono text-[10px] font-bold border border-[#d5ede8] shrink-0">
+                    be
+                  </div>
+                  <div>
+                    <div class="font-semibold text-[#0e1110] flex items-center gap-1.5 leading-none">
+                      <span>agent-backend</span>
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]" title="Ready to assign"></span>
+                    </div>
+                    <div class="font-mono text-[10px] text-[#6b7370] mt-1">agt_backend_01 • 36 task selesai</div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#4d5553]">
+                openai
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#0e1110] font-medium">
+                gpt-4o
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#4d5553]">
+                <span class="px-1.5 py-0.5 rounded bg-[rgba(12,26,22,0.05)] text-[10px]">medium</span>
+              </td>
+              <td class="px-3 py-2">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#eef7ee] text-[#16a34a] font-mono text-[10px] font-semibold">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                  ACTIVE
+                </span>
+              </td>
+              <td class="px-3 py-2 font-mono text-[10px] text-[#4d5553]">
+                <div>1,800s max</div>
+                <div class="text-[#6b7370]">exp_backoff (x3)</div>
+              </td>
+              <td class="px-3 py-2 font-mono text-[10px] text-[#4d5553]">
+                <div class="flex items-center gap-1">
+                  <span class="px-1 rounded bg-[rgba(12,26,22,0.05)]">git</span>
+                  <span class="px-1 rounded bg-[rgba(12,26,22,0.05)]">bash</span>
+                  <span class="text-[#6b7370]">+2</span>
+                </div>
+              </td>
+              <td class="px-3 py-2 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <button title="Edit konfigurasi agent" class="px-1.5 py-0.5 rounded-[4px] border border-[rgba(12,26,22,0.12)] text-[11px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[#f6f7f6]">
+                    Edit
+                  </button>
+                  <!-- Tombol Arsip (US-AD73) -->
+                  <button title="Arsipkan agent (US-AD73 AC1)" class="px-1.5 py-0.5 rounded-[4px] border border-[rgba(12,26,22,0.12)] text-[11px] text-[#dc2626] hover:bg-[#fef2f2] hover:border-[#fecaca] transition-colors">
+                    Arsip
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ================= ROW 2: ACTIVE AGENT 2 (agent-data) ================= -->
+            <tr class="h-[28px] hover:bg-[rgba(12,26,22,0.02)] transition-colors group">
+              <td class="px-3 text-center">
+                <input type="checkbox" class="rounded-[3px] accent-[#0d7a70]">
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-2">
+                  <div class="w-[20px] h-[20px] rounded-full bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center font-mono text-[10px] font-bold border border-[#d5ede8] shrink-0">
+                    dt
+                  </div>
+                  <div>
+                    <div class="font-semibold text-[#0e1110] flex items-center gap-1.5 leading-none">
+                      <span>agent-data</span>
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]" title="Ready to assign"></span>
+                    </div>
+                    <div class="font-mono text-[10px] text-[#6b7370] mt-1">agt_data_9a • 14 task selesai</div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#4d5553]">
+                deepseek
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#0e1110] font-medium">
+                deepseek-coder
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#4d5553]">
+                <span class="px-1.5 py-0.5 rounded bg-[rgba(12,26,22,0.05)] text-[10px]">high</span>
+              </td>
+              <td class="px-3 py-2">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#eef7ee] text-[#16a34a] font-mono text-[10px] font-semibold">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                  ACTIVE
+                </span>
+              </td>
+              <td class="px-3 py-2 font-mono text-[10px] text-[#4d5553]">
+                <div>3,600s max</div>
+                <div class="text-[#6b7370]">linear (x5)</div>
+              </td>
+              <td class="px-3 py-2 font-mono text-[10px] text-[#4d5553]">
+                <div class="flex items-center gap-1">
+                  <span class="px-1 rounded bg-[rgba(12,26,22,0.05)]">sql</span>
+                  <span class="px-1 rounded bg-[rgba(12,26,22,0.05)]">clickhouse</span>
+                </div>
+              </td>
+              <td class="px-3 py-2 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <button class="px-1.5 py-0.5 rounded-[4px] border border-[rgba(12,26,22,0.12)] text-[11px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[#f6f7f6]">
+                    Edit
+                  </button>
+                  <button title="Arsipkan agent (US-AD73 AC1)" class="px-1.5 py-0.5 rounded-[4px] border border-[rgba(12,26,22,0.12)] text-[11px] text-[#dc2626] hover:bg-[#fef2f2] hover:border-[#fecaca] transition-colors">
+                    Arsip
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ================= ROW 3: ACTIVE AGENT 3 (agent-docs) ================= -->
+            <tr class="h-[28px] hover:bg-[rgba(12,26,22,0.02)] transition-colors group">
+              <td class="px-3 text-center">
+                <input type="checkbox" class="rounded-[3px] accent-[#0d7a70]">
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-2">
+                  <div class="w-[20px] h-[20px] rounded-full bg-[#eef7f5] text-[#0d7a70] flex items-center justify-center font-mono text-[10px] font-bold border border-[#d5ede8] shrink-0">
+                    dc
+                  </div>
+                  <div>
+                    <div class="font-semibold text-[#0e1110] flex items-center gap-1.5 leading-none">
+                      <span>agent-docs</span>
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]" title="Ready to assign"></span>
+                    </div>
+                    <div class="font-mono text-[10px] text-[#6b7370] mt-1">agt_docs_33 • 22 task selesai</div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#4d5553]">
+                anthropic
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#0e1110] font-medium">
+                claude-3-5-sonnet
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#4d5553]">
+                <span class="px-1.5 py-0.5 rounded bg-[rgba(12,26,22,0.05)] text-[10px]">default</span>
+              </td>
+              <td class="px-3 py-2">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#eef7ee] text-[#16a34a] font-mono text-[10px] font-semibold">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+                  ACTIVE
+                </span>
+              </td>
+              <td class="px-3 py-2 font-mono text-[10px] text-[#4d5553]">
+                <div>1,200s max</div>
+                <div class="text-[#6b7370]">immediate (x2)</div>
+              </td>
+              <td class="px-3 py-2 font-mono text-[10px] text-[#4d5553]">
+                <div class="flex items-center gap-1">
+                  <span class="px-1 rounded bg-[rgba(12,26,22,0.05)]">markdown</span>
+                  <span class="px-1 rounded bg-[rgba(12,26,22,0.05)]">http_fetch</span>
+                </div>
+              </td>
+              <td class="px-3 py-2 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <button class="px-1.5 py-0.5 rounded-[4px] border border-[rgba(12,26,22,0.12)] text-[11px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[#f6f7f6]">
+                    Edit
+                  </button>
+                  <button title="Arsipkan agent (US-AD73 AC1)" class="px-1.5 py-0.5 rounded-[4px] border border-[rgba(12,26,22,0.12)] text-[11px] text-[#dc2626] hover:bg-[#fef2f2] hover:border-[#fecaca] transition-colors">
+                    Arsip
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ================= ROW 4: AC5 (B2C) UNCONFIGURED / BELUM SIAP (agent-reviewer) ================= -->
+            <tr class="h-[28px] bg-[#fffdfa] hover:bg-[#fff9f0] transition-colors border-l-2 border-l-[#d97706]">
+              <td class="px-3 text-center">
+                <input type="checkbox" class="rounded-[3px] accent-[#0d7a70]">
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-2">
+                  <div class="w-[20px] h-[20px] rounded-full bg-[#fef3c7] text-[#b45309] flex items-center justify-center font-mono text-[10px] font-bold border border-[#fde68a] shrink-0">
+                    rw
+                  </div>
+                  <div>
+                    <div class="font-semibold text-[#0e1110] flex items-center gap-1.5 leading-none">
+                      <span>agent-reviewer</span>
+                      <span class="px-1.5 py-0.2 rounded bg-[#fef3c7] text-[#b45309] text-[9px] font-mono font-medium">B2C onboarding</span>
+                    </div>
+                    <div class="font-mono text-[10px] text-[#d97706] mt-1">
+                      Kredensial belum diset • Dibuat tanpa API key (AC5)
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#4d5553]">
+                anthropic
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#6b7370]">
+                claude-3-opus
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#4d5553]">
+                <span class="px-1.5 py-0.5 rounded bg-[rgba(12,26,22,0.05)] text-[10px]">high</span>
+              </td>
+              <td class="px-3 py-2">
+                <!-- Status Unconfigured / Incomplete (AC5) -->
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#fef3c7] text-[#b45309] font-mono text-[10px] font-semibold border border-[#fde68a]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#d97706]"></span>
+                  UNCONFIGURED
+                </span>
+              </td>
+              <td class="px-3 py-2 font-mono text-[10px] text-[#4d5553]">
+                <div>2,400s max</div>
+                <div class="text-[#6b7370]">exp_backoff (x3)</div>
+              </td>
+              <td class="px-3 py-2 font-mono text-[10px] text-[#4d5553]">
+                <div class="flex items-center gap-1">
+                  <span class="px-1 rounded bg-[rgba(12,26,22,0.05)]">code_review</span>
+                </div>
+              </td>
+              <td class="px-3 py-2 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <button title="Lengkapi kredensial provider (AC5)" class="px-2 py-0.5 rounded-[4px] bg-[#0d7a70] text-white text-[11px] font-medium shadow-xs hover:bg-[#0c6b62]">
+                    Set Kredensial
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <!-- ================= ROW 5: US-AD73 (AC1 & AC2) ARCHIVED AGENT (agent-legacy-qa) ================= -->
+            <tr class="h-[28px] bg-[#fafafa] opacity-75 hover:opacity-100 transition-opacity border-l-2 border-l-[#94a3b8]">
+              <td class="px-3 text-center">
+                <input type="checkbox" class="rounded-[3px] accent-[#0d7a70]" disabled>
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-2">
+                  <div class="w-[20px] h-[20px] rounded-full bg-[#e2e8f0] text-[#64748b] flex items-center justify-center font-mono text-[10px] font-bold border border-[#cbd5e1] shrink-0">
+                    qa
+                  </div>
+                  <div>
+                    <div class="font-semibold text-[#64748b] line-through flex items-center gap-1.5 leading-none">
+                      <span>agent-legacy-qa</span>
+                      <span class="no-underline px-1 py-0.2 rounded bg-[#e2e8f0] text-[#475569] text-[9px] font-mono">Diarsip</span>
+                    </div>
+                    <div class="font-mono text-[10px] text-[#64748b] mt-1 flex items-center gap-1">
+                      <span>agt_qa_archived • 1 task running sedang diselesaikan</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#64748b]">
+                openai
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#64748b]">
+                gpt-3.5-turbo
+              </td>
+              <td class="px-3 py-2 font-mono text-[11px] text-[#64748b]">
+                <span class="px-1.5 py-0.5 rounded bg-[rgba(12,26,22,0.05)] text-[10px]">none</span>
+              </td>
+              <td class="px-3 py-2">
+                <!-- Status ARCHIVED (US-AD73) -->
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[4px] bg-[#f1f5f9] text-[#64748b] font-mono text-[10px] font-semibold border border-[#e2e8f0]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#94a3b8]"></span>
+                  ARCHIVED
+                </span>
+              </td>
+              <td class="px-3 py-2 font-mono text-[10px] text-[#64748b]">
+                <div>900s max</div>
+                <div>no_retry (x1)</div>
+              </td>
+              <td class="px-3 py-2 font-mono text-[10px] text-[#64748b]">
+                <div class="flex items-center gap-1">
+                  <span class="px-1 rounded bg-[rgba(12,26,22,0.05)]">e2e_test</span>
+                </div>
+              </td>
+              <td class="px-3 py-2 text-right">
+                <div class="flex items-center justify-end gap-1.5">
+                  <button title="Pulihkan agent dari arsip" class="px-1.5 py-0.5 rounded-[4px] border border-[rgba(12,26,22,0.12)] text-[11px] text-[#4d5553] hover:text-[#0e1110] hover:bg-[#f6f7f6]">
+                    Pulihkan
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+
+        <!-- Footer Tabel: Pagination & Bulk Info -->
+        <div class="h-[32px] bg-[#f6f7f6] px-4 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[11px] text-[#6b7370]">
+          <div>
+            Menampilkan <span class="font-mono font-medium text-[#0e1110]">5</span> dari 5 agent terdaftar
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="flex items-center gap-1 font-mono">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#16a34a]"></span>
+              3 siap di-assign
+            </span>
+            <span>•</span>
+            <span class="flex items-center gap-1 font-mono">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#94a3b8]"></span>
+              1 diarsip (tidak muncul di dropdown assign)
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- KARTU RINCIAN ATURAN CRUD & ARCHIVE (Memastikan Semua Field US-AD20 AC1, AC5, dan US-AD73 AC1 & AC2 Terlihat) -->
+      <div class="grid grid-cols-2 gap-4">
+        
+        <!-- Kartu 1: US-AD20 CRUD Specification (AC1 & AC5) -->
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] p-3.5 shadow-xs">
+          <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-[rgba(12,26,22,0.07)]">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+              <span class="font-bold text-[12px] text-[#0e1110]">US-AD20 — Spesifikasi CRUD Agent (201 Created)</span>
+            </div>
+            <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#eef7f5] text-[#0d7a70]">HTTP 201 Created</span>
+          </div>
+
+          <div class="space-y-2 text-[11px]">
+            <p class="text-[#4d5553]">
+              Pembuatan agent baru melalui daemon memvalidasi 9 field wajib berikut (AC1):
+            </p>
+            <div class="grid grid-cols-2 gap-1.5 font-mono text-[10px]">
+              <div class="p-1.5 rounded bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+                <span class="text-[#6b7370]">1. name:</span> <span class="text-[#0e1110] font-semibold">string (slug)</span>
+              </div>
+              <div class="p-1.5 rounded bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+                <span class="text-[#6b7370]">2. provider:</span> <span class="text-[#0e1110] font-semibold">openai|anthropic|deepseek</span>
+              </div>
+              <div class="p-1.5 rounded bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+                <span class="text-[#6b7370]">3. model:</span> <span class="text-[#0e1110] font-semibold">gpt-4o|claude-3-5...</span>
+              </div>
+              <div class="p-1.5 rounded bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+                <span class="text-[#6b7370]">4. reasoning_effort:</span> <span class="text-[#0e1110] font-semibold">low|med|high</span>
+              </div>
+              <div class="p-1.5 rounded bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+                <span class="text-[#6b7370]">5. skills_json:</span> <span class="text-[#0e1110] font-semibold">["sql", "bash"]</span>
+              </div>
+              <div class="p-1.5 rounded bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+                <span class="text-[#6b7370]">6. tools_json:</span> <span class="text-[#0e1110] font-semibold">{"read": true}</span>
+              </div>
+              <div class="p-1.5 rounded bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+                <span class="text-[#6b7370]">7. max_runtime_seconds:</span> <span class="text-[#0e1110] font-semibold">1800s</span>
+              </div>
+              <div class="p-1.5 rounded bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)]">
+                <span class="text-[#6b7370]">8. retry_policy &amp; attempts:</span> <span class="text-[#0e1110] font-semibold">backoff, 3x</span>
+              </div>
+            </div>
+
+            <!-- AC5 Note -->
+            <div class="mt-2 p-2 rounded-[6px] bg-[#fffdfa] border border-[#fde68a] text-[11px] text-[#78350f]">
+              <strong class="font-semibold text-[#b45309]">AC5 (B2C Onboarding):</strong> Agent pertama dapat didaftarkan tanpa API key provider langsung. Fleet menyimpannya dalam status <span class="font-mono font-medium text-[#b45309]">UNCONFIGURED</span> dan pengguna dapat mengisi token rahasia sebelum penugasan pertama.
+            </div>
+          </div>
+        </div>
+
+        <!-- Kartu 2: US-AD73 Archive Lifecycle Rules (AC1 & AC2) -->
+        <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.07)] rounded-[10px] p-3.5 shadow-xs flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between pb-2 mb-2.5 border-b border-[rgba(12,26,22,0.07)]">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-[#94a3b8]"></span>
+                <span class="font-bold text-[12px] text-[#0e1110]">US-AD73 — Mekanisme Arsip Agent</span>
+              </div>
+              <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#f1f5f9] text-[#64748b]">Lifecycle Rule</span>
+            </div>
+
+            <div class="space-y-2.5 text-[11px]">
+              <!-- AC1 -->
+              <div class="flex items-start gap-2">
+                <div class="w-4 h-4 rounded-full bg-[#eef7ee] text-[#16a34a] flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">✓</div>
+                <div>
+                  <strong class="text-[#0e1110]">AC1 — Penuntasan Task Berjalan:</strong>
+                  <p class="text-[#4d5553] mt-0.5">
+                    Ketika agent diarsip (misal <span class="font-mono text-[10px] text-[#64748b]">agent-legacy-qa</span>), task yang berstatus <code class="font-mono bg-[#f6f7f6] px-1 text-[#d97706]">running</code> tetap dieksekusi hingga selesai. Ledger biaya tetap mencatat konsumsi token step berjalan.
+                  </p>
+                </div>
+              </div>
+
+              <!-- AC2 -->
+              <div class="flex items-start gap-2">
+                <div class="w-4 h-4 rounded-full bg-[#eef7ee] text-[#16a34a] flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">✓</div>
+                <div>
+                  <strong class="text-[#0e1110]">AC2 — Proteksi Dropdown Penugasan Task Baru:</strong>
+                  <p class="text-[#4d5553] mt-0.5">
+                    Agent diarsip otomatis di-filter keluar dari modal penugasan task baru di papan Kanban dan Table View. Opsi tidak pernah dirender di elemen <code class="font-mono bg-[#f6f7f6] px-1">&lt;select name="assigned_agent"&gt;</code>.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Visual Preview Dropdown Mock -->
+              <div class="p-2 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] text-[10px]">
+                <div class="text-[#6b7370] font-semibold uppercase tracking-wider mb-1.5">Simulasi Dropdown Assign Task (AC2 Enforcement):</div>
+                <div class="flex items-center gap-2">
+                  <div class="px-2 py-1 rounded bg-[#ffffff] border border-[rgba(12,26,22,0.12)] font-mono text-[#0e1110] flex-1 flex items-center justify-between">
+                    <span>Pilih Agent... (3 aktif tersedia)</span>
+                    <span class="text-[#6b7370]">▼</span>
+                  </div>
+                  <span class="text-[10px] font-mono text-[#16a34a] bg-[#eef7ee] px-2 py-1 rounded border border-[#bbf7d0]">
+                    ✓ 1 diarsip disembunyikan
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom micro-status -->
+          <div class="pt-2 mt-2 border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[10px] font-mono text-[#6b7370]">
+            <span>Orchestrator sync: active</span>
+            <span>Zero-downtime archive migration</span>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ==================== 4. COST RAIL KANAN (264px) ==================== -->
+  <!-- Kontrak shell: background #eef1f0, isi TETAP: TODAY, 7-DAY, TOP SPENDERS, RUNNING NOW. JANGAN tambah isi lain -->
+  <aside class="w-[264px] shrink-0 h-screen bg-[#eef1f0] border-l border-[rgba(12,26,22,0.07)] p-4 flex flex-col justify-between text-[12px] z-20">
+    <div class="flex flex-col gap-5">
+      
+      <!-- 1. TODAY (Biaya + Meter Pagu) -->
+      <div>
+        <div class="flex items-center justify-between text-[10px] uppercase tracking-wider text-[#6b7370] font-semibold mb-1">
+          <span>TODAY</span>
+          <span class="font-mono">CAP $20.00</span>
+        </div>
+        <div class="flex items-baseline gap-1.5">
+          <span class="text-[24px] font-bold text-[#0e1110] font-mono tracking-tight leading-none">$4.82</span>
+          <span class="text-[11px] text-[#6b7370] font-mono">/ $20.00</span>
+        </div>
+        <!-- Budget meter (6px) -->
+        <div class="w-full h-[6px] bg-[rgba(12,26,22,0.08)] rounded-full mt-2.5 overflow-hidden">
+          <div class="h-full bg-[#0d7a70] rounded-full" style="width: 24.1%;"></div>
+        </div>
+      </div>
+
+      <!-- 2. 7-DAY (Sparkline) -->
+      <div>
+        <div class="flex items-center justify-between text-[10px] uppercase tracking-wider text-[#6b7370] font-semibold mb-2">
+          <span>7-DAY</span>
+          <span class="font-mono text-[9px] text-[#6b7370]">SEP 12 — SEP 18</span>
+        </div>
+        <!-- Bar Chart Sparkline -->
+        <div class="h-[44px] flex items-end justify-between gap-1 pt-1">
+          <!-- 12 Sep -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div class="w-full bg-[#0d7a70] rounded-t-[2px] opacity-70" style="height: 40%;"></div>
+          </div>
+          <!-- 13 Sep -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div class="w-full bg-[#0d7a70] rounded-t-[2px] opacity-80" style="height: 65%;"></div>
+          </div>
+          <!-- 14 Sep -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div class="w-full bg-[#0d7a70] rounded-t-[2px] opacity-50" style="height: 30%;"></div>
+          </div>
+          <!-- 15 Sep -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div class="w-full bg-[#0d7a70] rounded-t-[2px] opacity-75" style="height: 55%;"></div>
+          </div>
+          <!-- 16 Sep -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div class="w-full bg-[#0d7a70] rounded-t-[2px] opacity-90" style="height: 80%;"></div>
+          </div>
+          <!-- 17 Sep -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div class="w-full bg-[#0d7a70] rounded-t-[2px] opacity-85" style="height: 75%;"></div>
+          </div>
+          <!-- 18 Sep (Today) -->
+          <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+            <div class="w-full bg-[#0d7a70] rounded-t-[2px] opacity-100" style="height: 95%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. TOP SPENDERS (Tepat 3 Baris) -->
+      <div>
+        <div class="flex items-center justify-between text-[10px] uppercase tracking-wider text-[#6b7370] font-semibold mb-2">
+          <span>TOP SPENDERS</span>
+          <span class="font-mono text-[9px] text-[#6b7370]">TODAY</span>
+        </div>
+        <div class="space-y-2 text-[11px]">
+          <!-- Baris 1 -->
+          <div>
+            <div class="flex items-center justify-between font-mono mb-1">
+              <span class="font-semibold text-[#0e1110]">agent-backend</span>
+              <span class="text-[#0e1110] font-medium">$1.84</span>
+            </div>
+            <div class="w-full h-[3px] bg-[rgba(12,26,22,0.08)] rounded-full overflow-hidden">
+              <div class="h-full bg-[#0d7a70] rounded-full" style="width: 70%;"></div>
+            </div>
+          </div>
+
+          <!-- Baris 2 -->
+          <div>
+            <div class="flex items-center justify-between font-mono mb-1">
+              <span class="font-semibold text-[#0e1110]">agent-data</span>
+              <span class="text-[#0e1110] font-medium">$1.42</span>
+            </div>
+            <div class="w-full h-[3px] bg-[rgba(12,26,22,0.08)] rounded-full overflow-hidden">
+              <div class="h-full bg-[#0d7a70] rounded-full" style="width: 55%;"></div>
+            </div>
+          </div>
+
+          <!-- Baris 3 -->
+          <div>
+            <div class="flex items-center justify-between font-mono mb-1">
+              <span class="font-semibold text-[#0e1110]">agent-docs</span>
+              <span class="text-[#0e1110] font-medium">$0.91</span>
+            </div>
+            <div class="w-full h-[3px] bg-[rgba(12,26,22,0.08)] rounded-full overflow-hidden">
+              <div class="h-full bg-[#0d7a70] rounded-full" style="width: 35%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 4. RUNNING NOW (Bagian Bawah Cost Rail) -->
+    <div class="pt-3 border-t border-[rgba(12,26,22,0.07)]">
+      <div class="text-[10px] uppercase tracking-wider text-[#6b7370] font-semibold mb-1">
+        RUNNING NOW
+      </div>
+      <div class="flex items-center gap-2 text-[12px] font-semibold text-[#0e1110]">
+        <span class="w-2 h-2 rounded-full bg-[#d97706] animate-pulse"></span>
+        <span>2 agents active</span>
+      </div>
+      <div class="text-[10px] text-[#6b7370] mt-0.5 font-mono">
+        task execution: running
+      </div>
+    </div>
+  </aside>
+
+</body>
+</html>
