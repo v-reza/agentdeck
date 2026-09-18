@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import './styles.css'
 
 type LinkProps = { href: string; children: ReactNode; className?: string }
@@ -88,8 +88,44 @@ function Endpoint({ method, path, role, description, code }: { method: string; p
 function DataTable({ rows }: { rows: string[][] }) { return <div className="docs-table-wrap"><table className="docs-table"><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead><tbody>{rows.map((row) => <tr key={row[0]}>{row.map((cell, index) => <td className={index === 0 ? 'mono' : ''} key={`${row[0]}-${index}`}>{cell}</td>)}</tr>)}</tbody></table></div> }
 
 function PricingPage() { return <PublicShell active="pricing"><div className="public-page centered-page"><div className="page-kicker">PUBLIC · NO LOGIN REQUIRED</div><h1>Pricing that stays legible.</h1><p className="page-lead">Flat pricing for self-hosted agent orchestration. No per-seat surprise and no sales call required.</p><div className="pricing-grid pricing-page-grid"><Plan name="Solo" price="$0" period="/ forever" subtitle="For one developer." features={['Self-host, unlimited agents', 'Cost ledger + approval gates', 'Community support']} action="Download" /><Plan name="Pro" price="$5" period="/ month, flat" subtitle="For small teams that need shared audit and control." features={['Everything in Solo', 'Unlimited teammates, no per-seat fee', 'Shared boards + role controls', 'Webhook + audit log', 'Priority support']} action="Start free trial" pro /></div><p className="page-note">Prices in USD. Cancel anytime. Your data stays on your infrastructure.</p></div></PublicShell> }
-function GitHubPage() { return <PublicShell active="github"><div className="public-page"><div className="docs-breadcrumb">AgentDeck <span>/</span> <b>Repository & releases</b></div><h1>AgentDeck on GitHub</h1><p className="page-lead">Open source Go orchestration, cost ledger, and approval gates for AI agent fleets.</p><div className="resource-grid"><div className="resource-card"><div className="resource-icon">GH</div><h2>v-reza/agentdeck</h2><p>Single-binary Go orchestrator and telemetry ledger for autonomous agent fleets.</p><a className="btn-primary full" href="https://github.com/v-reza/agentdeck" target="_blank" rel="noreferrer">Open repository ↗</a><dl><dt>License</dt><dd>Apache-2.0</dd><dt>Version</dt><dd>v0.1</dd><dt>Release</dt><dd>September 2026</dd></dl></div><div><h2 className="subheading">Latest release</h2><div className="release-card"><div className="release-top"><b>v0.1</b><span>Latest stable</span><time>September 2026</time></div><ul><li>Initial single-binary daemon and PostgreSQL migrations.</li><li>Per-step integer micro-USD ledger with price snapshots.</li><li>Approval gates, run replay, and REST API foundation.</li></ul><a href="https://github.com/v-reza/agentdeck/releases" target="_blank" rel="noreferrer" className="text-link">View all releases ↗</a></div><div className="fallback-card"><b>Could not load release metadata?</b><p>Use the repository directly. The source, license, and release history are public.</p><a href="https://github.com/v-reza/agentdeck" target="_blank" rel="noreferrer" className="text-link">github.com/v-reza/agentdeck ↗</a></div></div></div><Roadmap /></div></PublicShell> }
+type GitHubRelease = {
+  tag_name: string
+  name: string
+  html_url: string
+  published_at: string | null
+  body: string | null
+  prerelease: boolean
+  draft: boolean
+}
 
+function GitHubPage() {
+  const [releaseState, setReleaseState] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading')
+  const [release, setRelease] = useState<GitHubRelease | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('https://api.github.com/repos/v-reza/agentdeck/releases?per_page=5', { headers: { Accept: 'application/vnd.github+json' } })
+      .then((response) => {
+        if (!response.ok) throw new Error(`GitHub releases returned ${response.status}`)
+        return response.json() as Promise<GitHubRelease[]>
+      })
+      .then((releases) => {
+        if (cancelled) return
+        const published = releases.find((item) => !item.draft && !item.prerelease) ?? null
+        setRelease(published)
+        setReleaseState(published ? 'ready' : 'empty')
+      })
+      .catch(() => {
+        if (!cancelled) setReleaseState('error')
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  const releaseDate = release?.published_at ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(release.published_at)) : null
+  const releaseNotes = release?.body?.split('\n').map((line) => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean).slice(0, 4) ?? []
+
+  return <PublicShell active="github"><div className="public-page"><div className="docs-breadcrumb">AgentDeck <span>/</span> <b>Repository & releases</b></div><h1>AgentDeck on GitHub</h1><p className="page-lead">Open source Go orchestration, cost ledger, and approval gates for AI agent fleets.</p><div className="resource-grid"><div className="resource-card"><div className="resource-icon">GH</div><h2>v-reza/agentdeck</h2><p>Single-binary Go orchestrator and telemetry ledger for autonomous agent fleets.</p><a className="btn-primary full" href="https://github.com/v-reza/agentdeck" target="_blank" rel="noreferrer">Open repository ↗</a><dl><dt>License</dt><dd>Apache-2.0</dd><dt>Version</dt><dd>{release?.tag_name ?? 'v0.1 preview'}</dd><dt>Release</dt><dd>{releaseDate ?? 'Not published yet'}</dd></dl></div><div><h2 className="subheading">Latest release</h2>{releaseState === 'loading' && <div className="release-card release-loading"><span className="release-loading-dot" />Loading release metadata…</div>}{releaseState === 'ready' && release && <div className="release-card"><div className="release-top"><b>{release.tag_name}</b><span>{release.prerelease ? 'Pre-release' : 'Latest stable'}</span><time>{releaseDate}</time></div><ul>{(releaseNotes.length ? releaseNotes : ['Published release metadata is available on GitHub.']).map((note) => <li key={note}>{note}</li>)}</ul><a href={release.html_url} target="_blank" rel="noreferrer" className="text-link">View release on GitHub ↗</a></div>}{releaseState === 'empty' && <div className="release-card release-empty"><div className="release-top"><b>v0.1</b><span>Preview</span></div><h3>No public release yet.</h3><p>The repository is live, but no GitHub Release has been published. Create the first release to show version, date, and release notes here.</p><a href="https://github.com/v-reza/agentdeck/releases/new" target="_blank" rel="noreferrer" className="btn-outline">Create v0.1.0 release ↗</a></div>}{releaseState === 'error' && <div className="fallback-card"><b>Release metadata unavailable.</b><p>GitHub API could not be reached right now. The source and release history remain available directly.</p><a href="https://github.com/v-reza/agentdeck/releases" target="_blank" rel="noreferrer" className="text-link">Open releases ↗</a></div>}<a href="https://github.com/v-reza/agentdeck/releases" target="_blank" rel="noreferrer" className="text-link release-index-link">View all releases ↗</a></div></div><Roadmap /></div></PublicShell>
+}
 function Roadmap() {
   const milestones = [
     { id: 'M0', state: 'NEXT', title: 'Identity & workspace', copy: 'Self-serve signup, sessions, personal workspace, tenant isolation, and RBAC.', items: ['Registration + login', 'Personal workspace', 'Owner/admin/member/viewer'] },
