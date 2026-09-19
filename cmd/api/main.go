@@ -31,10 +31,10 @@ type credentials struct {
 
 // writeAuthError maps auth domain errors to the contract status codes so the
 // same failure always yields the same HTTP code from every handler
-// (US-AD01 AC2/AC4, US-AD02 AC2).
+// (US-AD01 AC2/AC4, US-AD02 AC2, US-AD03 AC1).
 func writeAuthError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, auth.ErrEmailExists):
+	case errors.Is(err, auth.ErrEmailExists), errors.Is(err, auth.ErrSlugTaken):
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, auth.ErrInvalidInput):
 		http.Error(w, err.Error(), http.StatusBadRequest)

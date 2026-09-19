@@ -139,8 +139,11 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// resetSchema gives the next test an empty public schema. The runtime role is
-// already dropped by the first test that runs Apply, so it is not touched here.
+// resetSchema gives the next test an empty public schema. The runtime role
+// itself survives: dropping it would need REVOKE ALL ON SCHEMA public plus
+// DROP OWNED BY first, because the schema-level grant in 0001.up.sql is enough
+// to make DROP ROLE fail with SQLSTATE 2BP01. Nothing here needs the role gone,
+// so it is left in place and re-granted on the next Apply.
 func resetSchema(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 
@@ -210,10 +213,14 @@ func TestPostgresMigrationIsIdempotent(t *testing.T) {
 	// The runtime role owns no objects (ARCHITECTURE 3.1): the migration grants
 	// privileges TO it and never FROM it. A role that grants is recorded as the
 	// owner or grantor of objects, which pins them in pg_shdepend with deptype
-	// 'p' and makes the role undroppable (2BP01); a role that is only
-	// granted-to leaves deptype 'a' ACL entries, which are expected for every
-	// granted privilege. So check ownership and pinned grants only, across the
-	// object classes the migration can create.
+	// 'p'; a role that is only granted-to leaves deptype 'a' ACL entries, which
+	// are expected for every granted privilege. So check ownership and pinned
+	// grants only, across the object classes the migration can create.
+	//
+	// This is the negative half of ARCHITECTURE 3.1. The positive half -- the
+	// runtime role can actually read and write the domain tables -- is asserted
+	// by TestPostgresRuntimeRoleCanUseDomainTables; neither check alone catches
+	// a grant that matches no table.
 	var ownerOrGrantor int
 	if err := pool.QueryRow(ctx, `
 		SELECT count(*) FROM (
