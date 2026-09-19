@@ -170,6 +170,44 @@ def gate_banned():
         print("ok    BANNED: nol window.alert/confirm/prompt")
 
 
+# --- F. SPA fallback --------------------------------------------------------
+def gate_spa_fallback():
+    """BrowserRouter butuh rewrite semua path ke index.html.
+
+    Tanpa ini, deep link (/github) jadi 404 di hosting statis: server nyari
+    file fisik bernama 'github' dan gak ketemu. Pernah kejadian di Vercel.
+    """
+    path = os.path.join(WEB, "vercel.json")
+    if not os.path.exists(path):
+        fail("SPA", "apps/web/vercel.json hilang — deep link bakal 404 di Vercel")
+        return
+
+    with open(path, encoding="utf-8") as handle:
+        try:
+            config = json.load(handle)
+        except json.JSONDecodeError as exc:
+            fail("SPA", f"vercel.json bukan JSON valid: {exc}")
+            return
+
+    rewrites = config.get("rewrites") or []
+    to_index = [
+        rule
+        for rule in rewrites
+        if str(rule.get("destination", "")).rstrip("/").endswith("index.html")
+        or str(rule.get("destination", "")) == "/"
+    ]
+    if not to_index:
+        fail("SPA", "vercel.json tidak punya rewrite ke /index.html — deep link 404")
+        return
+
+    # Rewrite harus menangkap SEMUA path; kalau cuma '/' maka deep link tetap 404.
+    source = str(to_index[0].get("source", ""))
+    if source not in ("/(.*)", "/:path*", "/(.*)/"):
+        warn("SPA", f"rewrite source '{source}' mungkin tidak menangkap semua deep link")
+
+    print(f"ok    SPA: vercel.json punya SPA fallback ({source} -> /index.html)")
+
+
 def main():
     if not os.path.isdir(SRC):
         print(f"FAIL: {SRC} tidak ada — jalankan dari root repo agentdeck")
@@ -181,6 +219,7 @@ def main():
     gate_deps()
     gate_format()
     gate_banned()
+    gate_spa_fallback()
 
     print()
     for item in WARNED:
