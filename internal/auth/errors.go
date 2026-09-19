@@ -19,6 +19,8 @@ var (
 	ErrLastOwner          = errors.New("last owner cannot be demoted")
 	ErrUnauthorized       = errors.New("unauthorized")
 	ErrSlugTaken          = errors.New("slug already taken")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrSessionNotFound    = errors.New("session not found")
 )
 
 const minPasswordLength = 8

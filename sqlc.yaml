@@ -1,0 +1,26 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "internal/store/queries/queries.sql"
+    schema: "internal/migrate"
+    gen:
+      go:
+        package: "store"
+        out: "internal/store"
+        sql_package: "pgx/v5"
+        emit_json_tags: false
+        emit_prepared_queries: false
+        emit_interface: true
+        emit_exact_table_names: false
+        emit_enum_valid_method: true
+        emit_pointers_for_null_types: true
+        rename:
+          org_id: "OrgID"
+          user_id: "UserID"
+          token_hash: "TokenHash"
+          is_shadow: "IsShadow"
+          last_seen_at: "LastSeenAt"
+          expires_at: "ExpiresAt"
+          created_at: "CreatedAt"
+          password_hash: "PasswordHash"
+          avatar_url: "AvatarURL"

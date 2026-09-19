@@ -53,7 +53,7 @@ func (a authAPI) orgContextMiddleware(next http.Handler) http.Handler {
 		}
 
 		requestedID := strings.TrimSpace(r.Header.Get("X-Org-ID"))
-		workspace, role, err := a.store.ResolveWorkspace(user.Email, requestedID)
+		workspace, role, err := a.store.ResolveWorkspace(r.Context(), user.Email, requestedID)
 		if err != nil {
 			writeAuthError(w, err)
 			return
@@ -76,7 +76,7 @@ func (a authAPI) requireRole(next http.Handler, minimum auth.Role) http.Handler 
 			http.Error(w, "authentication required", http.StatusUnauthorized)
 			return
 		}
-		if !a.store.Authorize(orgCtx.workspace.ID, orgCtx.email, minimum) {
+		if !a.store.Authorize(r.Context(), orgCtx.workspace.ID, orgCtx.email, minimum) {
 			http.Error(w, "insufficient role", http.StatusForbidden)
 			return
 		}
@@ -94,7 +94,11 @@ func (a authAPI) listOrgs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	memberships := a.store.Workspaces(user.Email)
+	memberships, err := a.store.Workspaces(r.Context(), user.Email)
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
 	orgs := make([]map[string]string, 0, len(memberships))
 	for _, membership := range memberships {
 		orgs = append(orgs, map[string]string{
@@ -124,7 +128,7 @@ func (a authAPI) createOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	workspace, err := a.store.CreateWorkspace(user.Email, input.Name, input.Slug)
+	workspace, err := a.store.CreateWorkspace(r.Context(), user.Email, input.Name, input.Slug)
 	if err != nil {
 		writeAuthError(w, err)
 		return
@@ -171,7 +175,7 @@ func (a authAPI) updateOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.store.UpdateWorkspace(orgCtx.workspace.ID, orgCtx.email, input.Name); err != nil {
+	if err := a.store.UpdateWorkspace(r.Context(), orgCtx.workspace.ID, orgCtx.email, input.Name); err != nil {
 		writeAuthError(w, err)
 		return
 	}
@@ -193,7 +197,7 @@ func (a authAPI) listMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	members, err := a.store.Members(orgCtx.workspace.ID, orgCtx.email)
+	members, err := a.store.Members(r.Context(), orgCtx.workspace.ID, orgCtx.email)
 	if err != nil {
 		writeAuthError(w, err)
 		return
@@ -235,7 +239,7 @@ func (a authAPI) addMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.store.AddMember(orgCtx.workspace.ID, orgCtx.email, input.Email, role); err != nil {
+	if err := a.store.AddMember(r.Context(), orgCtx.workspace.ID, orgCtx.email, input.Email, role); err != nil {
 		writeAuthError(w, err)
 		return
 	}
@@ -271,7 +275,7 @@ func (a authAPI) updateMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	target := r.PathValue("user_id")
-	if err := a.store.ChangeMemberRole(orgCtx.workspace.ID, orgCtx.email, target, role); err != nil {
+	if err := a.store.ChangeMemberRole(r.Context(), orgCtx.workspace.ID, orgCtx.email, target, role); err != nil {
 		writeAuthError(w, err)
 		return
 	}
@@ -292,7 +296,7 @@ func (a authAPI) removeMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	target := r.PathValue("user_id")
-	if err := a.store.RemoveMemberByID(orgCtx.workspace.ID, orgCtx.email, target); err != nil {
+	if err := a.store.RemoveMemberByID(r.Context(), orgCtx.workspace.ID, orgCtx.email, target); err != nil {
 		writeAuthError(w, err)
 		return
 	}

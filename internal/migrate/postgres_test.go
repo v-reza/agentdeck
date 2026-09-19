@@ -76,12 +76,18 @@ func TestPostgresMigrationIsIdempotent(t *testing.T) {
 		t.Fatalf("re-apply migration: %v", err)
 	}
 
+	// One row per applied migration file, not exactly one row: the runner
+	// must record each version and skip the ones it has already applied.
+	pending, err := load()
+	if err != nil {
+		t.Fatalf("load migrations: %v", err)
+	}
 	var applied int
 	if err := pool.QueryRow(ctx, "SELECT count(*) FROM schema_migrations").Scan(&applied); err != nil {
 		t.Fatal(err)
 	}
-	if applied != 1 {
-		t.Fatalf("schema_migrations has %d rows, want 1", applied)
+	if want := len(pending); applied != want {
+		t.Fatalf("schema_migrations has %d rows, want %d", applied, want)
 	}
 
 	tables := []string{"orgs", "users", "memberships", "sessions"}

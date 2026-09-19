@@ -60,6 +60,7 @@ func (a authAPI) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, workspace, sessionToken, err := a.store.Register(
+		r.Context(),
 		input.Email,
 		input.Password,
 		input.Name,
@@ -86,7 +87,7 @@ func (a authAPI) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionToken, err := a.store.Login(input.Email, input.Password)
+	sessionToken, err := a.store.Login(r.Context(), input.Email, input.Password)
 	if err != nil {
 		writeAuthError(w, err)
 		return
@@ -97,14 +98,14 @@ func (a authAPI) login(w http.ResponseWriter, r *http.Request) {
 }
 
 // currentUser resolves the session from the cookie or the
-// Authorization: Bearer <token> header (ARCHITECTURE 11.1), returning the
+// Authorization: Bearer *** header (ARCHITECTURE 11.1), returning the
 // authenticated user. ok=false means 401 for every protected handler.
 func currentUser(store *auth.Store, r *http.Request) (auth.User, bool) {
 	token := sessionToken(r)
 	if token == "" {
 		return auth.User{}, false
 	}
-	return store.Authenticate(token)
+	return store.Authenticate(r.Context(), token)
 }
 
 // sessionToken reads the opaque token from the cookie or the
@@ -127,7 +128,11 @@ func (a authAPI) me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	memberships := a.store.Workspaces(user.Email)
+	memberships, err := a.store.Workspaces(r.Context(), user.Email)
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
 	workspaces := make([]map[string]string, 0, len(memberships))
 	for _, membership := range memberships {
 		workspaces = append(workspaces, map[string]string{
@@ -153,12 +158,15 @@ func (a authAPI) logout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "authentication required", http.StatusUnauthorized)
 		return
 	}
-	if _, ok := a.store.Authenticate(token); !ok {
+	if _, ok := a.store.Authenticate(r.Context(), token); !ok {
 		http.Error(w, "authentication required", http.StatusUnauthorized)
 		return
 	}
 
-	a.store.Logout(token)
+	if err := a.store.Logout(r.Context(), token); err != nil {
+		writeAuthError(w, err)
+		return
+	}
 	http.SetCookie(w, auth.ExpiredSessionCookie())
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -188,7 +196,7 @@ func main() {
 		return
 	}
 
-	store := auth.NewStore()
+	store := auth.NewStore(auth.NewPgxRepository(pool))
 	api := authAPI{store: store}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {

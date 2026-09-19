@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -13,7 +14,7 @@ import (
 func newTestAPI(t *testing.T) (authAPI, *auth.Store) {
 	t.Helper()
 
-	store := auth.NewStore()
+	store := auth.NewStore(auth.NewMemoryRepository())
 	return authAPI{store: store}, store
 }
 
@@ -115,7 +116,7 @@ func TestRegisterEndpointStoresHashedPassword(t *testing.T) {
 		t.Fatalf("status = %d, want 201", recorder.Code)
 	}
 
-	user, ok := store.Authenticate(sessionCookie(recorder))
+	user, ok := store.Authenticate(context.Background(), sessionCookie(recorder))
 	if !ok {
 		t.Fatal("session cookie did not authenticate")
 	}

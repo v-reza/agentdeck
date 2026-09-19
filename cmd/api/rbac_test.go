@@ -34,7 +34,7 @@ type rbacTestAPI struct {
 func newRBACTestAPI(t *testing.T) rbacTestAPI {
 	t.Helper()
 
-	api := authAPI{store: auth.NewStore()}
+	api := authAPI{store: auth.NewStore(auth.NewMemoryRepository())}
 	server := httptest.NewServer(api.mux(t))
 
 	test := rbacTestAPI{

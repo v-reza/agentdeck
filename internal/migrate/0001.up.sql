@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     ip            inet,
     last_seen_at  timestamptz,
     expires_at    timestamptz NOT NULL,
+    deleted_at    timestamptz,
     created_at    timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT sessions_pk            PRIMARY KEY (id),
     CONSTRAINT sessions_id_ulid_chk   CHECK (char_length(id) = 26),

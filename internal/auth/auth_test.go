@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -8,9 +9,10 @@ import (
 )
 
 func TestRegisterLoginLogoutAndWorkspace(t *testing.T) {
-	store := NewStore()
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
 
-	user, workspace, session, err := store.Register("Ada@Example.com", "password1", "", "")
+	user, workspace, session, err := store.Register(ctx, "Ada@Example.com", "password1", "", "")
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -21,29 +23,30 @@ func TestRegisterLoginLogoutAndWorkspace(t *testing.T) {
 		t.Fatalf("workspace name = %q, want %q", workspace.Name, "Ada's workspace")
 	}
 
-	if _, _, _, err = store.Register("ada@example.com", "password1", "", ""); !errors.Is(err, ErrEmailExists) {
+	if _, _, _, err = store.Register(ctx, "ada@example.com", "password1", "", ""); !errors.Is(err, ErrEmailExists) {
 		t.Fatalf("duplicate registration: got %v, want ErrEmailExists", err)
 	}
-	if _, ok := store.Authenticate(session); !ok {
+	if _, ok := store.Authenticate(ctx, session); !ok {
 		t.Fatal("session not authenticated")
 	}
 
-	store.Logout(session)
-	if _, ok := store.Authenticate(session); ok {
+	store.Logout(ctx, session)
+	if _, ok := store.Authenticate(ctx, session); ok {
 		t.Fatal("revoked session accepted")
 	}
 
-	loginSession, err := store.Login("ada@example.com", "password1")
+	loginSession, err := store.Login(ctx, "ada@example.com", "password1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := store.Authenticate(loginSession); !ok {
+	if _, ok := store.Authenticate(ctx, loginSession); !ok {
 		t.Fatal("login session invalid")
 	}
 }
 
 func TestRegisterValidation(t *testing.T) {
-	store := NewStore()
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
 
 	cases := []struct {
 		name     string
@@ -58,7 +61,7 @@ func TestRegisterValidation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, _, _, err := store.Register(tc.email, tc.password, "", ""); !errors.Is(err, ErrInvalidInput) {
+			if _, _, _, err := store.Register(ctx, tc.email, tc.password, "", ""); !errors.Is(err, ErrInvalidInput) {
 				t.Fatalf("got %v, want ErrInvalidInput", err)
 			}
 		})
@@ -66,9 +69,10 @@ func TestRegisterValidation(t *testing.T) {
 }
 
 func TestRegisterUsesEmailLocalPartWhenNameAbsent(t *testing.T) {
-	store := NewStore()
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
 
-	user, _, _, err := store.Register("john.doe@example.com", "password1", "", "")
+	user, _, _, err := store.Register(ctx, "john.doe@example.com", "password1", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,9 +82,10 @@ func TestRegisterUsesEmailLocalPartWhenNameAbsent(t *testing.T) {
 }
 
 func TestRegisterKeepsExplicitOrgName(t *testing.T) {
-	store := NewStore()
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
 
-	_, workspace, _, err := store.Register("a@example.com", "password1", "Alice", "Acme Ops")
+	_, workspace, _, err := store.Register(ctx, "a@example.com", "password1", "Alice", "Acme Ops")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +93,10 @@ func TestRegisterKeepsExplicitOrgName(t *testing.T) {
 		t.Fatalf("workspace name = %q, want %q", workspace.Name, "Acme Ops")
 	}
 
-	workspaces := store.Workspaces("a@example.com")
+	workspaces, err := store.Workspaces(ctx, "a@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(workspaces) != 1 {
 		t.Fatalf("workspaces = %d, want 1", len(workspaces))
 	}
@@ -101,80 +109,84 @@ func TestRegisterKeepsExplicitOrgName(t *testing.T) {
 }
 
 func TestRBACAndTenantIsolation(t *testing.T) {
-	store := NewStore()
-	_, workspaceA, _, _ := store.Register("a@example.com", "password1", "", "")
-	_, workspaceB, _, _ := store.Register("b@example.com", "password1", "", "")
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
+	_, workspaceA, _, _ := store.Register(ctx, "a@example.com", "password1", "", "")
+	_, workspaceB, _, _ := store.Register(ctx, "b@example.com", "password1", "", "")
 
-	if !store.Authorize(workspaceA.ID, "a@example.com", Owner) ||
-		!store.Authorize(workspaceA.ID, "a@example.com", Admin) {
+	if !store.Authorize(ctx, workspaceA.ID, "a@example.com", Owner) ||
+		!store.Authorize(ctx, workspaceA.ID, "a@example.com", Admin) {
 		t.Fatal("owner matrix failed")
 	}
-	if store.Authorize(workspaceA.ID, "b@example.com", Viewer) ||
-		store.Authorize(workspaceB.ID, "a@example.com", Viewer) {
+	if store.Authorize(ctx, workspaceA.ID, "b@example.com", Viewer) ||
+		store.Authorize(ctx, workspaceB.ID, "a@example.com", Viewer) {
 		t.Fatal("cross-tenant access leaked")
 	}
 
-	if err := store.AddMember(workspaceA.ID, "a@example.com", "b@example.com", Member); err != nil {
+	if err := store.AddMember(ctx, workspaceA.ID, "a@example.com", "b@example.com", Member); err != nil {
 		t.Fatal(err)
 	}
-	if !store.Authorize(workspaceA.ID, "b@example.com", Member) ||
-		store.Authorize(workspaceA.ID, "b@example.com", Admin) {
+	if !store.Authorize(ctx, workspaceA.ID, "b@example.com", Member) ||
+		store.Authorize(ctx, workspaceA.ID, "b@example.com", Admin) {
 		t.Fatal("member matrix failed")
 	}
-	if err := store.AddMember(workspaceA.ID, "b@example.com", "a@example.com", Admin); err == nil {
+	if err := store.AddMember(ctx, workspaceA.ID, "b@example.com", "a@example.com", Admin); err == nil {
 		t.Fatal("member escalated role")
 	}
-	if err := store.ChangeRole(workspaceA.ID, "a@example.com", "b@example.com", Admin); err != nil ||
-		!store.Authorize(workspaceA.ID, "b@example.com", Admin) {
+	if err := store.ChangeRole(ctx, workspaceA.ID, "a@example.com", "b@example.com", Admin); err != nil ||
+		!store.Authorize(ctx, workspaceA.ID, "b@example.com", Admin) {
 		t.Fatal("admin role change failed")
 	}
 }
 
 func TestChangeRoleGuardsOwner(t *testing.T) {
-	store := NewStore()
-	_, workspace, _, _ := store.Register("owner@example.com", "password1", "", "")
-	if err := store.ChangeRole(workspace.ID, "owner@example.com", "owner@example.com", Admin); err == nil {
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
+	_, workspace, _, _ := store.Register(ctx, "owner@example.com", "password1", "", "")
+	if err := store.ChangeRole(ctx, workspace.ID, "owner@example.com", "owner@example.com", Admin); err == nil {
 		t.Fatal("owner self-demotion accepted")
 	}
 
-	if err := store.AddMember(workspace.ID, "owner@example.com", "member@example.com", Member); err != nil {
+	if err := store.AddMember(ctx, workspace.ID, "owner@example.com", "member@example.com", Member); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.ChangeRole(workspace.ID, "owner@example.com", "member@example.com", Owner); err == nil {
+	if err := store.ChangeRole(ctx, workspace.ID, "owner@example.com", "member@example.com", Owner); err == nil {
 		t.Fatal("owner granted to non-owner")
 	}
 }
 
 func TestRemoveMemberProtectsLastOwner(t *testing.T) {
-	store := NewStore()
-	_, workspace, _, _ := store.Register("owner@example.com", "password1", "", "")
-	if err := store.RemoveMember(workspace.ID, "owner@example.com", "owner@example.com"); err == nil {
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
+	_, workspace, _, _ := store.Register(ctx, "owner@example.com", "password1", "", "")
+	if err := store.RemoveMember(ctx, workspace.ID, "owner@example.com", "owner@example.com"); err == nil {
 		t.Fatal("last owner removal accepted")
 	}
 
-	if err := store.AddMember(workspace.ID, "owner@example.com", "member@example.com", Member); err != nil {
+	if err := store.AddMember(ctx, workspace.ID, "owner@example.com", "member@example.com", Member); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.RemoveMember(workspace.ID, "owner@example.com", "member@example.com"); err != nil {
+	if err := store.RemoveMember(ctx, workspace.ID, "owner@example.com", "member@example.com"); err != nil {
 		t.Fatalf("member removal failed: %v", err)
 	}
-	if store.Authorize(workspace.ID, "member@example.com", Viewer) {
+	if store.Authorize(ctx, workspace.ID, "member@example.com", Viewer) {
 		t.Fatal("removed member still authorized")
 	}
 }
 
 func TestLoginLocksAfterFiveFailures(t *testing.T) {
-	store := NewStore()
-	_, _, _, err := store.Register("locked@example.com", "password1", "", "")
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
+	_, _, _, err := store.Register(ctx, "locked@example.com", "password1", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 5; i++ {
-		if _, err := store.Login("locked@example.com", "wrong"); err == nil {
+		if _, err := store.Login(ctx, "locked@example.com", "wrong"); err == nil {
 			t.Fatal("invalid password accepted")
 		}
 	}
-	if _, err := store.Login("locked@example.com", "password1"); !errors.Is(err, ErrAccountLocked) {
+	if _, err := store.Login(ctx, "locked@example.com", "password1"); !errors.Is(err, ErrAccountLocked) {
 		t.Fatalf("expected lockout, got %v", err)
 	}
 	if unlocksAt := store.LockedUntil("locked@example.com"); unlocksAt.IsZero() {
@@ -190,73 +202,69 @@ func TestPasswordHashUsesArgon2id(t *testing.T) {
 }
 
 func TestSessionExpiry(t *testing.T) {
-	store := NewStore()
-	_, _, sessionToken, _ := store.Register("x@example.com", "password1", "", "")
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
+	_, _, sessionToken, _ := store.Register(ctx, "x@example.com", "password1", "", "")
 
-	store.mu.Lock()
-	session := store.sessions[tokenHash(sessionToken)]
-	session.ExpiresAt = session.ExpiresAt.Add(-8 * 24 * time.Hour)
-	store.sessions[tokenHash(sessionToken)] = session
-	store.mu.Unlock()
+	setSessionExpiry(t, store, sessionToken, time.Now().Add(-8*24*time.Hour))
 
-	if _, ok := store.Authenticate(sessionToken); ok {
+	if _, ok := store.Authenticate(ctx, sessionToken); ok {
 		t.Fatal("expired session accepted")
 	}
 }
 
 func TestSessionIdleTimeout(t *testing.T) {
-	store := NewStore()
-	_, _, sessionToken, _ := store.Register("idle@example.com", "password1", "", "")
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
+	_, _, sessionToken, _ := store.Register(ctx, "idle@example.com", "password1", "", "")
 
-	store.mu.Lock()
-	session := store.sessions[tokenHash(sessionToken)]
-	session.LastSeenAt = session.LastSeenAt.Add(-25 * time.Hour)
-	store.sessions[tokenHash(sessionToken)] = session
-	store.mu.Unlock()
+	setSessionLastSeen(t, store, sessionToken, time.Now().Add(-25*time.Hour))
 
-	if _, ok := store.Authenticate(sessionToken); ok {
+	if _, ok := store.Authenticate(ctx, sessionToken); ok {
 		t.Fatal("idle session accepted past the 24h sliding window")
 	}
 }
 
 func TestAuthenticateRefreshesLastSeen(t *testing.T) {
-	store := NewStore()
-	_, _, sessionToken, _ := store.Register("active@example.com", "password1", "", "")
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
+	_, _, sessionToken, _ := store.Register(ctx, "active@example.com", "password1", "", "")
 
-	store.mu.Lock()
-	session := store.sessions[tokenHash(sessionToken)]
-	session.LastSeenAt = session.LastSeenAt.Add(-12 * time.Hour)
-	store.sessions[tokenHash(sessionToken)] = session
-	store.mu.Unlock()
+	setSessionLastSeen(t, store, sessionToken, time.Now().Add(-12*time.Hour))
 
-	if _, ok := store.Authenticate(sessionToken); !ok {
+	if _, ok := store.Authenticate(ctx, sessionToken); !ok {
 		t.Fatal("session rejected inside the sliding window")
 	}
 
-	store.mu.RLock()
-	refreshed := store.sessions[tokenHash(sessionToken)]
-	store.mu.RUnlock()
-	if time.Since(refreshed.LastSeenAt) > time.Minute {
+	refreshed := sessionLastSeen(t, store, sessionToken)
+	if time.Since(refreshed) > time.Minute {
 		t.Fatal("Authenticate did not refresh last_seen_at")
 	}
 }
 
 func TestWorkspacesListsOnlyOwnMemberships(t *testing.T) {
-	store := NewStore()
-	_, workspaceA, _, _ := store.Register("a@example.com", "password1", "", "")
-	_, workspaceB, _, _ := store.Register("b@example.com", "password1", "", "")
-	if err := store.AddMember(workspaceA.ID, "a@example.com", "b@example.com", Viewer); err != nil {
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
+	_, workspaceA, _, _ := store.Register(ctx, "a@example.com", "password1", "", "")
+	_, workspaceB, _, _ := store.Register(ctx, "b@example.com", "password1", "", "")
+	if err := store.AddMember(ctx, workspaceA.ID, "a@example.com", "b@example.com", Viewer); err != nil {
 		t.Fatal(err)
 	}
 
-	if list := store.Workspaces("b@example.com"); len(list) != 2 {
+	list, err := store.Workspaces(ctx, "b@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err != nil || len(list) != 2 {
 		t.Fatalf("b memberships = %d, want 2", len(list))
 	}
-	if list := store.Workspaces("a@example.com"); len(list) != 1 {
+	list, err = store.Workspaces(ctx, "a@example.com")
+	if err != nil || len(list) != 1 {
 		t.Fatalf("a memberships = %d, want 1", len(list))
 	}
 	// Unknown users see no workspaces rather than an error.
-	if list := store.Workspaces("ghost@example.com"); len(list) != 0 {
+	list, err = store.Workspaces(ctx, "ghost@example.com")
+	if err != nil || len(list) != 0 {
 		t.Fatalf("unknown user memberships = %d, want 0", len(list))
 	}
 	_ = workspaceB
