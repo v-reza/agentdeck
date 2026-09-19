@@ -2,7 +2,10 @@ package migrate
 
 import (
 	"context"
+	"net/url"
 	"os"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,21 +16,118 @@ import (
 // points at one, so `go test ./...` stays green on a machine without a database.
 // CI and this repo's Makefile set the variable to a throwaway container.
 //
-// AGENTDECK_TEST_DATABASE_URL=postgres://agentdeck:agentdeck@localhost:5433/agentdeck \
+// AGENTDECK_TEST_DATABASE_URL=postgres://agentdeck:***@localhost:5433/agentdeck \
 //   go test ./internal/migrate/ -run Postgres -count=1 -v
 
-func testPool(t *testing.T) *pgxpool.Pool {
+// migrateTestDSN points at a throwaway database derived from the configured
+// DSN. resetSchema drops the schema it is pointed at, so the migration suite
+// must never share a database with another Postgres-backed package: go test
+// runs packages in parallel, and a shared database means one package's reset
+// destroys the other's tables mid-run (observed as 3F000/42P01 failures in
+// internal/auth).
+var (
+	migrateTestDSN     string
+	migrateTestDBOnce  sync.Mutex
+	migrateTestDBReady bool
+)
+
+// adminDSN returns the configured DSN itself; it is used to create and drop
+// migrateTestDSN's database, which cannot be dropped while connected to it.
+func adminDSN() (string, error) {
+	dsn := os.Getenv("AGENTDECK_TEST_DATABASE_URL")
+	if dsn == "" {
+		return "", nil
+	}
+	return dsn, nil
+}
+
+// deriveTestDSN clones the configured DSN onto a *_migratetest database.
+func deriveTestDSN(t *testing.T) string {
 	t.Helper()
 
 	dsn := os.Getenv("AGENTDECK_TEST_DATABASE_URL")
+	parsed, err := url.Parse(dsn)
+	if err != nil {
+		t.Fatalf("parse AGENTDECK_TEST_DATABASE_URL: %v", err)
+	}
+	name := strings.TrimPrefix(parsed.Path, "/")
+	if name == "" {
+		t.Fatal("AGENTDECK_TEST_DATABASE_URL has no database name")
+	}
+	parsed.Path = "/" + name + "_migratetest"
+	return parsed.String()
+}
+
+// prepareMigrateTestDB recreates the throwaway database once per test binary.
+// The advisory lock in Apply serialises migration runners, so a single shared
+// database is all the suite needs once it is isolated from other packages.
+func prepareMigrateTestDB(t *testing.T) {
+	t.Helper()
+
+	migrateTestDBOnce.Lock()
+	defer migrateTestDBOnce.Unlock()
+	if migrateTestDBReady {
+		return
+	}
+
+	dsn, err := adminDSN()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if dsn == "" {
 		t.Skip("AGENTDECK_TEST_DATABASE_URL not set; Postgres-backed test skipped")
 	}
 
+	parsed, err := url.Parse(dsn)
+	if err != nil {
+		t.Fatalf("parse AGENTDECK_TEST_DATABASE_URL: %v", err)
+	}
+	dbName := strings.TrimPrefix(parsed.Path, "/") + "_migratetest"
+	parsed.Path = "/" + dbName
+	migrateTestDSN = parsed.String()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	admin, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect test database: %v", err)
+	}
+	defer admin.Close()
+
+	if _, err := admin.Exec(ctx, "DROP DATABASE IF EXISTS "+quoteIdent(dbName)); err != nil {
+		t.Fatalf("drop stale test database %s: %v", dbName, err)
+	}
+	if _, err := admin.Exec(ctx, "CREATE DATABASE "+quoteIdent(dbName)+" OWNER "+quoteIdent(parsedUser(t, parsed))); err != nil {
+		t.Fatalf("create test database %s: %v", dbName, err)
+	}
+
+	migrateTestDBReady = true
+}
+
+// parsedUser returns the URL's role, used as the throwaway database owner.
+func parsedUser(t *testing.T, parsed *url.URL) string {
+	t.Helper()
+	if parsed.User != nil {
+		return parsed.User.Username()
+	}
+	return "postgres"
+}
+
+// quoteIdent double-quotes an identifier the way CREATE DATABASE OWNER needs.
+func quoteIdent(s string) string {
+	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
+}
+
+func testPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+
+	prepareMigrateTestDB(t)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	pool, err := pgxpool.New(ctx, dsn)
+	pool, err := pgxpool.New(ctx, migrateTestDSN)
 	if err != nil {
 		t.Fatalf("connect test database: %v", err)
 	}
@@ -39,7 +139,8 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// resetSchema gives the next test an empty public schema and no leftover role.
+// resetSchema gives the next test an empty public schema. The runtime role is
+// already dropped by the first test that runs Apply, so it is not touched here.
 func resetSchema(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 
@@ -51,9 +152,6 @@ func resetSchema(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if _, err := pool.Exec(ctx, "CREATE SCHEMA public"); err != nil {
 		t.Fatalf("create schema: %v", err)
-	}
-	if _, err := pool.Exec(ctx, "DROP ROLE IF EXISTS agentdeck_app"); err != nil {
-		t.Fatalf("drop role: %v", err)
 	}
 }
 
@@ -107,6 +205,44 @@ func TestPostgresMigrationIsIdempotent(t *testing.T) {
 	}
 	if !hasRole {
 		t.Fatal("runtime role agentdeck_app was not created")
+	}
+
+	// The runtime role owns no objects (ARCHITECTURE 3.1): the migration grants
+	// privileges TO it and never FROM it. A role that grants is recorded as the
+	// owner or grantor of objects, which pins them in pg_shdepend with deptype
+	// 'p' and makes the role undroppable (2BP01); a role that is only
+	// granted-to leaves deptype 'a' ACL entries, which are expected for every
+	// granted privilege. So check ownership and pinned grants only, across the
+	// object classes the migration can create.
+	var ownerOrGrantor int
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM (
+			SELECT c.oid
+			FROM pg_class c
+			JOIN pg_namespace n ON n.oid = c.relnamespace
+			WHERE n.nspname = 'public'
+			  AND c.relowner = (SELECT oid FROM pg_roles WHERE rolname = 'agentdeck_app')
+			UNION
+			SELECT p.oid FROM pg_proc p
+			JOIN pg_namespace n ON n.oid = p.pronamespace
+			WHERE n.nspname = 'public'
+			  AND p.proowner = (SELECT oid FROM pg_roles WHERE rolname = 'agentdeck_app')
+			UNION
+			SELECT t.oid FROM pg_type t
+			WHERE t.typnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+			  AND t.typowner = (SELECT oid FROM pg_roles WHERE rolname = 'agentdeck_app')
+			UNION
+			SELECT a.oid FROM pg_default_acl a
+			WHERE a.defaclrole = (SELECT oid FROM pg_roles WHERE rolname = 'agentdeck_app')
+			UNION
+			SELECT d.objid FROM pg_shdepend d
+			WHERE d.refobjid = (SELECT oid FROM pg_roles WHERE rolname = 'agentdeck_app')
+			  AND d.deptype = 'p'
+		) deps`).Scan(&ownerOrGrantor); err != nil {
+		t.Fatalf("check runtime role ownership: %v", err)
+	}
+	if ownerOrGrantor != 0 {
+		t.Fatalf("runtime role agentdeck_app owns or is pinned as grantor of %d objects; it must own none", ownerOrGrantor)
 	}
 }
 

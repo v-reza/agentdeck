@@ -531,9 +531,10 @@ func (s *Store) RemoveMemberByID(ctx context.Context, workspaceID, actorEmail, u
 
 // emailForUserID maps a public user id back to the membership key. An unknown
 // id reports ErrUserNotFound, so the caller sees ErrMemberNotFound (404)
-// instead of a leak.
+// instead of a leak. The id is a ULID in Crockford base 32: it is already
+// canonical and must not be lowercased, unlike the email the lookup returns.
 func (s *Store) emailForUserID(ctx context.Context, userID string) (string, error) {
-	user, err := s.repo.GetUserByID(ctx, strings.ToLower(strings.TrimSpace(userID)))
+	user, err := s.repo.GetUserByID(ctx, strings.TrimSpace(userID))
 	if err != nil {
 		return "", err
 	}

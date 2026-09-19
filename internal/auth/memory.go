@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"agentdeck/internal/ulid"
 )
 
 // memoryRepository is an in-memory Repository used by the unit tests. It is
@@ -12,9 +14,16 @@ import (
 // committed write to land in Postgres. It exists so the domain rules can be
 // tested without a database; the Postgres-backed repository is what the API
 // actually runs against.
+//
+// Users are keyed by their public ULID, with a secondary email index, so the
+// in-memory store has the same lookup semantics as the Postgres one: an email
+// lookup is case-folded, an id lookup is exact (Crockford base 32 is already
+// canonical). Keying by email would make ids and emails interchangeable and
+// mask id/email confusion bugs that the Postgres path exposes.
 type memoryRepository struct {
 	mu           sync.RWMutex
 	users        map[string]User
+	byEmail      map[string]string
 	orgs         map[string]Workspace
 	memberships  map[string]map[string]Role
 	createdOrder []string
@@ -27,6 +36,7 @@ func NewMemoryRepository() Repository { return newMemoryRepository() }
 func newMemoryRepository() *memoryRepository {
 	return &memoryRepository{
 		users:       map[string]User{},
+		byEmail:     map[string]string{},
 		orgs:        map[string]Workspace{},
 		memberships: map[string]map[string]Role{},
 		sessions:    map[string]Session{},
@@ -37,18 +47,19 @@ func (m *memoryRepository) CreateUser(ctx context.Context, email, name, password
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, exists := m.users[email]; exists && !isShadow {
+	if _, exists := m.byEmail[email]; exists && !isShadow {
 		return User{}, ErrEmailExists
 	}
 	user := User{
-		ID:           email,
+		ID:           ulid.Must(),
 		Email:        email,
 		Name:         name,
 		PasswordHash: passwordHash,
 		IsShadow:     isShadow,
 		CreatedAt:    time.Now(),
 	}
-	m.users[email] = user
+	m.users[user.ID] = user
+	m.byEmail[user.Email] = user.ID
 	return user, nil
 }
 
@@ -56,22 +67,27 @@ func (m *memoryRepository) ClaimShadowUser(ctx context.Context, email, name, pas
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	user, exists := m.users[email]
-	if !exists || !user.IsShadow {
+	id, exists := m.byEmail[email]
+	if !exists {
+		return ErrEmailExists
+	}
+	user := m.users[id]
+	if !user.IsShadow {
 		return ErrEmailExists
 	}
 	user.Name = name
 	user.PasswordHash = passwordHash
 	user.IsShadow = false
-	m.users[email] = user
+	m.users[id] = user
 	return nil
 }
 
 func (m *memoryRepository) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	if user, ok := m.users[email]; ok {
-		return user, nil
+
+	if id, ok := m.byEmail[email]; ok {
+		return m.users[id], nil
 	}
 	return User{}, ErrUserNotFound
 }
@@ -79,6 +95,7 @@ func (m *memoryRepository) GetUserByEmail(ctx context.Context, email string) (Us
 func (m *memoryRepository) GetUserByID(ctx context.Context, id string) (User, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	if user, ok := m.users[id]; ok {
 		return user, nil
 	}
@@ -103,6 +120,7 @@ func (m *memoryRepository) CreateOrg(ctx context.Context, id, slug, name, kind s
 func (m *memoryRepository) GetOrgByID(ctx context.Context, id string) (Workspace, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	if workspace, ok := m.orgs[id]; ok {
 		return workspace, nil
 	}

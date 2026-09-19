@@ -114,6 +114,14 @@ func verifyPassword(encoded, password string) bool {
 	if len(parts) != 6 || parts[1] != "argon2id" || parts[2] != "v=19" {
 		return false
 	}
+	if parts[4] == "" || parts[5] == "" {
+		// A shadow row's sentinel has an empty salt and hash: hex.DecodeString
+		// turns that into a zero-length slice, and argon2.IDKey panics on one
+		// instead of returning false, so a pending invitation's verify would
+		// take the process down instead of denying login. Reject it here: a
+		// shadow row holds no credentials and must never log in (F2).
+		return false
+	}
 	var memory, iterations, threads uint32
 	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &memory, &iterations, &threads); err != nil {
 		return false

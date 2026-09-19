@@ -15,10 +15,13 @@ END
 $$;
 
 GRANT USAGE ON SCHEMA public TO agentdeck_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO agentdeck_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-    GRANT USAGE, SELECT ON SEQUENCES TO agentdeck_app;
+
+-- The runtime role owns no objects: 0001 runs as the schema owner, so these
+-- grants must be TO the role, never FROM it. Privileges granted BY the owner
+-- would attach to agentdeck_app as pg_shdepend entries and make the role
+-- undroppable (SQLSTATE 2BP01) -- the runtime role must stay disposable.
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO agentdeck_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO agentdeck_app;
 
 -- orgs: the tenant boundary. Every domain row carries this id.
 CREATE TABLE IF NOT EXISTS orgs (

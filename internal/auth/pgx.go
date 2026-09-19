@@ -100,7 +100,10 @@ func (r *pgxRepository) GetUserByID(ctx context.Context, id string) (User, error
 func (r *pgxRepository) CreateOrg(ctx context.Context, id, slug, name, kind string) (Workspace, error) {
 	row, err := r.q.CreateOrg(ctx, store.CreateOrgParams{ID: id, Slug: slug, Name: name})
 	if err != nil {
-		return Workspace{}, mapPgError(err)
+		// The orgs_slug_key index is what makes an ErrSlugTaken here; a
+		// no-row mapping is not reachable from an INSERT, but the sentinel
+		// is still slug so the caller's 409 branch is the one that fires.
+		return Workspace{}, mapSlugConflict(err)
 	}
 	if err := r.q.CreateOrgKind(ctx, store.CreateOrgKindParams{OrgID: id, Kind: kind}); err != nil {
 		return Workspace{}, mapPgError(err)
@@ -134,7 +137,7 @@ func (r *pgxRepository) PersonalWorkspace(ctx context.Context, userID string) (W
 func (r *pgxRepository) GetOrgByID(ctx context.Context, id string) (Workspace, error) {
 	row, err := r.q.GetOrgByID(ctx, id)
 	if err != nil {
-		return Workspace{}, mapPgError(err)
+		return Workspace{}, mapNotFound(err, ErrWorkspaceNotFound)
 	}
 	return orgRowToWorkspace(row), nil
 }
@@ -193,7 +196,9 @@ func (r *pgxRepository) GetMembership(ctx context.Context, orgID, userID string)
 func (r *pgxRepository) ListOrgsForUser(ctx context.Context, userID string) ([]OrgMembershipRow, error) {
 	rows, err := r.q.ListOrgsForUser(ctx, userID)
 	if err != nil {
-		return nil, mapPgError(err)
+		// A :many query never reports ErrNoRows; the only error here is a
+		// hard one, so no not-found sentinel is invented for it.
+		return nil, mapNotFound(err, ErrUserNotFound)
 	}
 	result := make([]OrgMembershipRow, 0, len(rows))
 	for _, row := range rows {
@@ -215,7 +220,9 @@ func (r *pgxRepository) ListOrgsForUser(ctx context.Context, userID string) ([]O
 func (r *pgxRepository) ListMembers(ctx context.Context, orgID string) ([]MemberRow, error) {
 	rows, err := r.q.ListMembers(ctx, orgID)
 	if err != nil {
-		return nil, mapPgError(err)
+		// A :many query returns no rows, not pgx.ErrNoRows, so this branch is
+		// only for a hard failure; the org existence check is the caller's.
+		return nil, mapNotFound(err, ErrWorkspaceNotFound)
 	}
 	result := make([]MemberRow, 0, len(rows))
 	for _, row := range rows {
@@ -253,7 +260,7 @@ func (r *pgxRepository) DeleteMembership(ctx context.Context, orgID, userID stri
 func (r *pgxRepository) CountOrgOwners(ctx context.Context, orgID string) (int, error) {
 	count, err := r.q.CountOrgOwners(ctx, orgID)
 	if err != nil {
-		return 0, mapPgError(err)
+		return 0, mapNotFound(err, ErrWorkspaceNotFound)
 	}
 	return int(count), nil
 }
@@ -279,7 +286,10 @@ func (r *pgxRepository) GetSessionByTokenHash(ctx context.Context, tokenHash str
 		Column2:   pgtype.Interval{Microseconds: int64(idleTimeout / time.Microsecond), Valid: true},
 	})
 	if err != nil {
-		return Session{}, mapPgError(err)
+		// The query's own WHERE filters already express the expiry and idle
+		// window, so a missing row is the domain "no live session" and never
+		// a missing user.
+		return Session{}, mapNotFound(err, ErrSessionNotFound)
 	}
 	if err := r.q.TouchSession(ctx, tokenHash); err != nil {
 		return Session{}, mapPgError(err)
@@ -367,10 +377,11 @@ func timeNow() time.Time { return time.Now() }
 
 // mapPgError turns a driver/pgx error into the domain error the HTTP layer
 // maps to a status code. A unique violation on users(email) is 409
-// (ErrEmailExists); a missing row is the domain not-found for that query;
-// anything else is a 500-class internal failure the handler reports without
-// detail.
-
+// (ErrEmailExists); a missing row is the domain not-found the caller asks for
+// (F3: the default sentinel is picked by what was queried, not hard-coded to
+// ErrUserNotFound); anything else is a 500-class internal failure the handler
+// reports without detail.
+//
 // domainNotFound converts a driver "no rows" into the domain not-found error
 // the caller's switch expects. A query whose missing row means "user" is
 // distinct from one whose missing row means "workspace": collapsing both into
@@ -406,7 +417,42 @@ func memberNotFound(err error) error {
 	return domainNotFound(err, ErrMemberNotFound)
 }
 
+// mapNotFound maps a read whose missing row means exactly one thing, so the
+// caller supplies the sentinel (F3: not-found is contextual, not always a
+// missing user). It passes constraint violations through untouched: the only
+// constraint that can fire on these reads is one the caller did not ask about,
+// and reinterpreting it as an email conflict would 404 a 409.
+func mapNotFound(err error, notFound error) error {
+	if err == nil {
+		return nil
+	}
+	return domainNotFound(err, notFound)
+}
+
+// mapSlugConflict reports a CreateOrg failure. The only constraint that can
+// fire on an org insert is orgs_slug_key, and that is a 409 slug conflict —
+// never the email conflict mapPgError returns for users.email (F3).
+func mapSlugConflict(err error) error {
+	if err == nil {
+		return nil
+	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
+		return ErrSlugTaken
+	}
+	return err
+}
+
+// mapPgError is the default mapping for writes and for reads whose only
+// not-found case is a missing user.
 func mapPgError(err error) error {
+	return mapNotFoundWithEmail(err, ErrUserNotFound)
+}
+
+// mapNotFoundWithEmail is the user-context mapping: a missing row is a missing
+// user, a unique violation is users.email, and a foreign-key violation is a
+// membership pair that has no row.
+func mapNotFoundWithEmail(err error, notFound error) error {
 	if err == nil {
 		return nil
 	}
@@ -419,5 +465,5 @@ func mapPgError(err error) error {
 			return ErrMemberNotFound
 		}
 	}
-	return domainNotFound(err, ErrUserNotFound)
+	return domainNotFound(err, notFound)
 }

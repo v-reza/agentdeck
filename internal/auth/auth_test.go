@@ -174,6 +174,58 @@ func TestRemoveMemberProtectsLastOwner(t *testing.T) {
 	}
 }
 
+// TestMemberByIDUsesPublicID is the regression test for the
+// PATCH/DELETE /api/v1/orgs/{id}/members/{user_id} path: those endpoints hand
+// the handler a public ULID, not an email. Lowercasing that id broke the
+// Crockford-base-32 lookup and every member-management call returned 404 even
+// for a membership that exists.
+func TestMemberByIDUsesPublicID(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
+	owner, workspace, _, err := store.Register(ctx, "owner@example.com", "password1", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.AddMember(ctx, workspace.ID, "owner@example.com", "member@example.com", Member); err != nil {
+		t.Fatal(err)
+	}
+
+	// The public id the API exposes is the ULID, so the by-id path must round
+	// trip through it rather than the email.
+	roster, err := store.Members(ctx, workspace.ID, "owner@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var memberID string
+	for _, m := range roster {
+		if m.Email == "member@example.com" {
+			memberID = m.UserID
+		}
+	}
+	if memberID == "" {
+		t.Fatal("invited member not listed")
+	}
+
+	if err := store.ChangeMemberRole(ctx, workspace.ID, "owner@example.com", memberID, Admin); err != nil {
+		t.Fatalf("change role by id: %v", err)
+	}
+	if !store.Authorize(ctx, workspace.ID, "member@example.com", Admin) {
+		t.Fatal("role change by id did not take effect")
+	}
+
+	if err := store.RemoveMemberByID(ctx, workspace.ID, "owner@example.com", memberID); err != nil {
+		t.Fatalf("remove member by id: %v", err)
+	}
+	if store.Authorize(ctx, workspace.ID, "member@example.com", Viewer) {
+		t.Fatal("removed member still authorized")
+	}
+
+	// An unknown id is 404 (ErrMemberNotFound), not a leak.
+	if err := store.RemoveMemberByID(ctx, workspace.ID, "owner@example.com", owner.ID+"Z"); err == nil {
+		t.Fatal("unknown member id accepted")
+	}
+}
+
 func TestLoginLocksAfterFiveFailures(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(NewMemoryRepository())
@@ -198,6 +250,41 @@ func TestPasswordHashUsesArgon2id(t *testing.T) {
 	hash := hashPassword("password1")
 	if !strings.HasPrefix(hash, "$argon2id$") || !verifyPassword(hash, "password1") || verifyPassword(hash, "wrong") {
 		t.Fatalf("invalid argon2id password hash: %q", hash)
+	}
+}
+
+// TestCreateWorkspaceRejectsDuplicateSlug is the regression test for F3:
+// CreateOrg's unique-violation branch has to surface as ErrSlugTaken so the
+// API answers 409. Before the mapping was made context-aware, a slug clash was
+// reported as ErrUserNotFound and the handler would have returned 404 for an
+// org id the caller never sent.
+func TestCreateWorkspaceRejectsDuplicateSlug(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
+	if _, _, _, err := store.Register(ctx, "owner@example.com", "password1", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.CreateWorkspace(ctx, "owner@example.com", "My Team", "my-team"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := store.CreateWorkspace(ctx, "owner@example.com", "Other Team", "my-team")
+	if !errors.Is(err, ErrSlugTaken) {
+		t.Fatalf("duplicate slug: got %v, want ErrSlugTaken", err)
+	}
+}
+
+// TestTenantIsolationOnUnknownOrg covers the membership reads on an org the
+// actor does not belong to (F5). A member-management call scoped to a foreign
+// or nonexistent org must report not-found, never a role row.
+func TestTenantIsolationOnUnknownOrg(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore(NewMemoryRepository())
+	if _, _, _, err := store.Register(ctx, "owner@example.com", "password1", "", ""); err != nil {
+		t.Fatal(err)
+	}
+	// An org id with no membership at all.
+	if _, err := store.Members(ctx, "01ABCDEFGHILKJMNPRSTUVWXY", "owner@example.com"); !errors.Is(err, ErrWorkspaceNotFound) {
+		t.Fatalf("members of unknown org: got %v, want ErrWorkspaceNotFound", err)
 	}
 }
 
