@@ -1,57 +1,100 @@
-import type { ReactNode } from 'react'
+// Public site chrome: brand wordmark, top navigation, and footer.
 import { Link } from '../lib/router'
 
-export const FOOTER_COLUMNS: { title: string; links: [label: string, href: string][] }[] = [
-  {
-    title: 'Product',
-    links: [
-      ['Features', '/features'],
-      ['Pricing', '/pricing'],
-      ['Download', '/download'],
-      ['Changelog', '/changelog'],
-    ],
-  },
-  {
-    title: 'Developers',
-    links: [
-      ['Quickstart', '/docs/quickstart'],
-      ['Architecture', '/docs/architecture'],
-      ['REST API', '/docs/api'],
-      ['CLI reference', '/docs/cli'],
-    ],
-  },
-  {
-    title: 'Company',
-    links: [
-      ['About', '/about'],
-      ['Community', '/community'],
-      ['Contact', '/contact'],
-      ['GitHub', '/github'],
-    ],
-  },
-]
+const Brand = () => (
+  <Link href="/" className="brand-wordmark">
+    AgentDeck
+    <span className="brand-mark" />
+  </Link>
+)
 
-export function Brand() {
-  return <Link href="/" className="brand-wordmark">AgentDeck<span className="brand-mark" /></Link>
+function Header({ active = '' }: { active?: string }) {
+  return (
+    <header className="navbar">
+      <div className="container nav-inner">
+        <Brand />
+        <ul className="nav-links">
+          <li>
+            <Link href="/features" className={`nav-link${active === 'features' ? ' active' : ''}`}>
+              Product
+            </Link>
+          </li>
+          <li>
+            <Link href="/pricing" className={`nav-link${active === 'pricing' ? ' active' : ''}`}>
+              Pricing
+            </Link>
+          </li>
+          <li>
+            <Link href="/docs/quickstart" className={`nav-link${active === 'docs' ? ' active' : ''}`}>
+              Docs
+            </Link>
+          </li>
+          <li>
+            <Link href="/github" className={`nav-link${active === 'github' ? ' active' : ''}`}>
+              GitHub
+            </Link>
+          </li>
+        </ul>
+        <div className="nav-actions">
+          <Link href="/login" className="btn-ghost">
+            Sign in
+          </Link>
+          <Link href="/register" className="btn-primary">
+            Get started
+          </Link>
+        </div>
+      </div>
+    </header>
+  )
 }
 
-export function Header({ active = '' }: { active?: string }) {
-  return <header className="navbar"><div className="container nav-inner"><Brand /><ul className="nav-links">
-    <li><Link href="/features" className={`nav-link${active === 'features' ? ' active' : ''}`}>Product</Link></li>
-    <li><Link href="/pricing" className={`nav-link${active === 'pricing' ? ' active' : ''}`}>Pricing</Link></li>
-    <li><Link href="/docs/quickstart" className={`nav-link${active === 'docs' ? ' active' : ''}`}>Docs</Link></li>
-    <li><Link href="/github" className={`nav-link${active === 'github' ? ' active' : ''}`}>GitHub</Link></li>
-  </ul><div className="nav-actions"><Link href="/login" className="btn-ghost">Sign in</Link><Link href="/register" className="btn-primary">Get started</Link></div></div></header>
+function Footer() {
+  return (
+    <footer className="site-footer">
+      <div className="container">
+        <div className="footer-top">
+          <div>
+            <Brand />
+            <p>Orchestration board for AI agent fleets.</p>
+          </div>
+          <FooterColumn
+            title="Product"
+            links={['Features', 'Pricing', 'Changelog']}
+            hrefs={['/features', '/pricing', '/changelog']}
+          />
+          <FooterColumn
+            title="Developers"
+            links={['Docs', 'REST API', 'GitHub']}
+            hrefs={['/docs/quickstart', '/docs/api', '/github']}
+          />
+          <FooterColumn
+            title="Company"
+            links={['About', 'Contact', 'Community']}
+            hrefs={['/about', '/contact', '/community']}
+          />
+        </div>
+        <div className="footer-bottom">
+          <span>© 2026 AgentDeck</span>
+          <span>Built with Go and Postgres.</span>
+        </div>
+      </div>
+    </footer>
+  )
 }
 
-export function FooterColumn({ title, links }: { title: string; links: [label: string, href: string][] }) {
-  return <div><div className="footer-title">{title}</div>{links.map(([label, href]) => <Link key={href} href={href} className="footer-link">{label}</Link>)}</div>
+function FooterColumn({ title, links, hrefs }: { title: string; links: string[]; hrefs: string[] }) {
+  return (
+    <div>
+      <div className="footer-col-title">{title}</div>
+      <ul className="footer-links">
+        {links.map((link, index) => (
+          <li key={link}>
+            <Link href={hrefs[index]}>{link}</Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
 }
 
-export function Footer() {
-  return <footer className="footer"><div className="container footer-inner"><div className="footer-brand"><Brand /><p>Self-hosted orchestration board for AI agent fleets.</p></div><div className="footer-columns">{FOOTER_COLUMNS.map((column) => <FooterColumn key={column.title} title={column.title} links={column.links} />)}</div></div><div className="footer-bottom"><div className="container"><span>© 2026 AgentDeck. Apache-2.0.</span><span>Self-hosted by design.</span></div></div></footer>
-}
-
-export function PublicShell({ children, active }: { children: ReactNode; active?: string }) {
-  return <><Header active={active} /><main>{children}</main><Footer /></>
-}
+export { Brand, Header, Footer, FooterColumn }

@@ -1,31 +1,30 @@
-import { Check } from './Check'
+// Docs code block with a clipboard copy button.
+import { useState } from 'react'
 
-export const terminalLines = [
-  { prompt: '$', text: 'agentdeck task create --board core --title "Refactor auth module"', class: 'cmd' },
-  { prompt: '›', text: 'dispatched to agent-backend · estimated $0.32', class: 'ok' },
-  { prompt: '›', text: 'tool call: github.read → allowed by policy', class: 'dim' },
-  { prompt: '!', text: 'tool call: postgres.write → awaiting human approval', class: 'warn' },
-  { prompt: '$', text: 'agentdeck ledger balance --workspace production', class: 'cmd' },
-  { prompt: '›', text: 'spent today $4.12 of $40.00 monthly cap', class: 'ok' },
-]
+function CodeBlock({ label = 'TERMINAL', code }: { label?: string; code: string }) {
+  const [copied, setCopied] = useState(false)
 
-export function CodeBlock({ code }: { code: string }) {
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      setCopied(false)
+    }
+  }
+
   return (
-    <pre className="code-block">
-      <code>{code}</code>
-    </pre>
+    <div className="docs-code">
+      <div className="docs-code-head">
+        <span>{label}</span>
+        <button onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+      </div>
+      <pre>
+        <code>{code}</code>
+      </pre>
+    </div>
   )
 }
 
-export function FeatureList({ items }: { items: string[] }) {
-  return (
-    <ul className="feature-list">
-      {items.map((item) => (
-        <li key={item}>
-          <Check />
-          {item}
-        </li>
-      ))}
-    </ul>
-  )
-}
+export { CodeBlock }

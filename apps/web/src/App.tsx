@@ -1,185 +1,30 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import './styles.css'
+import { usePathname } from './lib/router'
+import { LandingPage } from './pages/LandingPage'
+import { FeaturesPage } from './pages/FeaturesPage'
+import { PricingPage } from './pages/PricingPage'
+import { DocsPage } from './pages/DocsPage'
+import { GitHubPage } from './pages/GitHubPage'
+import { ChangelogPage } from './pages/ChangelogPage'
+import { CommunityPage } from './pages/CommunityPage'
+import { SupportPage } from './pages/SupportPage'
+import { AuthPage } from './pages/AuthPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 
-type LinkProps = { href: string; children: ReactNode; className?: string }
-const Link = ({ href, children, className = '' }: LinkProps) => <a href={href} className={className}>{children}</a>
-const Brand = () => <Link href="/" className="brand-wordmark">AgentDeck<span className="brand-mark" /></Link>
+export default function App() {
+  const pathname = usePathname().replace(/\/$/, '') || '/'
 
-const Check = () => <svg className="check-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-
-const miniColumns = [
-  { title: 'Running', color: 'var(--status-running)', cards: [['Refactor auth', 'agent-backend', '$0.318'], ['Sync stripe', 'agent-billing', '$0.102']] },
-  { title: 'Awaiting approval', color: 'var(--status-awaiting)', cards: [['Drop stale replicas', 'agent-infra', '$0.044'], ['Rotate secrets', 'agent-sec', '$0.012']], approval: true },
-  { title: 'Done', color: 'var(--status-done)', cards: [['Audit deps', 'agent-sec', '$0.305'], ['Tag release', 'agent-docs', '$0.008']] },
-]
-const faqs = [
-  ['Do I need Kubernetes?', 'No. One binary and a Postgres connection string.'],
-  ['Where does my agent code run?', 'On your machine. AgentDeck schedules and records; it does not execute your code.'],
-  ['Can I gate only some tools?', 'Yes, per agent. Set the gate mode to require, auto, or off.'],
-  ['What happens when I hit a budget cap?', 'The run stops with outcome budget_exceeded and the task goes back to ready. Nothing is silently dropped.'],
-  ['Which providers and models can I use?', 'AgentDeck is designed to stay provider-agnostic. Register the provider-backed worker you already run, then track its runs, tool calls, and cost in one board.'],
-  ['Does my data leave my infrastructure?', 'No. AgentDeck is self-hosted by design. The target deployment is one Go binary and PostgreSQL, so your board data and ledger stay where you run them.'],
-  ['Can my team use one AgentDeck instance?', 'Yes. Pro is $5/month flat with unlimited teammates, shared boards, role controls, webhooks, and audit history.'],
-  ['Is v0.1 ready for production?', 'v0.1 is a public preview of the frontend and product contract. The Go runtime, auth API, dispatcher, ledger persistence, and worker execution are shipping next across the roadmap.'],
-]
-
-function Header({ active = '' }: { active?: string }) {
-  return <header className="navbar"><div className="container nav-inner"><Brand /><ul className="nav-links">
-    <li><Link href="/features" className={`nav-link${active === 'features' ? ' active' : ''}`}>Product</Link></li>
-    <li><Link href="/pricing" className={`nav-link${active === 'pricing' ? ' active' : ''}`}>Pricing</Link></li>
-    <li><Link href="/docs/quickstart" className={`nav-link${active === 'docs' ? ' active' : ''}`}>Docs</Link></li>
-    <li><Link href="/github" className={`nav-link${active === 'github' ? ' active' : ''}`}>GitHub</Link></li>
-  </ul><div className="nav-actions"><Link href="/login" className="btn-ghost">Sign in</Link><Link href="/register" className="btn-primary">Get started</Link></div></div></header>
-}
-
-function Footer() {
-  return <footer className="site-footer"><div className="container"><div className="footer-top">
-    <div><Brand /><p>Orchestration board for AI agent fleets.</p></div>
-    <FooterColumn title="Product" links={['Features', 'Pricing', 'Changelog']} hrefs={['/features', '/pricing', '/changelog']} />
-    <FooterColumn title="Developers" links={['Docs', 'REST API', 'GitHub']} hrefs={['/docs/quickstart', '/docs/api', '/github']} />
-    <FooterColumn title="Company" links={['About', 'Contact', 'Community']} hrefs={['/about', '/contact', '/community']} />
-  </div><div className="footer-bottom"><span>© 2026 AgentDeck</span><span>Built with Go and Postgres.</span></div></div></footer>
-}
-function FooterColumn({ title, links, hrefs }: { title: string; links: string[]; hrefs: string[] }) {
-  return <div><div className="footer-col-title">{title}</div><ul className="footer-links">{links.map((link, index) => <li key={link}><Link href={hrefs[index]}>{link}</Link></li>)}</ul></div>
-}
-function PublicShell({ children, active }: { children: ReactNode; active?: string }) { return <><Header active={active} /><main>{children}</main><Footer /></> }
-
-function MiniBoard() {
-  return <div className="mini-board-frame"><div className="mini-board-header"><span>Fleet: production-west</span><span>6 active tasks · $1.439 today</span></div><div className="mini-board-columns">
-    {miniColumns.map((column) => <div className="mini-col" key={column.title}><div className="mini-col-title"><span className="mini-dot" style={{ background: column.color }} />{column.title}</div>{column.cards.map(([title, agent, cost], index) => <div className="mini-card" key={title}><div className="mini-card-title">{title}</div><div className="mini-card-agent">{agent}</div><div className="mini-card-cost">{cost}</div>{column.approval && index === 0 && <div className="mini-btn-group"><button className="mini-btn-approve">Approve</button><button className="mini-btn-reject">Reject</button></div>}</div>)}</div>)}
-  </div></div>
-}
-function FeatureSections() {
-  return <section className="features-section"><div className="container"><h2 className="section-heading">Built for the parts nobody demos.</h2>
-    <div className="feature-row"><div className="feature-text"><h3>Every run is priced. Per step.</h3><p>Token in, token out, cache read, cache write — written to a ledger row the moment the step finishes. Prices live in a versioned snapshot, so an old run still costs what it cost.</p></div><div className="feature-visual"><div className="ledger-table-box"><table className="ledger-table"><thead><tr><th>Step</th><th>Tokens</th><th className="align-right">Cost</th></tr></thead><tbody>{[['step_01_query', '1,420 in / 184 out', '$0.0028'], ['step_02_decompose', '8,940 in / 2,104 out', '$0.0242'], ['step_03_codegen', '14,880 in / 4,320 out', '$0.0581']].map(([step, tokens, cost]) => <tr key={step}><td className="col-step">{step}</td><td>{tokens}</td><td className="col-cost">{cost}</td></tr>)}</tbody></table></div></div></div>
-    <div className="feature-row"><div className="feature-text"><h3>Risky actions stop and wait for you.</h3><p>Gate any tool behind approval. The agent pauses in <code>awaiting_approval</code>, you get a diff of exactly what it wants to do, and it only continues when you say so.</p></div><div className="feature-visual"><div className="approval-box"><div className="approval-header"><span className="approval-dot" />agent-backend wants to run</div><div className="approval-code-block">EXEC tool="migrate_dns" zone="prod.internal" ttl=60<br />REPLACE 10.0.1.4 -&gt; 10.0.2.18 ttl=300</div><div className="approval-actions"><button className="btn-primary small">Approve</button><button className="btn-outline small">Reject</button></div></div></div></div>
-    <div className="feature-row"><div className="feature-text"><h3>Cheap to run, because it does less.</h3><p>One Go binary, one Postgres. No Redis, no Kafka, no queue service, no Kubernetes. Idles under 80 MB and fits in a $6 VPS.</p></div><div className="feature-visual"><div className="arch-spec-box"><div className="terminal-line">$ ./agentdeck --config agentdeck.yaml</div><div className="terminal-line muted">listening on :8080 · 23 tables · 109 routes</div></div></div></div>
-  </div></section>
-}
-function Terminal() { return <section className="terminal-section"><div className="container"><div className="terminal-panel"><div className="terminal-titlebar"><div className="terminal-dots"><span /><span /><span /></div><span className="terminal-title">agentdeck — fleet: production-west</span></div><div className="terminal-body"><div className="term-line-1">$ ./agentdeck --config agentdeck.yaml</div><div className="term-line-2">listening on :8080 · 23 tables · 109 routes</div><div className="term-line-3">[ok] postgres pool 8/8 · migrations up to date</div><div className="term-line-4">[warn] budget 88% of $300 — approval gate armed</div><div><span className="term-cursor">▌</span></div></div></div></div></section> }
-function LandingPage() {
-  const [openFaq, setOpenFaq] = useState(-1)
-  return <PublicShell><section className="hero-section"><div className="container hero-grid"><div><div className="hero-badge">v0.1 · self-hosted · single binary</div><h1 className="hero-title">Your agents run all night. You should know what they cost.</h1><p className="hero-desc">AgentDeck is the orchestration board for AI agent fleets. Every run priced to the micro-cent, every risky action gated behind a human approval, all in one Go binary you host yourself.</p><div className="hero-actions"><Link href="/register" className="btn-primary">Get started free</Link><Link href="/docs/quickstart" className="btn-outline">Read the docs <span aria-hidden="true">→</span></Link></div><div className="hero-meta">No credit card · Postgres + one binary · ~80 MB idle RAM</div></div><MiniBoard /></div></section>
-    <section className="product-strip" id="product"><div className="container product-strip-inner"><div><strong>$0.00</strong><span>what you actually spent</span></div><div><strong>?</strong><span>what your agent just did</span></div><div><strong>3 a.m.</strong><span>when you find out</span></div></div></section><FeatureSections /><Terminal />
-    <Steps /><Stats /><PricingSection /><section className="faq-section"><div className="container"><h2 className="section-heading">Frequently asked questions</h2><div className="faq-list">{faqs.map(([question, answer], index) => <details className="faq-item" key={question} open={openFaq === index} onClick={(event) => { event.preventDefault(); setOpenFaq(openFaq === index ? -1 : index) }}><summary>{question}</summary><p>{answer}</p></details>)}</div></div></section><ClosingCta />
-  </PublicShell>
-}
-function Steps() { return <section className="steps-section"><div className="container"><h2 className="section-heading">Three commands to a running fleet.</h2><div className="steps-grid">{[['01', 'Point it at Postgres', 'Connect your existing Postgres instance and run migrations.', 'agentdeck migrate'], ['02', 'Start the binary', 'Launches the web UI, REST API, and telemetry server.', 'agentdeck serve'], ['03', 'Register an agent', 'Connect your first agent worker using your preferred provider.', 'agentdeck agent add --provider openai']].map(([num, title, desc, command]) => <div className="step-card" key={num}><div><div className="step-num">{num}</div><div className="step-title">{title}</div><div className="step-desc">{desc}</div></div><div className="step-code">{command}</div></div>)}</div></div></section> }
-function Stats() { return <section className="stats-section"><div className="container"><div className="stats-grid">{[['109', 'API endpoints'], ['21', 'tables, no ORM magic'], ['30 MB', 'binary size cap'], ['80 MB', 'idle RAM']].map(([number, label]) => <div className="stat-item" key={label}><div className="stat-number">{number}</div><div className="stat-label">{label}</div></div>)}</div></div></section> }
-function Plan({ name, price, period, subtitle, features, action, pro = false }: { name: string; price: string; period: string; subtitle: string; features: string[]; action: string; pro?: boolean }) { return <div className={`pricing-card${pro ? ' pro' : ''}`}>{pro && <div className="popular-badge">Most popular</div>}<div><div className="plan-name">{name}</div><div className="plan-price-row"><div className="plan-price">{price}</div><div className="plan-period">{period}</div></div><div className="plan-subtitle">{subtitle}</div><ul className="plan-features">{features.map((feature) => <li className="plan-feature-item" key={feature}><Check />{feature}</li>)}</ul></div><Link href="/register" className={pro ? 'btn-primary full' : 'btn-outline full'}>{action}</Link></div> }
-function PricingSection() { return <section className="pricing-section" id="pricing"><div className="container"><div className="pricing-heading-wrap"><h2 className="section-heading">Priced for one developer, not a procurement team.</h2></div><div className="pricing-grid"><Plan name="Solo" price="$0" period="/ forever" subtitle="For one developer." features={['Self-host, unlimited agents', 'Cost ledger + approval gates', 'Community support']} action="Download" /><Plan name="Pro" price="$5" period="/ month, flat" subtitle="For small teams that need shared audit and control." features={['Everything in Solo', 'Unlimited teammates, no per-seat fee', 'Shared boards + role controls', 'Webhook + audit log', 'Priority support']} action="Start free trial" pro /></div><div className="pricing-footer-note">Prices in USD. Cancel anytime. Self-hosted — your data never leaves your infrastructure.</div></div></section> }
-function ClosingCta() { return <section className="closing-cta"><div className="container"><h2>Ship the fleet. Keep the receipt.</h2><Link href="/register" className="btn-primary">Get started free</Link><p>Self-hosted · MIT-licensed core</p></div></section> }
-
-const docsNav = [
-  { group: 'Getting started', items: [['/docs/quickstart', 'Quickstart'], ['/docs/architecture', 'Architecture & daemon'], ['/docs/yaml', 'YAML configuration']] },
-  { group: 'Orchestration', items: [['/docs/agents', 'Agent registration'], ['/docs/lifecycle', 'Run lifecycle'], ['/docs/approvals', 'Approval gates']] },
-  { group: 'API reference', items: [['/docs/api', 'REST endpoints'], ['/docs/webhooks', 'Webhooks & events'], ['/docs/telemetry', 'Telemetry schema'], ['/docs/cli', 'CLI reference'], ['/docs/errors-rbac', 'Errors & RBAC']] },
-]
-function DocsNav({ active }: { active: string }) { return <aside className="docs-nav">{docsNav.map((section) => <div key={section.group}><div className="docs-nav-title">{section.group}</div><ul>{section.items.map(([href, label]) => <li key={href}><Link href={href} className={active === href ? 'active' : ''}>{label}</Link></li>)}</ul></div>)}</aside> }
-function CodeBlock({ label = 'TERMINAL', code }: { label?: string; code: string }) { const [copied, setCopied] = useState(false); const copy = async () => { try { await navigator.clipboard.writeText(code); setCopied(true); window.setTimeout(() => setCopied(false), 1500) } catch { setCopied(false) } }; return <div className="docs-code"><div className="docs-code-head"><span>{label}</span><button onClick={copy}>{copied ? 'Copied' : 'Copy'}</button></div><pre><code>{code}</code></pre></div> }
-function DocsLayout({ active, children }: { active: string; children: ReactNode }) { return <PublicShell active="docs"><div className="docs-page"><div className="docs-grid"><DocsNav active={active} /><article className="docs-article">{children}</article></div></div></PublicShell> }
-function DocHeader({ section, title, description, id }: { section: string; title: string; description: string; id: string }) { return <><div className="docs-breadcrumb">Documentation <span>/</span> {section} <span>/</span> <b>{id}</b></div><h1>{title}</h1><p className="docs-lead">{description}</p></> }
-function DocsPage({ kind }: { kind: string }) {
-  if (kind === '/docs/api') return <DocsLayout active={kind}><DocHeader section="API reference" id="US-AD104" title="REST API reference" description="The official HTTP API for AgentDeck Core. All routes use /api/v1 and Bearer token authentication." /><div className="docs-divider" /><DocSection title="Tasks" copy="Create, inspect, and control work in the orchestration queue."><Endpoint method="POST" path="/api/v1/tasks" role="member" description="Create a task and send it to the board backlog." code={'{\n  "title": "Refactor auth module",\n  "board_id": "brd_sprint24",\n  "assigned_agent": "agent-backend",\n  "priority": "P0"\n}'} /><Endpoint method="GET" path="/api/v1/tasks/{id}" role="viewer" description="Return the task, current status, assigned agent, and cost summary." code={'{\n  "task_id": "task-771b",\n  "status": "ready",\n  "cost_micros": 2800\n}'} /></DocSection><DocSection title="Runs" copy="Observe execution and inspect immutable ledger entries."><Endpoint method="GET" path="/api/v1/runs/{id}" role="viewer" description="Return run status, outcome, steps, and total micro-USD cost." code={'{\n  "run_id": "run-91af",\n  "outcome": "completed",\n  "cost_micros": 58100,\n  "price_version": 1\n}'} /></DocSection></DocsLayout>
-  if (kind === '/docs/telemetry') return <DocsLayout active={kind}><DocHeader section="API reference" id="US-AD105" title="Run telemetry schema" description="Server-Sent Events and immutable step payloads for run monitoring. Costs are integer micro-USD, never floating point." /><div className="docs-divider" /><DocSection title="SSE event envelope" copy="Subscribe to /api/v1/runs/{id}/events. Each event has a monotonic id for reconnecting with Last-Event-ID."><DataTable rows={[['id', 'integer', 'required', 'Sequential event counter'], ['event', 'string', 'required', 'step.started, step.finished, run.completed, run.failed'], ['retry', 'integer', 'optional', 'Reconnect delay in milliseconds'], ['data', 'object', 'required', 'Structured step or run payload']]} /></DocSection><DocSection title="step.finished payload" copy="The step payload records tokens, cache usage, and the price snapshot used for the calculation."><CodeBlock label="JSON" code={'{\n  "run_id": "run-91af",\n  "step_id": "step_03_codegen",\n  "input_tokens": 14880,\n  "output_tokens": 4320,\n  "cost_micros": 58100,\n  "price_version": 1\n}'} /></DocSection></DocsLayout>
-  const title = kind === '/docs/quickstart' || kind === '/docs' ? 'Quickstart' : (docsNav.flatMap((group) => group.items).find(([href]) => href === kind)?.[1] ?? 'Documentation')
-  const isQuickstart = title === 'Quickstart'
-  return <DocsLayout active={isQuickstart ? '/docs/quickstart' : kind}><DocHeader section={isQuickstart ? 'Getting started' : 'Documentation'} id={isQuickstart ? 'US-AD103' : 'DRAFT'} title={title} description={isQuickstart ? 'Run AgentDeck locally in minutes: one Go binary, one PostgreSQL connection, and a clear audit trail for every agent run.' : 'This page is part of the AgentDeck documentation set and is being prepared against the same public contract.'} /><div className="docs-divider" />{isQuickstart ? <><DocSection title="1. Prerequisites" copy="Use PostgreSQL 14+ and download the single binary for your platform."><CodeBlock code={'curl -sSL https://get.agentdeck.dev/v0.1 | bash'} /></DocSection><DocSection title="2. Migrate the database" copy="Create the 23 relational tables and the immutable telemetry ledger schema."><CodeBlock code={'agentdeck migrate --db-url="postgres://postgres:***@localhost:5432/agentdeck"'} /></DocSection><DocSection title="3. Start the daemon" copy="Start the web UI, REST API, and telemetry server on port 8080."><CodeBlock code={'agentdeck serve --port=8080 --config=./agentdeck.yaml'} /></DocSection><DocSection title="4. Register your first agent" copy="Connect a provider-backed worker to the board."><CodeBlock code={'agentdeck agent add --provider openai --name agent-backend'} /></DocSection></> : <div className="docs-coming"><span>In progress</span><h2>This document is being written.</h2><p>Use the Quickstart, REST API, or Telemetry pages for the currently published contract.</p><Link href="/docs/quickstart" className="btn-primary">Back to Quickstart</Link></div>}</DocsLayout>
-}
-function DocSection({ title, copy, children }: { title: string; copy: string; children?: ReactNode }) { return <section className="docs-section"><h2>{title}</h2><p>{copy}</p>{children}</section> }
-function Endpoint({ method, path, role, description, code }: { method: string; path: string; role: string; description: string; code: string }) { return <div className="endpoint"><div className="endpoint-head"><span className={`method method-${method.toLowerCase()}`}>{method}</span><code>{path}</code><span className="endpoint-role">min role: {role}</span></div><p>{description}</p><CodeBlock label="JSON" code={code} /></div> }
-function DataTable({ rows }: { rows: string[][] }) { return <div className="docs-table-wrap"><table className="docs-table"><thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead><tbody>{rows.map((row) => <tr key={row[0]}>{row.map((cell, index) => <td className={index === 0 ? 'mono' : ''} key={`${row[0]}-${index}`}>{cell}</td>)}</tr>)}</tbody></table></div> }
-
-function PricingPage() { return <PublicShell active="pricing"><div className="public-page centered-page"><div className="page-kicker">PUBLIC · NO LOGIN REQUIRED</div><h1>Pricing that stays legible.</h1><p className="page-lead">Flat pricing for self-hosted agent orchestration. No per-seat surprise and no sales call required.</p><div className="pricing-grid pricing-page-grid"><Plan name="Solo" price="$0" period="/ forever" subtitle="For one developer." features={['Self-host, unlimited agents', 'Cost ledger + approval gates', 'Community support']} action="Download" /><Plan name="Pro" price="$5" period="/ month, flat" subtitle="For small teams that need shared audit and control." features={['Everything in Solo', 'Unlimited teammates, no per-seat fee', 'Shared boards + role controls', 'Webhook + audit log', 'Priority support']} action="Start free trial" pro /></div><p className="page-note">Prices in USD. Cancel anytime. Your data stays on your infrastructure.</p></div></PublicShell> }
-type GitHubRelease = {
-  tag_name: string
-  name: string
-  html_url: string
-  published_at: string | null
-  body: string | null
-  prerelease: boolean
-  draft: boolean
-}
-
-function GitHubPage() {
-  const [releaseState, setReleaseState] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading')
-  const [release, setRelease] = useState<GitHubRelease | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('https://api.github.com/repos/v-reza/agentdeck/releases?per_page=5', { headers: { Accept: 'application/vnd.github+json' } })
-      .then((response) => {
-        if (!response.ok) throw new Error(`GitHub releases returned ${response.status}`)
-        return response.json() as Promise<GitHubRelease[]>
-      })
-      .then((releases) => {
-        if (cancelled) return
-        const published = releases.find((item) => !item.draft && !item.prerelease) ?? null
-        setRelease(published)
-        setReleaseState(published ? 'ready' : 'empty')
-      })
-      .catch(() => {
-        if (!cancelled) setReleaseState('error')
-      })
-    return () => { cancelled = true }
-  }, [])
-
-  const releaseDate = release?.published_at ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(release.published_at)) : null
-  const releaseNotes = release?.body?.split('\n').map((line) => line.replace(/^[-*]\s*/, '').trim()).filter(Boolean).slice(0, 4) ?? []
-
-  return <PublicShell active="github"><div className="public-page"><div className="docs-breadcrumb">AgentDeck <span>/</span> <b>Repository & releases</b></div><h1>AgentDeck on GitHub</h1><p className="page-lead">Open source Go orchestration, cost ledger, and approval gates for AI agent fleets.</p><div className="resource-grid"><div className="resource-card"><div className="resource-icon">GH</div><h2>v-reza/agentdeck</h2><p>Single-binary Go orchestrator and telemetry ledger for autonomous agent fleets.</p><a className="btn-primary full" href="https://github.com/v-reza/agentdeck" target="_blank" rel="noreferrer">Open repository ↗</a><dl><dt>License</dt><dd>Apache-2.0</dd><dt>Version</dt><dd>{release?.tag_name ?? 'v0.1 preview'}</dd><dt>Release</dt><dd>{releaseDate ?? 'Not published yet'}</dd></dl></div><div><h2 className="subheading">Latest release</h2>{releaseState === 'loading' && <div className="release-card release-loading"><span className="release-loading-dot" />Loading release metadata…</div>}{releaseState === 'ready' && release && <div className="release-card"><div className="release-top"><b>{release.tag_name}</b><span>{release.prerelease ? 'Pre-release' : 'Latest stable'}</span><time>{releaseDate}</time></div><ul>{(releaseNotes.length ? releaseNotes : ['Published release metadata is available on GitHub.']).map((note) => <li key={note}>{note}</li>)}</ul><a href={release.html_url} target="_blank" rel="noreferrer" className="text-link">View release on GitHub ↗</a></div>}{releaseState === 'empty' && <div className="release-card release-empty"><div className="release-top"><b>v0.1</b><span>Preview</span></div><h3>No public release yet.</h3><p>The repository is live, but no GitHub Release has been published. Create the first release to show version, date, and release notes here.</p><a href="https://github.com/v-reza/agentdeck/releases/new" target="_blank" rel="noreferrer" className="btn-outline">Create v0.1.0 release ↗</a></div>}{releaseState === 'error' && <div className="fallback-card"><b>Release metadata unavailable.</b><p>GitHub API could not be reached right now. The source and release history remain available directly.</p><a href="https://github.com/v-reza/agentdeck/releases" target="_blank" rel="noreferrer" className="text-link">Open releases ↗</a></div>}<a href="https://github.com/v-reza/agentdeck/releases" target="_blank" rel="noreferrer" className="text-link release-index-link">View all releases ↗</a></div></div><Roadmap /></div></PublicShell>
-}
-function Roadmap() {
-  const milestones = [
-    { id: 'M0', state: 'NEXT', title: 'Identity & workspace', copy: 'Self-serve signup, sessions, personal workspace, tenant isolation, and RBAC.', items: ['Registration + login', 'Personal workspace', 'Owner/admin/member/viewer'] },
-    { id: 'M1', state: 'NEXT', title: 'Board & task loop', copy: 'The smallest useful loop: create a board, dispatch a task, and see it reach done.', items: ['Projects + boards', 'Task lifecycle', 'Postgres dispatcher'] },
-    { id: 'M2', state: 'PLANNED', title: 'Cost & agent control', copy: 'Know exactly what every run costs and which provider-backed agent spent it.', items: ['Micro-USD ledger', 'Agent registry', 'Budget guardrails'] },
-    { id: 'M3', state: 'PLANNED', title: 'Approval & realtime ops', copy: 'Risky actions stop for a human while every state change streams to the UI.', items: ['Approval inbox', 'SSE event stream', 'Run replay trace'] },
-    { id: 'M4', state: 'PLANNED', title: 'Reliability & artifacts', copy: 'Recover transient failures and keep the output needed to reproduce a run.', items: ['Failure taxonomy', 'Retry backoff', 'R2 artifacts'] },
-    { id: 'M5', state: 'PLANNED', title: 'Governance & integrations', copy: 'Give small teams an audit trail and safe programmatic access to the fleet.', items: ['Audit log', 'API keys', 'Webhooks'] },
-    { id: 'M6', state: 'LATER', title: 'Operator quality-of-life', copy: 'Make daily operations faster without adding platform sprawl.', items: ['Cmd+K palette', 'Bulk actions', 'Saved views'] },
-  ]
-  return <section className="roadmap-section" aria-labelledby="roadmap-title"><div className="roadmap-heading"><div><div className="page-kicker">BUILD IN PUBLIC</div><h2 id="roadmap-title">From first run to fleet control.</h2></div><Link href="/docs/quickstart" className="text-link">Read the product contract →</Link></div><p className="roadmap-lead">AgentDeck is shipping the operational loop in layers. Each milestone earns its place by making agent work cheaper, safer, or easier to replay.</p><div className="roadmap-track">{milestones.map((milestone) => <article className={`roadmap-milestone ${milestone.id === 'M0' ? 'current' : ''}`} key={milestone.id}><div className="roadmap-node"><span>{milestone.id}</span></div><div className="roadmap-card"><div className="roadmap-card-top"><span className="roadmap-state">{milestone.state}</span><span className="roadmap-version">v0.x</span></div><h3>{milestone.title}</h3><p>{milestone.copy}</p><ul>{milestone.items.map((item) => <li key={item}><Check />{item}</li>)}</ul></div></article>)}</div><div className="roadmap-footer"><span>Current public preview: <b>v0.1</b></span><Link href="/changelog" className="text-link">See changelog →</Link></div></section>
-}
-
-function CommunityPage() { return <PublicShell><div className="public-page"><div className="docs-breadcrumb">AgentDeck <span>/</span> <b>Community</b></div><h1>Community & support</h1><p className="page-lead">Get help, compare deployment patterns, and share what you build with AgentDeck.</p><div className="support-grid"><SupportCard title="Discord community" meta="discord.gg/agentdeck" body="Real-time discussion for setup, agent workers, approval gates, and telemetry." action="Join Discord" href="https://discord.gg/agentdeck" /><SupportCard title="GitHub issues" meta="github.com/v-reza/agentdeck/issues" body="Report bugs, propose changes, and track fixes in the public repository." action="Open issue tracker" href="https://github.com/v-reza/agentdeck/issues" /></div><div className="support-note"><b>Support hours:</b> Monday–Friday, 09:00–18:00 WIB. Community replies remain available outside those hours.</div></div></PublicShell> }
-function SupportCard({ title, meta, body, action, href }: { title: string; meta: string; body: string; action: string; href: string }) { return <div className="support-card"><div><div className="support-card-head"><h2>{title}</h2><span>Online</span></div><div className="support-meta">{meta}</div><p>{body}</p></div><a href={href} target="_blank" rel="noreferrer" className="btn-primary">{action} ↗</a></div> }
-function ChangelogPage() {
-  const [state, setState] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading')
-  const [releases, setReleases] = useState<GitHubRelease[]>([])
-  useEffect(() => {
-    let cancelled = false
-    fetch('https://api.github.com/repos/v-reza/agentdeck/releases?per_page=20', { headers: { Accept: 'application/vnd.github+json' } })
-      .then((response) => { if (!response.ok) throw new Error(`GitHub releases returned ${response.status}`); return response.json() as Promise<GitHubRelease[]> })
-      .then((items) => { if (cancelled) return; const published = items.filter((item) => !item.draft); setReleases(published); setState(published.length ? 'ready' : 'empty') })
-      .catch(() => { if (!cancelled) setState('error') })
-    return () => { cancelled = true }
-  }, [])
-  return <PublicShell><div className="public-page narrow-page"><div className="docs-breadcrumb">Documentation <span>/</span> <b>Changelog</b></div><h1>Changelog</h1><p className="page-lead">Release notes for the AgentDeck single binary, pulled from the public GitHub Releases feed.</p>{state === 'loading' && <div className="changelog-state"><span className="release-loading-dot" />Loading release history…</div>}{state === 'ready' && <div className="changelog-list">{releases.map((release) => <ReleaseEntry release={release} key={release.tag_name} />)}</div>}{state === 'empty' && <div className="changelog-state"><h2>No public releases yet.</h2><p>Release notes will appear here after the first GitHub Release is published.</p><a href="https://github.com/v-reza/agentdeck/releases" target="_blank" rel="noreferrer" className="text-link">Open GitHub Releases ↗</a></div>}{state === 'error' && <div className="changelog-state"><h2>Release history unavailable.</h2><p>GitHub API could not be reached right now. Open the repository for the canonical release history.</p><a href="https://github.com/v-reza/agentdeck/releases" target="_blank" rel="noreferrer" className="text-link">Open GitHub Releases ↗</a></div>}<div className="changelog-roadmap"><div className="page-kicker">WHAT'S NEXT</div><h2>Build in public, one operational loop at a time.</h2><p>Follow the roadmap from identity and workspace foundation through board operations, cost controls, approval gates, reliability, and governance.</p><Link href="/github" className="text-link">See the M0–M6 roadmap →</Link></div></div></PublicShell>
-}
-function ReleaseEntry({ release }: { release: GitHubRelease }) {
-  const date = release.published_at ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(release.published_at)) : 'Unpublished'
-  const notes = release.body?.split('\n').map((line) => line.replace(/^[-*#\s]+/, '').trim()).filter(Boolean).slice(0, 8) ?? []
-  return <article className="changelog-entry"><div className="release-top"><b>{release.tag_name}</b><span>{release.prerelease ? 'Pre-release' : 'Stable'}</span><time>{date}</time></div><h2>{release.name || release.tag_name}</h2>{notes.length ? <ul>{notes.map((note) => <li key={note}>{note}</li>)}</ul> : <p>No release notes were added.</p>}<a href={release.html_url} target="_blank" rel="noreferrer" className="text-link">View release on GitHub ↗</a></article> }
-
-function SupportPage({ kind }: { kind: 'about' | 'contact' | 'download' }) { const copy = { about: ['About AgentDeck', 'AgentDeck is a small, self-hosted control plane for teams running AI agent fleets. We focus on the parts that need an audit trail: what ran, what it cost, and what a human approved.'], contact: ['Contact', 'For product questions, security reports, or partnership notes, use the channels below. We do not require a sales call to start.'], download: ['Download AgentDeck', 'Start with the free Solo tier. The v0.1 binary is designed for one developer, one PostgreSQL connection, and a small VPS.'] }[kind]; return <PublicShell><div className="public-page narrow-page"><div className="docs-breadcrumb">AgentDeck <span>/</span> <b>{copy[0]}</b></div><h1>{copy[0]}</h1><p className="page-lead">{copy[1]}</p>{kind === 'download' ? <><CodeBlock code={'curl -sSL https://get.agentdeck.dev/v0.1 | bash'} /><div className="action-row"><Link href="/docs/quickstart" className="btn-primary">Read Quickstart</Link><Link href="/github" className="btn-outline">Review source</Link></div></> : kind === 'contact' ? <div className="contact-list"><a href="mailto:hello@agentdeck.dev">hello@agentdeck.dev</a><Link href="/community">Community support →</Link><Link href="/github">Security & source →</Link></div> : <div className="about-points"><div><b>Self-hosted</b><span>Your data remains in infrastructure you control.</span></div><div><b>Auditable</b><span>Runs, costs, and approvals are explicit records.</span></div><div><b>Small by design</b><span>One Go binary and PostgreSQL, no platform sprawl.</span></div></div>}</div></PublicShell> }
-function AuthPage({ mode }: { mode: 'login' | 'register' }) { return <><Header /><main className="auth-page"><div className="auth-card"><div className="auth-mark">AD</div><h1>{mode === 'login' ? 'Sign in to AgentDeck' : 'Create your AgentDeck workspace'}</h1><p>{mode === 'login' ? 'Continue to your agent fleet.' : 'Start free. No credit card required.'}</p><form onSubmit={(event) => event.preventDefault()}><label>Email<input type="email" placeholder="you@company.com" /></label>{mode === 'register' && <label>Workspace name<input type="text" placeholder="Production fleet" /></label>}<label>Password<input type="password" placeholder="••••••••" /></label><button className="btn-primary full" type="submit">{mode === 'login' ? 'Sign in' : 'Create workspace'}</button></form><div className="auth-foot">{mode === 'login' ? <>New here? <Link href="/register">Create an account</Link></> : <>Already have an account? <Link href="/login">Sign in</Link></>}</div></div></main></> }
-function FeaturesPage() { return <PublicShell active="features"><div className="public-page"><div className="docs-breadcrumb">AgentDeck <span>/</span> <b>Product</b></div><h1>Everything you need to run agents responsibly.</h1><p className="page-lead">A board for orchestration, a ledger for cost, and a gate for actions that should not run unattended.</p><FeatureSections /></div></PublicShell> }
-function NotFoundPage() { return <PublicShell><div className="public-page centered-page"><div className="page-kicker">404</div><h1>That page is not published yet.</h1><p className="page-lead">The public docs are intentionally explicit instead of showing a blank screen.</p><Link href="/docs/quickstart" className="btn-primary">Go to Quickstart</Link></div></PublicShell> }
-
-function App() {
-  const path = window.location.pathname.replace(/\/$/, '') || '/'
-  if (path === '/') return <LandingPage />
-  if (path === '/features' || path === '/product') return <FeaturesPage />
-  if (path === '/pricing') return <PricingPage />
-  if (path === '/github') return <GitHubPage />
-  if (path === '/community') return <CommunityPage />
-  if (path === '/changelog') return <ChangelogPage />
-  if (path === '/about' || path === '/contact' || path === '/download') return <SupportPage kind={path.slice(1) as 'about' | 'contact' | 'download'} />
-  if (path === '/login' || path === '/register') return <AuthPage mode={path.slice(1) as 'login' | 'register'} />
-  if (path === '/docs' || path.startsWith('/docs/')) return <DocsPage kind={path} />
+  if (pathname === '/') return <LandingPage />
+  if (pathname === '/features' || pathname === '/product') return <FeaturesPage />
+  if (pathname === '/pricing') return <PricingPage />
+  if (pathname === '/github') return <GitHubPage />
+  if (pathname === '/community') return <CommunityPage />
+  if (pathname === '/changelog') return <ChangelogPage />
+  if (pathname === '/about' || pathname === '/contact' || pathname === '/download') {
+    return <SupportPage kind={pathname.slice(1) as 'about' | 'contact' | 'download'} />
+  }
+  if (pathname === '/login' || pathname === '/register') {
+    return <AuthPage mode={pathname.slice(1) as 'login' | 'register'} />
+  }
+  if (pathname === '/docs' || pathname.startsWith('/docs/')) return <DocsPage kind={pathname} />
   return <NotFoundPage />
 }
-
-export default App
