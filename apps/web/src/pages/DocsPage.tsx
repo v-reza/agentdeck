@@ -1,5 +1,5 @@
 // Documentation pages: quickstart, API reference, telemetry schema.
-import { Link } from '../lib/router'
+import { Link, useLocation } from 'react-router-dom'
 import { DocsLayout } from '../components/docs/DocsLayout'
 import { DocHeader } from '../components/docs/DocHeader'
 import { DocSection } from '../components/docs/DocSection'
@@ -8,7 +8,10 @@ import { DataTable } from '../components/docs/DataTable'
 import { CodeBlock } from '../components/CodeBlock'
 import { docsNav } from '../data/content'
 
-function DocsPage({ kind }: { kind: string }) {
+function DocsPage() {
+  // Trailing slashes are not significant here: /docs/ resolves like /docs.
+  const kind = useLocation().pathname.replace(/\/$/, '') || '/docs'
+
   if (kind === '/docs/api')
     return (
       <DocsLayout active={kind}>
@@ -130,7 +133,7 @@ function DocsPage({ kind }: { kind: string }) {
           <span>In progress</span>
           <h2>This document is being written.</h2>
           <p>Use the Quickstart, REST API, or Telemetry pages for the currently published contract.</p>
-          <Link href="/docs/quickstart" className="btn-primary">
+          <Link to="/docs/quickstart" className="btn-primary">
             Back to Quickstart
           </Link>
         </div>

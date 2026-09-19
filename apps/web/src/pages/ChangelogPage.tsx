@@ -1,5 +1,5 @@
 // Full release history plus the roadmap pointer.
-import { Link } from '../lib/router'
+import { Link } from 'react-router-dom'
 import { PublicShell } from '../components/PublicShell'
 import { ReleaseEntry } from '../components/ReleaseEntry'
 import { useGitHubReleases } from '../lib/useGitHubReleases'
@@ -67,7 +67,7 @@ function ChangelogPage() {
             Follow the roadmap from identity and workspace foundation through board operations, cost controls, approval
             gates, reliability, and governance.
           </p>
-          <Link href="/github" className="text-link">
+          <Link to="/github" className="text-link">
             See the M0–M6 roadmap →
           </Link>
         </div>

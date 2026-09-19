@@ -1,5 +1,5 @@
 // Left rail navigation for the docs pages.
-import { Link } from '../../lib/router'
+import { Link } from 'react-router-dom'
 import { docsNav } from '../../data/content'
 
 function DocsNav({ active }: { active: string }) {
@@ -11,7 +11,7 @@ function DocsNav({ active }: { active: string }) {
           <ul>
             {section.items.map(([href, label]) => (
               <li key={href}>
-                <Link href={href} className={active === href ? 'active' : ''}>
+                <Link to={href} className={active === href ? 'active' : ''}>
                   {label}
                 </Link>
               </li>

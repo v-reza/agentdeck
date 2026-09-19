@@ -1,5 +1,5 @@
 // About / Contact / Download — one component, three copy variants.
-import { Link } from '../lib/router'
+import { Link } from 'react-router-dom'
 import { PublicShell } from '../components/PublicShell'
 import { CodeBlock } from '../components/CodeBlock'
 
@@ -30,10 +30,10 @@ function SupportPage({ kind }: { kind: 'about' | 'contact' | 'download' }) {
           <>
             <CodeBlock code={'curl -sSL https://get.agentdeck.dev/v0.1 | bash'} />
             <div className="action-row">
-              <Link href="/docs/quickstart" className="btn-primary">
+              <Link to="/docs/quickstart" className="btn-primary">
                 Read Quickstart
               </Link>
-              <Link href="/github" className="btn-outline">
+              <Link to="/github" className="btn-outline">
                 Review source
               </Link>
             </div>
@@ -41,8 +41,8 @@ function SupportPage({ kind }: { kind: 'about' | 'contact' | 'download' }) {
         ) : kind === 'contact' ? (
           <div className="contact-list">
             <a href="mailto:hello@agentdeck.dev">hello@agentdeck.dev</a>
-            <Link href="/community">Community support →</Link>
-            <Link href="/github">Security & source →</Link>
+            <Link to="/community">Community support →</Link>
+            <Link to="/github">Security & source →</Link>
           </div>
         ) : (
           <div className="about-points">

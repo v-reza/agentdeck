@@ -1,5 +1,5 @@
 // Sign-in and registration forms. Presentation only; the API ships with M0.
-import { Link } from '../lib/router'
+import { Link } from 'react-router-dom'
 import { Header } from '../components/Shell'
 
 function AuthPage({ mode }: { mode: 'login' | 'register' }) {
@@ -33,11 +33,11 @@ function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           <div className="auth-foot">
             {mode === 'login' ? (
               <>
-                New here? <Link href="/register">Create an account</Link>
+                New here? <Link to="/register">Create an account</Link>
               </>
             ) : (
               <>
-                Already have an account? <Link href="/login">Sign in</Link>
+                Already have an account? <Link to="/login">Sign in</Link>
               </>
             )}
           </div>

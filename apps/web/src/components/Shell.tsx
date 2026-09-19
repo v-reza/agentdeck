@@ -1,8 +1,8 @@
 // Public site chrome: brand wordmark, top navigation, and footer.
-import { Link } from '../lib/router'
+import { Link } from 'react-router-dom'
 
 const Brand = () => (
-  <Link href="/" className="brand-wordmark">
+  <Link to="/" className="brand-wordmark">
     AgentDeck
     <span className="brand-mark" />
   </Link>
@@ -15,31 +15,31 @@ function Header({ active = '' }: { active?: string }) {
         <Brand />
         <ul className="nav-links">
           <li>
-            <Link href="/features" className={`nav-link${active === 'features' ? ' active' : ''}`}>
+            <Link to="/features" className={`nav-link${active === 'features' ? ' active' : ''}`}>
               Product
             </Link>
           </li>
           <li>
-            <Link href="/pricing" className={`nav-link${active === 'pricing' ? ' active' : ''}`}>
+            <Link to="/pricing" className={`nav-link${active === 'pricing' ? ' active' : ''}`}>
               Pricing
             </Link>
           </li>
           <li>
-            <Link href="/docs/quickstart" className={`nav-link${active === 'docs' ? ' active' : ''}`}>
+            <Link to="/docs/quickstart" className={`nav-link${active === 'docs' ? ' active' : ''}`}>
               Docs
             </Link>
           </li>
           <li>
-            <Link href="/github" className={`nav-link${active === 'github' ? ' active' : ''}`}>
+            <Link to="/github" className={`nav-link${active === 'github' ? ' active' : ''}`}>
               GitHub
             </Link>
           </li>
         </ul>
         <div className="nav-actions">
-          <Link href="/login" className="btn-ghost">
+          <Link to="/login" className="btn-ghost">
             Sign in
           </Link>
-          <Link href="/register" className="btn-primary">
+          <Link to="/register" className="btn-primary">
             Get started
           </Link>
         </div>
@@ -89,7 +89,7 @@ function FooterColumn({ title, links, hrefs }: { title: string; links: string[];
       <ul className="footer-links">
         {links.map((link, index) => (
           <li key={link}>
-            <Link href={hrefs[index]}>{link}</Link>
+            <Link to={hrefs[index]}>{link}</Link>
           </li>
         ))}
       </ul>

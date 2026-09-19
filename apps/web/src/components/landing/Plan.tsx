@@ -1,6 +1,6 @@
 // Single pricing card. Shared by the landing page and /pricing.
 import { Check } from '../Check'
-import { Link } from '../../lib/router'
+import { Link } from 'react-router-dom'
 
 function Plan({
   name,
@@ -38,7 +38,7 @@ function Plan({
           ))}
         </ul>
       </div>
-      <Link href="/register" className={pro ? 'btn-primary full' : 'btn-outline full'}>
+      <Link to="/register" className={pro ? 'btn-primary full' : 'btn-outline full'}>
         {action}
       </Link>
     </div>

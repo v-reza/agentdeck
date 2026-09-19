@@ -1,6 +1,6 @@
 // Marketing landing page.
 import { useState } from 'react'
-import { Link } from '../lib/router'
+import { Link } from 'react-router-dom'
 import { PublicShell } from '../components/PublicShell'
 import { faqs } from '../data/content'
 import { MiniBoard } from '../components/landing/MiniBoard'
@@ -25,10 +25,10 @@ function LandingPage() {
               action gated behind a human approval, all in one Go binary you host yourself.
             </p>
             <div className="hero-actions">
-              <Link href="/register" className="btn-primary">
+              <Link to="/register" className="btn-primary">
                 Get started free
               </Link>
-              <Link href="/docs/quickstart" className="btn-outline">
+              <Link to="/docs/quickstart" className="btn-outline">
                 Read the docs <span aria-hidden="true">→</span>
               </Link>
             </div>

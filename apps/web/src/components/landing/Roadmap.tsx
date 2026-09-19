@@ -1,6 +1,6 @@
 // M0-M6 milestone track rendered on /github.
 import { Check } from '../Check'
-import { Link } from '../../lib/router'
+import { Link } from 'react-router-dom'
 import { milestones } from '../../data/content'
 
 function Roadmap() {
@@ -11,7 +11,7 @@ function Roadmap() {
           <div className="page-kicker">BUILD IN PUBLIC</div>
           <h2 id="roadmap-title">From first run to fleet control.</h2>
         </div>
-        <Link href="/docs/quickstart" className="text-link">
+        <Link to="/docs/quickstart" className="text-link">
           Read the product contract →
         </Link>
       </div>
@@ -48,7 +48,7 @@ function Roadmap() {
         <span>
           Current public preview: <b>v0.1</b>
         </span>
-        <Link href="/changelog" className="text-link">
+        <Link to="/changelog" className="text-link">
           See changelog →
         </Link>
       </div>

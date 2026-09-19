@@ -1,4 +1,4 @@
-import { usePathname } from './lib/router'
+import { Route, Routes } from 'react-router-dom'
 import { LandingPage } from './pages/LandingPage'
 import { FeaturesPage } from './pages/FeaturesPage'
 import { PricingPage } from './pages/PricingPage'
@@ -11,20 +11,24 @@ import { AuthPage } from './pages/AuthPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 export default function App() {
-  const pathname = usePathname().replace(/\/$/, '') || '/'
-
-  if (pathname === '/') return <LandingPage />
-  if (pathname === '/features' || pathname === '/product') return <FeaturesPage />
-  if (pathname === '/pricing') return <PricingPage />
-  if (pathname === '/github') return <GitHubPage />
-  if (pathname === '/community') return <CommunityPage />
-  if (pathname === '/changelog') return <ChangelogPage />
-  if (pathname === '/about' || pathname === '/contact' || pathname === '/download') {
-    return <SupportPage kind={pathname.slice(1) as 'about' | 'contact' | 'download'} />
-  }
-  if (pathname === '/login' || pathname === '/register') {
-    return <AuthPage mode={pathname.slice(1) as 'login' | 'register'} />
-  }
-  if (pathname === '/docs' || pathname.startsWith('/docs/')) return <DocsPage kind={pathname} />
-  return <NotFoundPage />
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/features" element={<FeaturesPage />} />
+      {/* /product is a legacy alias for the features page. */}
+      <Route path="/product" element={<FeaturesPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/github" element={<GitHubPage />} />
+      <Route path="/community" element={<CommunityPage />} />
+      <Route path="/changelog" element={<ChangelogPage />} />
+      <Route path="/about" element={<SupportPage kind="about" />} />
+      <Route path="/contact" element={<SupportPage kind="contact" />} />
+      <Route path="/download" element={<SupportPage kind="download" />} />
+      <Route path="/login" element={<AuthPage mode="login" />} />
+      <Route path="/register" element={<AuthPage mode="register" />} />
+      <Route path="/docs" element={<DocsPage />} />
+      <Route path="/docs/*" element={<DocsPage />} />
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+  )
 }
