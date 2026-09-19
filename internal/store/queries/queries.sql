@@ -36,13 +36,19 @@ SET name = $2
 WHERE id = $1;
 
 -- name: GetPersonalWorkspace :one
+-- The registration-kind org where THIS user is the owner: that is the only
+-- shape that means "my personal workspace". Membership alone is not enough —
+-- an invitee is a member of someone else's registration-kind org, and
+-- resolving it here would hand them a workspace that is not theirs.
 SELECT o.id, o.slug, o.name, o.created_at
 FROM org_kinds k
 JOIN orgs o ON o.id = k.org_id
 WHERE k.kind = 'registration'
   AND EXISTS (
       SELECT 1 FROM memberships m
-      WHERE m.org_id = o.id AND m.user_id = $1
+      WHERE m.org_id = o.id
+        AND m.user_id = $1
+        AND m.role   = 'owner'
   );
 
 -- name: CreateOrgKind :exec

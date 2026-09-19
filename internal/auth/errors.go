@@ -17,6 +17,7 @@ var (
 	ErrMemberNotFound     = errors.New("member not found")
 	ErrInvalidRole        = errors.New("invalid role")
 	ErrLastOwner          = errors.New("last owner cannot be demoted")
+	ErrMemberExists       = errors.New("member already exists with a different role")
 	ErrUnauthorized       = errors.New("unauthorized")
 	ErrSlugTaken          = errors.New("slug already taken")
 	ErrUserNotFound       = errors.New("user not found")

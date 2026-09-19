@@ -29,6 +29,23 @@ func NewPgxRepository(pool *pgxpool.Pool) Repository {
 }
 
 func (r *pgxRepository) CreateUser(ctx context.Context, email, name, passwordHash string, isShadow bool) (User, error) {
+	// The domain contract is "the row exists with this email when this
+	// returns", not "a fresh row is inserted": AddMember creates the shadow
+	// and Register later claims it, so a shadow already present is the row the
+	// caller asked for. Inserting a second one would collide on
+	// users_email_key and read as ErrEmailExists, which no caller of a shadow
+	// row expects.
+	if isShadow {
+		if existing, err := r.q.GetUserByEmail(ctx, email); err == nil {
+			if !existing.IsShadow {
+				return User{}, ErrEmailExists
+			}
+			return userRowToUser(existing), nil
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return User{}, mapPgError(err)
+		}
+	}
+
 	row, err := r.q.CreateUser(ctx, store.CreateUserParams{
 		ID:           ulid.Must(),
 		Email:        email,
@@ -41,7 +58,6 @@ func (r *pgxRepository) CreateUser(ctx context.Context, email, name, passwordHas
 	}
 	return userRowToUser(row), nil
 }
-
 func (r *pgxRepository) ClaimShadowUser(ctx context.Context, email, name, passwordHash string) error {
 	// The unique users_email_key index is on lower(email), so this lookup is
 	// the stable handle for the pending-invitation row.
@@ -132,13 +148,28 @@ func (r *pgxRepository) UpdateOrgName(ctx context.Context, id, name string) erro
 }
 
 func (r *pgxRepository) CreateMembership(ctx context.Context, orgID, userID string, role Role) error {
+	// The generated query upserts, which would let a re-invite re-rank an
+	// existing member — including an owner demoted by their own signup. The
+	// inviter asked to add the user, not to change their role, so an existing
+	// row is left exactly as it was and the create is reported as a no-op
+	// success.
+	if existing, err := r.q.GetMembership(ctx, store.GetMembershipParams{OrgID: orgID, UserID: userID}); err == nil {
+		// A conflicting role would be a real state change; surface it instead
+		// of pretending the invite landed with the requested rank.
+		if Role(existing.Role) == role {
+			return nil
+		}
+		return ErrMemberExists
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return memberNotFound(err)
+	}
 	err := r.q.CreateMembership(ctx, store.CreateMembershipParams{
 		OrgID:  orgID,
 		UserID: userID,
 		Role:   string(role),
 	})
 	if err != nil {
-		return mapPgError(err)
+		return memberNotFound(err)
 	}
 	return nil
 }
@@ -146,7 +177,10 @@ func (r *pgxRepository) CreateMembership(ctx context.Context, orgID, userID stri
 func (r *pgxRepository) GetMembership(ctx context.Context, orgID, userID string) (MembershipRow, error) {
 	row, err := r.q.GetMembership(ctx, store.GetMembershipParams{OrgID: orgID, UserID: userID})
 	if err != nil {
-		return MembershipRow{}, mapPgError(err)
+		// resolveAndAuthorize decides 403 vs 404 on this error, so it must be
+		// ErrMemberNotFound whether the pair has no row or one endpoint is
+		// absent. Anything else reads as a server fault.
+		return MembershipRow{}, memberNotFound(err)
 	}
 	return MembershipRow{
 		OrgID:     row.OrgID,
@@ -355,6 +389,21 @@ func domainNotFound(err error, notFound error) error {
 		return notFound
 	}
 	return err
+}
+
+// memberNotFound reports the error a membership lookup must surface: either no
+// row matched, or the write could not have matched because one of its
+// endpoints is absent. A foreign-key violation on memberships is the same
+// fact as a missing membership row — the (org, user) pair has no record — so
+// both become ErrMemberNotFound and never leak as a 500.
+func memberNotFound(err error) error {
+	if err == nil {
+		return nil
+	}
+	if pgErr := (*pgconn.PgError)(nil); errors.As(err, &pgErr) && pgErr.Code == "23503" {
+		return ErrMemberNotFound
+	}
+	return domainNotFound(err, ErrMemberNotFound)
 }
 
 func mapPgError(err error) error {

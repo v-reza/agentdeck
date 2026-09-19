@@ -112,6 +112,9 @@ func (s *Store) Register(ctx context.Context, email, password, name, orgName str
 	if err != nil {
 		return User{}, Workspace{}, "", err
 	}
+	// Seed the personal workspace's owner. The registration-kind workspace is
+	// created here, so this membership is new; a pending invitation belongs to
+	// a different org and must not be rewritten by this path.
 	if err := s.repo.CreateMembership(ctx, workspace.ID, existing.ID, Owner); err != nil {
 		return User{}, Workspace{}, "", err
 	}
@@ -397,7 +400,18 @@ func (s *Store) resolveAndAuthorize(ctx context.Context, requestedID, actorEmail
 	}
 
 	if requestedID == "" {
-		return s.firstOrg(ctx, actorEmail)
+		// The actor's default org is still subject to the role gate: a viewer
+		// resolving to their own workspace must not gain admin rights just
+		// because they omitted X-Org-ID. The fallback resolves the org, then
+		// re-checks the membership through the same path below.
+		workspace, role, err := s.firstOrg(ctx, actorEmail)
+		if err != nil {
+			return Workspace{}, "", err
+		}
+		if rank(role) < rank(minimum) {
+			return Workspace{}, "", ErrForbidden
+		}
+		return workspace, role, nil
 	}
 
 	// The org must exist first: an unknown id is a 404 regardless of who asks.

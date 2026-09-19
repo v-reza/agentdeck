@@ -44,6 +44,12 @@ type orgContext struct {
 // orgContextMiddleware authenticates the request and resolves the active org.
 // A missing or invalid session is 401; a valid session with no membership in
 // the requested org is 403; an unknown org id is 404 (US-AD07 AC1/AC3).
+//
+// The requested id is the {id} from the route when the pattern has one, and
+// only falls back to the X-Org-ID header for routes without an id. The path
+// parameter is the resource the caller named, so it is what the membership is
+// checked against; honouring the header over the path would let a caller
+// authenticate against their own org and then address another tenant's.
 func (a authAPI) orgContextMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, ok := currentUser(a.store, r)
@@ -52,7 +58,10 @@ func (a authAPI) orgContextMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		requestedID := strings.TrimSpace(r.Header.Get("X-Org-ID"))
+		requestedID := strings.TrimSpace(r.PathValue("id"))
+		if requestedID == "" {
+			requestedID = strings.TrimSpace(r.Header.Get("X-Org-ID"))
+		}
 		workspace, role, err := a.store.ResolveWorkspace(r.Context(), user.Email, requestedID)
 		if err != nil {
 			writeAuthError(w, err)

@@ -10,11 +10,20 @@ The public web app lives in `apps/web` and uses Vite, React, and TypeScript.
 
 ## Backend (M0)
 
-The Go API requires Go 1.22+ and PostgreSQL. Set `DATABASE_URL` and start the
-API; the baseline schema applies on boot and is safe to re-apply:
+The Go API requires Go 1.22+ and PostgreSQL 16. Bring up the database first —
+the exact image the suite is validated against, pinned by version:
 
 ```bash
-export DATABASE_URL=postgres://agentdeck:agentdeck@localhost:5432/agentdeck
+docker run -d --name agentdeck-postgres \
+  -e POSTGRES_USER=agentdeck -e POSTGRES_PASSWORD=*** \
+  -e POSTGRES_DB=agentdeck -p 5433:5432 postgres:16
+```
+
+Set `DATABASE_URL` and start the API; the baseline schema applies on boot and
+is safe to re-apply:
+
+```bash
+export DATABASE_URL=postgres://agentdeck:***@localhost:5433/agentdeck
 go run ./cmd/api
 ```
 
@@ -34,13 +43,23 @@ foreign roster) and an unknown id yields `404` (US-AD07 AC1/AC3). Role values ar
 validated against the frozen enum; `owner` is only assigned at registration or
 org creation, so no admin can escalate anyone past their own rank.
 
-Unit tests run anywhere; the Postgres-backed migration and tenant-isolation tests need a live database and are gated on `AGENTDECK_TEST_DATABASE_URL`:
+Unit tests run anywhere; the Postgres-backed suites need a live database and
+are gated on `AGENTDECK_TEST_DATABASE_URL`:
 
 ```bash
 go test ./...                                    # unit tests, no database needed
-AGENTDECK_TEST_DATABASE_URL=$DATABASE_URL \
-  go test ./internal/migrate/ -count=1           # migration + tenant isolation
+
+# Postgres-backed suites: migration, tenant isolation, and the M0 auth path.
+# -p 1 keeps the two suites from racing on the migration advisory lock.
+export AGENTDECK_TEST_DATABASE_URL=postgres://agentdeck:***@localhost:5433/agentdeck
+go test ./... -count=1 -p 1
 ```
+
+`internal/auth/postgres_test.go` runs the seven M0 acceptance criteria
+against the live database: registration creating a session and a personal
+workspace, duplicate-email rejection, login/logout/session revocation,
+cross-tenant denial, and the owner/admin/member/viewer matrix. It skips
+silently when the variable is unset.
 
 
 ```bash
@@ -77,9 +96,9 @@ python tools/verify_suite.py
 # Backend unit tests (no database needed)
 rtk go test ./... -count=1
 
-# Backend Postgres tests (needs a live Postgres 16)
-export AGENTDECK_TEST_DATABASE_URL=postgres://agentdeck:agentdeck@localhost:5433/agentdeck
-rtk go test ./internal/migrate/ -count=1
+# Backend Postgres tests (needs a live Postgres 16; see "Backend (M0)" above)
+export AGENTDECK_TEST_DATABASE_URL=postgres://agentdeck:***@localhost:5433/agentdeck
+rtk go test ./... -count=1 -p 1
 ```
 
 ## Repository layout

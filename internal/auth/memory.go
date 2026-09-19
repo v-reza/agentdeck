@@ -129,6 +129,15 @@ func (m *memoryRepository) CreateMembership(ctx context.Context, orgID, userID s
 	if _, exists := m.memberships[orgID]; !exists {
 		m.memberships[orgID] = map[string]Role{}
 	}
+	// A re-invite must not re-rank an existing member: the inviter asked to
+	// add the user, not to change their role, and otherwise an owner's own
+	// signup would silently demote them.
+	if existing, exists := m.memberships[orgID][userID]; exists {
+		if existing == role {
+			return nil
+		}
+		return ErrMemberExists
+	}
 	m.memberships[orgID][userID] = role
 	return nil
 }
@@ -150,8 +159,10 @@ func (m *memoryRepository) GetMembership(ctx context.Context, orgID, userID stri
 
 // PersonalWorkspace mirrors the registration-kind lookup the Postgres
 // repository does through org_kinds: the org whose kind is 'registration' and
-// which the user belongs to. A retried registration reuses it instead of
-// orphaning a second personal workspace.
+// which the user owns. Ownership is the test — an invitee is a member of
+// someone else's registration-kind org, and returning it here would hand them
+// a workspace that is not theirs. A retried registration reuses their own
+// instead of orphaning a second one.
 func (m *memoryRepository) PersonalWorkspace(ctx context.Context, userID string) (Workspace, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -160,7 +171,7 @@ func (m *memoryRepository) PersonalWorkspace(ctx context.Context, userID string)
 		if m.orgs[orgID].Kind != personalOrgKind {
 			continue
 		}
-		if _, ok := m.memberships[orgID][userID]; !ok {
+		if m.memberships[orgID][userID] != Owner {
 			continue
 		}
 		return m.orgs[orgID], nil

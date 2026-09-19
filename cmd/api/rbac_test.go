@@ -137,6 +137,21 @@ func (e rbacTestAPI) createOrg(actor, name, slug string) string {
 	return parsed["id"]
 }
 
+// personalOrg is the caller's registration workspace, used to model the
+// "no X-Org-ID" case and header forgery against it.
+func (e rbacTestAPI) personalOrg(actor string) string {
+	resp := e.do(e.t, http.MethodGet, "/api/v1/orgs", "", e.tokens[actor], "")
+	if resp.StatusCode != http.StatusOK {
+		e.t.Fatalf("personalOrg %s: %d %s", actor, resp.StatusCode, resp.body)
+	}
+	var parsed []map[string]string
+	_ = json.Unmarshal([]byte(resp.body), &parsed)
+	if len(parsed) == 0 {
+		e.t.Fatalf("personalOrg %s: no orgs listed", actor)
+	}
+	return parsed[0]["id"]
+}
+
 func (e rbacTestAPI) invite(actor, org, invitee string, role auth.Role) {
 	body := `{"email":"` + invitee + `","role":"` + string(role) + `"}`
 	resp := e.do(e.t, http.MethodPost, "/api/v1/orgs/"+org+"/members", body, e.tokens[actor], org)
@@ -392,13 +407,15 @@ func TestTenantIsolationCrossOrg(t *testing.T) {
 	resp := test.do(t, http.MethodGet, "/api/v1/orgs/"+test.orgA+"/members",
 		"", test.tokens["bella@x.test"], test.orgA)
 	if resp.StatusCode != http.StatusForbidden {
-		t.Errorf("foreign X-Org-ID members list: got %d, want 403", resp.StatusCode)
+		t.Errorf("foreign orgA members list: got %d, want 403", resp.StatusCode)
 	}
 
-	resp = test.do(t, http.MethodGet, "/api/v1/orgs/"+test.orgA+"/members",
-		"", test.tokens["bella@x.test"], test.orgB)
+	// Bella reading her own org through its own path must succeed: the route
+	// id is what scopes the request, so an empty header is not a bypass.
+	resp = test.do(t, http.MethodGet, "/api/v1/orgs/"+test.orgB+"/members",
+		"", test.tokens["bella@x.test"], "")
 	if resp.StatusCode != http.StatusOK {
-		t.Errorf("own org members list: got %d, want 200", resp.StatusCode)
+		t.Errorf("own org members list by path: got %d, want 200", resp.StatusCode)
 	}
 	if strings.Contains(resp.body, "alice@x.test") {
 		t.Errorf("orgB roster leaked orgA member: %s", resp.body)
@@ -416,6 +433,16 @@ func TestTenantIsolationCrossOrg(t *testing.T) {
 		"", test.tokens["marta@x.test"], test.orgA)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("path forgery: got %d, want 403", resp.StatusCode)
+	}
+
+	// The reverse forgery must be denied too: the path names orgA (where marta
+	// is a member) while the header names her own org. The path is the resource
+	// the caller addressed, so the membership is checked against orgA and a
+	// member removing an admin is not allowed.
+	resp = test.do(t, http.MethodDelete, "/api/v1/orgs/"+test.orgA+"/members/"+test.userIDs["andre@x.test"],
+		"", test.tokens["marta@x.test"], test.personalOrg("marta@x.test"))
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("header forgery: got %d, want 403", resp.StatusCode)
 	}
 
 	// Andre must still be a member of orgA; the forged removal did nothing.

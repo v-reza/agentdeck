@@ -39,9 +39,10 @@ type Repository interface {
 	// UpdateOrgName renames a tenant. Slug collisions are ErrSlugTaken.
 	UpdateOrgName(ctx context.Context, id, name string) error
 
-	// CreateMembership links a user to an org with one role. Re-adding an
-	// existing membership updates the role rather than erroring, so an invite
-	// to an existing member is idempotent.
+	// CreateMembership links a user to an org with one role. An invitation to an
+	// existing member leaves the role alone: the inviter asked to add the user,
+	// not to re-rank them, and re-adding must stay idempotent so a retried invite
+	// cannot silently demote an owner.
 	CreateMembership(ctx context.Context, orgID, userID string, role Role) error
 
 	// GetMembership answers "is this user in this org, and as what". It is the
