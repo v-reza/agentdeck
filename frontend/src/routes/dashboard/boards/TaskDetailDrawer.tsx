@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Field, Input, Textarea } from '@/components/ui/input'
 import { useAppDispatch } from '@/store/hooks'
 import { closeTask } from '@/store/slices/uiSlice'
-import { formatMicroUSD, formatTokens, shortID } from '@/lib/formatters'
+import { formatEstimatedMicroUSD, formatTokens, shortID } from '@/lib/formatters'
 
 /**
  * Screen 20-task-drawer — the task, its dependency edges, and its append-only
@@ -52,7 +52,7 @@ export function TaskDetailDrawer({ taskID }: { taskID: string }) {
           <>
             <dl className="grid grid-cols-3 gap-2 font-mono text-[11px]">
               <Metric label="status" value={task.status} />
-              <Metric label="cost" value={formatMicroUSD(task.cost_micros)} />
+              <Metric label="cost" value={formatEstimatedMicroUSD(task.cost_micros)} />
               <Metric label="tokens" value={formatTokens(task.tokens_in + task.tokens_out)} />
             </dl>
 

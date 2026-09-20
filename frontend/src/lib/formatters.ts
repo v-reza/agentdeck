@@ -47,6 +47,15 @@ export function formatMicroUSD(micros: number): string {
 }
 
 /**
+ * Cost copy for product surfaces. Ledger values are projections from the
+ * internal pricing table, not provider invoices, so every visible amount uses
+ * this helper rather than the unqualified currency formatter.
+ */
+export function formatEstimatedMicroUSD(micros: number): string {
+  return `${formatMicroUSD(micros)} (estimate)`
+}
+
+/**
  * formatMicroUSDPadded keeps a column of costs visually aligned: always three
  * decimals, right-aligned by padding to a fixed width. Used inside tables where
  * a shifting decimal point would make the column unreadable.

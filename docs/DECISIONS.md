@@ -158,7 +158,8 @@ tidak ada Context untuk data aplikasi.
 
 ```
 orgs(id, slug, name, created_at)
-users(id, email, name, password_hash, avatar_url, deleted_at, created_at)
+org_kinds(org_id, kind, created_at)
+users(id, email, name, password_hash, avatar_url, deleted_at, is_shadow, created_at)
 memberships(org_id, user_id, role, created_at)              PK(org_id,user_id)
 projects(id, org_id, slug, name, created_at)
 boards(id, org_id, project_id, slug, name, columns_json, budget_daily_micros, created_at)
@@ -193,7 +194,7 @@ audit_log(id, org_id, actor_user_id, actor_agent_id, action, target_type,
           target_id, before_json, after_json, ip, created_at)
 api_keys(id, org_id, user_id, name, prefix, token_hash, last_used_at, revoked_at, created_at)
 sessions(id, user_id, token_hash, user_agent, ip, last_seen_at, expires_at, created_at)
-password_reset_tokens(id, user_id, token_hash, expires_at, used_at, created_at)
+password_resets(token_hash, user_id, expires_at, used_at, created_at)
 notifications(id, user_id, org_id, kind, title, body, target_type, target_id, read_at, created_at)
 webhooks(id, org_id, board_id, url, secret, events_json, active, created_at)
 webhook_deliveries(id, webhook_id, event_id, status, attempts, response_code,

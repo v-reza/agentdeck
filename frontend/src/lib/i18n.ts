@@ -266,6 +266,47 @@ export interface Dictionary {
   'agents.archive.assignable': string
   'agents.archive.hidden': string
   'agents.archive.note': string
+  'agents.detail.back': string
+  'agents.detail.title': string
+  'agents.detail.statusActive': string
+  'agents.detail.statusArchived': string
+  'agents.detail.statusNeedsKey': string
+  'agents.detail.id': string
+  'agents.detail.created': string
+  'agents.detail.runs': string
+  'agents.detail.runsHint': string
+  'agents.detail.cost': string
+  'agents.detail.costEstimate': string
+  'agents.detail.providerTitle': string
+  'agents.detail.providerVerified': string
+  'agents.detail.provider': string
+  'agents.detail.model': string
+  'agents.detail.modelHint': string
+  'agents.detail.modelUnavailable': string
+  'agents.detail.baseUrl': string
+  'agents.detail.baseUrlHint': string
+  'agents.detail.runtimeTitle': string
+  'agents.detail.runtimeSubtitle': string
+  'agents.detail.runtime': string
+  'agents.detail.retry': string
+  'agents.detail.reasoning': string
+  'agents.detail.attempts': string
+  'agents.detail.tools': string
+  'agents.detail.skills': string
+  'agents.detail.tasksTitle': string
+  'agents.detail.tasksEmpty': string
+  'agents.detail.save': string
+  'agents.detail.saving': string
+  'agents.detail.saved': string
+  'agents.detail.saveFailed': string
+  'agents.detail.loading': string
+  'agents.detail.notFound': string
+  'agents.detail.archiveAction': string
+  'agents.detail.unarchiveAction': string
+  'agents.detail.archiveHint': string
+  'agents.archive.forbidden': string
+  'agents.archive.running': string
+  'agents.archive.failed': string
 }
 
 const en: Dictionary = {
@@ -520,6 +561,47 @@ const en: Dictionary = {
   'agents.archive.assignable': '{0} agents can be assigned right now',
   'agents.archive.hidden': '{0} archived',
   'agents.archive.note': 'Unarchive any time — nothing is deleted.',
+  'agents.detail.back': 'Back to agents',
+  'agents.detail.title': 'Agent details',
+  'agents.detail.statusActive': 'ACTIVE · READY TO ASSIGN',
+  'agents.detail.statusArchived': 'ARCHIVED',
+  'agents.detail.statusNeedsKey': 'NEEDS PROVIDER CREDENTIAL',
+  'agents.detail.id': 'ID',
+  'agents.detail.created': 'created',
+  'agents.detail.runs': 'Total runs',
+  'agents.detail.runsHint': 'Completed runs',
+  'agents.detail.cost': 'Total spend',
+  'agents.detail.costEstimate': 'Estimate, not a bill',
+  'agents.detail.providerTitle': 'Provider & model configuration',
+  'agents.detail.providerVerified': 'pricing available',
+  'agents.detail.provider': 'Provider',
+  'agents.detail.model': 'Model',
+  'agents.detail.modelHint': 'Choose a model from the current pricing catalog.',
+  'agents.detail.modelUnavailable': 'Model is not in the current catalog',
+  'agents.detail.baseUrl': 'Provider base URL',
+  'agents.detail.baseUrlHint': 'Required for a custom OpenAI-compatible provider.',
+  'agents.detail.runtimeTitle': 'Runtime parameters & tool access',
+  'agents.detail.runtimeSubtitle': 'Execution limits',
+  'agents.detail.runtime': 'Max runtime',
+  'agents.detail.retry': 'Retry policy',
+  'agents.detail.reasoning': 'Reasoning effort',
+  'agents.detail.attempts': 'Max attempts',
+  'agents.detail.tools': 'Allowed tools',
+  'agents.detail.skills': 'Skills',
+  'agents.detail.tasksTitle': 'Tasks assigned to this agent',
+  'agents.detail.tasksEmpty': 'Task history is shown on each board.',
+  'agents.detail.save': 'Save changes',
+  'agents.detail.saving': 'Saving…',
+  'agents.detail.saved': 'Changes saved.',
+  'agents.detail.saveFailed': 'Could not save changes',
+  'agents.detail.loading': 'Loading agent…',
+  'agents.detail.notFound': 'Agent not found',
+  'agents.detail.archiveAction': 'Archive agent',
+  'agents.detail.unarchiveAction': 'Unarchive agent',
+  'agents.detail.archiveHint': 'Archiving hides this agent from new assignments. Running work is not interrupted.',
+  'agents.archive.forbidden': 'Only a workspace owner or admin can archive or unarchive an agent.',
+  'agents.archive.running': 'This agent still has running work. Let it finish before archiving.',
+  'agents.archive.failed': 'Could not change the archive status',
 }
 
 const id: Dictionary = {
@@ -773,6 +855,48 @@ const id: Dictionary = {
   'agents.archive.assignable': '{0} agent bisa ditugaskan sekarang',
   'agents.archive.hidden': '{0} diarsip',
   'agents.archive.note': 'Bisa dibatalkan kapan saja — tidak ada yang dihapus.',
+  'agents.detail.back': 'Kembali ke agent',
+  'agents.detail.title': 'Detail agent',
+  'agents.detail.statusActive': 'AKTIF · SIAP DITUGASKAN',
+  'agents.detail.statusArchived': 'DIARSIP',
+  'agents.detail.statusNeedsKey': 'BUTUH KREDENSIAL PROVIDER',
+  'agents.detail.id': 'ID',
+  'agents.detail.created': 'dibuat',
+  'agents.detail.runs': 'Total run',
+  'agents.detail.runsHint': 'Run selesai',
+  'agents.detail.cost': 'Total biaya',
+  'agents.detail.costEstimate': 'Estimasi, bukan tagihan',
+  'agents.detail.providerTitle': 'Konfigurasi provider & model',
+  'agents.detail.providerVerified': 'harga tersedia',
+  'agents.detail.provider': 'Provider',
+  'agents.detail.model': 'Model',
+  'agents.detail.modelHint': 'Pilih model dari katalog harga terbaru.',
+  'agents.detail.modelUnavailable': 'Model tidak ada di katalog saat ini',
+  'agents.detail.baseUrl': 'URL dasar provider',
+  'agents.detail.baseUrlHint': 'Wajib untuk provider OpenAI-compatible kustom.',
+  'agents.detail.runtimeTitle': 'Parameter runtime & akses tools',
+  'agents.detail.runtimeSubtitle': 'Batas eksekusi',
+  'agents.detail.runtime': 'Runtime maksimum',
+  'agents.detail.retry': 'Kebijakan retry',
+  'agents.detail.reasoning': 'Reasoning effort',
+  'agents.detail.attempts': 'Maks percobaan',
+  'agents.detail.tools': 'Tools yang diizinkan',
+  'agents.detail.skills': 'Skill',
+  'agents.detail.tasksTitle': 'Task yang ditugaskan ke agent ini',
+  'agents.detail.tasksEmpty': 'Riwayat task tersedia di masing-masing board.',
+  'agents.detail.save': 'Simpan perubahan',
+  'agents.detail.saving': 'Menyimpan…',
+  'agents.detail.saved': 'Perubahan tersimpan.',
+  'agents.detail.saveFailed': 'Perubahan tidak tersimpan',
+  'agents.detail.loading': 'Memuat agent…',
+  'agents.detail.notFound': 'Agent tidak ditemukan',
+  'agents.detail.archiveAction': 'Arsipkan agent',
+  'agents.detail.unarchiveAction': 'Batal arsip agent',
+  'agents.detail.archiveHint':
+    'Arsip menyembunyikan agent dari penugasan baru. Task yang sedang berjalan tidak dihentikan.',
+  'agents.archive.forbidden': 'Hanya owner atau admin workspace yang dapat mengarsipkan atau membatalkan arsip agent.',
+  'agents.archive.running': 'Agent ini masih punya task yang berjalan. Tunggu sampai selesai sebelum mengarsipkan.',
+  'agents.archive.failed': 'Status arsip tidak berubah',
 }
 
 const DICTIONARIES: Record<Lang, Dictionary> = { en, id }

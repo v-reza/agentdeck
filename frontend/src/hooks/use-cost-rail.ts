@@ -3,7 +3,7 @@ import { useMatch } from 'react-router-dom'
 import { useBoardBudgetQuery, useBoardLedgerQuery } from '@/store/api/finops'
 import { useBoardTasks } from '@/hooks/use-directory'
 import { useAppSelector } from '@/store/hooks'
-import { formatMicroUSD } from '@/lib/formatters'
+import { formatEstimatedMicroUSD } from '@/lib/formatters'
 
 /**
  * Everything the cost rail renders, and where each number comes from.
@@ -23,7 +23,8 @@ import { formatMicroUSD } from '@/lib/formatters'
  *  - 7-DAY and TOP SPENDERS render their empty state, because a bar chart of
  *    invented heights is worse than an empty chart — it looks like data.
  *
- * Nothing here is estimated, extrapolated, or carried over between boards.
+ * Cost figures come from the server ledger and are projections from the internal
+ * pricing table. The UI labels them as estimates, never as provider invoices.
  */
 export interface WeekBar {
   day: string
@@ -137,5 +138,5 @@ export function useCostRail(): CostRailData {
 
 /** The budget cap rendered for the rail header, e.g. "cap $20.00". */
 export function capLabel(capMicros: number): string {
-  return capMicros > 0 ? `cap ${formatMicroUSD(capMicros)}` : 'no cap set'
+  return capMicros > 0 ? `cap ${formatEstimatedMicroUSD(capMicros)}` : 'no cap set'
 }

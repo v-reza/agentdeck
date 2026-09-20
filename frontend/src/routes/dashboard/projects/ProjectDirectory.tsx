@@ -12,7 +12,7 @@ import {
   type DirectorySortKey,
 } from '@/store/slices/uiSlice'
 import { EmptyState } from '@/components/ui/card'
-import { formatMicroUSD, formatRelative, plural } from '@/lib/formatters'
+import { formatEstimatedMicroUSD, formatRelative, plural } from '@/lib/formatters'
 import { cn } from '@/lib/cn'
 import type { Board, Project } from '@/lib/domain'
 
@@ -394,4 +394,4 @@ interface DirectorySort {
   direction: 'asc' | 'desc'
 }
 
-export { formatMicroUSD, formatRelative }
+export { formatEstimatedMicroUSD, formatRelative }

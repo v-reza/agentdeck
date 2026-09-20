@@ -164,7 +164,7 @@ npx tsc -b && npx vitest run && npx playwright test
 
 # Specification gates (PRD coverage, design tokens, render structure)
 cd ..
-python tools/verify_prd.py docs
+python tools/verify_prd.py docs/00-PRD.md
 python tools/verify_suite.py
 python tools/verify_web.py
 ```

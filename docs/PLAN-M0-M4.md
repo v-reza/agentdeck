@@ -3,7 +3,7 @@
 > **Status hidup.** Update file ini setiap milestone selesai. File ini yang jadi
 > memori lintas-sesi; context chat boleh hilang, file ini tidak.
 >
-> Sumber angka: `docs/COVERAGE.md` (105 story), `docs/ROADMAP.md` (7 milestone),
+> Sumber angka: `docs/COVERAGE.md` (108 story), `docs/ROADMAP.md` (7 milestone),
 > `design/stitch-output/v2/*.html` (ground truth visual).
 >
 > Terakhir diperbarui: 2026-09-19 (M0 dikerjakan).
@@ -17,7 +17,7 @@ Baca ulang sebelum mulai milestone baru:
 | `docs/ARCHITECTURE.md` §18.2 | React 19 + Vite, React Router v7, Tailwind v4 + shadcn/ui, Redux Toolkit + RTK Query, dnd-kit, Vitest + Playwright, folder `frontend/src/{routes,store,components,hooks,lib}` |
 | `docs/DESIGN.md` | Token warna/radius/spacing. **Menang** atas `DECISIONS.md` §8 soal warna |
 | `docs/DECISIONS.md` | Go 1.27, pgx v5 + sqlc, PostgreSQL 16, satu statement per baris |
-| `docs/00-PRD.md` | 105 story, 359 AC. **Copy = kontrak**, bukan selera |
+| `docs/00-PRD.md` | 108 story, 377 AC. **Copy = kontrak**, bukan selera |
 | `design/stitch-output/v2/*.html` | Ground truth visual. Clone **class-for-class** |
 
 Aturan operasional:

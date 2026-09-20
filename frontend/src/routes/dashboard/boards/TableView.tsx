@@ -5,7 +5,7 @@ import { openTask, setSearch, toggleStatusFilter } from '@/store/slices/uiSlice'
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { EmptyState } from '@/components/ui/card'
 import { TASK_STATUSES, statusColorVar } from '@/lib/domain'
-import { formatMicroUSD, formatTokens, shortID } from '@/lib/formatters'
+import { formatEstimatedMicroUSD, formatTokens, shortID } from '@/lib/formatters'
 import { cn } from '@/lib/cn'
 
 /**
@@ -106,7 +106,7 @@ export function TableView() {
                     {formatTokens(task.tokens_in + task.tokens_out)}
                   </td>
                   <td className="px-3 font-mono text-[11px] text-[var(--color-secondary)]">
-                    {formatMicroUSD(task.cost_micros)}
+                    {formatEstimatedMicroUSD(task.cost_micros)}
                   </td>
                 </tr>
               ))}

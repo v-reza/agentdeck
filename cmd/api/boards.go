@@ -134,7 +134,9 @@ func registerBoardRoutes(mux *http.ServeMux, api authAPI, svc *board.Service) {
 	boardRoute("GET /api/v1/boards/{board_id}/tasks", http.HandlerFunc(boardAPI.listTasks), auth.Viewer)
 	boardRoute("GET /api/v1/tasks/{id}", http.HandlerFunc(boardAPI.getTask), auth.Viewer)
 	boardRoute("PATCH /api/v1/tasks/{id}", http.HandlerFunc(boardAPI.updateTask), auth.Member)
-	boardRoute("DELETE /api/v1/tasks/{id}", http.HandlerFunc(boardAPI.deleteTask), auth.Member)
+	// US-AD80 AC2: deleting a task is owner/admin, and ARCHITECTURE 6.2.6's
+	// Role Min column says Admin too — this one line was the only disagreement.
+	boardRoute("DELETE /api/v1/tasks/{id}", http.HandlerFunc(boardAPI.deleteTask), auth.Admin)
 	boardRoute("POST /api/v1/tasks/{id}/move", http.HandlerFunc(boardAPI.moveTask), auth.Member)
 	boardRoute("POST /api/v1/tasks/{id}/assign", http.HandlerFunc(boardAPI.assignTask), auth.Member)
 	boardRoute("POST /api/v1/tasks/{id}/links", http.HandlerFunc(boardAPI.createLink), auth.Member)

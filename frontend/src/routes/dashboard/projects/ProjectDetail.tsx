@@ -2,7 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useGetProjectQuery, useListBoardsQuery } from '@/store/api/boards'
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { EmptyState, Panel } from '@/components/ui/card'
-import { formatMicroUSD, formatRelative } from '@/lib/formatters'
+import { formatEstimatedMicroUSD, formatRelative } from '@/lib/formatters'
 
 /**
  * One project and its boards (screen 10-board-list). Boards are the unit that
@@ -34,7 +34,7 @@ export function ProjectDetail() {
                 </Link>
                 <div className="mt-1 flex items-center gap-3 font-mono text-[11px] text-[var(--color-tertiary)]">
                   <span>{board.slug}</span>
-                  <span>cap {formatMicroUSD(board.budget_daily_micros)}</span>
+                  <span>cap {formatEstimatedMicroUSD(board.budget_daily_micros)}</span>
                   <span>{formatRelative(board.created_at)}</span>
                 </div>
                 <div className="mt-2 flex gap-1">

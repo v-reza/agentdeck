@@ -55,7 +55,7 @@ Tim yang menjalankan puluhan agent otonom hari ini memakai papan kerja generik a
 | Bentuk produk | Self-hosted: satu biner Go + Postgres, tanpa Redis |
 | Biaya infra | ≤ $10/bulan (`N13`) |
 | Bahasa | Dwibahasa EN/ID penuh, tanpa string keras di komponen |
-| Kontrak | **105 user story · 358 acceptance criteria · 79 `Must`** — katalog beku di §6 |
+| Kontrak | **108 user story · 377 acceptance criteria · 81 `Must`** — katalog beku di §6 |
 
 > [!IMPORTANT]
 > **Non-goals yang mengikat.** AgentDeck **bukan** inference engine (NG1), **bukan** workflow editor node-canvas (NG2), dan **bukan** IDE in-browser (NG5). Tiga hal ini ditolak bukan karena sulit, tapi karena menggeser produk dari orkestrasi menjadi platform lain. Daftar lengkap: §3.

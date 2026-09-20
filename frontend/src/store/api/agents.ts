@@ -1,18 +1,6 @@
 import { baseApi } from './base'
 import type { Agent } from '@/lib/domain'
 
-/**
- * Agent-domain server state (ARCHITECTURE 18.2: `store/api/agents.ts`, tags
- * Agent, ProviderKey).
- *
- * Only the endpoints that exist today are declared. `PATCH /agents/{id}`,
- * `POST /agents/{id}/validate` and the provider-key pair belong to US-AD67 and
- * US-AD86 (M2) and have no route yet — declaring them would put a call in the
- * cache that can only ever answer 404, and the first person to reach it would
- * read that as a bug in this story. They come back with the routes that serve
- * them, and the provider-key pair returns to `lib/domain` at the same time.
- */
-
 export interface CreateAgentArgs {
   projectID: string
   name: string
@@ -24,6 +12,66 @@ export interface CreateAgentArgs {
   maxAttempts?: number
   tools?: string[]
   skills?: string[]
+}
+
+/** The complete mutable agent profile accepted by PATCH /agents/{id}. */
+export interface UpdateAgentArgs {
+  id: string
+  name: string
+  provider: string
+  model: string
+  reasoning_effort: string
+  skills: string[]
+  tools: string[]
+  max_runtime_seconds: number
+  retry_policy: string
+  max_attempts: number
+  base_url?: string
+}
+
+export interface ArchiveAgentArgs {
+  id: string
+  archived: boolean
+}
+
+export interface CatalogRate {
+  micros_per_1m: number
+  usd_per_1m: number
+}
+
+export interface CatalogModel {
+  model: string
+  price_source: 'manual' | 'catalog' | 'pattern' | 'unpriced' | string
+  pricing_model: string
+  input: CatalogRate
+  output: CatalogRate
+  cached: CatalogRate
+  reasoning: CatalogRate
+  cache_creation: CatalogRate
+  price_version: number
+  estimate: boolean
+  disclaimer: string
+}
+
+export interface AgentCatalog {
+  estimate: boolean
+  disclaimer: string
+  price_version: number
+  models: CatalogModel[]
+}
+
+export interface AgentSkill {
+  id: string
+  org_id: string
+  slug: string
+  name: string
+  body_md: string
+  version: number
+  is_system: boolean
+  used_by: number
+  created_by: string
+  created_at: string
+  updated_at: string
 }
 
 export const agentsApi = baseApi.injectEndpoints({
@@ -42,6 +90,16 @@ export const agentsApi = baseApi.injectEndpoints({
     getAgent: build.query<Agent, string>({
       query: (id) => `agents/${id}`,
       providesTags: (_r, _e, id) => [{ type: 'Agent', id }],
+    }),
+
+    getAgentCatalog: build.query<AgentCatalog, void>({
+      query: () => 'agent-catalog',
+      providesTags: [{ type: 'Agent', id: 'CATALOG' }],
+    }),
+
+    listAgentSkills: build.query<AgentSkill[], void>({
+      query: () => 'agent-skills',
+      providesTags: [{ type: 'Agent', id: 'SKILLS' }],
     }),
 
     createAgent: build.mutation<Agent, CreateAgentArgs>({
@@ -63,16 +121,30 @@ export const agentsApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { projectID }) => [{ type: 'Agent', id: `PROJECT-${projectID}` }],
     }),
 
+    updateAgent: build.mutation<Agent, UpdateAgentArgs>({
+      query: ({ id, ...body }) => ({ url: `agents/${id}`, method: 'PATCH', body }),
+      invalidatesTags: (_r, _e, { id }) => ['Agent', { type: 'Agent', id }],
+    }),
+
+    archiveAgent: build.mutation<Agent, ArchiveAgentArgs>({
+      query: ({ id, archived }) => ({ url: `agents/${id}`, method: 'PATCH', body: { archived } }),
+      invalidatesTags: (_r, _e, { id }) => ['Agent', { type: 'Agent', id }],
+    }),
+
     deleteAgent: build.mutation<void, string>({
       query: (id) => ({ url: `agents/${id}`, method: 'DELETE' }),
-      // 'LIST' was not a tag any endpoint provides, so the old value refetched
-      // nothing and a deleted agent stayed on screen until a manual reload.
-      // Invalidating `{type:'Agent'}` with no id drops every cached agent list,
-      // which is what a delete owes: the caller only knows the agent id, not the
-      // project whose list is now stale.
       invalidatesTags: (_r, _e, id) => [{ type: 'Agent' as const, id }, 'Agent'],
     }),
   }),
 })
 
-export const { useListAgentsQuery, useGetAgentQuery, useCreateAgentMutation, useDeleteAgentMutation } = agentsApi
+export const {
+  useListAgentsQuery,
+  useGetAgentQuery,
+  useGetAgentCatalogQuery,
+  useListAgentSkillsQuery,
+  useCreateAgentMutation,
+  useUpdateAgentMutation,
+  useArchiveAgentMutation,
+  useDeleteAgentMutation,
+} = agentsApi

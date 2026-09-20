@@ -1,5 +1,5 @@
 import { useCostRail } from '@/hooks/use-cost-rail'
-import { budgetOver, formatMicroUSD, formatPercent } from '@/lib/formatters'
+import { budgetOver, formatEstimatedMicroUSD, formatPercent } from '@/lib/formatters'
 
 /**
  * The 264px cost rail (DESIGN.md `shell-costrail`, design source 11-project-list
@@ -27,15 +27,17 @@ export function CostRail() {
         <section>
           <div className="flex items-center justify-between font-mono text-[11px] uppercase text-[var(--color-tertiary)]">
             <span>Today</span>
-            <span>{capMicros > 0 ? `cap ${formatMicroUSD(capMicros)}` : 'no cap'}</span>
+            <span>{capMicros > 0 ? `cap ${formatEstimatedMicroUSD(capMicros)}` : 'no cap'}</span>
           </div>
 
           <div className="mt-1 flex items-baseline gap-2">
             <div className="font-mono text-[24px] font-bold tracking-tight text-[var(--color-primary)] tabular-nums">
-              {formatMicroUSD(today)}
+              {formatEstimatedMicroUSD(today)}
             </div>
             {capMicros > 0 ? (
-              <div className="font-mono text-[12px] text-[var(--color-tertiary)]">/ {formatMicroUSD(capMicros)}</div>
+              <div className="font-mono text-[12px] text-[var(--color-tertiary)]">
+                / {formatEstimatedMicroUSD(capMicros)}
+              </div>
             ) : null}
           </div>
 
@@ -76,7 +78,7 @@ export function CostRail() {
               {week.map((bar, index) => (
                 <div
                   key={bar.day}
-                  title={`${bar.day}: ${formatMicroUSD(bar.total_micros)}`}
+                  title={`${bar.day}: ${formatEstimatedMicroUSD(bar.total_micros)}`}
                   style={{ height: `${bar.height}%` }}
                   className={
                     index === week.length - 1
@@ -106,7 +108,7 @@ export function CostRail() {
                   <div className="mb-1 flex items-center justify-between font-mono text-[11px]">
                     <span className="truncate font-medium text-[var(--color-primary)]">{row.name}</span>
                     <span className="font-semibold text-[var(--color-accent)] tabular-nums">
-                      {formatMicroUSD(row.cost_micros)}
+                      {formatEstimatedMicroUSD(row.cost_micros)}
                     </span>
                   </div>
                   <div className="h-[3px] w-full overflow-hidden rounded-full bg-[var(--color-border-subtle)]">

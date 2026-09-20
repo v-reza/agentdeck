@@ -4,7 +4,7 @@ import { useListBoardsQuery, useListProjectsQuery } from '@/store/api/boards'
 import { useBoardBudgetQuery, useBoardLedgerQuery } from '@/store/api/finops'
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { EmptyState, Panel, StatTile } from '@/components/ui/card'
-import { budgetPercent, formatMicroUSD, formatTokens, formatRelative } from '@/lib/formatters'
+import { budgetPercent, formatEstimatedMicroUSD, formatTokens, formatRelative } from '@/lib/formatters'
 import type { Board } from '@/lib/domain'
 
 /**
@@ -114,8 +114,8 @@ function BoardCost({ boardID }: { boardID: string; orgID: string }) {
   return (
     <>
       <div className="grid grid-cols-4 gap-2.5">
-        <StatTile label="Spent today" value={formatMicroUSD(budget.spent_micros)} accent />
-        <StatTile label="Daily cap" value={formatMicroUSD(budget.budget_daily_micros)} />
+        <StatTile label="Spent today" value={formatEstimatedMicroUSD(budget.spent_micros)} accent />
+        <StatTile label="Daily cap" value={formatEstimatedMicroUSD(budget.budget_daily_micros)} />
         <StatTile
           label="Used"
           value={`${percent.toFixed(1)}%`}
@@ -144,7 +144,7 @@ function BoardCost({ boardID }: { boardID: string; orgID: string }) {
                     {formatTokens(entry.tokens_in)} in / {formatTokens(entry.tokens_out)} out
                   </td>
                   <td className="px-3 text-right font-mono text-[11px] text-[var(--color-primary)]">
-                    {formatMicroUSD(entry.cost_micros)}
+                    {formatEstimatedMicroUSD(entry.cost_micros)}
                   </td>
                   <td className="px-3 text-right font-mono text-[10px] text-[var(--color-quaternary)]">
                     {formatRelative(entry.created_at)}

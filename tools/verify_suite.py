@@ -9,10 +9,13 @@ Cek:
   C. KONTRAK  — tabel/kolom DECISIONS.md ada di DDL ARCHITECTURE.md,
                 enum DECISIONS dipakai di DDL, angka N1..N25 dirujuk
   D. SUITE    — traceability story, rujukan seksi antar dokumen
+  E. MIGRASI  — tabel/kolom yang benar-benar dibuat internal/migrate/*.up.sql
+                juga terdeklarasi di ARCHITECTURE.md dan DECISIONS.md
 
 Exit 0 kalau bersih, 1 kalau ada temuan FAIL.
 """
 
+import io
 import os
 import re
 import sys
@@ -217,6 +220,70 @@ def check_contract():
 
 
 # -------------------------------------------------------------- D. SUITE ----
+def _migration_ddl():
+    """Tabel dan kolom yang benar-benar dibuat migrasi, dibaca dari disk.
+
+    Gate lain membaca dokumen; gate ini membaca `internal/migrate/*.up.sql` yang
+    akan dieksekusi database. Arahnya sengaja satu arah: tabel yang ADA di
+    migrasi wajib terdokumentasi, tapi tabel target M2-M4 yang belum dimigrasi
+    tetap boleh hidup di dokumen. Tanpa itu, gate ini akan memaksa penghapusan
+    rencana yang belum dikerjakan hanya supaya hijau.
+    """
+    mig_dir = os.path.join(ROOT, "internal", "migrate")
+    tables, columns = {}, {}
+    for fname in sorted(os.listdir(mig_dir)):
+        if not fname.endswith(".up.sql"):
+            continue
+        body = io.open(os.path.join(mig_dir, fname), encoding="utf-8").read()
+        # Anchored at line start and requiring "(" so prose in a comment
+        # ("... its own CREATE TABLE statements.") is not read as a table.
+        for m in re.finditer(r"(?m)^CREATE TABLE (?:IF NOT EXISTS )?([a-z_]+)\s*\(", body):
+            tables[m.group(1)] = fname
+        for m in re.finditer(
+            r"ALTER TABLE ([a-z_]+)\s+ADD COLUMN(?: IF NOT EXISTS)? ([a-z_]+)", body
+        ):
+            columns.setdefault(m.group(2), m.group(1))
+    return tables, columns
+
+
+def check_migrations():
+    """Dokumen vs migrasi yang benar-benar ada.
+
+    Kontrak yang mendokumentasikan tabel yang tidak pernah dibuat adalah
+    kontrak yang tidak bisa dipercaya pada bagian yang justru penting. Dua
+    arah diperiksa secara berbeda: tabel migrasi yang tidak terdokumentasi
+    selalu FAIL, kolom ALTER TABLE yang tidak muncul di DDL juga FAIL.
+    """
+    tables, columns = _migration_ddl()
+    if not tables:
+        say("FAIL", "MIGRASI: nol CREATE TABLE terbaca dari internal/migrate/*.up.sql")
+        return
+
+    arch = read("ARCHITECTURE.md") or ""
+    dec = read("DECISIONS.md") or ""
+    both = arch + "\n" + dec
+
+    undocumented = sorted(t for t in tables if f"`{t}`" not in both and t not in both)
+    if undocumented:
+        say(
+            "FAIL",
+            "MIGRASI: tabel ada di migrasi tapi tak terdokumentasi -> "
+            + ", ".join(f"{t} ({tables[t]})" for t in undocumented),
+        )
+    else:
+        say("ok", f"MIGRASI: {len(tables)} tabel migrasi semua terdeklarasi di dokumen")
+
+    missing_cols = sorted(c for c in columns if f"`{c}`" not in both and c not in both)
+    if missing_cols:
+        say(
+            "FAIL",
+            "MIGRASI: kolom ALTER TABLE tak terdokumentasi -> "
+            + ", ".join(f"{c} ({columns[c]})" for c in missing_cols),
+        )
+    else:
+        say("ok", f"MIGRASI: {len(columns)} kolom ALTER TABLE semua terdokumentasi")
+
+
 def check_suite():
     prd = read("00-PRD.md")
     arch = read("ARCHITECTURE.md")
@@ -498,6 +565,8 @@ def main():
     check_arch()
     print()
     check_suite()
+    print()
+    check_migrations()
     print()
     check_pricing()
     print()

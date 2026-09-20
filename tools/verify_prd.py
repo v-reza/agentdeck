@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """Check a PRD suite for the defects a read-through does not catch.
 
-Usage:  python verify_prd.py <prd-directory>
+Usage:
+    python verify_prd.py <prd-file-or-directory>
+
+Passing a file checks only that PRD; passing a directory checks every Markdown
+file in it. Do not point this at a mixed documentation folder when only the
+canonical PRD is intended: non-PRD docs legitimately contain no story IDs and
+would be reported as failures.
 
 Checks per file:
   * story and acceptance-criteria counts
@@ -115,7 +121,16 @@ def check(path, root):
 
 def main(argv):
     root = argv[1] if len(argv) > 1 else "."
-    files = sorted(f for f in os.listdir(root) if f.endswith(".md"))
+    if os.path.isfile(root):
+        files = [root]
+        base = os.path.dirname(root) or "."
+    else:
+        files = [
+            os.path.join(root, f)
+            for f in sorted(os.listdir(root))
+            if f.endswith(".md")
+        ]
+        base = root
     if not files:
         print(f"no .md files in {root}", file=sys.stderr)
         return 1
@@ -123,7 +138,7 @@ def main(argv):
     failed = False
     total_s = total_a = 0
     for f in files:
-        name, stories, acs, problems = check(os.path.join(root, f), root)
+        name, stories, acs, problems = check(f, base)
         total_s += stories
         total_a += acs
         flag = "FAIL" if problems else "ok"

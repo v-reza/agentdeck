@@ -271,6 +271,23 @@ CREATE UNIQUE INDEX orgs_slug_key ON orgs (lower(slug));
 
 `slug` unik case-insensitive; disimpan apa adanya (lowercase dipaksa validasi API) supaya pesan error bisa menyebut input asli.
 
+### 3.2b `org_kinds` — provenance workspace
+
+```sql
+CREATE TABLE org_kinds (
+    org_id     TEXT        NOT NULL,
+    kind       TEXT        NOT NULL DEFAULT 'manual',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT org_kinds_pk     PRIMARY KEY (org_id),
+    CONSTRAINT org_kinds_org_fk FOREIGN KEY (org_id) REFERENCES orgs(id) ON DELETE CASCADE
+);
+```
+
+Mencatat dari mana sebuah Org berasal: `manual` untuk workspace yang dibuat
+lewat UI, nilai lain untuk workspace hasil seed atau import. Dibuat migrasi
+`0002`. Berdiri terpisah dari `orgs` supaya tabel tenant utama tidak perlu
+di-`ALTER` setiap kali sumber pembuatan workspace bertambah.
+
 ### 3.3 `users` — identitas global
 
 ```sql
@@ -281,6 +298,7 @@ CREATE TABLE users (
     password_hash TEXT        NOT NULL,  -- argon2id PHC string: $argon2id$v=19$m=...,t=...,p=...$salt$hash
     avatar_url    TEXT,                  -- opsional; NULL = pakai avatar inisial (US-AD89)
     deleted_at    TIMESTAMPTZ,           -- soft-delete 30 hari saat akun ditutup (US-AD98 AC5)
+    is_shadow     BOOLEAN     NOT NULL DEFAULT false,  -- baris placeholder undangan sebelum user klaim (0002)
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT users_pk            PRIMARY KEY (id),
     CONSTRAINT users_id_ulid_chk   CHECK (char_length(id) = 26),
@@ -869,26 +887,31 @@ CREATE INDEX sessions_expires_idx ON sessions (expires_at) WHERE expires_at < no
 -- Index di atas untuk cleaner job: DELETE FROM sessions WHERE expires_at < now() - interval '7 days'.
 ```
 
-### 3.20 `password_reset_tokens` — token reset password sekali-pakai
+### 3.20 `password_resets` — token reset password sekali-pakai
 
 ```sql
-CREATE TABLE password_reset_tokens (
-    id         TEXT        NOT NULL,
-    user_id    TEXT        NOT NULL,
+CREATE TABLE password_resets (
     token_hash TEXT        NOT NULL,       -- SHA-256; token mentah hanya ada di email
+    user_id    TEXT        NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,       -- 30 menit sejak dibuat (US-AD88 AC3)
     used_at    TIMESTAMPTZ,                -- non-NULL = sudah dipakai, tolak dengan 410
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT prt_pk           PRIMARY KEY (id),
-    CONSTRAINT prt_id_ulid_chk  CHECK (char_length(id) = 26),
-    CONSTRAINT prt_hash_chk     CHECK (char_length(token_hash) = 64),
-    CONSTRAINT prt_user_fk      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT password_resets_pk        PRIMARY KEY (token_hash),
+    CONSTRAINT password_resets_hash_chk  CHECK (char_length(token_hash) = 64),
+    CONSTRAINT password_resets_user_fk   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Melayani: validasi token — SELECT ... WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now().
-CREATE INDEX prt_hash_idx ON password_reset_tokens (token_hash);
-CREATE INDEX prt_expires_idx ON password_reset_tokens (expires_at) WHERE used_at IS NULL;
+-- Reaper dan jalur "hapus semua link milik user" dua-duanya memindai per user.
+CREATE INDEX IF NOT EXISTS password_resets_user_idx ON password_resets (user_id);
+
+-- Sapuan kedaluwarsa urut waktu, jadi indeksnya di expires_at saja.
+CREATE INDEX IF NOT EXISTS password_resets_expires_idx ON password_resets (expires_at);
 ```
+
+`token_hash` adalah primary key: token itu sendiri identitas barisnya, jadi
+kolom `id` terpisah tidak menyimpan apa pun yang belum dijamin unik oleh hash.
+DDL di atas adalah yang dieksekusi migrasi `0005`; kolom `id` pada versi awal
+dokumen tidak pernah ada di database.
 
 Permintaan reset untuk email yang tidak terdaftar tetap mengembalikan `202` dan **tidak** membuat baris di sini — respons identik agar keberadaan akun tidak dapat ditebak (US-AD88 AC5).
 
@@ -1623,7 +1646,7 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 | METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
 | `GET` | `/api/v1/projects` | Session/Key | Viewer | Ya | List project dalam org aktif |
-| `POST` | `/api/v1/projects` | Session/Key | Member | Ya (Key) | Body `{name, slug}` → `201 Created` |
+| `POST` | `/api/v1/projects` | Session/Key | Admin | Ya (Key) | Body `{name, slug}` → `201 Created` (US-AD08 AC3) |
 | `GET` | `/api/v1/projects/{id}` | Session/Key | Viewer | Ya | Detail project |
 | `PATCH` | `/api/v1/projects/{id}` | Session/Key | Admin | Ya | Update `{name, slug}` |
 | `DELETE` | `/api/v1/projects/{id}` | Session/Key | Admin | Ya | Hapus project + cascade board & task |
@@ -1632,7 +1655,7 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 | METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
 | `GET` | `/api/v1/projects/{project_id}/boards` | Session/Key | Viewer | Ya | List board di dalam project |
-| `POST` | `/api/v1/projects/{project_id}/boards` | Session/Key | Member | Ya (Key) | Body `{name, slug, budget_daily_micros}` |
+| `POST` | `/api/v1/projects/{project_id}/boards` | Session/Key | Admin | Ya (Key) | Body `{name, slug, budget_daily_micros}` (US-AD09 AC3) |
 | `GET` | `/api/v1/boards/{id}` | Session/Key | Viewer | Ya | Detail board + kolom + ringkasan status |
 | `PATCH` | `/api/v1/boards/{id}` | Session/Key | Member | Ya | Update `{name, slug, budget_daily_micros}` |
 | `DELETE` | `/api/v1/boards/{id}` | Session/Key | Admin | Ya | Hapus board + task |
@@ -1664,7 +1687,7 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 | `POST` | `/api/v1/boards/{board_id}/tasks` | Session/Key | Member | Ya (Key) | Buat task baru (`title, body, workspace_kind`, dll.) |
 | `GET` | `/api/v1/tasks/{id}` | Session/Key | Viewer | Ya | Detail lengkap task + active run ID |
 | `PATCH` | `/api/v1/tasks/{id}` | Session/Key | Member | Ya | Edit task (`title, body, priority, completion_contract`) |
-| `DELETE` | `/api/v1/tasks/{id}` | Session/Key | Admin | Ya | Hapus task permanen |
+| `DELETE` | `/api/v1/tasks/{id}` | Session/Key | Admin | Ya | Soft-delete, bisa dipulihkan 30 hari (US-AD80 AC2) |
 | `POST` | `/api/v1/tasks/{id}/move` | Session/Key | Member | Ya | Geser task ke kolom/status lain (`{to_status: "ready"}`) |
 | `POST` | `/api/v1/tasks/{id}/assign` | Session/Key | Member | Ya | Assign/unassign agent (`{agent_id: "..."}`) |
 | `POST` | `/api/v1/tasks/{id}/claim` | Session/Key | Member | Ya | Manual force claim (bypass loop dispatcher) |
@@ -2662,7 +2685,7 @@ DECISIONS §6 dan bukan lagi terselubung:**
 | Tabel/Kolom | Status | Sebab |
 |---|---|---|
 | `daily_board_costs` | ditambahkan (§5, §3 lampiran) | query budget O(1), hindari triple join per tick 2 s (N19) |
-| `password_reset_tokens` | ditambahkan (§3.20) | reset password (US-AD88) butuh token sekali-pakai |
+| `password_resets` | dipakai migration 0005 | reset password (US-AD88) menyimpan hash token sekali-pakai |
 | `notifications` | ditambahkan (§3.21) | notifikasi in-app (US-AD61) butuh baris yang bisa dibaca/ditandai |
 | `users.avatar_url`, `users.deleted_at` | ditambahkan (§3.3) | profil akun (US-AD89) + penutupan akun (US-AD98) |
 | `sessions.user_agent`, `sessions.ip`, `sessions.last_seen_at` | ditambahkan (§3.19) | daftar sesi aktif (US-AD90) butuh identitas perangkat |
