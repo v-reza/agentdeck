@@ -7,7 +7,7 @@ All notable changes to AgentDeck are documented here. The format follows
 Versions below `1.0.0` are pre-release: the API may change between minor versions
 until the milestone plan in [docs/PLAN-M0-M4.md](docs/PLAN-M0-M4.md) completes.
 
-## [Unreleased]
+## [0.2.0] - 2026-09-20
 
 Milestone M1 — the board itself. Tracked story by story in
 [docs/CHECKLIST.md](docs/CHECKLIST.md).
@@ -72,5 +72,5 @@ identity and workspace foundation.
   Query for all server state, React Router v7, and a shared modal primitive with
   focus trap, Escape, and scroll lock.
 
-[Unreleased]: https://github.com/v-reza/agentdeck/compare/v0.1.0...HEAD
+[0.2.0]: https://github.com/v-reza/agentdeck/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/v-reza/agentdeck/releases/tag/v0.1.0
