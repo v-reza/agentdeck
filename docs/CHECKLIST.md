@@ -26,7 +26,7 @@
 | `US-AD15` | Must | M1 | Filter task berdasarkan status dan assignee | `18-kanban` | ⬜ |
 | `US-AD16` | Should | M1 | Cari task | `18-kanban` | ⬜ |
 | `US-AD17` | Should | M1 | Priority task (urgent, high, medium, low) | `18-kanban` | ⬜ |
-| `US-AD20` | Must | M1 | Agent registry (CRUD) | `25-agent-registry` | ⬜ |
+| `US-AD20` | Must | M1 | Agent registry (CRUD) | `25-agent-registry` | ✅ PASS |
 | `US-AD21` | Must | M1 | Dispatcher mengklaim task | *backend-only* | ⬜ |
 | `US-AD22` | Must | M1 | Run lifecycle: claim → finish | *backend-only* | ⬜ |
 | `US-AD23` | Must | M1 | Heartbeat berkala | *backend-only* | ⬜ |
@@ -92,14 +92,14 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ⬜ |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ⬜ |
 
-**Total M0–M4: 85 story** (12 PASS, 1 ditunda)
+**Total M0–M4: 85 story** (13 PASS, 1 ditunda)
 
 ## Progres per milestone
 
 | Milestone | Story | PASS | Sisa |
 |---|---|---|---|
 | M0 | 10 | 9 | 1 |
-| M1 | 32 | 3 | 29 |
+| M1 | 32 | 4 | 28 |
 | M2 | 17 | 0 | 17 |
 | M3 | 16 | 0 | 16 |
 | M4 | 10 | 0 | 10 |

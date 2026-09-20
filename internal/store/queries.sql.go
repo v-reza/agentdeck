@@ -168,6 +168,25 @@ func (q *Queries) ClaimShadowUser(ctx context.Context, arg ClaimShadowUserParams
 	return err
 }
 
+const countAgentRunningTasks = `-- name: CountAgentRunningTasks :one
+SELECT count(*) FROM tasks
+WHERE assignee_agent_id = $1 AND org_id = $2 AND status = 'running'
+`
+
+type CountAgentRunningTasksParams struct {
+	AssigneeAgentID *string
+	OrgID           string
+}
+
+// Guards US-AD20 AC4: an agent holding a task in `running` may not be deleted,
+// because the run it is executing would lose its retry/limit source mid-flight.
+func (q *Queries) CountAgentRunningTasks(ctx context.Context, arg CountAgentRunningTasksParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAgentRunningTasks, arg.AssigneeAgentID, arg.OrgID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countBoardsInProject = `-- name: CountBoardsInProject :one
 SELECT count(*)::int
 FROM boards
@@ -630,6 +649,20 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const deleteAgent = `-- name: DeleteAgent :exec
+DELETE FROM agents WHERE id = $1 AND org_id = $2
+`
+
+type DeleteAgentParams struct {
+	ID    string
+	OrgID string
+}
+
+func (q *Queries) DeleteAgent(ctx context.Context, arg DeleteAgentParams) error {
+	_, err := q.db.Exec(ctx, deleteAgent, arg.ID, arg.OrgID)
+	return err
 }
 
 const deleteBoard = `-- name: DeleteBoard :exec
@@ -1763,7 +1796,7 @@ const updateUserProfile = `-- name: UpdateUserProfile :one
 UPDATE users
 SET name       = $2,
     email      = $3,
-    avatar_url = NULLIF($4, '')
+    avatar_url = NULLIF($4::text, '')
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING id, email, name, password_hash, avatar_url, is_shadow, deleted_at, created_at
 `
@@ -1789,6 +1822,11 @@ type UpdateUserProfileRow struct {
 // One statement, so a taken email (23505 on users_email_key) rolls the whole
 // profile update back — no half-applied name change (US-AD89 AC2/AC3). The
 // `deleted_at IS NULL` guard is what turns a closed account into zero rows.
+//
+// The cast on $4 is load-bearing: `NULLIF($4, ”)` alone gives sqlc no type to
+// infer, so it falls back to a positional `Column4 interface{}` whose exact
+// spelling drifts between sqlc releases and breaks the caller. `sqlc.arg` names
+// the parameter and `::text` pins the type, so the generated field is stable.
 func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error) {
 	row := q.db.QueryRow(ctx, updateUserProfile,
 		arg.ID,

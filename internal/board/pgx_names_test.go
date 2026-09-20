@@ -93,6 +93,36 @@ func TestNoRowsBecomesNotFound(t *testing.T) {
 	}
 }
 
+// TestAgentNameTakenErrorIsTheDomainSentinel is US-AD20 AC3 at the repository
+// boundary: a unique violation on agents_project_name_key must arrive at the
+// HTTP layer as ErrAgentNameTaken, which writeBoardError answers as 409.
+//
+// This mapping lives in the pgx repository and is therefore invisible to the
+// handler tests, which drive an in-memory fake that returns the domain error
+// directly. Without this test the mapping could be deleted and every handler
+// test would still pass — verified by mutation, not assumed.
+func TestAgentNameTakenErrorIsTheDomainSentinel(t *testing.T) {
+	mapped := agentNameTakenError(&pgconn.PgError{Code: "23505", ConstraintName: "agents_project_name_key"})
+	if !errors.Is(mapped, ErrAgentNameTaken) {
+		t.Fatalf("duplicate agent name mapped to %v, want ErrAgentNameTaken", mapped)
+	}
+
+	// A board's name index is a different fact and must not be reported as an
+	// agent conflict — the two are fixed by editing different things.
+	board := agentNameTakenError(&pgconn.PgError{Code: "23505", ConstraintName: "boards_project_name_key"})
+	if errors.Is(board, ErrAgentNameTaken) {
+		t.Fatal("a board name collision was reported as an agent name collision")
+	}
+
+	other := errors.New("connection reset")
+	if got := agentNameTakenError(other); !errors.Is(got, other) {
+		t.Fatalf("unrelated error was rewritten to %v, want the original error", got)
+	}
+	if got := agentNameTakenError(nil); got != nil {
+		t.Fatalf("agentNameTakenError(nil) = %v, want nil", got)
+	}
+}
+
 // TestWrappedNoRowsIsStillNotFound covers the shape pgx actually returns from a
 // query helper: the sentinel is wrapped, so a bare == comparison would miss it.
 func TestWrappedNoRowsIsStillNotFound(t *testing.T) {

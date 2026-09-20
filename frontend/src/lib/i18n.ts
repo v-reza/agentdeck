@@ -197,6 +197,47 @@ export interface Dictionary {
   'boards.createFirst': string
   'boards.noProjects': string
   'boards.noProjectsHint': string
+  // Agent registry (25-agent-registry, 26-agent-form) — US-AD20.
+  'agents.title': string
+  'agents.new': string
+  'agents.search': string
+  'agents.col.agent': string
+  'agents.col.provider': string
+  'agents.col.model': string
+  'agents.col.reasoning': string
+  'agents.col.status': string
+  'agents.col.runtime': string
+  'agents.col.tools': string
+  'agents.col.actions': string
+  'agents.count': string
+  'agents.empty': string
+  'agents.emptyHint': string
+  'agents.noProjects': string
+  'agents.noProjectsHint': string
+  'agents.create.title': string
+  'agents.create.description': string
+  'agents.create.submit': string
+  'agents.create.pending': string
+  'agents.create.failed': string
+  'agents.field.provider': string
+  'agents.field.model': string
+  'agents.field.modelHint': string
+  'agents.field.reasoning': string
+  'agents.field.runtime': string
+  'agents.field.retry': string
+  'agents.field.attempts': string
+  'agents.field.tools': string
+  'agents.field.toolsHint': string
+  'agents.field.skills': string
+  'agents.field.skillsHint': string
+  'agents.delete': string
+  'agents.delete.title': string
+  'agents.delete.body': string
+  'agents.delete.confirm': string
+  'agents.delete.pending': string
+  'agents.delete.failed': string
+  'agents.status.ready': string
+  'agents.status.needsKey': string
 }
 
 const en: Dictionary = {
@@ -381,6 +422,46 @@ const en: Dictionary = {
   'boards.createFirst': 'Create your first board',
   'boards.noProjects': 'No projects yet',
   'boards.noProjectsHint': 'A board lives inside a project. Create one on the Projects page first.',
+  'agents.title': 'Agent Registry',
+  'agents.new': 'Register agent',
+  'agents.search': 'Search agent, model, or skill...',
+  'agents.col.agent': 'Agent / ID',
+  'agents.col.provider': 'Provider',
+  'agents.col.model': 'Model',
+  'agents.col.reasoning': 'Reasoning',
+  'agents.col.status': 'Fleet status',
+  'agents.col.runtime': 'Runtime & retry',
+  'agents.col.tools': 'Tools / skills',
+  'agents.col.actions': 'Actions',
+  'agents.count': 'agents registered',
+  'agents.empty': 'No agents in this project',
+  'agents.emptyHint': 'Register one to give tasks a runner.',
+  'agents.noProjects': 'No projects yet',
+  'agents.noProjectsHint': 'An agent belongs to a project. Create one on the Projects page first.',
+  'agents.create.title': 'Register agent',
+  'agents.create.description': 'The agent becomes the retry and runtime limit source for every task it runs.',
+  'agents.create.submit': 'Save',
+  'agents.create.pending': 'Saving…',
+  'agents.create.failed': 'The agent was not registered',
+  'agents.field.provider': 'Provider',
+  'agents.field.model': 'Model',
+  'agents.field.modelHint': 'Stored verbatim: this string is the pricing key.',
+  'agents.field.reasoning': 'Reasoning effort',
+  'agents.field.runtime': 'Max runtime (seconds)',
+  'agents.field.retry': 'Retry policy',
+  'agents.field.attempts': 'Max attempts',
+  'agents.field.tools': 'Tools',
+  'agents.field.toolsHint': 'Comma separated. A tool outside this list is a capability failure.',
+  'agents.field.skills': 'Skills',
+  'agents.field.skillsHint': 'Comma separated.',
+  'agents.delete': 'Delete',
+  'agents.delete.title': 'Delete agent',
+  'agents.delete.body': 'Tasks assigned to this agent lose their assignee. This cannot be undone.',
+  'agents.delete.confirm': 'Delete',
+  'agents.delete.pending': 'Deleting…',
+  'agents.delete.failed': 'The agent was not deleted',
+  'agents.status.ready': 'READY',
+  'agents.status.needsKey': 'NEEDS CREDENTIAL',
 }
 
 const id: Dictionary = {
@@ -564,6 +645,46 @@ const id: Dictionary = {
   'boards.createFirst': 'Buat board pertama Anda',
   'boards.noProjects': 'Belum ada project',
   'boards.noProjectsHint': 'Board berada di dalam project. Buat project dulu di halaman Projects.',
+  'agents.title': 'Agent Registry',
+  'agents.new': 'Daftarkan agent',
+  'agents.search': 'Cari agent, model, atau skill...',
+  'agents.col.agent': 'Agent / ID',
+  'agents.col.provider': 'Provider',
+  'agents.col.model': 'Model',
+  'agents.col.reasoning': 'Reasoning',
+  'agents.col.status': 'Status fleet',
+  'agents.col.runtime': 'Runtime & retry',
+  'agents.col.tools': 'Tools / skill',
+  'agents.col.actions': 'Aksi',
+  'agents.count': 'agent terdaftar',
+  'agents.empty': 'Belum ada agent di project ini',
+  'agents.emptyHint': 'Daftarkan satu supaya task punya runner.',
+  'agents.noProjects': 'Belum ada project',
+  'agents.noProjectsHint': 'Agent dimiliki sebuah project. Buat project dulu di halaman Projects.',
+  'agents.create.title': 'Daftarkan agent',
+  'agents.create.description': 'Agent jadi sumber batas retry dan runtime untuk setiap task yang dijalankannya.',
+  'agents.create.submit': 'Simpan',
+  'agents.create.pending': 'Menyimpan…',
+  'agents.create.failed': 'Agent tidak terdaftar',
+  'agents.field.provider': 'Provider',
+  'agents.field.model': 'Model',
+  'agents.field.modelHint': 'Disimpan apa adanya: string ini jadi kunci harga.',
+  'agents.field.reasoning': 'Reasoning effort',
+  'agents.field.runtime': 'Max runtime (detik)',
+  'agents.field.retry': 'Kebijakan retry',
+  'agents.field.attempts': 'Max percobaan',
+  'agents.field.tools': 'Tools',
+  'agents.field.toolsHint': 'Pisahkan dengan koma. Tool di luar daftar ini jadi kegagalan capability.',
+  'agents.field.skills': 'Skill',
+  'agents.field.skillsHint': 'Pisahkan dengan koma.',
+  'agents.delete': 'Hapus',
+  'agents.delete.title': 'Hapus agent',
+  'agents.delete.body': 'Task yang ditugaskan ke agent ini kehilangan assignee-nya. Tidak bisa dibatalkan.',
+  'agents.delete.confirm': 'Hapus',
+  'agents.delete.pending': 'Menghapus…',
+  'agents.delete.failed': 'Agent tidak dihapus',
+  'agents.status.ready': 'SIAP',
+  'agents.status.needsKey': 'BUTUH KREDENSIAL',
 }
 
 const DICTIONARIES: Record<Lang, Dictionary> = { en, id }

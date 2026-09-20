@@ -559,6 +559,110 @@ func (r *pgxRepository) ListBoardEventsAfter(ctx context.Context, boardID, orgID
 // Compile-time assertion: the pgx repository satisfies the interface.
 var _ Repository = (*pgxRepository)(nil)
 
+// ---- agents (US-AD20) -------------------------------------------------------
+
+// agentNameTakenConstraint is the DDL index that makes an agent name unique
+// inside one project (ARCHITECTURE 3.7). Postgres is the arbiter, as with
+// boards: a pre-flight SELECT would race two concurrent creates.
+const agentNameTakenConstraint = "agents_project_name_key"
+
+// agentNameTakenError maps a unique violation on agents_project_name_key to
+// ErrAgentNameTaken, which writeBoardError answers as 409 (US-AD20 AC3).
+func agentNameTakenError(err error) error {
+	if uniqueViolation(err, agentNameTakenConstraint) {
+		return ErrAgentNameTaken
+	}
+	return err
+}
+
+func (r *pgxRepository) CreateAgent(ctx context.Context, a Agent) (Agent, error) {
+	row, err := r.q.CreateAgent(ctx, store.CreateAgentParams{
+		ID:                a.ID,
+		OrgID:             a.OrgID,
+		ProjectID:         a.ProjectID,
+		Name:              a.Name,
+		Provider:          a.Provider,
+		Model:             a.Model,
+		SkillsJson:        a.SkillsJSON,
+		ToolsJson:         a.ToolsJSON,
+		MaxRuntimeSeconds: int32(a.MaxRuntimeSeconds),
+		RetryPolicy:       a.RetryPolicy,
+		MaxAttempts:       int32(a.MaxAttempts),
+	})
+	if err != nil {
+		return Agent{}, agentNameTakenError(err)
+	}
+	return agentFromCreate(row), nil
+}
+
+func (r *pgxRepository) GetAgent(ctx context.Context, id, orgID string) (Agent, error) {
+	row, err := r.q.GetAgent(ctx, store.GetAgentParams{ID: id, OrgID: orgID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Agent{}, ErrNotFound
+		}
+		return Agent{}, err
+	}
+	return agentFromGet(row), nil
+}
+
+func (r *pgxRepository) ListAgents(ctx context.Context, orgID, projectID string) ([]Agent, error) {
+	rows, err := r.q.ListAgents(ctx, store.ListAgentsParams{OrgID: orgID, ProjectID: projectID})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Agent, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, agentFromList(row))
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) DeleteAgent(ctx context.Context, id, orgID string) error {
+	return r.q.DeleteAgent(ctx, store.DeleteAgentParams{ID: id, OrgID: orgID})
+}
+
+func (r *pgxRepository) CountAgentRunningTasks(ctx context.Context, id, orgID string) (int, error) {
+	n, err := r.q.CountAgentRunningTasks(ctx, store.CountAgentRunningTasksParams{AssigneeAgentID: nullString(id), OrgID: orgID})
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
+// The three agent row shapes differ only by generated type, so they share one
+// mapper. ReasoningEffort and the JSON columns are the ones worth naming: the
+// DDL defaults skills/tools to '[]', so a row always decodes to valid JSON.
+func agentFromCreate(r store.CreateAgentRow) Agent {
+	return Agent{
+		ID: r.ID, OrgID: r.OrgID, ProjectID: r.ProjectID, Name: r.Name,
+		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
+		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
+		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
+		MaxAttempts: int(r.MaxAttempts), CreatedAt: r.CreatedAt.Time,
+	}
+}
+
+func agentFromGet(r store.GetAgentRow) Agent {
+	return Agent{
+		ID: r.ID, OrgID: r.OrgID, ProjectID: r.ProjectID, Name: r.Name,
+		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
+		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
+		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
+		MaxAttempts: int(r.MaxAttempts), CreatedAt: r.CreatedAt.Time,
+	}
+}
+
+func agentFromList(r store.ListAgentsRow) Agent {
+	return Agent{
+		ID: r.ID, OrgID: r.OrgID, ProjectID: r.ProjectID, Name: r.Name,
+		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
+		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
+		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
+		MaxAttempts: int(r.MaxAttempts), CreatedAt: r.CreatedAt.Time,
+	}
+}
+
 // Must is the package-level ULID helper for board IDs; kept here so callers do
 // not each reach into the ulid package with a second import surface.
 func Must() string { return ulid.Must() }

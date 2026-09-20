@@ -141,6 +141,36 @@ type Task struct {
 	ArchivedAt          *time.Time
 }
 
+// Agent is a worker profile (ARCHITECTURE 3.7). It is the retry and limit
+// source for every Run it executes, so the fields that bound a run —
+// MaxRuntimeSeconds, RetryPolicy, MaxAttempts — live here rather than on the
+// task. The provider credential is deliberately absent: it is M2 scope
+// (§16) and US-AD20 AC5 says an agent without one is valid.
+type Agent struct {
+	ID                string
+	OrgID             string
+	ProjectID         string
+	Name              string
+	Provider          string
+	Model             string
+	ReasoningEffort   string
+	SkillsJSON        []byte
+	ToolsJSON         []byte
+	MaxRuntimeSeconds int
+	RetryPolicy       string
+	MaxAttempts       int
+	CreatedAt         time.Time
+}
+
+// RetryPolicy mirrors the agents.retry_policy CHECK (DECISIONS §4).
+func AcceptableRetryPolicy(s string) bool {
+	switch s {
+	case "never", "transient_only", "always":
+		return true
+	}
+	return false
+}
+
 // TaskLink is one edge of the dependency DAG. The table's CHECK rejects
 // parent_id = child_id; the service additionally rejects cycles before insert.
 type TaskLink struct {
@@ -182,6 +212,16 @@ type Repository interface {
 	UpdateBoardBudget(ctx context.Context, id, orgID string, budgetMicros int64) error
 	DeleteBoard(ctx context.Context, id, orgID string) error
 	CountBoardsInProject(ctx context.Context, orgID, projectID string) (int, error)
+
+	// ---- agents ----------------------------------------------------------
+	CreateAgent(ctx context.Context, a Agent) (Agent, error)
+	GetAgent(ctx context.Context, id, orgID string) (Agent, error)
+	ListAgents(ctx context.Context, orgID, projectID string) ([]Agent, error)
+	DeleteAgent(ctx context.Context, id, orgID string) error
+	// CountAgentRunningTasks is the guard for US-AD20 AC4: deleting an agent
+	// that still holds a running task would strand that run without its retry
+	// and limit source, so the count is checked before the delete.
+	CountAgentRunningTasks(ctx context.Context, id, orgID string) (int, error)
 
 	// ---- tasks -----------------------------------------------------------
 	CreateTask(ctx context.Context, t Task) (Task, error)

@@ -20,11 +20,19 @@ SELECT id, email, name, password_hash, avatar_url, is_shadow, deleted_at, create
 FROM users
 WHERE id = $1 AND deleted_at IS NULL;
 
+-- One statement, so a taken email (23505 on users_email_key) rolls the whole
+-- profile update back — no half-applied name change (US-AD89 AC2/AC3). The
+-- `deleted_at IS NULL` guard is what turns a closed account into zero rows.
+--
+-- The cast on $4 is load-bearing: `NULLIF($4, '')` alone gives sqlc no type to
+-- infer, so it falls back to a positional `Column4 interface{}` whose exact
+-- spelling drifts between sqlc releases and breaks the caller. `sqlc.arg` names
+-- the parameter and `::text` pins the type, so the generated field is stable.
 -- name: UpdateUserProfile :one
 UPDATE users
 SET name       = $2,
     email      = $3,
-    avatar_url = NULLIF($4, '')
+    avatar_url = NULLIF(sqlc.arg(avatar_url)::text, '')
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING id, email, name, password_hash, avatar_url, is_shadow, deleted_at, created_at;
 
@@ -247,6 +255,15 @@ SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_j
 FROM agents
 WHERE org_id = $1 AND project_id = $2
 ORDER BY name;
+
+-- name: DeleteAgent :exec
+DELETE FROM agents WHERE id = $1 AND org_id = $2;
+
+-- name: CountAgentRunningTasks :one
+-- Guards US-AD20 AC4: an agent holding a task in `running` may not be deleted,
+-- because the run it is executing would lose its retry/limit source mid-flight.
+SELECT count(*) FROM tasks
+WHERE assignee_agent_id = $1 AND org_id = $2 AND status = 'running';
 
 -- Tasks. created_by is the acting user; assignee_agent_id is nullable.
 -- name: CreateTask :one

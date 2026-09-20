@@ -17,6 +17,9 @@ type Querier interface {
 	ClaimReadyTasks(ctx context.Context, arg ClaimReadyTasksParams) ([]Task, error)
 	ClaimShadowUser(ctx context.Context, arg ClaimShadowUserParams) error
 	ConsumePasswordReset(ctx context.Context, tokenHash string) (int64, error)
+	// Guards US-AD20 AC4: an agent holding a task in `running` may not be deleted,
+	// because the run it is executing would lose its retry/limit source mid-flight.
+	CountAgentRunningTasks(ctx context.Context, arg CountAgentRunningTasksParams) (int64, error)
 	CountBoardsInProject(ctx context.Context, arg CountBoardsInProjectParams) (int32, error)
 	// Guards the last-owner rule: an org must never be left without an owner.
 	CountOrgOwners(ctx context.Context, orgID string) (int32, error)
@@ -57,6 +60,7 @@ type Querier interface {
 	// rejects cycles before insert.
 	CreateTaskLink(ctx context.Context, arg CreateTaskLinkParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
+	DeleteAgent(ctx context.Context, arg DeleteAgentParams) error
 	DeleteBoard(ctx context.Context, arg DeleteBoardParams) error
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteMembership(ctx context.Context, arg DeleteMembershipParams) error
@@ -116,10 +120,16 @@ type Querier interface {
 	// racing on the same task produce one winner and one zero-row result, which the
 	// service maps to ErrConflict. That is what makes move/claim safe under load.
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) (Task, error)
-	// Writes the caller's own profile in one statement; a taken email fails the
-	// whole write (US-AD89 AC2/AC3).
-	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
+	// One statement, so a taken email (23505 on users_email_key) rolls the whole
+	// profile update back — no half-applied name change (US-AD89 AC2/AC3). The
+	// `deleted_at IS NULL` guard is what turns a closed account into zero rows.
+	//
+	// The cast on $4 is load-bearing: `NULLIF($4, '')` alone gives sqlc no type to
+	// infer, so it falls back to a positional `Column4 interface{}` whose exact
+	// spelling drifts between sqlc releases and breaks the caller. `sqlc.arg` names
+	// the parameter and `::text` pins the type, so the generated field is stable.
+	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -417,6 +417,7 @@ type fakeBoardRepo struct {
 	projects map[string]board.Project
 	boards   map[string]board.Board
 	tasks    map[string]board.Task
+	agents   map[string]board.Agent
 }
 
 func newFakeBoardRepo() *fakeBoardRepo {
@@ -424,7 +425,62 @@ func newFakeBoardRepo() *fakeBoardRepo {
 		projects: map[string]board.Project{},
 		boards:   map[string]board.Board{},
 		tasks:    map[string]board.Task{},
+		agents:   map[string]board.Agent{},
 	}
+}
+
+// ---- agents (US-AD20) -------------------------------------------------------
+//
+// The fake mirrors the two behaviours Postgres owns for this table: the name is
+// unique per project (agents_project_name_key) and every read is org-scoped.
+// Reproducing them here is what lets the service's error mapping be the thing
+// under test rather than the database's.
+
+func (r *fakeBoardRepo) CreateAgent(_ context.Context, a board.Agent) (board.Agent, error) {
+	for _, existing := range r.agents {
+		if existing.ProjectID == a.ProjectID && existing.Name == a.Name {
+			return board.Agent{}, board.ErrAgentNameTaken
+		}
+	}
+	r.agents[a.ID] = a
+	return a, nil
+}
+
+func (r *fakeBoardRepo) GetAgent(_ context.Context, id, orgID string) (board.Agent, error) {
+	a, ok := r.agents[id]
+	if !ok || a.OrgID != orgID {
+		return board.Agent{}, board.ErrNotFound
+	}
+	return a, nil
+}
+
+func (r *fakeBoardRepo) ListAgents(_ context.Context, orgID, projectID string) ([]board.Agent, error) {
+	out := []board.Agent{}
+	for _, a := range r.agents {
+		if a.OrgID == orgID && a.ProjectID == projectID {
+			out = append(out, a)
+		}
+	}
+	return out, nil
+}
+
+func (r *fakeBoardRepo) DeleteAgent(_ context.Context, id, orgID string) error {
+	a, ok := r.agents[id]
+	if !ok || a.OrgID != orgID {
+		return board.ErrNotFound
+	}
+	delete(r.agents, id)
+	return nil
+}
+
+func (r *fakeBoardRepo) CountAgentRunningTasks(_ context.Context, id, orgID string) (int, error) {
+	n := 0
+	for _, task := range r.tasks {
+		if task.OrgID == orgID && task.AssigneeAgentID == id && task.Status == board.StatusRunning {
+			n++
+		}
+	}
+	return n, nil
 }
 
 func (r *fakeBoardRepo) CreateProject(_ context.Context, p board.Project) (board.Project, error) {

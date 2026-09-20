@@ -31,7 +31,15 @@ var (
 	// count is read from the caller's own board before this is returned.
 	ErrColumnHasTasks = errors.New("column still holds tasks; move them before removing it")
 	ErrBudgetInvalid  = errors.New("budget must be zero or positive")
-	ErrLastOwner      = errors.New("cannot remove the last owner")
+	// ErrAgentNameTaken is US-AD20 AC3: an agent name is unique inside one
+	// project (the DDL enforces it with agents_project_name_key), so a second
+	// "agent-backend" is a 409 rather than a 500 from the constraint.
+	ErrAgentNameTaken = errors.New("an agent with this name already exists in this project")
+	// ErrAgentHasRunningTask is US-AD20 AC4: an agent executing a task cannot be
+	// deleted, because the run would lose the retry and runtime limits it reads
+	// from the agent row. The operator must finish or fail the task first.
+	ErrAgentHasRunningTask = errors.New("agent is still running a task; finish or fail it first")
+	ErrLastOwner           = errors.New("cannot remove the last owner")
 )
 
 // slugMin/slugMax and the allowed characters mirror the DDL CHECK
@@ -294,6 +302,70 @@ func (s *Service) UpdateBoardBudget(ctx context.Context, id, orgID string, budge
 // DeleteBoard removes a board and its tasks.
 func (s *Service) DeleteBoard(ctx context.Context, id, orgID string) error {
 	return s.repo.DeleteBoard(ctx, id, orgID)
+}
+
+// ---- agents (US-AD20) -------------------------------------------------------
+
+// CreateAgent persists a worker profile. Provider and model are required and
+// stored verbatim: the model string is the pricing key, so normalising it here
+// would silently change what the ledger looks up later. A credential is NOT
+// required (AC5) — an agent registered without one is valid and simply not
+// ready to execute, which is what lets a fleet be described before its secrets
+// are distributed.
+func (s *Service) CreateAgent(ctx context.Context, a Agent) (Agent, error) {
+	if !validateName(a.Name) || !validateName(a.Provider) || !validateName(a.Model) {
+		return Agent{}, ErrInvalidInput
+	}
+	if !AcceptableRetryPolicy(a.RetryPolicy) {
+		return Agent{}, ErrInvalidInput
+	}
+	if a.MaxRuntimeSeconds < 1 || a.MaxRuntimeSeconds > 86400 {
+		return Agent{}, ErrInvalidInput
+	}
+	if a.MaxAttempts < 1 || a.MaxAttempts > 10 {
+		return Agent{}, ErrInvalidInput
+	}
+	if a.ID == "" {
+		a.ID = Must()
+	}
+	if a.ReasoningEffort == "" {
+		a.ReasoningEffort = "medium"
+	}
+	if len(a.SkillsJSON) == 0 {
+		a.SkillsJSON = []byte("[]")
+	}
+	if len(a.ToolsJSON) == 0 {
+		a.ToolsJSON = []byte("[]")
+	}
+	return s.repo.CreateAgent(ctx, a)
+}
+
+// GetAgent loads one agent scoped by org.
+func (s *Service) GetAgent(ctx context.Context, id, orgID string) (Agent, error) {
+	return s.repo.GetAgent(ctx, id, orgID)
+}
+
+// ListAgents returns the agents of one project.
+func (s *Service) ListAgents(ctx context.Context, orgID, projectID string) ([]Agent, error) {
+	return s.repo.ListAgents(ctx, orgID, projectID)
+}
+
+// DeleteAgent removes an agent, refusing while it still holds a running task
+// (AC4). The check and the delete are not one transaction: a task could be
+// claimed between them. That race is acceptable here because the tasks_agent_fk
+// constraint is ON DELETE SET NULL — the worst case is a running task whose
+// assignee is cleared, which is exactly the state the FK already allows, and
+// the dispatcher reads limits from the run it created, not from a live lookup.
+// Closing it fully would need a lock on the tasks table for every agent delete.
+func (s *Service) DeleteAgent(ctx context.Context, id, orgID string) error {
+	running, err := s.repo.CountAgentRunningTasks(ctx, id, orgID)
+	if err != nil {
+		return err
+	}
+	if running > 0 {
+		return ErrAgentHasRunningTask
+	}
+	return s.repo.DeleteAgent(ctx, id, orgID)
 }
 
 // CreateTask persists a new task on a board. The initial status is backlog

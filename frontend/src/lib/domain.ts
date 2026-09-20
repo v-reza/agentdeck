@@ -227,16 +227,6 @@ export interface Agent {
   created_at: string
 }
 
-/**
- * Provider key metadata. There is intentionally no `value`/`api_key` field: the
- * server never returns the plaintext key, so the client cache cannot hold one.
- */
-export interface ProviderKeyState {
-  agent_id: string
-  has_key: boolean
-  last_rotated_at: string
-}
-
 /** One membership row of GET /orgs. */
 export interface Workspace {
   id: string

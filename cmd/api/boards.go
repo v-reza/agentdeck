@@ -30,6 +30,11 @@ func writeBoardError(w http.ResponseWriter, err error) {
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, board.ErrColumnNameTaken), errors.Is(err, board.ErrColumnHasTasks):
 		http.Error(w, err.Error(), http.StatusConflict)
+	// US-AD20: a duplicate agent name and a delete-while-running are both
+	// conflicts the operator resolves by changing what they sent, not by
+	// fixing a malformed payload.
+	case errors.Is(err, board.ErrAgentNameTaken), errors.Is(err, board.ErrAgentHasRunningTask):
+		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, board.ErrConflict):
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, board.ErrCycleDetected):
@@ -124,6 +129,14 @@ func registerBoardRoutes(mux *http.ServeMux, api authAPI, svc *board.Service) {
 	boardRoute("DELETE /api/v1/tasks/{id}/links/{parent_id}", http.HandlerFunc(boardAPI.deleteLink), auth.Member)
 	boardRoute("GET /api/v1/tasks/{id}/links", http.HandlerFunc(boardAPI.listLinks), auth.Viewer)
 	boardRoute("GET /api/v1/tasks/{id}/dag", http.HandlerFunc(boardAPI.taskDag), auth.Viewer)
+
+	// US-AD20 agent registry. Roles come from the ARCHITECTURE route table:
+	// registering is Member, reading is Viewer, deleting is Admin. The create
+	// route hangs off the project because an agent name is unique per project.
+	boardRoute("GET /api/v1/projects/{project_id}/agents", http.HandlerFunc(boardAPI.listAgents), auth.Viewer)
+	boardRoute("POST /api/v1/projects/{project_id}/agents", http.HandlerFunc(boardAPI.createAgent), auth.Member)
+	boardRoute("GET /api/v1/agents/{id}", http.HandlerFunc(boardAPI.getAgent), auth.Viewer)
+	boardRoute("DELETE /api/v1/agents/{id}", http.HandlerFunc(boardAPI.deleteAgent), auth.Admin)
 }
 
 // POST /api/v1/projects — create a project in the caller's active org.
