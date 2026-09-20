@@ -94,12 +94,17 @@ SCREENS = {
     # ---- agent ----
     "25-agent-registry": ("Registry agent", "/agents", ["US-AD20", "US-AD73"], ["default", "empty"],
                           "Blueprint A + cost rail"),
-    "26-agent-form": ("Formulir agent", "/agents/new", ["US-AD96", "US-AD67"],
+    "26-agent-form": ("Formulir agent", "/agents/new", ["US-AD96", "US-AD67", "US-AD106", "US-AD108"],
                       ["default", "no-credential", "error"], "Blueprint C + cost rail"),
     "27-agent-provider-key": ("Kredensial provider agent", "(panel)", ["US-AD86", "US-AD87"],
                               ["default", "masked", "invalid"], "Blueprint C + cost rail (panel 420px)"),
     "28-agent-detail": ("Detail agent", "/agents/:id", ["US-AD67", "US-AD73"],
                         ["default", "archived"], "Blueprint A + cost rail"),
+    # Skill library belum punya mockup Stitch. Sementara dipetakan ke form agent
+    # karena itu permukaan tempat user memilih/mengelola skill; ganti begitu ada
+    # layar tersendiri.
+    "26b-agent-skills": ("Skill library agent", "(panel)", ["US-AD107"],
+                         ["default", "empty", "editor"], "belum ada mockup — menyusul"),
 
     # ---- biaya ----
     "29-cost-overview": ("Ringkasan biaya", "/cost", ["US-AD28", "US-AD29", "US-AD30",
@@ -220,7 +225,10 @@ def build():
 
 
 def write_coverage(stories, screen_of):
-    path = os.path.join(HERE, "COVERAGE.md")
+    # COVERAGE.md hidup di docs/, bukan root repo. Sebelumnya ditulis ke root
+    # sehingga file yang dilacak (docs/COVERAGE.md) tidak pernah diperbarui dan
+    # muncul salinan nyasar di root.
+    path = os.path.join(HERE, "docs", "COVERAGE.md")
     n_screen = sum(1 for s in stories if s in screen_of)
     n_backend = len(stories) - n_screen
     total_frames = sum(len(st) for (_t, _r, _s, st, _n) in SCREENS.values())

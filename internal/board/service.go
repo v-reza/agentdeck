@@ -3,8 +3,11 @@ package board
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"unicode"
+
+	"agentdeck/internal/pricing"
 )
 
 // Domain errors. Handlers map these to stable HTTP codes; the same failure must
@@ -35,11 +38,51 @@ var (
 	// project (the DDL enforces it with agents_project_name_key), so a second
 	// "agent-backend" is a 409 rather than a 500 from the constraint.
 	ErrAgentNameTaken = errors.New("an agent with this name already exists in this project")
+	// ProviderOpenAICompatible is the BYO provider id: the one value that pairs
+	// with a non-empty BaseURL. It is exported so the handler and the validator
+	// name the same string instead of each carrying its own literal.
+	ProviderOpenAICompatible = "openai_compatible"
 	// ErrAgentHasRunningTask is US-AD20 AC4: an agent executing a task cannot be
 	// deleted, because the run would lose the retry and runtime limits it reads
 	// from the agent row. The operator must finish or fail the task first.
 	ErrAgentHasRunningTask = errors.New("agent is still running a task; finish or fail it first")
-	ErrLastOwner           = errors.New("cannot remove the last owner")
+	// ErrAgentBaseURLMismatch is US-AD106 AC1, and it mirrors the DDL CHECK
+	// agents_base_url_chk: `provider = 'openai_compatible'` iff base_url IS NOT
+	// NULL. Both directions are wrong — a base_url on a built-in provider
+	// reroutes traffic to a host the operator did not choose, and
+	// openai_compatible without one has nowhere to send the request. It is its
+	// own sentinel so the handler answers 400 with the rule named, instead of
+	// letting Postgres report it as a CHECK violation and a 500.
+	ErrAgentBaseURLMismatch = errors.New("base_url is required exactly when provider is 'openai_compatible'")
+	// ErrArchiveRequiresAdmin is US-AD73 AC4. It is checked in the handler
+	// rather than at the route because PATCH /agents/{id} carries two floors:
+	// Member for the field update (US-AD96) and owner/admin for retiring the
+	// agent. The domain error exists so the reason is one string in one place.
+	ErrArchiveRequiresAdmin = errors.New("archiving an agent requires the owner or admin role")
+	ErrLastOwner            = errors.New("cannot remove the last owner")
+	// ErrUnknownProvider is US-AD86 AC3: a credential for a provider the price
+	// table does not know is a 400, not a stored secret nobody can spend. It is
+	// deliberately not ErrInvalidInput: the operator's fix is "pick a provider
+	// this deployment supports", not "your payload is malformed".
+	ErrUnknownProvider = errors.New("unknown provider")
+	// ErrCredentialKeyUnavailable is returned when AGENTDECK_MASTER_KEY is
+	// missing or malformed. It must never fall back to storing the key in the
+	// clear — an unavailable master key is a 500 that stores nothing, which is
+	// the only safe reading of "we cannot encrypt this".
+	ErrCredentialKeyUnavailable = errors.New("provider credential encryption is not configured")
+	// ErrNoProviderKey is the "no credential stored" case. It is a 400 and not a
+	// 404 because the agent exists: what the caller asked for is a credential
+	// check on an agent that has none.
+	ErrNoProviderKey = errors.New("agent has no stored provider credential")
+	// ErrProviderNotProbeable is returned when a handshake was asked for but
+	// there is no endpoint to reach: a built-in provider has no base URL in this
+	// deployment, and only the BYO provider carries one (agents_base_url_chk).
+	// Answering 200 without a request would be a fabricated success.
+	ErrProviderNotProbeable = errors.New("provider has no base URL to test; only openai_compatible carries one")
+	// ErrProviderHandshakeFailed is the upstream's answer, not ours: the endpoint
+	// was reachable and refused (401, 404, a timeout). It is a 502 so the UI can
+	// tell "your key is wrong" from "we are broken".
+	ErrProviderHandshakeFailed = errors.New("provider handshake failed")
 )
 
 // slugMin/slugMax and the allowed characters mirror the DDL CHECK
@@ -313,21 +356,15 @@ func (s *Service) DeleteBoard(ctx context.Context, id, orgID string) error {
 // ready to execute, which is what lets a fleet be described before its secrets
 // are distributed.
 func (s *Service) CreateAgent(ctx context.Context, a Agent) (Agent, error) {
-	if !validateName(a.Name) || !validateName(a.Provider) || !validateName(a.Model) {
-		return Agent{}, ErrInvalidInput
-	}
-	if !AcceptableRetryPolicy(a.RetryPolicy) {
-		return Agent{}, ErrInvalidInput
-	}
-	if a.MaxRuntimeSeconds < 1 || a.MaxRuntimeSeconds > 86400 {
-		return Agent{}, ErrInvalidInput
-	}
-	if a.MaxAttempts < 1 || a.MaxAttempts > 10 {
-		return Agent{}, ErrInvalidInput
+	if err := validateAgent(a); err != nil {
+		return Agent{}, err
 	}
 	if a.ID == "" {
 		a.ID = Must()
 	}
+	// The insert binds these columns explicitly, so an omitted value must be
+	// filled here — the DDL default only applies when the column is absent from
+	// the statement, which it is not.
 	if a.ReasoningEffort == "" {
 		a.ReasoningEffort = "medium"
 	}
@@ -338,6 +375,33 @@ func (s *Service) CreateAgent(ctx context.Context, a Agent) (Agent, error) {
 		a.ToolsJSON = []byte("[]")
 	}
 	return s.repo.CreateAgent(ctx, a)
+}
+
+// validateAgent is the one place the agent field contract is checked, shared by
+// create and update so the two paths cannot drift. Every rule here mirrors a
+// DDL CHECK: validating first turns what Postgres would answer with a raw
+// SQLSTATE (a 500) into a 400 the caller can act on.
+func validateAgent(a Agent) error {
+	if !validateName(a.Name) || !validateName(a.Provider) || !validateName(a.Model) {
+		return ErrInvalidInput
+	}
+	if !AcceptableRetryPolicy(a.RetryPolicy) {
+		return ErrInvalidInput
+	}
+	if a.MaxRuntimeSeconds < 1 || a.MaxRuntimeSeconds > 86400 {
+		return ErrInvalidInput
+	}
+	if a.MaxAttempts < 1 || a.MaxAttempts > 10 {
+		return ErrInvalidInput
+	}
+	// agents_base_url_chk: 'openai_compatible' iff base_url IS NOT NULL. Both
+	// directions are wrong: a base_url on a built-in provider would route
+	// traffic to a host the operator did not choose, and openai_compatible
+	// without one has nowhere to send the request.
+	if (a.Provider == ProviderOpenAICompatible) != (a.BaseURL != "") {
+		return ErrAgentBaseURLMismatch
+	}
+	return nil
 }
 
 // GetAgent loads one agent scoped by org.
@@ -366,6 +430,82 @@ func (s *Service) DeleteAgent(ctx context.Context, id, orgID string) error {
 		return ErrAgentHasRunningTask
 	}
 	return s.repo.DeleteAgent(ctx, id, orgID)
+}
+
+// UpdateAgent replaces every mutable field (US-AD96, US-AD106). It is a full
+// update rather than a merge: the caller's request is the new state, so an
+// omitted field lands on its default instead of silently keeping the old value.
+// The handler is responsible for reading the current row and filling anything
+// the request left out, which keeps that decision at the boundary where the
+// request shape is known.
+func (s *Service) UpdateAgent(ctx context.Context, a Agent) (Agent, error) {
+	if err := validateAgent(a); err != nil {
+		return Agent{}, err
+	}
+	return s.repo.UpdateAgent(ctx, a)
+}
+
+// ArchiveAgent retires an agent without deleting it (US-AD73). The running-task
+// guard is the same one delete uses, and for the same reason (AC3): archiving
+// an agent mid-run would leave the run without its retry and limit source. The
+// run is NOT cancelled — the caller is told to finish it, which is what "409,
+// not a severed run" means.
+func (s *Service) ArchiveAgent(ctx context.Context, id, orgID string) (Agent, error) {
+	running, err := s.repo.CountAgentRunningTasks(ctx, id, orgID)
+	if err != nil {
+		return Agent{}, err
+	}
+	if running > 0 {
+		return Agent{}, ErrAgentHasRunningTask
+	}
+	return s.repo.ArchiveAgent(ctx, id, orgID)
+}
+
+// UnarchiveAgent returns an archived agent to service. No guard: putting an
+// agent back can only add capacity, never strand a run.
+func (s *Service) UnarchiveAgent(ctx context.Context, id, orgID string) (Agent, error) {
+	return s.repo.UnarchiveAgent(ctx, id, orgID)
+}
+
+// ---- provider credentials (US-AD86) -----------------------------------------
+
+// ValidateProvider rejects a provider id the deployment's price table does not
+// know (US-AD86 AC3). It lives in the service rather than the handler because
+// the create/update paths validate providers too, and one rule read from one
+// table is the only way the two cannot disagree.
+//
+// The table is the source of truth on purpose: a hand-maintained allowlist here
+// would accept a provider the catalog cannot price, which US-AD67 AC1 calls a
+// 400 as well.
+func ValidateProvider(provider string) error {
+	if provider == ProviderOpenAICompatible {
+		return nil
+	}
+	for _, known := range pricing.Providers() {
+		if provider == known {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %q", ErrUnknownProvider, provider)
+}
+
+// SetProviderKey stores an already-sealed credential and reports the agent's
+// resulting has_provider_key. The sealing is the caller's job: internal/board
+// must not hold the master key, because anything it holds it can also write to
+// a log.
+func (s *Service) SetProviderKey(ctx context.Context, id, orgID string, sealed []byte) (bool, error) {
+	return s.repo.SetAgentProviderKey(ctx, id, orgID, sealed)
+}
+
+// ClearProviderKey revokes the credential, returning the agent to the
+// deployment's environment key.
+func (s *Service) ClearProviderKey(ctx context.Context, id, orgID string) (bool, error) {
+	return s.repo.ClearAgentProviderKey(ctx, id, orgID)
+}
+
+// ProviderKey returns the sealed credential for an agent, or ErrNoProviderKey.
+func (s *Service) ProviderKey(ctx context.Context, id, orgID string) ([]byte, error) {
+	return s.repo.AgentProviderKey(ctx, id, orgID)
 }
 
 // CreateTask persists a new task on a board. The initial status is backlog

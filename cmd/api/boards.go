@@ -40,8 +40,20 @@ func writeBoardError(w http.ResponseWriter, err error) {
 	case errors.Is(err, board.ErrCycleDetected):
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, board.ErrColumnsInvalid), errors.Is(err, board.ErrBudgetInvalid),
-		errors.Is(err, board.ErrInvalidInput), errors.Is(err, board.ErrInvalidStatus):
+		errors.Is(err, board.ErrInvalidInput), errors.Is(err, board.ErrInvalidStatus),
+		errors.Is(err, board.ErrAgentBaseURLMismatch):
 		http.Error(w, err.Error(), http.StatusBadRequest)
+	case errors.Is(err, board.ErrArchiveRequiresAdmin):
+		http.Error(w, err.Error(), http.StatusForbidden)
+	// US-AD86 AC3: an unknown provider is the caller's mistake and the fix is a
+	// different provider, so it is a 400 rather than a 409.
+	case errors.Is(err, board.ErrUnknownProvider), errors.Is(err, board.ErrNoProviderKey),
+		errors.Is(err, board.ErrProviderNotProbeable):
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	// The upstream provider refused us (US-AD86 validate). 502, not 500: our
+	// service is fine, the thing we called is not.
+	case errors.Is(err, board.ErrProviderHandshakeFailed):
+		http.Error(w, err.Error(), http.StatusBadGateway)
 	default:
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

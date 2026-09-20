@@ -238,6 +238,34 @@ export interface Dictionary {
   'agents.delete.failed': string
   'agents.status.ready': string
   'agents.status.needsKey': string
+  'agents.status.archived': string
+  // Toolbar, table footer and the two guidance cards of 25-agent-registry.
+  'agents.filter.all': string
+  'agents.filter.label': string
+  'agents.filter.empty': string
+  'agents.filter.emptyHint': string
+  'agents.footer.showing': string
+  'agents.footer.ready': string
+  'agents.footer.archived': string
+  'agents.statusCard.title': string
+  'agents.statusCard.hint': string
+  'agents.statusCard.ready': string
+  'agents.statusCard.needsKey': string
+  'agents.statusCard.archived': string
+  'agents.spec.title': string
+  'agents.spec.badge': string
+  'agents.spec.intro': string
+  'agents.spec.credentialLabel': string
+  'agents.spec.credentialBody': string
+  'agents.archive.title': string
+  'agents.archive.badge': string
+  'agents.archive.runningLabel': string
+  'agents.archive.runningBody': string
+  'agents.archive.assignLabel': string
+  'agents.archive.assignBody': string
+  'agents.archive.assignable': string
+  'agents.archive.hidden': string
+  'agents.archive.note': string
 }
 
 const en: Dictionary = {
@@ -295,7 +323,7 @@ const en: Dictionary = {
   'auth.resetConfirm.pending': 'Saving…',
   'auth.resetConfirm.mismatch': 'The two passwords do not match.',
   'auth.resetConfirm.success': 'Password updated. Every other session was signed out.',
-  'auth.securityNoticeTitle': 'Security requirement (US-AD88 AC2)',
+  'auth.securityNoticeTitle': 'Security',
   'auth.resetRequest.notice':
     'A reset link requires a new password of at least 8 characters. After a successful reset, every login session ({sessions}) on other devices is revoked automatically.',
   'auth.resetConfirm.notice':
@@ -346,7 +374,7 @@ const en: Dictionary = {
   'members.loadFailed': 'The roster could not be loaded',
   'workspace.title': 'Workspace settings',
   'workspace.subtitle': 'Organization settings',
-  'workspace.badge': 'US-AD03 & US-AD77',
+  'workspace.badge': 'Settings',
   'workspace.description': 'A summary of the active workspace. Core work can be completed without opening this page.',
   'workspace.soloTitle': 'Solo flow stays unblocked',
   'workspace.soloText':
@@ -462,6 +490,36 @@ const en: Dictionary = {
   'agents.delete.failed': 'The agent was not deleted',
   'agents.status.ready': 'READY',
   'agents.status.needsKey': 'NEEDS CREDENTIAL',
+  'agents.status.archived': 'ARCHIVED',
+  'agents.filter.all': 'All statuses',
+  'agents.filter.label': 'Filter by fleet status',
+  'agents.filter.empty': 'No agent matches that search',
+  'agents.filter.emptyHint': 'Clear the search or set the filter back to all statuses.',
+  'agents.footer.showing': 'Showing {0} of {1} agents registered',
+  'agents.footer.ready': '{0} ready to assign',
+  'agents.footer.archived': '{0} archived (hidden from the assign dropdown)',
+  'agents.statusCard.title': '{0} agents in this project',
+  'agents.statusCard.hint': '{0} can take a task now · {1} waiting for a provider key',
+  'agents.statusCard.ready': '{0} READY',
+  'agents.statusCard.needsKey': '{0} NEEDS KEY',
+  'agents.statusCard.archived': '{0} ARCHIVED',
+  'agents.spec.title': 'What a valid agent needs',
+  'agents.spec.badge': '8 required fields',
+  'agents.spec.intro': 'Every field below is validated when an agent is registered:',
+  'agents.spec.credentialLabel': 'No provider key yet?',
+  'agents.spec.credentialBody':
+    'An agent can be registered without a provider key. It stays unconfigured until the secret is filled in, and it cannot be assigned work until then.',
+  'agents.archive.title': 'What archiving an agent does',
+  'agents.archive.badge': 'Reversible',
+  'agents.archive.runningLabel': 'Running work finishes:',
+  'agents.archive.runningBody':
+    'When {0} is archived, a task that is already {1} runs to completion. Its token spend stays in the cost ledger.',
+  'agents.archive.assignLabel': 'Hidden from new assignments:',
+  'agents.archive.assignBody':
+    'An archived agent is filtered out of the assign picker on the board and in the table view, so {0} can never be picked for new work.',
+  'agents.archive.assignable': '{0} agents can be assigned right now',
+  'agents.archive.hidden': '{0} archived',
+  'agents.archive.note': 'Unarchive any time — nothing is deleted.',
 }
 
 const id: Dictionary = {
@@ -571,7 +629,7 @@ const id: Dictionary = {
   'members.loadFailed': 'Daftar anggota gagal dimuat',
   'workspace.title': 'Pengaturan ruang kerja',
   'workspace.subtitle': 'Pengaturan organisasi',
-  'workspace.badge': 'US-AD03 & US-AD77',
+  'workspace.badge': 'Pengaturan',
   'workspace.description': 'Ringkasan ruang kerja aktif. Alur inti dapat diselesaikan tanpa membuka halaman ini.',
   'workspace.soloTitle': 'Alur solo tidak terblokir',
   'workspace.soloText':
@@ -685,6 +743,36 @@ const id: Dictionary = {
   'agents.delete.failed': 'Agent tidak dihapus',
   'agents.status.ready': 'SIAP',
   'agents.status.needsKey': 'BUTUH KREDENSIAL',
+  'agents.status.archived': 'DIARSIP',
+  'agents.filter.all': 'Semua Status',
+  'agents.filter.label': 'Filter berdasarkan status fleet',
+  'agents.filter.empty': 'Tidak ada agent yang cocok',
+  'agents.filter.emptyHint': 'Kosongkan pencarian atau kembalikan filter ke semua status.',
+  'agents.footer.showing': 'Menampilkan {0} dari {1} agent terdaftar',
+  'agents.footer.ready': '{0} siap di-assign',
+  'agents.footer.archived': '{0} diarsip (tidak muncul di dropdown assign)',
+  'agents.statusCard.title': '{0} agent di project ini',
+  'agents.statusCard.hint': '{0} siap menerima task · {1} menunggu kredensial provider',
+  'agents.statusCard.ready': '{0} SIAP',
+  'agents.statusCard.needsKey': '{0} BUTUH KREDENSIAL',
+  'agents.statusCard.archived': '{0} DIARSIP',
+  'agents.spec.title': 'Syarat agent yang valid',
+  'agents.spec.badge': '8 field wajib',
+  'agents.spec.intro': 'Semua field di bawah divalidasi saat agent didaftarkan:',
+  'agents.spec.credentialLabel': 'Belum punya kredensial provider?',
+  'agents.spec.credentialBody':
+    'Agent boleh didaftarkan tanpa kredensial provider. Statusnya belum terkonfigurasi sampai kredensial diisi, dan selama itu agent belum bisa ditugaskan.',
+  'agents.archive.title': 'Efek mengarsipkan agent',
+  'agents.archive.badge': 'Bisa dibatalkan',
+  'agents.archive.runningLabel': 'Task yang sedang jalan tetap tuntas:',
+  'agents.archive.runningBody':
+    'Saat {0} diarsip, task yang berstatus {1} tetap dikerjakan sampai selesai. Pemakaian tokennya tetap tercatat di ledger biaya.',
+  'agents.archive.assignLabel': 'Hilang dari penugasan baru:',
+  'agents.archive.assignBody':
+    'Agent yang diarsip disaring keluar dari pemilih assign di board dan di table view, jadi {0} tidak akan pernah terpilih untuk task baru.',
+  'agents.archive.assignable': '{0} agent bisa ditugaskan sekarang',
+  'agents.archive.hidden': '{0} diarsip',
+  'agents.archive.note': 'Bisa dibatalkan kapan saja — tidak ada yang dihapus.',
 }
 
 const DICTIONARIES: Record<Lang, Dictionary> = { en, id }

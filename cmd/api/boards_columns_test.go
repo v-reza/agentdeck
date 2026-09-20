@@ -418,14 +418,20 @@ type fakeBoardRepo struct {
 	boards   map[string]board.Board
 	tasks    map[string]board.Task
 	agents   map[string]board.Agent
+	// providerKeys stands in for agents.provider_api_key_enc. It holds the
+	// sealed bytes exactly as the handler handed them over, so a test can assert
+	// what was persisted without a database. Postgres itself owns the generated
+	// has_provider_key column; the fake mirrors it in Set/Clear below.
+	providerKeys map[string][]byte
 }
 
 func newFakeBoardRepo() *fakeBoardRepo {
 	return &fakeBoardRepo{
-		projects: map[string]board.Project{},
-		boards:   map[string]board.Board{},
-		tasks:    map[string]board.Task{},
-		agents:   map[string]board.Agent{},
+		projects:     map[string]board.Project{},
+		boards:       map[string]board.Board{},
+		tasks:        map[string]board.Task{},
+		agents:       map[string]board.Agent{},
+		providerKeys: map[string][]byte{},
 	}
 }
 
@@ -454,6 +460,15 @@ func (r *fakeBoardRepo) GetAgent(_ context.Context, id, orgID string) (board.Age
 	return a, nil
 }
 
+// ListAgents mirrors the real statement's column set, which is the point: the
+// sqlc ListAgents now selects base_url and archived_at alongside the pre-0008
+// columns, so the fake passes them through. It used to blank both, because the
+// statement did not select them and a fake returning the full stored struct
+// would have let a test believe the list reports archived_at when production's
+// row type could not carry it. That gap is closed in queries.sql.
+//
+// Archived rows are still returned: archiving keeps the row, and this screen is
+// where a user finds it again to unarchive.
 func (r *fakeBoardRepo) ListAgents(_ context.Context, orgID, projectID string) ([]board.Agent, error) {
 	out := []board.Agent{}
 	for _, a := range r.agents {

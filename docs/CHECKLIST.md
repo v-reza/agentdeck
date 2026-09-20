@@ -38,7 +38,7 @@
 | `US-AD64` | Must | M1 | Empty state board | `44-state-empty` | ⬜ |
 | `US-AD66` | Must | M1 | Max runtime per task (N9) | *backend-only* | ⬜ |
 | `US-AD67` | Must | M1 | Menentukan model dan provider per agent | `26-agent-form`, `28-agent-detail` | ⬜ |
-| `US-AD73` | Must | M1 | Menonaktifkan (archive) agent | `25-agent-registry`, `28-agent-detail` | ⬜ |
+| `US-AD73` | Must | M1 | Menonaktifkan (archive) agent | `25-agent-registry`, `28-agent-detail` | 🔨 dikerjakan |
 | `US-AD75` | Must | M1 | Workspace management: menentukan workspace_kind | *backend-only* | ⬜ |
 | `US-AD76` | Should | M1 | Halaman dashboard | `42-dashboard` | ⬜ |
 | `US-AD79` | Must | M1 | Reassign task ke agent lain | `20-task-drawer` | ⬜ |
@@ -48,6 +48,9 @@
 | `US-AD84` | Must | M1 | Menghapus board | `23-board-settings` | ⬜ |
 | `US-AD90` | Must | M1 | Ganti password dan sesi aktif | `16-security` | ⬜ |
 | `US-AD91` | Must | M1 | Daftar board lintas project | `10-board-list`, `11-project-list` | ⬜ |
+| `US-AD106` | Must | M2 | Provider BYO (bring your own) | `26-agent-form` | ⬜ |
+| `US-AD107` | Should | M2 | Skill library per ruang kerja | `26b-agent-skills` | ⬜ |
+| `US-AD108` | Must | M2 | Estimasi biaya: label dan sumber harga | `26-agent-form` | ⬜ |
 | `US-AD18` | Must | M2 | Dependency DAG antar task | *backend-only* | ⬜ |
 | `US-AD19` | Should | M2 | Visualisasi dependency di board | `18-kanban`, `24-dependency-view` | ⬜ |
 | `US-AD25` | Must | M2 | Menulis step (trace) dalam run | *backend-only* | ⬜ |
@@ -92,7 +95,7 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ⬜ |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ⬜ |
 
-**Total M0–M4: 85 story** (13 PASS, 1 ditunda)
+**Total M0–M4: 88 story** (13 PASS, 1 ditunda)
 
 ## Progres per milestone
 
@@ -100,7 +103,15 @@
 |---|---|---|---|
 | M0 | 10 | 9 | 1 |
 | M1 | 32 | 4 | 28 |
-| M2 | 17 | 0 | 17 |
+| M2 | 20 | 0 | 20 |
 | M3 | 16 | 0 | 16 |
 | M4 | 10 | 0 | 10 |
+
+### Catatan status — `US-AD73` (🔨 dikerjakan)
+
+**backend PASS, UI sebagian.**
+
+- Sudah jalan: `PATCH /api/v1/agents/{id}` dengan `{"archived": true|false}`; guard 409 saat agent masih memegang run; guard 403 untuk member/viewer; `archived_at` dikembalikan di `GET`/list/`POST`; badge `DIARSIP` dan filter `DIARSIP` di registry; agent terarsip dikeluarkan dari hitungan siap-ditugaskan.
+- Belum: AC2 menuntut agent terarsip hilang dari **dropdown assign task** (`<select name="assigned_agent">`) di papan Kanban dan Table View. Backend-nya ada (`ListAssignableAgents`), dropdown-nya belum dibangun. AC1 (task `running` tetap tuntas saat agent diarsip) baru bisa dibuktikan end-to-end setelah executor M4 ada.
+- Status PASS ditahan sampai kedua AC itu bisa dibuktikan — bukan karena gate merah.
 

@@ -367,4 +367,208 @@ test.describe('agent registry (US-AD20)', () => {
     // The agent is still there: a refused delete must not optimistically drop the row.
     await expect(page.getByRole('row', { name: /agent-held/ })).toBeVisible()
   })
+
+  // The toolbar, the table footer and the two guidance cards, cloned from the
+  // design's own blocks. Each is asserted against data the API really returned:
+  // no mock count is trusted, and the archived figure is 0 because `archived_at`
+  // does not exist in the schema yet.
+  test('the toolbar search narrows the rows to a name, model, or skill match', async ({ page }) => {
+    await api(page, orgID, 'POST', `/projects/${projectID}/agents`, agentPayload({ name: 'agent-backend' }))
+    await api(
+      page,
+      orgID,
+      'POST',
+      `/projects/${projectID}/agents`,
+      agentPayload({ name: 'agent-frontend', model: 'gpt-4o-mini', skills: ['sql'] }),
+    )
+
+    await page.goto(`/app/${orgID}/agents`)
+    await expect(page.getByRole('row', { name: /agent-backend/ })).toBeVisible()
+
+    // 220px is the design's own width on the search field.
+    const search = page.getByRole('searchbox', { name: /cari agent, model, atau skill/i })
+    const width = await search.evaluate((el) => Math.round(el.getBoundingClientRect().width))
+    expect(width, 'design w-[220px]').toBe(220)
+
+    // By name.
+    await search.fill('frontend')
+    await expect(page.getByRole('row', { name: /agent-backend/ })).toBeHidden()
+    await expect(page.getByRole('row', { name: /agent-frontend/ })).toBeVisible()
+
+    // By model — the placeholder promises model search too.
+    await search.fill('gpt-4o-mini')
+    await expect(page.getByRole('row', { name: /agent-frontend/ })).toBeVisible()
+    await expect(page.getByRole('row', { name: /agent-backend/ })).toBeHidden()
+
+    // By skill — the third thing the placeholder names.
+    await search.fill('sql')
+    await expect(page.getByRole('row', { name: /agent-frontend/ })).toBeVisible()
+
+    // Nothing matches: the table is replaced by a state that says so, rather
+    // than an empty panel that reads as "this project has no agents".
+    await search.fill('nothing-matches-this')
+    await expect(page.getByText(/tidak ada agent yang cocok/i)).toBeVisible()
+    await expect(page.getByRole('table')).toBeHidden()
+  })
+
+  test('the toolbar status filter narrows by fleet readiness', async ({ page }) => {
+    // Nothing in the contract can set `has_provider_key` yet — provider keys are
+    // US-AD86, M2 — so every registered agent reports false. Both branches are
+    // still asserted against the API's own answer for this row, so what is being
+    // proven is the filter's rule, not the fixture that produced the row.
+    await api(page, orgID, 'POST', `/projects/${projectID}/agents`, agentPayload({ name: 'agent-no-key' }))
+
+    await page.goto(`/app/${orgID}/agents`)
+    const filter = page.getByLabel(/filter berdasarkan status fleet/i)
+    // The control is a popover (button + listbox), not a native `<select>`: a
+    // native select cannot show the design's trigger, and it clipped the longest
+    // option. Driving it means opening it and picking the option by role.
+    async function pick(option: string) {
+      await filter.click()
+      await page.getByRole('option', { name: option }).click()
+    }
+
+    await pick('SIAP')
+    await expect(page.getByRole('row', { name: /agent-no-key/ })).toBeHidden()
+    await expect(page.getByText(/tidak ada agent yang cocok/i)).toBeVisible()
+
+    await pick('BUTUH KREDENSIAL')
+    await expect(page.getByRole('row', { name: /agent-no-key/ })).toBeVisible()
+
+    await pick('Semua Status')
+    await expect(page.getByRole('row', { name: /agent-no-key/ })).toBeVisible()
+  })
+
+  test('the footer states how many of the registered agents are shown', async ({ page }) => {
+    await api(page, orgID, 'POST', `/projects/${projectID}/agents`, agentPayload({ name: 'agent-one' }))
+    await api(
+      page,
+      orgID,
+      'POST',
+      `/projects/${projectID}/agents`,
+      agentPayload({ name: 'agent-two', model: 'gpt-4o-mini' }),
+    )
+
+    await page.goto(`/app/${orgID}/agents`)
+    const footer = page.getByTestId('agents-footer')
+    await expect(footer).toBeVisible()
+
+    // The design's own footer sentence, with the real counts: 2 registered, 2 shown.
+    await expect(footer.getByText('Menampilkan 2 dari 2 agent terdaftar')).toBeVisible()
+    // No agent has a credential yet, so none is ready to assign — the design's
+    // hardcoded "3 siap di-assign" is a mock number and is not rendered.
+    await expect(footer.getByText('0 siap di-assign')).toBeVisible()
+    await expect(footer.getByText('0 diarsip (tidak muncul di dropdown assign)')).toBeVisible()
+
+    // The footer tracks the filter, not just the list.
+    await page.getByRole('searchbox', { name: /cari agent, model, atau skill/i }).fill('agent-one')
+    await expect(footer.getByText('Menampilkan 1 dari 2 agent terdaftar')).toBeVisible()
+  })
+
+  test('an archived agent is listed, counted, and never counted as assignable', async ({ page }) => {
+    // US-AD73 AC2 end to end: archive through the API, then read what the
+    // registry does with it. `archived_at` has to survive the round trip, or the
+    // screen can only print a hardcoded zero for the archive count.
+    const created = await api<{ id: string }>(
+      page,
+      orgID,
+      'POST',
+      `/projects/${projectID}/agents`,
+      agentPayload({ name: 'agent-retired' }),
+    )
+    expect(created.status, 'creating the agent to archive').toBe(201)
+
+    const archived = await api<{ archived_at?: string }>(page, orgID, 'PATCH', `/agents/${created.data.id}`, {
+      archived: true,
+    })
+    expect(archived.status, 'archiving').toBe(200)
+    expect(archived.data.archived_at, 'PATCH echoes archived_at').toBeTruthy()
+
+    // The list must still return it: this screen is where a user unarchives.
+    const listed = await api<{ name: string; archived_at?: string }[]>(
+      page,
+      orgID,
+      'GET',
+      `/projects/${projectID}/agents`,
+    )
+    const row = listed.data.find((a) => a.name === 'agent-retired')
+    expect(row, 'archived agent is still listed').toBeTruthy()
+    expect(row?.archived_at, 'list carries archived_at, not just PATCH').toBeTruthy()
+
+    await page.goto(`/app/${orgID}/agents`)
+    const row2 = page.getByRole('row', { name: /agent-retired/ })
+    await expect(row2).toBeVisible()
+    await expect(row2.getByText(/^DIARSIP$/)).toBeVisible()
+
+    // AC2: it must not appear in the "ready" bucket the assign dropdown reads.
+    const filter = page.getByLabel(/filter berdasarkan status fleet/i)
+    await filter.click()
+    await page.getByRole('option', { name: 'SIAP' }).click()
+    await expect(row2).toBeHidden()
+
+    await filter.click()
+    await page.getByRole('option', { name: 'DIARSIP' }).click()
+    await expect(row2).toBeVisible()
+  })
+
+  test('the two guidance cards render under the table', async ({ page }) => {
+    await api(page, orgID, 'POST', `/projects/${projectID}/agents`, agentPayload({ name: 'agent-cards' }))
+
+    await page.goto(`/app/${orgID}/agents`)
+    const cards = page.getByTestId('agents-spec-cards')
+    await expect(cards).toBeVisible()
+
+    // The grid's two direct children are the two cards. `Panel` takes only
+    // children and className, so there is no testid to hang on each one.
+    const [crud, archive] = [cards.locator('> div').nth(0), cards.locator('> div').nth(1)]
+
+    // The cards must say what the reader can act on, not which story shipped it.
+    await expect(crud.getByText('Syarat agent yang valid')).toBeVisible()
+    await expect(crud.getByText('8 field wajib')).toBeVisible()
+    for (const chip of ['name:', 'skills:', 'retry_policy:']) {
+      await expect(crud.getByText(chip, { exact: false })).toBeVisible()
+    }
+    await expect(crud.getByText(/Belum punya kredensial provider\?/)).toBeVisible()
+
+    await expect(archive.getByText('Efek mengarsipkan agent')).toBeVisible()
+    await expect(archive.getByText(/Task yang sedang jalan tetap tuntas/)).toBeVisible()
+    await expect(archive.getByText(/Hilang dari penugasan baru/)).toBeVisible()
+
+    // `grid-cols-2`: the two cards share the row, so they start at the same y and
+    // each is narrower than the pair. A single column would stack them.
+    const [a, b] = await Promise.all([crud.boundingBox(), archive.boundingBox()])
+    expect(a).not.toBeNull()
+    expect(b).not.toBeNull()
+    expect(Math.abs((a?.y ?? 0) - (b?.y ?? 0)), 'both cards on one row').toBeLessThanOrEqual(1)
+    expect(b?.x ?? 0).toBeGreaterThan((a?.x ?? 0) + 100)
+  })
+
+  /**
+   * The registry is a product screen, not a spec document.
+   *
+   * The Stitch mock is an acceptance-criteria explainer: it prints "US-AD20",
+   * "US-AD73", "AC1", "HTTP 201 Created", and "M1" as visible copy, because it
+   * was drawn to show a reviewer which criteria the screen satisfies. Cloning it
+   * class-for-class carried that vocabulary into the shipped UI. An operator
+   * should never have to read a story id to use the page, so this asserts the
+   * rendered text is free of it — and it fails on the whole page, not one card,
+   * because the leak was in several places at once.
+   */
+  test('the page never renders story, AC, milestone, or status-code jargon', async ({ page }) => {
+    await api(page, orgID, 'POST', `/projects/${projectID}/agents`, agentPayload({ name: 'agent-jargon' }))
+    await page.goto(`/app/${orgID}/agents`)
+    await expect(page.getByTestId('agents-spec-cards')).toBeVisible()
+
+    const body = (await page.locator('#root').innerText()).replace(/\s+/g, ' ')
+    for (const pattern of [
+      /US-AD\d+/, // story ids
+      /\bAC\d\b/, // acceptance-criterion numbers
+      /HTTP \d{3}/, // status codes used as copy
+      /\bM[1-6]\b/, // roadmap phases
+      /B2C|B2B/, // segment jargon
+      /[Ss]pec(ification)?\b.*\b(chip|card)\b/, // spec-document phrasing
+    ]) {
+      expect(body, `jargon leaked into the UI: ${pattern}`).not.toMatch(pattern)
+    }
+  })
 })

@@ -57,7 +57,7 @@ export function WorkspaceSidebar() {
           </div>
           <div className="mt-0.5 flex items-center gap-1 text-[11px] text-[var(--color-tertiary)]">
             <Lock size={12} className="shrink-0" />
-            <span className="font-mono text-[10px]">auto-bound (US-AD08 AC4)</span>
+            <span className="font-mono text-[10px]">auto-bound</span>
           </div>
         </div>
 
@@ -75,7 +75,7 @@ export function WorkspaceSidebar() {
             <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-tertiary)]">
               Projects in scope
             </span>
-            <span className="font-mono text-[10px] text-[var(--color-tertiary)]">AC4</span>
+            <span className="font-mono text-[10px] text-[var(--color-tertiary)]">Scope</span>
           </div>
           <div className="flex min-h-0 flex-col gap-0.5 overflow-y-auto">
             {projects.length === 0 ? (

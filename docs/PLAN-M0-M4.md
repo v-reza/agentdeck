@@ -196,6 +196,55 @@ terverifikasi, run bisa direproduksi.
 
 ---
 
+## WS-AGENT — Agent Registry lengkap (vertical slice, DISEPAKATI 2026-09-20)
+
+**Kenapa ada workstream ini.** Agent registry sebelumnya terpecah di tiga milestone
+(`PLAN` M1 layar `25-agent-registry`/`26-agent-form`/`28-agent-detail`, M2 layar
+`26-agent-form` lagi, M4 layar `27-agent-provider-key`). Satu alur yang dirasakan user
+sebagai satu fitur jadi tiga milestone. Keputusan user 2026-09-20: **kerjakan registry
+sebagai satu workstream utuh**, mengikuti key feature, bukan potongan layer.
+
+**Kontraknya:** `DECISIONS.md` §6A (mengikat). Ringkasnya:
+
+- Biaya = **estimate**, bukan tagihan. Rumus 5 komponen (input-miss, cached, output,
+  **reasoning**, cache_creation) — terverifikasi eksak terhadap 13.140 baris data produksi.
+- Tabel harga = port 9Router (MIT): **220 entri exact + 51 pattern**.
+- Resolusi 4 tingkat: override org → exact → pattern → `unpriced`. **Default pattern.**
+- BYO provider = `provider='openai_compatible'` + `base_url`, **provider terpisah**.
+- Skill library per-org, **agent tidak boleh menulis**.
+- Tools **tertutup**, 9 primitif.
+
+### Isi workstream (urutan eksekusi)
+
+| # | Item | Story | Layar |
+|---|---|---|---|
+| 1 | Toolbar 25: search + filter `Semua Status` + footer count | US-AD20 | `25-agent-registry` |
+| 2 | Dua card guidance di bawah tabel (CRUD spec + arsip) | US-AD20, US-AD73 | `25-agent-registry` |
+| 3 | Modal create: ukuran pas, label satu baris, tools/skills tertutup | US-AD96 | `26-agent-form` |
+| 4 | `internal/pricing`: tabel 220+51, resolver 4 tingkat, satuan micro-USD | US-AD108 | backend |
+| 5 | `GET /agent-catalog` — katalog model + harga estimate | US-AD96, US-AD108 | backend |
+| 6 | Kredensial provider: AES-256-GCM, tulis-saja, owner/admin saja | US-AD86 | `27-agent-provider-key` |
+| 7 | Uji kredensial sebelum simpan (kredensial di body) | US-AD96 AC5 | `26-agent-form` |
+| 8 | Provider BYO + SSRF guard + `GET {base_url}/models` | US-AD106 | `26-agent-form` |
+| 9 | Skill library per-org + sanitasi markdown + seed 8 skill | US-AD107 | baru |
+| 10 | Halaman detail agent + arsip | US-AD67, US-AD73 | `28-agent-detail` |
+| 11 | Label "estimate" di semua angka biaya + `price_source` di ledger | US-AD108 | lintas layar |
+
+### Yang TIDAK bisa ikut ke workstream ini
+
+**US-AD87** (agent gagal karena kredensial invalid) **tetap di M4**. Story itu butuh
+**Run Executor** — komponen yang benar-benar menjalankan agent dan menerima penolakan
+provider saat runtime. Menariknya maju berarti membangun M4 lebih dulu. Layar
+`27-agent-provider-key` karena itu muncul di dua tempat: panel kredensial di sini,
+dan alur pemulihan kegagalan di M4.
+
+**Definisi WS-AGENT selesai:** registry (tabel + toolbar + guidance), form create/ubah
+sebagai modal yang match design, katalog harga hidup dengan resolver 4 tingkat, kredensial
+terenkripsi dengan aturan akses yang diuji, BYO provider dengan SSRF guard yang diuji,
+dan skill library per-org — semua dengan screenshot terverifikasi.
+
+---
+
 ## Setelah M4 (bukan scope sekarang)
 
 - M5 (7 story) — governance & integrasi: API key, webhook, audit

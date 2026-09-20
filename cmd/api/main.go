@@ -17,6 +17,7 @@ import (
 	"agentdeck/internal/config"
 	"agentdeck/internal/migrate"
 	"agentdeck/internal/notify"
+	"agentdeck/internal/skill"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -27,6 +28,11 @@ type authAPI struct {
 	mailer     notifier
 	logger     *slog.Logger
 	appBaseURL string
+	// masterKey is the raw AGENTDECK_MASTER_KEY, decoded on use by internal/crypto.
+	// It is never logged, never echoed, and never compared to anything a caller
+	// sends. An empty value leaves the credential endpoints answering 500 rather
+	// than storing a key in the clear.
+	masterKey string
 	// projects is nil in unit tests that do not exercise registration seeding,
 	// so every use is nil-guarded.
 	projects projectSeeder
@@ -267,7 +273,7 @@ func main() {
 	// US-AD09 AC4: `projects` is the same board service the routes use, so a
 	// new workspace opens with one project and the board form never has to ask
 	// the operator to create one first.
-	api := authAPI{store: store, mailer: mailer, logger: logger, appBaseURL: cfg.AppBaseURL, projects: boardService}
+	api := authAPI{store: store, mailer: mailer, logger: logger, appBaseURL: cfg.AppBaseURL, projects: boardService, masterKey: cfg.MasterKey}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = fmt.Fprintln(w, "ok")
@@ -313,6 +319,14 @@ func main() {
 	orgRoute("DELETE /api/v1/orgs/{id}/members/{user_id}", http.HandlerFunc(api.removeMember), auth.Admin)
 
 	registerBoardRoutes(mux, api, boardService)
+	// The agent registry and the skill library are their own route files, so
+	// each owns its role table in one place (see registerAgentRoutes /
+	// registerAgentSkillRoutes). Wiring them here is the one line that makes
+	// them reachable — they were written but unmounted, which left every
+	// agent-catalog, PATCH /agents/{id} and /agent-skills request a 404.
+	registerAgentRoutes(mux, api, boardService)
+	registerAgentCredentialRoutes(mux, api, boardService)
+	registerAgentSkillRoutes(mux, api, skill.NewService(skill.NewPgxRepository(pool)))
 
 	server := &http.Server{Addr: cfg.Addr, Handler: mux}
 	go func() {

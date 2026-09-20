@@ -46,6 +46,7 @@ type memberResponse struct {
 // editing the URL (ARCHITECTURE 11.1 step 5, US-AD07).
 type orgContext struct {
 	email     string
+	userID    string
 	workspace auth.Workspace
 	role      auth.Role
 	resolved  bool
@@ -94,6 +95,7 @@ func (a authAPI) contextMiddleware(next http.Handler, pathID bool) http.Handler 
 
 		ctx := withOrgContext(r.Context(), orgContext{
 			email:     user.Email,
+			userID:    user.ID,
 			workspace: workspace,
 			role:      role,
 			resolved:  true,

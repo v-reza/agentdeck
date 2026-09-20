@@ -11,6 +11,65 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const archiveAgent = `-- name: ArchiveAgent :one
+UPDATE agents
+SET archived_at = now()
+WHERE id = $1 AND org_id = $2
+RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
+          tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+          archived_at, created_at, has_provider_key
+`
+
+type ArchiveAgentParams struct {
+	ID    string
+	OrgID string
+}
+
+type ArchiveAgentRow struct {
+	ID                string
+	OrgID             string
+	ProjectID         string
+	Name              string
+	Provider          string
+	Model             string
+	ReasoningEffort   string
+	SkillsJson        []byte
+	ToolsJson         []byte
+	MaxRuntimeSeconds int32
+	RetryPolicy       string
+	MaxAttempts       int32
+	BaseUrl           *string
+	ArchivedAt        pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	HasProviderKey    *bool
+}
+
+// US-AD73: archived agents keep their row (running tasks still resolve their
+// retry/limit source) but disappear from every assign dropdown.
+func (q *Queries) ArchiveAgent(ctx context.Context, arg ArchiveAgentParams) (ArchiveAgentRow, error) {
+	row := q.db.QueryRow(ctx, archiveAgent, arg.ID, arg.OrgID)
+	var i ArchiveAgentRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Provider,
+		&i.Model,
+		&i.ReasoningEffort,
+		&i.SkillsJson,
+		&i.ToolsJson,
+		&i.MaxRuntimeSeconds,
+		&i.RetryPolicy,
+		&i.MaxAttempts,
+		&i.BaseUrl,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.HasProviderKey,
+	)
+	return i, err
+}
+
 const assignTask = `-- name: AssignTask :one
 UPDATE tasks
 SET assignee_agent_id = $3
@@ -168,6 +227,31 @@ func (q *Queries) ClaimShadowUser(ctx context.Context, arg ClaimShadowUserParams
 	return err
 }
 
+const clearAgentProviderKey = `-- name: ClearAgentProviderKey :one
+UPDATE agents
+SET provider_api_key_enc = NULL
+WHERE id = $1 AND org_id = $2
+RETURNING id, has_provider_key
+`
+
+type ClearAgentProviderKeyParams struct {
+	ID    string
+	OrgID string
+}
+
+type ClearAgentProviderKeyRow struct {
+	ID             string
+	HasProviderKey *bool
+}
+
+// Rotation and revocation are the same statement with a NULL ciphertext.
+func (q *Queries) ClearAgentProviderKey(ctx context.Context, arg ClearAgentProviderKeyParams) (ClearAgentProviderKeyRow, error) {
+	row := q.db.QueryRow(ctx, clearAgentProviderKey, arg.ID, arg.OrgID)
+	var i ClearAgentProviderKeyRow
+	err := row.Scan(&i.ID, &i.HasProviderKey)
+	return i, err
+}
+
 const countAgentRunningTasks = `-- name: CountAgentRunningTasks :one
 SELECT count(*) FROM tasks
 WHERE assignee_agent_id = $1 AND org_id = $2 AND status = 'running'
@@ -240,7 +324,8 @@ INSERT INTO agents (id, org_id, project_id, name, provider, model, skills_json, 
                     max_runtime_seconds, retry_policy, max_attempts)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
-          tools_json, max_runtime_seconds, retry_policy, max_attempts, created_at
+          tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+          archived_at, created_at, has_provider_key
 `
 
 type CreateAgentParams struct {
@@ -270,7 +355,10 @@ type CreateAgentRow struct {
 	MaxRuntimeSeconds int32
 	RetryPolicy       string
 	MaxAttempts       int32
+	BaseUrl           *string
+	ArchivedAt        pgtype.Timestamptz
 	CreatedAt         pgtype.Timestamptz
+	HasProviderKey    *bool
 }
 
 // Agents. The agent is the retry/limit source for every run it executes.
@@ -302,7 +390,56 @@ func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (Creat
 		&i.MaxRuntimeSeconds,
 		&i.RetryPolicy,
 		&i.MaxAttempts,
+		&i.BaseUrl,
+		&i.ArchivedAt,
 		&i.CreatedAt,
+		&i.HasProviderKey,
+	)
+	return i, err
+}
+
+const createAgentSkill = `-- name: CreateAgentSkill :one
+
+INSERT INTO agent_skills (id, org_id, slug, name, body_md, is_system, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, org_id, slug, name, body_md, version, is_system, created_by, created_at, updated_at
+`
+
+type CreateAgentSkillParams struct {
+	ID        string
+	OrgID     string
+	Slug      string
+	Name      string
+	BodyMd    string
+	IsSystem  bool
+	CreatedBy *string
+}
+
+// Agent skills (US-AD107). Skill is org-scoped data: users read and edit the
+// markdown, agents only read it. Nothing here exposes a write path an agent
+// could reach, and every query carries org_id explicitly.
+func (q *Queries) CreateAgentSkill(ctx context.Context, arg CreateAgentSkillParams) (AgentSkill, error) {
+	row := q.db.QueryRow(ctx, createAgentSkill,
+		arg.ID,
+		arg.OrgID,
+		arg.Slug,
+		arg.Name,
+		arg.BodyMd,
+		arg.IsSystem,
+		arg.CreatedBy,
+	)
+	var i AgentSkill
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Slug,
+		&i.Name,
+		&i.BodyMd,
+		&i.Version,
+		&i.IsSystem,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -665,6 +802,22 @@ func (q *Queries) DeleteAgent(ctx context.Context, arg DeleteAgentParams) error 
 	return err
 }
 
+const deleteAgentSkill = `-- name: DeleteAgentSkill :exec
+DELETE FROM agent_skills WHERE id = $1 AND org_id = $2 AND is_system = false
+`
+
+type DeleteAgentSkillParams struct {
+	ID    string
+	OrgID string
+}
+
+// System skills are not deletable: they are the baseline every workspace starts
+// from, and removing one would silently strip capability from existing agents.
+func (q *Queries) DeleteAgentSkill(ctx context.Context, arg DeleteAgentSkillParams) error {
+	_, err := q.db.Exec(ctx, deleteAgentSkill, arg.ID, arg.OrgID)
+	return err
+}
+
 const deleteBoard = `-- name: DeleteBoard :exec
 DELETE FROM boards
 WHERE id = $1 AND org_id = $2
@@ -763,7 +916,8 @@ func (q *Queries) DeleteTaskLink(ctx context.Context, arg DeleteTaskLinkParams) 
 
 const getAgent = `-- name: GetAgent :one
 SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
-       tools_json, max_runtime_seconds, retry_policy, max_attempts, created_at
+       tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+       archived_at, created_at, has_provider_key
 FROM agents
 WHERE id = $1 AND org_id = $2
 `
@@ -786,7 +940,10 @@ type GetAgentRow struct {
 	MaxRuntimeSeconds int32
 	RetryPolicy       string
 	MaxAttempts       int32
+	BaseUrl           *string
+	ArchivedAt        pgtype.Timestamptz
 	CreatedAt         pgtype.Timestamptz
+	HasProviderKey    *bool
 }
 
 func (q *Queries) GetAgent(ctx context.Context, arg GetAgentParams) (GetAgentRow, error) {
@@ -805,7 +962,59 @@ func (q *Queries) GetAgent(ctx context.Context, arg GetAgentParams) (GetAgentRow
 		&i.MaxRuntimeSeconds,
 		&i.RetryPolicy,
 		&i.MaxAttempts,
+		&i.BaseUrl,
+		&i.ArchivedAt,
 		&i.CreatedAt,
+		&i.HasProviderKey,
+	)
+	return i, err
+}
+
+const getAgentProviderKey = `-- name: GetAgentProviderKey :one
+SELECT provider_api_key_enc
+FROM agents
+WHERE id = $1 AND org_id = $2
+`
+
+type GetAgentProviderKeyParams struct {
+	ID    string
+	OrgID string
+}
+
+// The ONLY reader of the ciphertext column. Returns it alone so the sealed bytes
+// never travel inside a struct that gets logged, cached, or serialised.
+func (q *Queries) GetAgentProviderKey(ctx context.Context, arg GetAgentProviderKeyParams) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getAgentProviderKey, arg.ID, arg.OrgID)
+	var provider_api_key_enc []byte
+	err := row.Scan(&provider_api_key_enc)
+	return provider_api_key_enc, err
+}
+
+const getAgentSkill = `-- name: GetAgentSkill :one
+SELECT id, org_id, slug, name, body_md, version, is_system, created_by, created_at, updated_at
+FROM agent_skills
+WHERE id = $1 AND org_id = $2
+`
+
+type GetAgentSkillParams struct {
+	ID    string
+	OrgID string
+}
+
+func (q *Queries) GetAgentSkill(ctx context.Context, arg GetAgentSkillParams) (AgentSkill, error) {
+	row := q.db.QueryRow(ctx, getAgentSkill, arg.ID, arg.OrgID)
+	var i AgentSkill
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Slug,
+		&i.Name,
+		&i.BodyMd,
+		&i.Version,
+		&i.IsSystem,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1087,9 +1296,71 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (GetUserByIDRow, e
 	return i, err
 }
 
+const listAgentSkillsWithUsage = `-- name: ListAgentSkillsWithUsage :many
+SELECT s.id, s.org_id, s.slug, s.name, s.body_md, s.version, s.is_system, s.created_by,
+       s.created_at, s.updated_at,
+       (SELECT count(*) FROM agents a
+         WHERE a.org_id = s.org_id AND a.archived_at IS NULL AND a.skills_json ? s.slug) AS used_by
+FROM agent_skills s
+WHERE s.org_id = $1
+ORDER BY s.is_system DESC, s.slug
+`
+
+type ListAgentSkillsWithUsageRow struct {
+	ID        string
+	OrgID     string
+	Slug      string
+	Name      string
+	BodyMd    string
+	Version   int32
+	IsSystem  bool
+	CreatedBy *string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	UsedBy    int64
+}
+
+// The list needs "dipakai N agent" on every row, so usage is resolved in the
+// same round trip: a per-row query would be N+1 against a table the user scrolls.
+// `?` is jsonb containment for a top-level array element, i.e. the slug is in
+// agents.skills_json. Archived agents are excluded: they no longer receive work,
+// so they must not make a skill look live.
+func (q *Queries) ListAgentSkillsWithUsage(ctx context.Context, orgID string) ([]ListAgentSkillsWithUsageRow, error) {
+	rows, err := q.db.Query(ctx, listAgentSkillsWithUsage, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAgentSkillsWithUsageRow
+	for rows.Next() {
+		var i ListAgentSkillsWithUsageRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.Slug,
+			&i.Name,
+			&i.BodyMd,
+			&i.Version,
+			&i.IsSystem,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.UsedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAgents = `-- name: ListAgents :many
 SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
-       tools_json, max_runtime_seconds, retry_policy, max_attempts, created_at
+       tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+       archived_at, created_at, has_provider_key
 FROM agents
 WHERE org_id = $1 AND project_id = $2
 ORDER BY name
@@ -1113,9 +1384,17 @@ type ListAgentsRow struct {
 	MaxRuntimeSeconds int32
 	RetryPolicy       string
 	MaxAttempts       int32
+	BaseUrl           *string
+	ArchivedAt        pgtype.Timestamptz
 	CreatedAt         pgtype.Timestamptz
+	HasProviderKey    *bool
 }
 
+// Returns archived rows too, deliberately. The registry is where a user finds an
+// agent again to unarchive it, so filtering them out here would make archiving
+// irreversible from the UI. Callers that must not offer a retired agent (the
+// assign dropdown, US-AD73 AC2) filter on `archived_at` themselves — see
+// ListAgentsUsingSkill and the task-assign path.
 func (q *Queries) ListAgents(ctx context.Context, arg ListAgentsParams) ([]ListAgentsRow, error) {
 	rows, err := q.db.Query(ctx, listAgents, arg.OrgID, arg.ProjectID)
 	if err != nil {
@@ -1138,7 +1417,116 @@ func (q *Queries) ListAgents(ctx context.Context, arg ListAgentsParams) ([]ListA
 			&i.MaxRuntimeSeconds,
 			&i.RetryPolicy,
 			&i.MaxAttempts,
+			&i.BaseUrl,
+			&i.ArchivedAt,
 			&i.CreatedAt,
+			&i.HasProviderKey,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAgentsUsingSkill = `-- name: ListAgentsUsingSkill :many
+SELECT id, name FROM agents
+WHERE org_id = $1 AND archived_at IS NULL AND skills_json ? $2
+ORDER BY name
+`
+
+type ListAgentsUsingSkillParams struct {
+	OrgID      string
+	SkillsJson []byte
+}
+
+type ListAgentsUsingSkillRow struct {
+	ID   string
+	Name string
+}
+
+// Feeds the "dipakai oleh" list under the editor; each name routes to the agent
+// detail page, which is what stops a user from editing a live skill blindly.
+func (q *Queries) ListAgentsUsingSkill(ctx context.Context, arg ListAgentsUsingSkillParams) ([]ListAgentsUsingSkillRow, error) {
+	rows, err := q.db.Query(ctx, listAgentsUsingSkill, arg.OrgID, arg.SkillsJson)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAgentsUsingSkillRow
+	for rows.Next() {
+		var i ListAgentsUsingSkillRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAssignableAgents = `-- name: ListAssignableAgents :many
+SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
+       tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+       archived_at, created_at, has_provider_key
+FROM agents
+WHERE org_id = $1 AND archived_at IS NULL
+ORDER BY name
+`
+
+type ListAssignableAgentsRow struct {
+	ID                string
+	OrgID             string
+	ProjectID         string
+	Name              string
+	Provider          string
+	Model             string
+	ReasoningEffort   string
+	SkillsJson        []byte
+	ToolsJson         []byte
+	MaxRuntimeSeconds int32
+	RetryPolicy       string
+	MaxAttempts       int32
+	BaseUrl           *string
+	ArchivedAt        pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	HasProviderKey    *bool
+}
+
+// US-AD73 AC2: the assign dropdown must never offer a retired agent. This is the
+// deliberate counterpart to ListAgents, which returns archived rows so the
+// registry can unarchive them.
+func (q *Queries) ListAssignableAgents(ctx context.Context, orgID string) ([]ListAssignableAgentsRow, error) {
+	rows, err := q.db.Query(ctx, listAssignableAgents, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAssignableAgentsRow
+	for rows.Next() {
+		var i ListAssignableAgentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Provider,
+			&i.Model,
+			&i.ReasoningEffort,
+			&i.SkillsJson,
+			&i.ToolsJson,
+			&i.MaxRuntimeSeconds,
+			&i.RetryPolicy,
+			&i.MaxAttempts,
+			&i.BaseUrl,
+			&i.ArchivedAt,
+			&i.CreatedAt,
+			&i.HasProviderKey,
 		); err != nil {
 			return nil, err
 		}
@@ -1563,6 +1951,35 @@ func (q *Queries) RenameOrgWithAudit(ctx context.Context, arg RenameOrgWithAudit
 	return err
 }
 
+const setAgentProviderKey = `-- name: SetAgentProviderKey :one
+UPDATE agents
+SET provider_api_key_enc = $3
+WHERE id = $1 AND org_id = $2
+RETURNING id, has_provider_key
+`
+
+type SetAgentProviderKeyParams struct {
+	ID                string
+	OrgID             string
+	ProviderApiKeyEnc []byte
+}
+
+type SetAgentProviderKeyRow struct {
+	ID             string
+	HasProviderKey *bool
+}
+
+// US-AD86: store the sealed credential. Encryption/decryption lives in
+// internal/crypto; this statement only ever sees ciphertext, so a DB dump alone
+// cannot recover a provider key. Returning the derived flag lets the handler
+// answer without a second round-trip.
+func (q *Queries) SetAgentProviderKey(ctx context.Context, arg SetAgentProviderKeyParams) (SetAgentProviderKeyRow, error) {
+	row := q.db.QueryRow(ctx, setAgentProviderKey, arg.ID, arg.OrgID, arg.ProviderApiKeyEnc)
+	var i SetAgentProviderKeyRow
+	err := row.Scan(&i.ID, &i.HasProviderKey)
+	return i, err
+}
+
 const touchSession = `-- name: TouchSession :exec
 UPDATE sessions
 SET last_seen_at = now()
@@ -1572,6 +1989,188 @@ WHERE token_hash = $1 AND deleted_at IS NULL
 func (q *Queries) TouchSession(ctx context.Context, tokenHash string) error {
 	_, err := q.db.Exec(ctx, touchSession, tokenHash)
 	return err
+}
+
+const unarchiveAgent = `-- name: UnarchiveAgent :one
+UPDATE agents
+SET archived_at = NULL
+WHERE id = $1 AND org_id = $2
+RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
+          tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+          archived_at, created_at, has_provider_key
+`
+
+type UnarchiveAgentParams struct {
+	ID    string
+	OrgID string
+}
+
+type UnarchiveAgentRow struct {
+	ID                string
+	OrgID             string
+	ProjectID         string
+	Name              string
+	Provider          string
+	Model             string
+	ReasoningEffort   string
+	SkillsJson        []byte
+	ToolsJson         []byte
+	MaxRuntimeSeconds int32
+	RetryPolicy       string
+	MaxAttempts       int32
+	BaseUrl           *string
+	ArchivedAt        pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	HasProviderKey    *bool
+}
+
+func (q *Queries) UnarchiveAgent(ctx context.Context, arg UnarchiveAgentParams) (UnarchiveAgentRow, error) {
+	row := q.db.QueryRow(ctx, unarchiveAgent, arg.ID, arg.OrgID)
+	var i UnarchiveAgentRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Provider,
+		&i.Model,
+		&i.ReasoningEffort,
+		&i.SkillsJson,
+		&i.ToolsJson,
+		&i.MaxRuntimeSeconds,
+		&i.RetryPolicy,
+		&i.MaxAttempts,
+		&i.BaseUrl,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.HasProviderKey,
+	)
+	return i, err
+}
+
+const updateAgent = `-- name: UpdateAgent :one
+UPDATE agents
+SET name = $3, provider = $4, model = $5, reasoning_effort = $6,
+    skills_json = $7, tools_json = $8, max_runtime_seconds = $9,
+    retry_policy = $10, max_attempts = $11, base_url = $12
+WHERE id = $1 AND org_id = $2
+RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
+          tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+          archived_at, created_at, has_provider_key
+`
+
+type UpdateAgentParams struct {
+	ID                string
+	OrgID             string
+	Name              string
+	Provider          string
+	Model             string
+	ReasoningEffort   string
+	SkillsJson        []byte
+	ToolsJson         []byte
+	MaxRuntimeSeconds int32
+	RetryPolicy       string
+	MaxAttempts       int32
+	BaseUrl           *string
+}
+
+type UpdateAgentRow struct {
+	ID                string
+	OrgID             string
+	ProjectID         string
+	Name              string
+	Provider          string
+	Model             string
+	ReasoningEffort   string
+	SkillsJson        []byte
+	ToolsJson         []byte
+	MaxRuntimeSeconds int32
+	RetryPolicy       string
+	MaxAttempts       int32
+	BaseUrl           *string
+	ArchivedAt        pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	HasProviderKey    *bool
+}
+
+// US-AD96/US-AD106: the edit form replaces every mutable field at once, so this
+// is a full update rather than a partial patch. `provider` moves together with
+// `base_url` because the DB constraint (agents_base_url_chk) requires them to
+// agree: 'openai_compatible' iff base_url IS NOT NULL.
+func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) (UpdateAgentRow, error) {
+	row := q.db.QueryRow(ctx, updateAgent,
+		arg.ID,
+		arg.OrgID,
+		arg.Name,
+		arg.Provider,
+		arg.Model,
+		arg.ReasoningEffort,
+		arg.SkillsJson,
+		arg.ToolsJson,
+		arg.MaxRuntimeSeconds,
+		arg.RetryPolicy,
+		arg.MaxAttempts,
+		arg.BaseUrl,
+	)
+	var i UpdateAgentRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Provider,
+		&i.Model,
+		&i.ReasoningEffort,
+		&i.SkillsJson,
+		&i.ToolsJson,
+		&i.MaxRuntimeSeconds,
+		&i.RetryPolicy,
+		&i.MaxAttempts,
+		&i.BaseUrl,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.HasProviderKey,
+	)
+	return i, err
+}
+
+const updateAgentSkill = `-- name: UpdateAgentSkill :one
+UPDATE agent_skills
+SET name = $3, body_md = $4, version = version + 1, updated_at = now()
+WHERE id = $1 AND org_id = $2
+RETURNING id, org_id, slug, name, body_md, version, is_system, created_by, created_at, updated_at
+`
+
+type UpdateAgentSkillParams struct {
+	ID     string
+	OrgID  string
+	Name   string
+	BodyMd string
+}
+
+// AC6: version rises on every edit and older content is never rewritten in
+// place, so a run that already loaded v3 keeps meaning what it meant.
+func (q *Queries) UpdateAgentSkill(ctx context.Context, arg UpdateAgentSkillParams) (AgentSkill, error) {
+	row := q.db.QueryRow(ctx, updateAgentSkill,
+		arg.ID,
+		arg.OrgID,
+		arg.Name,
+		arg.BodyMd,
+	)
+	var i AgentSkill
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Slug,
+		&i.Name,
+		&i.BodyMd,
+		&i.Version,
+		&i.IsSystem,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateBoardBudget = `-- name: UpdateBoardBudget :exec

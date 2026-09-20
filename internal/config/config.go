@@ -18,6 +18,12 @@ type Config struct {
 	// the web app, not the API: the operator clicks the link in a browser.
 	AppBaseURL string
 	SMTP       SMTPConfig
+	// MasterKey seals provider credentials (US-AD86, ARCHITECTURE §16). It is
+	// carried as the raw string and decoded by internal/crypto on use, so an
+	// empty or malformed value does not stop the API from booting: only the
+	// credential endpoints need it, and refusing to start would take the whole
+	// product down over a feature nobody has used yet.
+	MasterKey string
 }
 
 // SMTPConfig is the relay the API sends through. An empty Host selects the
@@ -54,6 +60,7 @@ func Load(getenv func(string) string) (Config, error) {
 		MigrationDatabaseURL: migrationDatabaseURL,
 		Shutdown:             10 * time.Second,
 		AppBaseURL:           appBaseURL,
+		MasterKey:            getenv("AGENTDECK_MASTER_KEY"),
 		SMTP: SMTPConfig{
 			Host:     getenv("SMTP_HOST"),
 			Port:     getenv("SMTP_PORT"),

@@ -41,6 +41,7 @@ def read(name):
         "DECISIONS.md": "docs/DECISIONS.md",
         "DESIGN.md": "docs/DESIGN.md",
         "DIAGRAMS.md": "docs/DIAGRAMS.md",
+        "PRICING.md": "docs/PRICING.md",
         "INDEX-GENERASI.md": "docs/INDEX-GENERASI.md",
         "diagrams/architecture.html": "docs/diagrams/architecture.html",
         "landing/prompt-landing.md": "design/landing/prompt-landing.md",
@@ -418,6 +419,74 @@ def check_arch():
         say("ok", f"ARCHITECTURE: {len(refs)} referensi § menunjuk section yang ada")
 
 
+def check_pricing():
+    """Pastikan docs/PRICING.md utuh dan sinkron dengan tools/gen_pricing.py.
+
+    Tabel harga adalah data yang di-port; dokumen tanpa gate akan basi tanpa
+    ketahuan, dan angka basi di sini langsung berarti estimasi biaya yang salah.
+    """
+    doc = read("PRICING.md")
+    if not doc:
+        say("FAIL", "PRICING: docs/PRICING.md tidak ada")
+        return
+
+    n_exact = len(re.findall(r"(?m)^\| `[^`]+` \|", doc))
+    n_pat = len(re.findall(r"(?m)^\| \d+ \| ", doc))
+
+    if n_exact == 0 or n_pat == 0:
+        say("FAIL", f"PRICING: tabel tidak terbaca (exact={n_exact}, pattern={n_pat})")
+        return
+
+    # Angka acuan di DECISIONS/ARCHITECTURE harus sama dengan isi dokumen.
+    arch = read("ARCHITECTURE.md")
+    dec = read("DECISIONS.md")
+    for label, text in (("ARCHITECTURE.md", arch), ("DECISIONS.md", dec)):
+        m = re.search(r"(\d+) entri exact \+ (\d+) pattern", text)
+        if not m:
+            say("FAIL", f"PRICING: {label} tidak menyebut jumlah entri")
+            continue
+        if int(m.group(1)) != n_exact or int(m.group(2)) != n_pat:
+            say(
+                "FAIL",
+                f"PRICING: {label} klaim {m.group(1)}+{m.group(2)}, "
+                f"dokumen berisi {n_exact}+{n_pat}",
+            )
+        else:
+            say("ok", f"PRICING: {label} sinkron ({n_exact} exact + {n_pat} pattern)")
+
+    # Rumus 5 komponen: periksa BLOK rumusnya, bukan sekadar kata kunci di dokumen.
+    # (Menghapus satu komponen dari rumus pernah lolos gate versi longgar.)
+    block = re.search(r"```\n(miss = .*?)```", doc, re.S)
+    if not block:
+        say("FAIL", "PRICING: blok rumus tidak ditemukan")
+    else:
+        body = block.group(1)
+        for token in ("input", "cached", "output", "reasoning", "cache_creation"):
+            if not re.search(rf"(?m)^\s*[+ ]?.*\b{token}\b", body):
+                say("FAIL", f"PRICING: komponen `{token}` hilang dari blok rumus")
+        n_terms = len(re.findall(r"(?m)^\s*\+ ", body))
+        if n_terms != 4:
+            say("FAIL", f"PRICING: rumus punya {n_terms} suku, seharusnya 4")
+        else:
+            say("ok", "PRICING: rumus 5 komponen utuh (4 suku)")
+
+    # Exact = 7 pipe (nama + 5 harga), pattern = 8 pipe (# + pattern + 5 harga).
+    # Jumlah pipe tetap: baris terpotong langsung ketahuan.
+    bad = [
+        ln
+        for ln in doc.splitlines()
+        if re.match(r"^\| `", ln) and ln.count("|") != 7
+    ] + [
+        ln
+        for ln in doc.splitlines()
+        if re.match(r"^\| \d+ \| ", ln) and ln.count("|") != 8
+    ]
+    if bad:
+        say("FAIL", f"PRICING: {len(bad)} baris jumlah kolomnya salah, mis. {bad[0][:60]}")
+    else:
+        say("ok", f"PRICING: {n_exact + n_pat} baris harga, jumlah kolom semua benar")
+
+
 def main():
     print(f"== AgentDeck suite gate  ({ROOT})\n")
     check_prd()
@@ -429,6 +498,8 @@ def main():
     check_arch()
     print()
     check_suite()
+    print()
+    check_pricing()
     print()
     if FAILED:
         print(f"HASIL: {len(FAILED)} temuan FAIL")

@@ -388,6 +388,9 @@ CREATE TABLE agents (
     retry_policy         TEXT        NOT NULL DEFAULT 'transient_only',
     max_attempts         INTEGER     NOT NULL DEFAULT 3,
     provider_api_key_enc BYTEA,                  -- AES-256-GCM encrypted (nonce 12B + ciphertext + tag 16B); NULL jika pakai env default (§16)
+    base_url             TEXT,                   -- HANYA untuk provider='openai_compatible' (BYO, DECISIONS §6A.F); NULL untuk provider bawaan
+    archived_at          TIMESTAMPTZ,            -- US-AD73: nonaktif, tidak muncul di dropdown assign, task running tetap tuntas
+    has_provider_key     BOOLEAN     GENERATED ALWAYS AS (provider_api_key_enc IS NOT NULL) STORED,  -- US-AD86: diturunkan, bukan disimpan — flag tidak bisa melenceng dari ciphertext-nya; satu-satunya pembaca ciphertext adalah GetAgentProviderKey (§6.2.7)
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT agents_pk               PRIMARY KEY (id),
     CONSTRAINT agents_id_ulid_chk      CHECK (char_length(id) = 26),
@@ -397,15 +400,42 @@ CREATE TABLE agents (
     CONSTRAINT agents_max_attempts_chk CHECK (max_attempts BETWEEN 1 AND 10),
     CONSTRAINT agents_skills_chk       CHECK (jsonb_typeof(skills_json) = 'array'),
     CONSTRAINT agents_tools_chk        CHECK (jsonb_typeof(tools_json)  = 'array'),
+    CONSTRAINT agents_base_url_chk     CHECK ((provider = 'openai_compatible') = (base_url IS NOT NULL)),
     CONSTRAINT agents_org_fk           FOREIGN KEY (org_id)     REFERENCES orgs(id)     ON DELETE CASCADE,
     CONSTRAINT agents_project_fk       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
 -- Melayani: GET /api/v1/projects/{id}/agents, dan lookup agent per nama di UI.
 CREATE UNIQUE INDEX agents_project_name_key ON agents (project_id, name);
-
 -- Melayani: dropdown pemilihan assignee pada form task (hanya kolom ringan, tidak menarik tools_json).
 CREATE INDEX agents_org_name_idx ON agents (org_id, name);
+```
+
+### 3.7b `agent_skills` — skill library per org
+
+Skill adalah **data**, bukan konstanta: isinya markdown yang bisa dilihat/diubah user
+(DECISIONS §6A.G). Agent **tidak pernah** boleh menulis tabel ini.
+
+```sql
+CREATE TABLE agent_skills (
+    id          TEXT        NOT NULL,
+    org_id      TEXT        NOT NULL,
+    slug        TEXT        NOT NULL,             -- dirujuk agents.skills_json
+    name        TEXT        NOT NULL,
+    body_md     TEXT        NOT NULL DEFAULT '',  -- markdown; WAJIB disanitasi saat dirender (§16)
+    version     INTEGER     NOT NULL DEFAULT 1,   -- naik tiap edit; baris lama tidak diubah surut
+    is_system   BOOLEAN     NOT NULL DEFAULT false, -- true = seed bawaan AgentDeck
+    created_by  TEXT,                             -- user id; NULL untuk seed sistem
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT agent_skills_pk        PRIMARY KEY (id),
+    CONSTRAINT agent_skills_id_chk    CHECK (char_length(id) = 26),
+    CONSTRAINT agent_skills_slug_chk  CHECK (slug ~ '^[a-z0-9_]{1,64}$'),
+    CONSTRAINT agent_skills_org_fk    FOREIGN KEY (org_id) REFERENCES orgs(id) ON DELETE CASCADE
+);
+
+-- Melayani: resolusi slug → skill saat menyusun prompt agent (per org, per slug).
+CREATE UNIQUE INDEX agent_skills_org_slug_key ON agent_skills (org_id, slug);
 ```
 
 `retry_policy` (kontrak §4) dan `max_attempts` di sini adalah **sumber keputusan retry** untuk setiap Run yang dijalankan agent tersebut (§10). `reasoning_effort` tidak diberi `CHECK` karena nilainya milik provider masing-masing (Anthropic memakai `low/medium/high`, provider lain beda) dan tidak terdaftar di kontrak §4.
@@ -679,13 +709,17 @@ CREATE TABLE ledger_entries (
     tokens_out        BIGINT      NOT NULL DEFAULT 0,
     cache_read_tokens BIGINT      NOT NULL DEFAULT 0,
     cache_write_tokens BIGINT     NOT NULL DEFAULT 0,
+    reasoning_tokens  BIGINT      NOT NULL DEFAULT 0,  -- reasoning punya harga sendiri (DECISIONS §6A.B)
     cost_micros       BIGINT      NOT NULL, -- HASIL PERHITUNGAN harga × kuantitas, bukan harga satuan
-    price_version     INTEGER     NOT NULL, -- versi snapshot harga yang dipakai untuk hitung baris ini
+    price_version     INTEGER     NOT NULL, -- versi snapshot tabel harga
+    price_source      TEXT        NOT NULL DEFAULT 'catalog', -- 'manual' / 'catalog' / 'pattern' / 'unpriced' (DECISIONS §6A.C)
+    pricing_model     TEXT        NOT NULL DEFAULT '',        -- entri/pattern yang BENAR-BENAR dipakai, mis. 'deepseek-v*'
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT ledger_entries_pk                PRIMARY KEY (id),
     CONSTRAINT ledger_entries_kind_chk          CHECK (kind IN ('llm','cache_read','cache_write','tool')),
+    CONSTRAINT ledger_entries_price_source_chk  CHECK (price_source IN ('manual','catalog','pattern','unpriced')),
     CONSTRAINT ledger_entries_cost_chk          CHECK (cost_micros >= 0),
-    CONSTRAINT ledger_entries_tokens_chk        CHECK (tokens_in >= 0 AND tokens_out >= 0 AND cache_read_tokens >= 0 AND cache_write_tokens >= 0),
+    CONSTRAINT ledger_entries_tokens_chk        CHECK (tokens_in >= 0 AND tokens_out >= 0 AND cache_read_tokens >= 0 AND cache_write_tokens >= 0 AND reasoning_tokens >= 0),
     CONSTRAINT ledger_entries_run_fk            FOREIGN KEY (run_id)  REFERENCES runs(id) ON DELETE CASCADE,
     CONSTRAINT ledger_entries_task_fk           FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
 );
@@ -1527,7 +1561,7 @@ Transisi `outcome` di `runs` (hanya diisi saat `status='ended'`): `succeeded`, `
 
 ---
 
-### 6.2 Tabel Endpoint Lengkap (109 Endpoint)
+### 6.2 Tabel Endpoint Lengkap (115 Endpoint)
 
 **Kolom `Role Min` hanya berlaku untuk aktor manusia.** Nilai yang sah:
 `None` (publik) · `Viewer` · `Member` · `Admin` · `Owner` — persis enum `role`
@@ -1605,17 +1639,23 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 | `GET` | `/api/v1/boards/{id}/columns` | Session/Key | Viewer | Ya | Get array `columns_json` |
 | `PATCH` | `/api/v1/boards/{id}/columns` | Session/Key | Member | Ya | Update urutan/label kolom di `columns_json` |
 
-#### 6.2.7 Agents (8 Endpoint)
+#### 6.2.7 Agents (14 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
+| `GET` | `/api/v1/agent-catalog` | Session/Key | Viewer | Tidak | Katalog model + harga estimate dari `internal/pricing` (DECISIONS §6A.C); mengisi dropdown model di form agent |
 | `GET` | `/api/v1/projects/{project_id}/agents` | Session/Key | Viewer | Ya | List agent worker per project |
 | `POST` | `/api/v1/projects/{project_id}/agents` | Session/Key | Member | Ya (Key) | Register agent baru (model, tools, runtime, retry) |
 | `GET` | `/api/v1/agents/{id}` | Session/Key | Viewer | Ya | Detail konfigurasi agent |
-| `PATCH` | `/api/v1/agents/{id}` | Session/Key | Member | Ya | Update model, max_runtime_seconds, retry_policy |
+| `PATCH` | `/api/v1/agents/{id}` | Session/Key | Member | Ya | Update model, max_runtime_seconds, retry_policy; `archived_at` untuk arsip/batal arsip (US-AD73: 409 bila agent masih memegang run aktif) |
 | `DELETE` | `/api/v1/agents/{id}` | Session/Key | Admin | Ya | Hapus agent (tasks.assignee_agent_id jadi NULL) |
 | `POST` | `/api/v1/agents/{id}/validate` | Session/Key | Member | Ya | Uji coba handshake / test ping LLM provider |
-| `PUT` | `/api/v1/agents/{id}/provider-key` | Session | Admin | Ya (Key) | Simpan / rotasi API key provider LLM (enkripsi AES-256-GCM, US-AD86) |
+| `PUT` | `/api/v1/agents/{id}/provider-key` | Session | Admin | Ya (Key) | Simpan / rotasi API key provider LLM (enkripsi AES-256-GCM, US-AD86). Boleh membawa `provider`+`model`+`base_url` opsional untuk agent yang belum tersimpan |
 | `DELETE` | `/api/v1/agents/{id}/provider-key` | Session | Admin | Ya | Hapus kredensial provider agent (agent kembali pakai env default) |
+| `GET` | `/api/v1/agent-skills` | Session/Key | Viewer | Ya | List skill library org (US-AD96 lanjutan, DECISIONS §6A.G) |
+| `POST` | `/api/v1/agent-skills` | Session | Admin | Tidak | Buat skill baru (`body_md`); agent TIDAK boleh memanggil ini |
+| `PATCH` | `/api/v1/agent-skills/{id}` | Session | Admin | Tidak | Ubah skill; `version` naik, baris lama tidak diubah surut |
+| `DELETE` | `/api/v1/agent-skills/{id}` | Session | Admin | Ya | Hapus skill milik org. Skill bawaan (`is_system`) ditolak dengan 409, bukan dihapus diam-diam |
+| `GET` | `/api/v1/agent-skills/{id}/agents` | Session/Key | Viewer | Ya | "Dipakai oleh": daftar agent aktif yang mereferensikan slug skill ini (agent terarsip dikecualikan). Mengisi panel kanan editor skill §7.1 |
 
 #### 6.2.8 Tasks (11 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
@@ -1721,7 +1761,7 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 | `GET` | `/api/v1/search/runs` | Session/Key | Viewer | Ya | Cari run berdasarkan kegagalan atau metadata |
 | `GET` | `/api/v1/system/info` | Public | None | Ya | Info versi backend Go & commit SHA |
 
-*Total endpoint terdefinisi: 109 endpoint.*
+*Total endpoint terdefinisi: 115 endpoint.*
 
 ## 7. Realtime (SSE)
 
@@ -1879,24 +1919,42 @@ AgentDeck memposisikan akuntansi biaya LLM sebagai entitas kelas satu. Tidak ada
 
 ### 9.1 Model Harga & `price_version`
 
-Harga model LLM bersifat dinamis seiring waktu, namun catatan ledger historis harus bersifat permanen dan tidak boleh berubah surut. Untuk itu, sistem menggunakan tabel konfigurasi versi harga statis di kode Go (`internal/pricing`):
+Harga model LLM bersifat dinamis seiring waktu, namun catatan ledger historis harus bersifat permanen dan tidak boleh berubah surut. Untuk itu, sistem menggunakan tabel konfigurasi versi harga statis di kode Go (`internal/pricing`).
+
+**Tabel harga adalah port dari 9Router** (MIT License, `app/.next-cli-build/server/chunks/8920.js`): **220 entri exact + 51 pattern regex**, dinyatakan dalam USD per 1 juta token. **Isi lengkapnya ada di [`docs/PRICING.md`](PRICING.md)** — di-generate `tools/gen_pricing.py`, jangan diedit tangan.
+
+Satuan internal adalah **micro-USD per 1.000.000 token**: `MicrosPer1M = round(usd_per_1m × 1e6)`, jadi `$5.00/1M → 5_000_000`. Perhatikan skalanya: **bukan** `round(usd_per_1m)`, karena pembulatan itu membuat **397 harga** kolaps jadi nol (`deepseek-*` cached `$0.0028/1M` → `0`) — cache hit jadi gratis tanpa ketahuan. Per-1M juga membuat seluruh 271 entri tersimpan **eksak** (nilai sumber maksimum 4 desimal), tanpa galat pembulatan sama sekali.
 
 ```go
 type ModelPrice struct {
-    PriceVersion       int    // Versi snapshot harga (dimulai dari 1)
-    Provider           string // "anthropic", "openai", "deepseek"
-    Model              string // "claude-3-5-sonnet-20241022", "gpt-4o"
-    InputMicrosPer1k   int64  // Misal $3.00 / 1M token = 3 micro-USD / 1k token
-    OutputMicrosPer1k  int64  // Misal $15.00 / 1M token = 15 micro-USD / 1k token
-    CacheReadPer1k     int64  // Prompt caching hit
-    CacheWritePer1k    int64  // Prompt caching write
+    PriceVersion          int    // Versi snapshot tabel harga (mulai dari 1)
+    Provider              string // "anthropic", "openai", "deepseek", ...
+    Model                 string // entri exact, mis. "claude-opus-4-6"
+    InputMicrosPer1M      int64  // $5.00 / 1M  =  5_000_000
+    OutputMicrosPer1M     int64  // $25.00 / 1M = 25_000_000
+    CachedMicrosPer1M     int64  // prompt caching HIT
+    ReasoningMicrosPer1M  int64  // reasoning punya harga SENDIRI, bukan disamakan ke output
+    CacheWriteMicrosPer1M int64  // prompt caching WRITE (cache_creation)
+}
+
+// Pattern fallback (51 aturan), dipakai bila model tidak ada di tabel exact.
+type PricePattern struct {
+    Pattern string     // "deepseek-v*", "glm-5*", "kimi-k3*", ... — URUT, first match wins
+    Price   ModelPrice // harga yang dipakai bila pattern cocok
 }
 ```
 
-Rumus perhitungan mikro-USD per step LLM:
-$$\text{CostMicros} = \frac{(\text{tokens\_in} \times \text{InputRate}) + (\text{tokens\_out} \times \text{OutputRate}) + (\text{cache\_read} \times \text{CacheReadRate}) + (\text{cache\_write} \times \text{CacheWriteRate})}{1000}$$
+**Resolusi harga 4 tingkat** (DECISIONS §6A.C): override org → tabel exact → pattern → `unpriced`.
 
-Nilai `price_version` disimpan di setiap baris `ledger_entries` sebagai bukti audit algoritma harga yang dipakai saat transaksi dicatat.
+Rumus perhitungan mikro-USD per step LLM (DECISIONS §6A.B — **reasoning dihitung terpisah**). Pembagian `1e6` mengubah (token × micro-USD per 1M token) menjadi micro-USD:
+
+$$\text{CostMicros} = \frac{(\text{miss} \times \text{InputRate}) + (\text{cached} \times \text{CachedRate}) + (\text{tokens\_out} \times \text{OutputRate}) + (\text{reasoning} \times \text{ReasoningRate}) + (\text{cache\_write} \times \text{CacheWriteRate})}{1\,000\,000}$$
+
+dengan `miss = max(0, tokens_in − cached − cache_write)` dan setiap `Rate` adalah field `MicrosPer1M` di atas. Field yang tidak ada di tabel (lihat tanda `—` di `docs/PRICING.md`) **jatuh ke fallback**, bukan nol: `cached ?? input`, `reasoning ?? output`, `cache_write ?? input`.
+
+Pembulatan dilakukan **satu kali di akhir** perhitungan baris, bukan per komponen.
+
+`price_version` disimpan di setiap baris `ledger_entries` sebagai bukti audit algoritma harga yang dipakai saat transaksi dicatat. Karena tabel pattern bisa berubah **dan** override per-org berbeda antar tenant, baris ledger juga menyimpan `price_source` + `pricing_model` — nama entri/pattern yang benar-benar dipakai. Tanpa ketiganya, baris lama tidak bisa dibuktikan.
 
 ### 9.2 Pelaporan Pemakaian Token per Step
 
@@ -2388,7 +2446,7 @@ Sistem pengujian AgentDeck dibangun untuk menjamin kebenaran state machine, keta
                      ┌───────────────────────┐
                      │   Load Tests (k6)     │  Target konkurensi dan volume (N4: 50 agen running, N5: 100.000 run/bulan, N6: 1.000.000 event/bulan)
                      ├───────────────────────┤
-                     │  API Contract Tests   │  109 Endpoint coverage
+                     │  API Contract Tests   │  115 Endpoint coverage
                      ├───────────────────────┤
                      │ Integration (Pg test) │  Testcontainers Postgres 16
                      ├───────────────────────┤
@@ -2439,7 +2497,7 @@ agentdeck/
 │   └── api/
 │       └── main.go              # Entrypoint binary tunggal: ServeMux, config init, graceful shutdown
 ├── internal/
-│   ├── api/                     # HTTP Handlers (109 endpoints)
+│   ├── api/                     # HTTP Handlers (115 endpoints)
 │   │   ├── auth_handler.go      # Login, register, logout, session middleware
 │   │   ├── org_handler.go       # Orgs & memberships
 │   │   ├── board_handler.go     # Boards, columns, and budget settings
@@ -2608,6 +2666,30 @@ DECISIONS §6 dan bukan lagi terselubung:**
 | `notifications` | ditambahkan (§3.21) | notifikasi in-app (US-AD61) butuh baris yang bisa dibaca/ditandai |
 | `users.avatar_url`, `users.deleted_at` | ditambahkan (§3.3) | profil akun (US-AD89) + penutupan akun (US-AD98) |
 | `sessions.user_agent`, `sessions.ip`, `sessions.last_seen_at` | ditambahkan (§3.19) | daftar sesi aktif (US-AD90) butuh identitas perangkat |
+| `agents.base_url` | ditambahkan (§3.7) | provider BYO `openai_compatible` (DECISIONS §6A.F); di-CHECK berpasangan dengan `provider` |
+| `agents.archived_at` | ditambahkan (§3.7) | US-AD73 nonaktifkan agent; task `running` tetap tuntas |
+| `agent_skills` | ditambahkan (§3.7b) | skill library per org berisi `body_md` (DECISIONS §6A.G) |
+| `ledger_entries.reasoning_tokens`, `.price_source`, `.pricing_model` | ditambahkan (§3.14) | reasoning punya harga sendiri; `price_version` saja tidak cukup membuktikan baris lama (DECISIONS §6A.E) |
+| `GET /api/v1/agent-catalog` | ditambahkan (§6.2.7) | katalog model + harga estimate, sumber dropdown form agent |
+| `GET/POST/PATCH /api/v1/agent-skills` | ditambahkan (§6.2.7) | skill library; hanya owner/admin yang boleh menulis |
+| `DELETE /api/v1/agent-skills/{id}` + `GET /api/v1/agent-skills/{id}/agents` | ditambahkan (§6.2.7) | hapus skill org (skill bawaan `is_system` ditolak 409) dan "dipakai oleh" untuk panel editor §7.1; total endpoint 113 → 115 |
+
+### 20.1 Rumus harga: §9.1 lama ≠ 9Router
+
+Rumus §9.1 sebelum revisi ini hanya punya 4 komponen (`tokens_in`, `tokens_out`, `cache_read`,
+`cache_write`) dan **tidak punya suku `reasoning`**. Tabel harga 9Router memisahkan
+`reasoning` dari `output` dengan harga sendiri, dan selisihnya besar di Claude
+(`claude-opus-4.6`: output 25 vs reasoning 37.5 → 50% lebih mahal untuk token berpikir).
+
+Rumus §9.1 sudah diganti dengan rumus 5 komponen yang terverifikasi eksak
+(`max_err = 0.0000000000`, 13.140 baris data produksi 9Router). `cache_read`/`cache_write`
+lama tetap terwakili sebagai `cached`/`cache_creation`.
+
+### 20.2 Token `max_tokens` per-agent — usulan, belum final
+
+Tabel harga 9Router punya field `cache_creation`, dan desain 26-agent-form menampilkan
+"Batas Pagu Harian ($)" per agent. Keduanya belum masuk kontrak. Dicatat di sini supaya
+tidak hilang, **bukan** keputusan yang sudah diambil.
 
 Berikut rekomendasi teknis untuk rilis arsitektur berikutnya (`v0.2`):
 

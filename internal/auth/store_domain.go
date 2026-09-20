@@ -19,6 +19,9 @@ type Store struct {
 
 	mu       sync.Mutex
 	failures map[string]loginFailure
+	// workspaceHooks run after a genuinely new org is provisioned (see
+	// OnWorkspaceCreated). Empty in every unit test that does not wire one.
+	workspaceHooks []func(ctx context.Context, orgID string)
 }
 
 type loginFailure struct {
@@ -32,6 +35,33 @@ func NewStore(repo Repository) *Store {
 	return &Store{
 		repo:     repo,
 		failures: make(map[string]loginFailure),
+	}
+}
+
+// OnWorkspaceCreated registers a hook that runs after a brand-new org is
+// provisioned, with the new org's id. It exists so a domain that must give every
+// workspace its baseline rows (US-AD107 AC5: the eight seeded skills) can do so
+// without auth importing that domain — the same composition-root direction the
+// starter project already uses.
+//
+// Only genuinely new orgs fire it: the personal-workspace lookup inside Register
+// reuses an existing org on a retried signup, and that path returns before this
+// point, so a hook never runs twice for one workspace.
+func (s *Store) OnWorkspaceCreated(hook func(ctx context.Context, orgID string)) {
+	if hook == nil {
+		return
+	}
+	s.workspaceHooks = append(s.workspaceHooks, hook)
+}
+
+// runWorkspaceCreatedHooks invokes every registered hook. The hook takes no
+// error return on purpose: at this point the user, the org, and the owner
+// membership are already durable, and a convenience row that failed to seed must
+// not cost the operator their account (the same rule seedStarterProject
+// follows). The hook owns its own failure reporting.
+func (s *Store) runWorkspaceCreatedHooks(ctx context.Context, orgID string) {
+	for _, hook := range s.workspaceHooks {
+		hook(ctx, orgID)
 	}
 }
 
@@ -118,6 +148,7 @@ func (s *Store) Register(ctx context.Context, email, password, name, orgName str
 	if err := s.repo.CreateMembership(ctx, workspace.ID, existing.ID, Owner); err != nil {
 		return User{}, Workspace{}, "", err
 	}
+	s.runWorkspaceCreatedHooks(ctx, workspace.ID)
 
 	sessionToken, err := newToken()
 	if err != nil {
@@ -357,6 +388,7 @@ func (s *Store) CreateWorkspace(ctx context.Context, actorEmail, name, slug stri
 	if err := s.repo.CreateMembership(ctx, workspace.ID, actor.ID, Owner); err != nil {
 		return Workspace{}, err
 	}
+	s.runWorkspaceCreatedHooks(ctx, workspace.ID)
 	return workspace, nil
 }
 

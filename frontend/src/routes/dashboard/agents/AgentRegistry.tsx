@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Search } from 'lucide-react'
 import { useListProjectsQuery } from '@/store/api/boards'
 import { useDeleteAgentMutation, useListAgentsQuery } from '@/store/api/agents'
 import { useCanAct } from '@/hooks/use-orgs'
@@ -9,8 +10,12 @@ import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { Button } from '@/components/ui/button'
 import { EmptyState, Panel } from '@/components/ui/card'
 import { Modal } from '@/components/ui/modal'
+import { cn } from '@/lib/cn'
 import { formatRelative, shortID } from '@/lib/formatters'
+import { interpolate } from '@/lib/format'
 import { CreateAgentForm } from './CreateAgentForm'
+import { AgentSpecCards } from './AgentSpecCards'
+import { StatusFilter, type StatusFilterValue } from './StatusFilter'
 import type { Agent } from '@/lib/domain'
 
 /**
@@ -25,6 +30,14 @@ import type { Agent } from '@/lib/domain'
  * the row: a credential is M2 scope, so every agent registered today reports
  * `has_provider_key: false` and is rendered as awaiting a credential rather than
  * as active. Nothing here invents a count the API did not return.
+ *
+ * The toolbar (220px search, status filter), the table footer counts and the two
+ * guidance cards are cloned from the same design file. The search and the filter
+ * narrow the rows the server already sent, and the footer's "ready" count is
+ * `has_provider_key` rather than the mock's hardcoded 3. The archived count is 0
+ * because `archived_at` does not exist in the schema yet (US-AD73 is M1 and the
+ * column is landing separately) — rendering the mock's 1 would be an invented
+ * metric, and the card must not call an endpoint that answers 404.
  */
 export function AgentRegistry() {
   const t = useT()
@@ -41,8 +54,17 @@ export function AgentRegistry() {
   // that would leave the row on screen with no explanation, which reads as a
   // broken button rather than a rule.
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState<StatusFilterValue>('all')
 
   const list = agents ?? []
+  // US-AD73 AC2: the registry lists archived agents too, so the user can find
+  // one and unarchive it. They are excluded from the assignable count, and the
+  // filter below can surface them on their own.
+  const active = list.filter((agent) => !agent.archived_at)
+  const archivedCount = list.length - active.length
+  const visible = filterAgents(list, search, status)
+  const readyCount = active.filter((agent) => agent.has_provider_key).length
 
   return (
     <>
@@ -52,6 +74,33 @@ export function AgentRegistry() {
         subtitle={agents ? `${list.length} ${t['agents.count']}` : undefined}
         right={
           <div className="flex items-center gap-2.5">
+            <div className="relative">
+              <Search
+                size={14}
+                className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-[var(--color-tertiary)]"
+              />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t['agents.search']}
+                aria-label={t['agents.search']}
+                className="h-[30px] w-[220px] rounded-[6px] border border-[var(--color-border-standard)] bg-[var(--color-surface-page)] pr-3 pl-8 text-[12px] text-[var(--color-primary)] placeholder:text-[var(--color-tertiary)] focus:border-[var(--color-accent)] focus:outline-none"
+              />
+            </div>
+
+            <StatusFilter
+              value={status}
+              onChange={setStatus}
+              label={t['agents.filter.label']}
+              options={[
+                { value: 'all', label: t['agents.filter.all'] },
+                { value: 'ready', label: t['agents.status.ready'] },
+                { value: 'needsKey', label: t['agents.status.needsKey'] },
+                { value: 'archived', label: t['agents.status.archived'] },
+              ]}
+            />
+
             {(projects ?? []).length > 1 ? (
               <select
                 value={activeProject ?? ''}
@@ -72,6 +121,12 @@ export function AgentRegistry() {
       />
 
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-4">
+        <AgentStatusCard
+          total={list.length}
+          readyCount={readyCount}
+          needsKeyCount={active.length - readyCount}
+          archivedCount={archivedCount}
+        />
         {deleteError ? (
           <p className="text-[12px] text-[var(--color-danger)]">
             {t['agents.delete.failed']}: {deleteError}
@@ -83,34 +138,58 @@ export function AgentRegistry() {
           <EmptyState title={t['agents.noProjects']} hint={t['agents.noProjectsHint']} />
         ) : list.length === 0 ? (
           <EmptyState title={t['agents.empty']} hint={t['agents.emptyHint']} />
+        ) : visible.length === 0 ? (
+          <EmptyState title={t['agents.filter.empty']} hint={t['agents.filter.emptyHint']} />
         ) : (
-          <Panel className="overflow-x-auto p-0">
-            <table className="w-full min-w-[900px] border-collapse text-left">
-              <thead>
-                <tr className="h-[32px] border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-sunken)] text-[11px] font-semibold uppercase tracking-wider text-[var(--color-tertiary)]">
-                  <th className="min-w-[190px] px-3">{t['agents.col.agent']}</th>
-                  <th className="w-[110px] px-3">{t['agents.col.provider']}</th>
-                  <th className="w-[150px] px-3">{t['agents.col.model']}</th>
-                  <th className="w-[120px] px-3">{t['agents.col.reasoning']}</th>
-                  <th className="w-[110px] px-3">{t['agents.col.status']}</th>
-                  <th className="w-[120px] px-3">{t['agents.col.runtime']}</th>
-                  <th className="w-[130px] px-3">{t['agents.col.tools']}</th>
-                  {canDelete ? <th className="w-[100px] px-3 text-right">{t['agents.col.actions']}</th> : null}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--color-border-subtle)] text-[12px]">
-                {list.map((agent) => (
-                  <AgentRow
-                    key={agent.id}
-                    agent={agent}
-                    canDelete={canDelete}
-                    onDelete={() => setPendingDelete(agent)}
-                  />
-                ))}
-              </tbody>
-            </table>
+          <Panel className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] border-collapse text-left">
+                <thead>
+                  <tr className="h-[32px] border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-sunken)] text-[11px] font-semibold uppercase tracking-wider text-[var(--color-tertiary)]">
+                    <th className="min-w-[190px] px-3">{t['agents.col.agent']}</th>
+                    <th className="w-[110px] px-3">{t['agents.col.provider']}</th>
+                    <th className="w-[150px] px-3">{t['agents.col.model']}</th>
+                    <th className="w-[120px] px-3">{t['agents.col.reasoning']}</th>
+                    <th className="w-[110px] px-3">{t['agents.col.status']}</th>
+                    <th className="w-[120px] px-3">{t['agents.col.runtime']}</th>
+                    <th className="w-[130px] px-3">{t['agents.col.tools']}</th>
+                    {canDelete ? <th className="w-[100px] px-3 text-right">{t['agents.col.actions']}</th> : null}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border-subtle)] text-[12px]">
+                  {visible.map((agent) => (
+                    <AgentRow
+                      key={agent.id}
+                      agent={agent}
+                      canDelete={canDelete}
+                      onDelete={() => setPendingDelete(agent)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div
+              data-testid="agents-footer"
+              className="flex h-[32px] items-center justify-between border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-page)] px-4 text-[11px] text-[var(--color-tertiary)]"
+            >
+              <div>{interpolate(t['agents.footer.showing'], [String(visible.length), String(list.length)])}</div>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1 font-mono">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-status-done)]" />
+                  {interpolate(t['agents.footer.ready'], [String(readyCount)])}
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1 font-mono">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-status-archived)]" />
+                  {interpolate(t['agents.footer.archived'], [String(archivedCount)])}
+                </span>
+              </div>
+            </div>
           </Panel>
         )}
+
+        <AgentSpecCards readyCount={readyCount} archivedCount={archivedCount} />
       </div>
 
       <Modal
@@ -147,6 +226,82 @@ export function AgentRegistry() {
   )
 }
 
+/** The status strip above the table.
+ *
+ * The design's own banner is a spec explainer — it prints "US-AD20 / US-AD73
+ * Scoped", the acceptance-criterion numbers, and a "HTTP 201 Created" badge.
+ * That vocabulary belongs in the PRD, not in the product: an operator should not
+ * have to know which story shipped a screen. What the strip says instead is the
+ * one thing an operator acts on before assigning work — how many agents can
+ * actually take a task right now, and why the rest cannot.
+ */
+function AgentStatusCard({
+  total,
+  readyCount,
+  needsKeyCount,
+  archivedCount,
+}: {
+  total: number
+  readyCount: number
+  needsKeyCount: number
+  archivedCount: number
+}) {
+  const t = useT()
+
+  return (
+    <Panel className="flex items-center justify-between gap-4 p-3 shadow-xs">
+      <div className="flex items-center gap-3">
+        <span
+          className={cn(
+            'h-2 w-2 shrink-0 rounded-full',
+            readyCount > 0 ? 'bg-[var(--color-status-done)]' : 'bg-[var(--color-status-archived)]',
+          )}
+        />
+        <div>
+          <div className="text-[12px] font-semibold text-[var(--color-primary)]">
+            {interpolate(t['agents.statusCard.title'], [String(total)])}
+          </div>
+          <div className="mt-0.5 text-[11px] text-[var(--color-secondary)]">
+            {interpolate(t['agents.statusCard.hint'], [String(readyCount), String(needsKeyCount)])}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="rounded-[6px] bg-[var(--color-status-done)]/10 px-2 py-1 font-mono text-[10px] whitespace-nowrap text-[var(--color-status-done)]">
+          {interpolate(t['agents.statusCard.ready'], [String(readyCount)])}
+        </span>
+        <span className="rounded-[6px] bg-[var(--color-warning)]/10 px-2 py-1 font-mono text-[10px] whitespace-nowrap text-[var(--color-warning)]">
+          {interpolate(t['agents.statusCard.needsKey'], [String(needsKeyCount)])}
+        </span>
+        <span className="rounded-[6px] bg-[var(--color-surface-page)] px-2 py-1 font-mono text-[10px] whitespace-nowrap text-[var(--color-tertiary)]">
+          {interpolate(t['agents.statusCard.archived'], [String(archivedCount)])}
+        </span>
+      </div>
+    </Panel>
+  )
+}
+
+/**
+ * Narrows the rows the server already returned. The design's placeholder names
+ * the three things it searches — agent, model, skill — so those are the three
+ * fields; provider and tools are not in the design's copy and are not invented.
+ */
+function filterAgents(list: Agent[], search: string, status: StatusFilterValue): Agent[] {
+  const needle = search.trim().toLowerCase()
+  return list.filter((agent) => {
+    // Archived is its own bucket, never mixed into ready/needsKey: an archived
+    // agent is not "ready to take a task" whatever its credential state is.
+    if (status === 'archived' && !agent.archived_at) return false
+    if (status === 'ready' && (agent.archived_at || !agent.has_provider_key)) return false
+    if (status === 'needsKey' && (agent.archived_at || agent.has_provider_key)) return false
+    if (needle === '') return true
+    return [agent.name, agent.model, ...(agent.skills ?? [])].some((field) =>
+      String(field).toLowerCase().includes(needle),
+    )
+  })
+}
+
 function AgentRow({ agent, canDelete, onDelete }: { agent: Agent; canDelete: boolean; onDelete: () => void }) {
   const t = useT()
   const tools = agent.tools ?? []
@@ -179,7 +334,12 @@ function AgentRow({ agent, canDelete, onDelete }: { agent: Agent; canDelete: boo
         </span>
       </td>
       <td className="px-3 py-2">
-        {agent.has_provider_key ? (
+        {agent.archived_at ? (
+          <span className="inline-flex items-center gap-1 rounded-[4px] bg-[var(--color-surface-sunken)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--color-tertiary)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-status-archived)]" />
+            {t['agents.status.archived']}
+          </span>
+        ) : agent.has_provider_key ? (
           <span className="inline-flex items-center gap-1 rounded-[4px] bg-[var(--color-surface-sunken)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--color-status-done)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-status-done)]" />
             {t['agents.status.ready']}

@@ -9,6 +9,9 @@ import (
 )
 
 type Querier interface {
+	// US-AD73: archived agents keep their row (running tasks still resolve their
+	// retry/limit source) but disappear from every assign dropdown.
+	ArchiveAgent(ctx context.Context, arg ArchiveAgentParams) (ArchiveAgentRow, error)
 	AssignTask(ctx context.Context, arg AssignTaskParams) (Task, error)
 	// Dispatcher claim (ARCHITECTURE 4b): one atomic statement. SKIP LOCKED lets
 	// concurrent dispatchers claim disjoint batches instead of serialising on the
@@ -16,6 +19,8 @@ type Querier interface {
 	// empty set rather than a duplicate claim.
 	ClaimReadyTasks(ctx context.Context, arg ClaimReadyTasksParams) ([]Task, error)
 	ClaimShadowUser(ctx context.Context, arg ClaimShadowUserParams) error
+	// Rotation and revocation are the same statement with a NULL ciphertext.
+	ClearAgentProviderKey(ctx context.Context, arg ClearAgentProviderKeyParams) (ClearAgentProviderKeyRow, error)
 	ConsumePasswordReset(ctx context.Context, tokenHash string) (int64, error)
 	// Guards US-AD20 AC4: an agent holding a task in `running` may not be deleted,
 	// because the run it is executing would lose its retry/limit source mid-flight.
@@ -28,6 +33,10 @@ type Querier interface {
 	CountUnfinishedParents(ctx context.Context, childID string) (int32, error)
 	// Agents. The agent is the retry/limit source for every run it executes.
 	CreateAgent(ctx context.Context, arg CreateAgentParams) (CreateAgentRow, error)
+	// Agent skills (US-AD107). Skill is org-scoped data: users read and edit the
+	// markdown, agents only read it. Nothing here exposes a write path an agent
+	// could reach, and every query carries org_id explicitly.
+	CreateAgentSkill(ctx context.Context, arg CreateAgentSkillParams) (AgentSkill, error)
 	// Boards. columns_json is the board's view of status, never a new status.
 	CreateBoard(ctx context.Context, arg CreateBoardParams) (Board, error)
 	// Append-only event log. No UPDATE or DELETE is ever issued against events.
@@ -61,6 +70,9 @@ type Querier interface {
 	CreateTaskLink(ctx context.Context, arg CreateTaskLinkParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	DeleteAgent(ctx context.Context, arg DeleteAgentParams) error
+	// System skills are not deletable: they are the baseline every workspace starts
+	// from, and removing one would silently strip capability from existing agents.
+	DeleteAgentSkill(ctx context.Context, arg DeleteAgentSkillParams) error
 	DeleteBoard(ctx context.Context, arg DeleteBoardParams) error
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteMembership(ctx context.Context, arg DeleteMembershipParams) error
@@ -72,6 +84,10 @@ type Querier interface {
 	// token: after a reset the operator has no trusted device, so all of them go.
 	DeleteUserSessions(ctx context.Context, userID string) error
 	GetAgent(ctx context.Context, arg GetAgentParams) (GetAgentRow, error)
+	// The ONLY reader of the ciphertext column. Returns it alone so the sealed bytes
+	// never travel inside a struct that gets logged, cached, or serialised.
+	GetAgentProviderKey(ctx context.Context, arg GetAgentProviderKeyParams) ([]byte, error)
+	GetAgentSkill(ctx context.Context, arg GetAgentSkillParams) (AgentSkill, error)
 	GetBoard(ctx context.Context, arg GetBoardParams) (Board, error)
 	// The single membership row that answers "is this user in this org, and as
 	// what". Every org-scoped handler resolves its tenant through this query, so
@@ -91,7 +107,25 @@ type Querier interface {
 	GetTask(ctx context.Context, arg GetTaskParams) (Task, error)
 	GetUserByEmail(ctx context.Context, lower string) (GetUserByEmailRow, error)
 	GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error)
+	// The list needs "dipakai N agent" on every row, so usage is resolved in the
+	// same round trip: a per-row query would be N+1 against a table the user scrolls.
+	// `?` is jsonb containment for a top-level array element, i.e. the slug is in
+	// agents.skills_json. Archived agents are excluded: they no longer receive work,
+	// so they must not make a skill look live.
+	ListAgentSkillsWithUsage(ctx context.Context, orgID string) ([]ListAgentSkillsWithUsageRow, error)
+	// Returns archived rows too, deliberately. The registry is where a user finds an
+	// agent again to unarchive it, so filtering them out here would make archiving
+	// irreversible from the UI. Callers that must not offer a retired agent (the
+	// assign dropdown, US-AD73 AC2) filter on `archived_at` themselves — see
+	// ListAgentsUsingSkill and the task-assign path.
 	ListAgents(ctx context.Context, arg ListAgentsParams) ([]ListAgentsRow, error)
+	// Feeds the "dipakai oleh" list under the editor; each name routes to the agent
+	// detail page, which is what stops a user from editing a live skill blindly.
+	ListAgentsUsingSkill(ctx context.Context, arg ListAgentsUsingSkillParams) ([]ListAgentsUsingSkillRow, error)
+	// US-AD73 AC2: the assign dropdown must never offer a retired agent. This is the
+	// deliberate counterpart to ListAgents, which returns archived rows so the
+	// registry can unarchive them.
+	ListAssignableAgents(ctx context.Context, orgID string) ([]ListAssignableAgentsRow, error)
 	// SSE resume: events newer than the client's Last-Event-ID for one board.
 	ListBoardEventsAfter(ctx context.Context, arg ListBoardEventsAfterParams) ([]Event, error)
 	ListBoardTasks(ctx context.Context, arg ListBoardTasksParams) ([]Task, error)
@@ -108,7 +142,21 @@ type Querier interface {
 	// Keep the rename and its audit row in one statement: if the INSERT fails, the
 	// data-modifying CTE is rolled back too (US-AD77 fail-closed).
 	RenameOrgWithAudit(ctx context.Context, arg RenameOrgWithAuditParams) error
+	// US-AD86: store the sealed credential. Encryption/decryption lives in
+	// internal/crypto; this statement only ever sees ciphertext, so a DB dump alone
+	// cannot recover a provider key. Returning the derived flag lets the handler
+	// answer without a second round-trip.
+	SetAgentProviderKey(ctx context.Context, arg SetAgentProviderKeyParams) (SetAgentProviderKeyRow, error)
 	TouchSession(ctx context.Context, tokenHash string) error
+	UnarchiveAgent(ctx context.Context, arg UnarchiveAgentParams) (UnarchiveAgentRow, error)
+	// US-AD96/US-AD106: the edit form replaces every mutable field at once, so this
+	// is a full update rather than a partial patch. `provider` moves together with
+	// `base_url` because the DB constraint (agents_base_url_chk) requires them to
+	// agree: 'openai_compatible' iff base_url IS NOT NULL.
+	UpdateAgent(ctx context.Context, arg UpdateAgentParams) (UpdateAgentRow, error)
+	// AC6: version rises on every edit and older content is never rewritten in
+	// place, so a run that already loaded v3 keeps meaning what it meant.
+	UpdateAgentSkill(ctx context.Context, arg UpdateAgentSkillParams) (AgentSkill, error)
 	UpdateBoardBudget(ctx context.Context, arg UpdateBoardBudgetParams) error
 	UpdateBoardColumns(ctx context.Context, arg UpdateBoardColumnsParams) error
 	UpdateBoardName(ctx context.Context, arg UpdateBoardNameParams) error

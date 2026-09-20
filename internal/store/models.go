@@ -25,6 +25,22 @@ type Agent struct {
 	MaxAttempts       int32
 	ProviderApiKeyEnc []byte
 	CreatedAt         pgtype.Timestamptz
+	BaseUrl           *string
+	ArchivedAt        pgtype.Timestamptz
+	HasProviderKey    *bool
+}
+
+type AgentSkill struct {
+	ID        string
+	OrgID     string
+	Slug      string
+	Name      string
+	BodyMd    string
+	Version   int32
+	IsSystem  bool
+	CreatedBy *string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
 }
 
 type AuditLog struct {
@@ -63,6 +79,26 @@ type Event struct {
 	CreatedAt   pgtype.Timestamptz
 }
 
+type LedgerEntry struct {
+	ID               int64
+	OrgID            string
+	RunID            string
+	TaskID           string
+	Provider         string
+	Model            string
+	Kind             string
+	TokensIn         int64
+	TokensOut        int64
+	CacheReadTokens  int64
+	CacheWriteTokens int64
+	ReasoningTokens  int64
+	CostMicros       int64
+	PriceVersion     int32
+	PriceSource      string
+	PricingModel     string
+	CreatedAt        pgtype.Timestamptz
+}
+
 type Membership struct {
 	OrgID     string
 	UserID    string
@@ -97,6 +133,30 @@ type Project struct {
 	Slug      string
 	Name      string
 	CreatedAt pgtype.Timestamptz
+}
+
+type Run struct {
+	ID                string
+	OrgID             string
+	TaskID            string
+	AgentID           string
+	Attempt           int16
+	Status            string
+	Outcome           *string
+	FailureKind       *string
+	ClaimLock         *string
+	ClaimExpires      pgtype.Timestamptz
+	WorkerPid         *int32
+	LastHeartbeatAt   pgtype.Timestamptz
+	MaxRuntimeSeconds int32
+	CostMicros        int64
+	TokensIn          int64
+	TokensOut         int64
+	Summary           *string
+	Error             *string
+	MetadataJson      []byte
+	StartedAt         pgtype.Timestamptz
+	EndedAt           pgtype.Timestamptz
 }
 
 type Session struct {

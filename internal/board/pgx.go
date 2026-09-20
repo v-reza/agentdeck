@@ -51,6 +51,13 @@ func str(p *string) string {
 
 // ts converts a nullable Postgres timestamp to a pointer, the shape the domain
 // uses so "no value" is unambiguous instead of a zero time.
+// boolOf flattens the nullable generated column agents.has_provider_key into a
+// plain bool. It is NULL only for a row that predates the column, which the
+// migration backfills; false is the honest answer for "we do not know".
+func boolOf(b *bool) bool {
+	return b != nil && *b
+}
+
 func ts(t pgtype.Timestamptz) *time.Time {
 	if !t.Valid {
 		return nil
@@ -630,16 +637,113 @@ func (r *pgxRepository) CountAgentRunningTasks(ctx context.Context, id, orgID st
 	return int(n), nil
 }
 
-// The three agent row shapes differ only by generated type, so they share one
-// mapper. ReasoningEffort and the JSON columns are the ones worth naming: the
-// DDL defaults skills/tools to '[]', so a row always decodes to valid JSON.
+// UpdateAgent writes every mutable column at once (US-AD96, US-AD106). Postgres
+// is the arbiter of the name uniqueness it owns: agents_project_name_key, mapped
+// to ErrAgentNameTaken -> 409, exactly as on create. The provider/base_url pair
+// is pre-checked in the service so a mismatch is a 400 instead of a raw CHECK
+// violation surfacing as a 500.
+func (r *pgxRepository) UpdateAgent(ctx context.Context, a Agent) (Agent, error) {
+	row, err := r.q.UpdateAgent(ctx, store.UpdateAgentParams{
+		ID:                a.ID,
+		OrgID:             a.OrgID,
+		Name:              a.Name,
+		Provider:          a.Provider,
+		Model:             a.Model,
+		ReasoningEffort:   a.ReasoningEffort,
+		SkillsJson:        a.SkillsJSON,
+		ToolsJson:         a.ToolsJSON,
+		MaxRuntimeSeconds: int32(a.MaxRuntimeSeconds),
+		RetryPolicy:       a.RetryPolicy,
+		MaxAttempts:       int32(a.MaxAttempts),
+		BaseUrl:           nullString(a.BaseURL),
+	})
+	if err != nil {
+		return Agent{}, agentNameTakenError(noRowsError(err))
+	}
+	return agentFromUpdate(row), nil
+}
+
+// ArchiveAgent sets archived_at, retiring the agent from every assign dropdown
+// while leaving the row (US-AD73 AC1). The running-task guard lives in the
+// service beside the identical guard on delete.
+func (r *pgxRepository) ArchiveAgent(ctx context.Context, id, orgID string) (Agent, error) {
+	row, err := r.q.ArchiveAgent(ctx, store.ArchiveAgentParams{ID: id, OrgID: orgID})
+	if err != nil {
+		return Agent{}, noRowsError(err)
+	}
+	return agentFromArchive(row), nil
+}
+
+// UnarchiveAgent clears archived_at, returning the agent to service.
+func (r *pgxRepository) UnarchiveAgent(ctx context.Context, id, orgID string) (Agent, error) {
+	row, err := r.q.UnarchiveAgent(ctx, store.UnarchiveAgentParams{ID: id, OrgID: orgID})
+	if err != nil {
+		return Agent{}, noRowsError(err)
+	}
+	return agentFromUnarchive(row), nil
+}
+
+// ---- provider credentials (US-AD86) -----------------------------------------
+
+// SetAgentProviderKey writes the sealed credential (US-AD86 AC1) and returns the
+// generated has_provider_key the statement echoed. Rotation is this same call:
+// the column is overwritten, so the previous ciphertext is gone rather than
+// versioned (AC4).
+func (r *pgxRepository) SetAgentProviderKey(ctx context.Context, id, orgID string, sealed []byte) (bool, error) {
+	row, err := r.q.SetAgentProviderKey(ctx, store.SetAgentProviderKeyParams{
+		ID:                id,
+		OrgID:             orgID,
+		ProviderApiKeyEnc: sealed,
+	})
+	if err != nil {
+		return false, noRowsError(err)
+	}
+	return row.HasProviderKey != nil && *row.HasProviderKey, nil
+}
+
+// ClearAgentProviderKey sets the column to NULL. It is one statement, which is
+// what makes the generated flag trustworthy: there is no second write that could
+// be skipped and leave a stale "true".
+func (r *pgxRepository) ClearAgentProviderKey(ctx context.Context, id, orgID string) (bool, error) {
+	row, err := r.q.ClearAgentProviderKey(ctx, store.ClearAgentProviderKeyParams{ID: id, OrgID: orgID})
+	if err != nil {
+		return false, noRowsError(err)
+	}
+	return row.HasProviderKey != nil && *row.HasProviderKey, nil
+}
+
+// AgentProviderKey reads the sealed credential. NULL maps to ErrNoProviderKey
+// rather than an empty slice: pgx scans NULL into a nil []byte without error, so
+// without this check an absent credential would travel as "empty string" and the
+// handler would try to decrypt nothing.
+func (r *pgxRepository) AgentProviderKey(ctx context.Context, id, orgID string) ([]byte, error) {
+	sealed, err := r.q.GetAgentProviderKey(ctx, store.GetAgentProviderKeyParams{ID: id, OrgID: orgID})
+	if err != nil {
+		return nil, noRowsError(err)
+	}
+	if len(sealed) == 0 {
+		return nil, ErrNoProviderKey
+	}
+	return sealed, nil
+}
+
+// The agent row shapes differ only by generated type, so each shares one mapper.
+//
+// Every shape carries base_url and archived_at, including create/get/list: the
+// read statements were widened alongside the update/archive ones, because the
+// registry cannot tell an active agent from a retired one without archived_at,
+// and it would print a hardcoded zero for the archive count forever.
+//
+// ReasoningEffort and the JSON columns are the ones worth naming: the DDL
+// defaults skills/tools to '[]', so a row always decodes to valid JSON.
 func agentFromCreate(r store.CreateAgentRow) Agent {
 	return Agent{
 		ID: r.ID, OrgID: r.OrgID, ProjectID: r.ProjectID, Name: r.Name,
 		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
 		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
-		MaxAttempts: int(r.MaxAttempts), CreatedAt: r.CreatedAt.Time,
+		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl), ArchivedAt: ts(r.ArchivedAt),
+		HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
 	}
 }
 
@@ -649,7 +753,8 @@ func agentFromGet(r store.GetAgentRow) Agent {
 		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
 		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
-		MaxAttempts: int(r.MaxAttempts), CreatedAt: r.CreatedAt.Time,
+		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl), ArchivedAt: ts(r.ArchivedAt),
+		HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
 	}
 }
 
@@ -659,7 +764,45 @@ func agentFromList(r store.ListAgentsRow) Agent {
 		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
 		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
-		MaxAttempts: int(r.MaxAttempts), CreatedAt: r.CreatedAt.Time,
+		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl), ArchivedAt: ts(r.ArchivedAt),
+		HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
+	}
+}
+
+// agentFromUpdate / agentFromArchive / agentFromUnarchive share one shape: the
+// three statements RETURN the same column list, which is why one struct-like
+// mapper each is enough. They are separate only because sqlc generates a
+// distinct named type per statement.
+func agentFromUpdate(r store.UpdateAgentRow) Agent {
+	return Agent{
+		ID: r.ID, OrgID: r.OrgID, ProjectID: r.ProjectID, Name: r.Name,
+		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
+		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
+		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
+		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl),
+		ArchivedAt: ts(r.ArchivedAt), HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
+	}
+}
+
+func agentFromArchive(r store.ArchiveAgentRow) Agent {
+	return Agent{
+		ID: r.ID, OrgID: r.OrgID, ProjectID: r.ProjectID, Name: r.Name,
+		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
+		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
+		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
+		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl),
+		ArchivedAt: ts(r.ArchivedAt), HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
+	}
+}
+
+func agentFromUnarchive(r store.UnarchiveAgentRow) Agent {
+	return Agent{
+		ID: r.ID, OrgID: r.OrgID, ProjectID: r.ProjectID, Name: r.Name,
+		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
+		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
+		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
+		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl),
+		ArchivedAt: ts(r.ArchivedAt), HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
 	}
 }
 

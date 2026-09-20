@@ -6,11 +6,11 @@ Dihasilkan otomatis oleh `screens.py`. Jangan diedit tangan.
 
 | Item | Jumlah |
 |---|---|
-| Story | 105 |
-| Story dengan layar | 80 |
+| Story | 108 |
+| Story dengan layar | 83 |
 | Story backend-only (alasan tertulis) | 25 |
-| Layar | 50 |
-| Frame state yang wajib digenerate | 103 |
+| Layar | 51 |
+| Frame state yang wajib digenerate | 106 |
 
 ## A. Story → Layar
 
@@ -121,6 +121,9 @@ Dihasilkan otomatis oleh `screens.py`. Jangan diedit tangan.
 | `US-AD103` | Should | M6 | Dokumentasi: mulai cepat | `06-docs-quickstart` |
 | `US-AD104` | Should | M6 | Dokumentasi: referensi REST API | `06b-docs-api` |
 | `US-AD105` | Should | M6 | Dokumentasi: skema telemetri | `06c-docs-telemetry` |
+| `US-AD106` | Must | M2 | Provider BYO (bring your own) | `26-agent-form` |
+| `US-AD107` | Should | M2 | Skill library per ruang kerja | `26b-agent-skills` |
+| `US-AD108` | Must | M2 | Estimasi biaya: label dan sumber harga | `26-agent-form` |
 
 ## B. Layar → Story
 
@@ -155,7 +158,8 @@ Dihasilkan otomatis oleh `screens.py`. Jangan diedit tangan.
 | `23-board-settings` | Pengaturan board | `/boards/:id/settings` | `US-AD83`, `US-AD84` | default, confirm-delete |
 | `24-dependency-view` | Graf dependency | `/boards/:id/graph` | `US-AD19` | default |
 | `25-agent-registry` | Registry agent | `/agents` | `US-AD20`, `US-AD73` | default, empty |
-| `26-agent-form` | Formulir agent | `/agents/new` | `US-AD96`, `US-AD67` | default, no-credential, error |
+| `26-agent-form` | Formulir agent | `/agents/new` | `US-AD96`, `US-AD67`, `US-AD106`, `US-AD108` | default, no-credential, error |
+| `26b-agent-skills` | Skill library agent | `(panel)` | `US-AD107` | default, empty, editor |
 | `27-agent-provider-key` | Kredensial provider agent | `(panel)` | `US-AD86`, `US-AD87` | default, masked, invalid |
 | `28-agent-detail` | Detail agent | `/agents/:id` | `US-AD67`, `US-AD73` | default, archived |
 | `29-cost-overview` | Ringkasan biaya | `/cost` | `US-AD28`, `US-AD29`, `US-AD30`, `US-AD31`, `US-AD69` | default, over-budget |

@@ -224,6 +224,10 @@ export interface Agent {
   retry_policy: RetryPolicy | string
   max_attempts: number
   has_provider_key: boolean
+  /** Present only for a BYO provider (openai_compatible). */
+  base_url?: string
+  /** US-AD73: set means retired. Absent means active. */
+  archived_at?: string
   created_at: string
 }
 

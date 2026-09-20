@@ -4,7 +4,7 @@ Milestone **M1 — the board** is underway. This release makes the board real: y
 can shape its columns, and a new workspace no longer starts empty.
 
 Pre-1.0: the API may change between minor versions until the milestone plan in
-[`docs/PLAN-M0-M4.md`](../docs/PLAN-M0-M4.md) completes.
+[`docs/PLAN-M0-M4.md`](docs/PLAN-M0-M4.md) completes.
 
 ### Added
 

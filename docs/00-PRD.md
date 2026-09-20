@@ -852,11 +852,39 @@ Sebagai pemilik ruang kerja, saya ingin membaca catatan perubahan administratif,
 
 **US-AD96** — Formulir agent (buat dan ubah) `Must` · `M2`
 Sebagai pengguna, saya ingin mendaftarkan agent lewat formulir: nama, provider, model, dan kredensial, sehingga saya tidak perlu menyusun permintaan API sendiri.
-- [ ] AC1 Formulir memuat pilihan `provider` dan `model` yang valid; kombinasi di luar daftar harga ditolak sebelum dikirim.
+- [ ] AC1 Formulir memuat pilihan `provider` dan `model` yang valid dari `GET /api/v1/agent-catalog`; kombinasi di luar daftar harga ditolak sebelum dikirim.
 - [ ] AC2 Kolom kredensial bersifat tulis-saja: setelah tersimpan, nilai ditampilkan ter-mask (`sk-...XXXX`) dan tidak pernah dikembalikan utuh oleh API.
 - [ ] AC3 (jalur gagal) Menyimpan tanpa kredensial tetap diizinkan, tetapi agent ditandai "belum siap" dan tidak dapat diklaim dispatcher (`failure_kind='capability'`).
 - [ ] AC4 (permission) Kolom kredensial hanya tampil untuk `owner`/`admin`; `member` dan `viewer` melihat formulir tanpa bagian kredensial.
-- [ ] AC5 Terdapat tombol "Uji kredensial" yang memanggil `POST /api/v1/agents/{id}/validate` dan menampilkan hasil berhasil/gagal secara inline.
+- [ ] AC5 Terdapat tombol "Uji kredensial" yang menampilkan hasil berhasil/gagal secara inline. Uji kredensial dapat dijalankan **sebelum** agent tersimpan (agent baru belum punya id), sehingga endpoint menerima kredensial di body, bukan hanya `POST /agents/{id}/validate`.
+- [ ] AC6 Semua label field muat dalam satu baris di dalam modal (tidak ada label yang turun ke baris berikutnya), sesuai design `26-agent-form`.
+- [ ] AC7 Field `tools` berupa pilihan tertutup dari 9 tool primitif (DECISIONS §6A.H); nilai di luar daftar ditolak 400.
+- [ ] AC8 Field `skills` menampilkan skill library org, bukan teks bebas.
+
+**US-AD106** — Provider BYO (bring your own) `Must` · `M2`
+Sebagai pengguna, saya ingin menghubungkan agent ke penyedia LLM saya sendiri lewat base URL dan API key, sehingga saya tidak terikat pada penyedia bawaan AgentDeck.
+- [ ] AC1 Mendaftarkan agent dengan `provider = 'openai_compatible'` dan `base_url` yang valid berhasil; `base_url` wajib ada bila provider itu, dan harus kosong untuk provider lain.
+- [ ] AC2 Daftar model diambil dari `GET {base_url}/models` milik pengguna dan ditampilkan sebagai pilihan.
+- [ ] AC3 (keamanan) Base URL yang menunjuk ke alamat private, loopback, atau link-local (termasuk `169.254.169.254`) ditolak; hanya `https` yang diterima.
+- [ ] AC4 (keamanan) Redirect dari base URL ke alamat private tidak diikuti.
+- [ ] AC5 Kredensial BYO mengikuti aturan US-AD96 AC2/AC4: tulis-saja, ter-mask, hanya `owner`/`admin`.
+
+**US-AD107** — Skill library per ruang kerja `Should` · `M2`
+Sebagai pengguna, saya ingin menyimpan, melihat, dan mengubah skill milik ruang kerja saya dalam bentuk markdown, sehingga saya bisa menyesuaikan cara kerja agent tanpa mengubah kode.
+- [ ] AC1 Skill disimpan per org dan dirujuk agent lewat slug; agent hanya boleh memakai skill, tidak pernah membuat atau mengubahnya.
+- [ ] AC2 Isi skill berupa markdown dan dapat dipratinjau di UI.
+- [ ] AC3 (keamanan) Markdown yang dirender disanitasi; HTML mentah tidak pernah dieksekusi.
+- [ ] AC4 (permission) Hanya `owner`/`admin` yang dapat membuat atau mengubah skill; `member` dan `viewer` hanya membaca.
+- [ ] AC5 Menyediakan 8 skill bawaan sistem (`code_review`, `e2e_test`, `debug`, `refactor`, `test_write`, `docs`, `migration`, `security_review`) saat ruang kerja dibuat.
+- [ ] AC6 (jalur gagal) Mengubah skill menaikkan `version`; riwayat versi lama tidak berubah surut.
+
+**US-AD108** — Estimasi biaya: label dan sumber harga `Must` · `M2`
+Sebagai pengguna, saya ingin tahu bahwa angka biaya di AgentDeck adalah estimasi, dan tahu harga mana yang dipakai, sehingga saya tidak salah membaca laporan biaya sebagai tagihan.
+- [ ] AC1 Setiap angka biaya di UI ditandai sebagai estimasi, bukan tagihan.
+- [ ] AC2 Baris ledger mencatat `price_source` (`manual`/`catalog`/`pattern`/`unpriced`) dan `pricing_model` (entri/pattern yang benar-benar dipakai).
+- [ ] AC3 Model yang tidak cocok entri mana pun ditandai `unpriced` dengan biaya 0, bukan diisi angka karangan.
+- [ ] AC4 (jalur gagal) Harga manual per model dapat ditimpa oleh `owner`/`admin` dan menang atas harga katalog.
+- [ ] AC5 Perhitungan memakai 5 komponen (input-miss, cached, output, reasoning, cache_creation); `reasoning` tidak pernah disamakan dengan `output` secara diam-diam.
 
 **US-AD97** — Cost rail: panel biaya sisi kanan `Must` · `M2`
 Sebagai pengguna, saya ingin melihat biaya hari ini, tren 7 hari, agent paling boros, dan run yang sedang jalan, tanpa meninggalkan board.
@@ -1076,7 +1104,7 @@ Sebagai integrator, saya ingin memahami bentuk payload event dan step sebelum me
 | US-AD92..93 | Seksi 6 Kontrak HTTP API (auth/me, projects) · Seksi 11 Auth & RBAC (konteks ruang kerja) · Seksi 17 Struktur Folder (Frontend) | M0 |
 | US-AD94, US-AD97 | Seksi 6 Kontrak HTTP API (steps, cost ledger) · Seksi 9 Cost Ledger & Budget Guardrail | M2 |
 | US-AD95 | Seksi 6 Kontrak HTTP API (audit-log) · Seksi 3.17 `audit_log` | M5 |
-| US-AD96 | Seksi 6 Kontrak HTTP API (agents, provider-key) · Seksi 12 Workspace & Eksekusi Agent | M2 |
+| US-AD96, US-AD106, US-AD107, US-AD108 | Seksi 6 Kontrak HTTP API (agents, agent-catalog, agent-skills, provider-key) · Seksi 9.1 Model Harga · Seksi 12 Workspace & Eksekusi Agent · DECISIONS §6A | M2 |
 | US-AD99..105 | Seksi 17 Struktur Folder (Frontend, halaman statis & dokumentasi) | M6 |
 
 ---

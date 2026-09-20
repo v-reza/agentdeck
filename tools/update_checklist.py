@@ -72,7 +72,47 @@ def render(rows, status):
         p = sum(1 for r in by[ms] if status.get(r[0]) == "pass")
         out.append(f"| {ms} | {n} | {p} | {n - p} |")
     out.append("")
+    out += render_notes(status)
     return "\n".join(out)
+
+
+# Notes for stories whose status needs a caveat that the one-line table cannot
+# carry — a story that is half done, or one deliberately deferred. They live
+# here rather than in CHECKLIST.md because that file is regenerated from this
+# script on every run: a note typed into the output would be silently erased by
+# the next `update_checklist.py` call. Keyed by story id; rendered only when the
+# story is actually in that state.
+NOTES = {
+    "US-AD73": (
+        "wip",
+        "backend PASS, UI sebagian",
+        [
+            "Sudah jalan: `PATCH /api/v1/agents/{id}` dengan `{\"archived\": true|false}`; "
+            "guard 409 saat agent masih memegang run; guard 403 untuk member/viewer; "
+            "`archived_at` dikembalikan di `GET`/list/`POST`; badge `DIARSIP` dan filter "
+            "`DIARSIP` di registry; agent terarsip dikeluarkan dari hitungan siap-ditugaskan.",
+            "Belum: AC2 menuntut agent terarsip hilang dari **dropdown assign task** "
+            "(`<select name=\"assigned_agent\">`) di papan Kanban dan Table View. "
+            "Backend-nya ada (`ListAssignableAgents`), dropdown-nya belum dibangun. "
+            "AC1 (task `running` tetap tuntas saat agent diarsip) baru bisa dibuktikan "
+            "end-to-end setelah executor M4 ada.",
+            "Status PASS ditahan sampai kedua AC itu bisa dibuktikan — bukan karena "
+            "gate merah.",
+        ],
+    ),
+}
+
+
+def render_notes(status):
+    """Per-story caveats, emitted only for stories currently in the noted state."""
+    blocks = []
+    for sid, (want, headline, bullets) in NOTES.items():
+        if status.get(sid) != want:
+            continue
+        blocks += [f"### Catatan status — `{sid}` ({STATUSES[want]})", "", f"**{headline}.**", ""]
+        blocks += [f"- {b}" for b in bullets]
+        blocks.append("")
+    return blocks
 
 
 def main(argv):

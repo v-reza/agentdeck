@@ -165,7 +165,8 @@ boards(id, org_id, project_id, slug, name, columns_json, budget_daily_micros, cr
 daily_board_costs(org_id, board_id, day, total_micros, run_count, tokens_in, tokens_out, updated_at)
 agents(id, org_id, project_id, name, provider, model, reasoning_effort,
        skills_json, tools_json, max_runtime_seconds, retry_policy, max_attempts,
-       provider_api_key_enc, created_at)
+       provider_api_key_enc, base_url, archived_at, has_provider_key, created_at)
+agent_skills(id, org_id, slug, name, body_md, version, created_by, created_at, updated_at)
 tasks(id, org_id, board_id, title, body, status, priority, assignee_agent_id,
       created_by, idempotency_key, block_kind, consecutive_failures,
       workspace_kind, workspace_path, branch_name, completion_contract,
@@ -183,7 +184,8 @@ approvals(id, org_id, task_id, run_id, requested_by, decided_by, decision,
           gate_mode, reason, preview_json, expires_at, decided_at, created_at)
 ledger_entries(id, org_id, run_id, task_id, provider, model, kind,
                tokens_in, tokens_out, cache_read_tokens, cache_write_tokens,
-               cost_micros, price_version, created_at)
+               reasoning_tokens, cost_micros, price_version, price_source,
+               pricing_model, created_at)
 artifacts(id, org_id, task_id, run_id, filename, content_type, size, storage_key,
           sha256, created_at)
 comments(id, org_id, task_id, author_user_id, author_agent_id, body, created_at)
@@ -201,6 +203,122 @@ webhook_deliveries(id, webhook_id, event_id, status, attempts, response_code,
 **Aturan uang:** `cost_micros` = BIGINT micro-USD (1 USD = 1_000_000). **JANGAN pakai float.**
 **Aturan ID:** ULID (TEXT 26) untuk entitas domain; BIGSERIAL untuk `events`, `steps`, `ledger_entries`, `audit_log`.
 **Aturan isolasi:** setiap tabel ber-`org_id`; semua query WAJIB filter `org_id` (dicek test).
+
+---
+
+## 6A. Pricing, provider BYO, dan skill library (workstream Agent Registry)
+
+**Keputusan ini mengikat. Angka & rumus di sini yang dipakai semua dokumen lain.**
+
+### A. Biaya adalah ESTIMATE, bukan tagihan
+
+`cost_micros` di seluruh ledger adalah **estimasi**, dihitung dari token × tabel harga internal.
+AgentDeck **tidak pernah** mengklaim angka ini sebagai uang yang benar-benar keluar.
+
+- Sumber tabel harga: port dari **9Router** (MIT License, `app/.next-cli-build/server/chunks/8920.js`),
+  **220 entri exact + 51 pattern regex**, per 1 juta token, USD float.
+  **Isi tabelnya ada di `docs/PRICING.md`** (di-generate `tools/gen_pricing.py` dari source 9Router).
+  `docs/PRICING.md` adalah sumber angka; dokumen ini hanya aturannya.
+- Satuan internal: **micro-USD per 1.000.000 token** (`MicrosPer1M = round(usd_per_1m × 1e6)`,
+  `$5.00/1M → 5_000_000`). **Bukan** `round(usd_per_1m)` — pembulatan itu menolkan **397 harga**
+  (mis. `deepseek-*` cached `$0.0028/1M`), sehingga cache hit jadi gratis tanpa ketahuan.
+- Alasan: provider OAuth/langganan (Antigravity, Kiro, Codex) tidak mengekspos harga flat,
+  dan model BYO tidak mengekspos harga sama sekali. Estimasi konsisten lebih berguna
+  daripada nol atau angka karangan.
+- **UI wajib menulis "estimate"** pada setiap angka biaya. Ini bukan hiasan: 9Router mencatat
+  $62.97 pada 2026-09-06 untuk 1.987 request lewat `antigravity` — uang itu tidak pernah keluar.
+- Jalur BYO: user melihat biaya sebenarnya di dashboard providernya sendiri.
+
+### B. Rumus kanonik (5 komponen)
+
+```
+miss      = max(0, prompt_tokens − cached_tokens − cache_creation_tokens)
+cost      = miss            × input/1e6
+          + cached_tokens   × (cached         ?? input)/1e6
+          + completion      × output/1e6
+          + reasoning       × (reasoning      ?? output)/1e6
+          + cache_creation  × (cache_creation ?? input)/1e6
+```
+
+**`reasoning` punya harga sendiri**, terpisah dari `output`. Terverifikasi eksak
+(`max_err = 0.0000000000`, 13.140 baris) terhadap data produksi 9Router.
+Di Claude selisihnya besar: `claude-opus-4.6` output 25 vs reasoning 37.5.
+
+### C. Resolusi harga — 4 tingkat
+
+| Tingkat | Sumber | `price_source` |
+|---|---|---|
+| 1 | override per-model milik org (`agent_model_prices`) | `manual` |
+| 2 | tabel exact (220 model) | `catalog` |
+| 3 | pattern regex (51 aturan) | `pattern` |
+| 4 | tidak ada | `unpriced` |
+
+**Default tingkat 3**: model tak dikenal tetap dapat estimasi lewat pattern generic.
+User boleh menimpa per model lewat tingkat 1. Tingkat 4 (`unpriced`) hanya terjadi bila
+nama model tidak cocok pattern mana pun — `cost_micros = 0`, ledger menandai `unpriced`.
+
+### D. Satuan & pembulatan
+
+- Tabel harga asal **USD per 1 juta token (float)**. Disimpan sebagai **micro-USD per 1.000.000 token**
+  (`MicrosPer1M = round(usd_per_1m × 1e6)`, jadi `$5.00/1M → 5_000_000`). **Bukan**
+  `round(usd_per_1m)`: pembulatan itu menolkan **397 harga** (mis. `deepseek-*` cached
+  `$0.0028/1M`), sehingga cache hit jadi gratis tanpa ketahuan.
+- Pembagian `1e6` di rumus §9.1 mengubah (token × micro-USD per 1M token) menjadi micro-USD.
+- `cost_micros` = integer BIGINT micro-USD (1 USD = 1_000_000). **JANGAN float di DB.**
+- Pembulatan dilakukan **satu kali** di akhir perhitungan baris, bukan per komponen.
+
+### E. Snapshot harga di baris ledger
+
+`ledger_entries` menyimpan `price_source` + `pricing_model` (nama entri/pattern yang benar-benar
+dipakai). `price_version` integer **tidak cukup**: tabel pattern bisa berubah, dan override
+per-org berbeda antar tenant. Tanpa dua kolom ini, baris lama tidak bisa dibuktikan.
+
+### F. Provider BYO = provider terpisah
+
+- `provider = 'openai_compatible'` + kolom `agents.base_url`.
+- Kolom `provider` yang ada **TIDAK diganti** — US-AD67 (validasi `provider`+`model` ke tabel harga)
+  dan US-AD68 (`price_version`) tetap berlaku apa adanya.
+- **SSRF guard wajib**: `https` only, tolak IP private/loopback/link-local
+  (termasuk `169.254.169.254`), jangan ikut redirect ke alamat private.
+- Katalog model BYO diisi dari `GET {base_url}/models` (hanya **nama** model — endpoint itu
+  tidak mengembalikan harga), lalu di-resolve lewat tingkat C di atas.
+
+### G. Skill library — org-scoped, agent TIDAK boleh menulis
+
+- Skill adalah **data**, bukan konstanta: tabel `agent_skills` berisi `body_md` (markdown).
+- Cakupan **per org**. Default disediakan sistem (seed), user boleh menambah/mengubah miliknya.
+- **Hanya owner/admin yang boleh menulis.** Agent **tidak pernah** boleh menulis skill.
+  Alasan: `body_md` masuk ke prompt agent; agent yang bisa menulis skill = agent yang bisa
+  menulis ulang instruksinya sendiri, lalu dipakai agent lain. Ini privilege escalation.
+- Markdown **wajib di-sanitize** saat dirender. Render sebagai teks atau HTML tersanitasi, bukan `innerHTML` mentah.
+- `agents.skills_json` tetap daftar slug; resolusi slug → `agent_skills` per org.
+
+### H. Tools tertutup (enum, 9 primitif)
+
+`read_file` · `write_file` · `edit_file` · `list_dir` · `search_files` · `bash` · `sql_query` · `http_fetch` · `git`
+
+`bash` wajib lewat approval gate. `tools_json` adalah allowlist yang menggerbang eksekusi:
+nama di luar daftar ini **ditolak 400**. Daftar ini adalah kontrak yang wajib diimplementasikan
+executor (M4) — checkbox yang tidak punya tool nyata adalah grant palsu.
+
+Skill default (seed, 8): `code_review` · `e2e_test` · `debug` · `refactor` · `test_write` · `docs` · `migration` · `security_review`
+
+### I. `has_provider_key` adalah generated column, bukan kolom tersimpan
+
+`agents.has_provider_key` = `GENERATED ALWAYS AS (provider_api_key_enc IS NOT NULL) STORED`.
+
+Registry perlu tahu apakah agent membawa kredensial sendiri tanpa pernah membaca kredensialnya.
+Dua alternatif ditolak:
+
+1. **Kolom BOOLEAN biasa.** Harus ditulis ulang di setiap jalur yang mengubah kredensial. Satu
+   jalur yang lupa (mis. `DELETE /provider-key`) meninggalkan `true` yang basi, dan agent
+   berlabel "siap" padahal tidak punya key. Generated column tidak bisa melenceng dari sumbernya.
+2. **Hitung di Go.** Berarti setiap query agent harus ikut men-`SELECT provider_api_key_enc`
+   supaya mapper bisa mengujinya — dan ciphertext lalu mengalir ke setiap struct list/get, satu
+   tag JSON atau satu baris log dari keluar dari proses. Dengan generated column, ciphertext
+   tetap terkurung di satu pembaca: `GetAgentProviderKey`.
+
+`IS NOT NULL` atas BYTEA bersifat immutable, jadi kolom ini sah sebagai `STORED`.
 
 ---
 

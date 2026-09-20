@@ -159,7 +159,19 @@ type Agent struct {
 	MaxRuntimeSeconds int
 	RetryPolicy       string
 	MaxAttempts       int
-	CreatedAt         time.Time
+	// BaseURL is the BYO endpoint (DECISIONS 6A.F). The DDL pairs it with
+	// Provider — 'openai_compatible' iff it is set (agents_base_url_chk) — and
+	// validateAgent enforces the same pairing so a mismatch is a 400 rather
+	// than a CHECK violation surfacing as a 500.
+	BaseURL string
+	// ArchivedAt is US-AD73: non-nil while the agent is retired. Nil is active.
+	ArchivedAt *time.Time
+	CreatedAt  time.Time
+	// HasProviderKey reports whether provider_api_key_enc is set. It is the
+	// generated column agents.has_provider_key (DECISIONS 6A.I), not a second
+	// source of truth: the ciphertext itself never reaches this struct, so it
+	// cannot leak through a log line or a JSON tag on a list response.
+	HasProviderKey bool
 }
 
 // RetryPolicy mirrors the agents.retry_policy CHECK (DECISIONS §4).
@@ -218,10 +230,40 @@ type Repository interface {
 	GetAgent(ctx context.Context, id, orgID string) (Agent, error)
 	ListAgents(ctx context.Context, orgID, projectID string) ([]Agent, error)
 	DeleteAgent(ctx context.Context, id, orgID string) error
-	// CountAgentRunningTasks is the guard for US-AD20 AC4: deleting an agent
-	// that still holds a running task would strand that run without its retry
-	// and limit source, so the count is checked before the delete.
+	// UpdateAgent replaces every mutable field at once (US-AD96/US-AD106). It
+	// is a full update, not a partial patch: the sqlc statement writes all ten
+	// columns, so an omitted field lands on its default rather than keeping the
+	// stored value. Returns ErrNotFound when the id is absent from the org.
+	UpdateAgent(ctx context.Context, a Agent) (Agent, error)
+	// ArchiveAgent/UnarchiveAgent toggle agents.archived_at (US-AD73). The row
+	// survives because a running task still reads its retry and runtime limits
+	// from it; only the assign dropdown stops offering it.
+	ArchiveAgent(ctx context.Context, id, orgID string) (Agent, error)
+	UnarchiveAgent(ctx context.Context, id, orgID string) (Agent, error)
+	// CountAgentRunningTasks is the guard for US-AD20 AC4 and US-AD73 AC3:
+	// deleting or archiving an agent that still holds a running task would
+	// strand that run without its retry and limit source, so the count is
+	// checked before the write.
 	CountAgentRunningTasks(ctx context.Context, id, orgID string) (int, error)
+
+	// ---- provider credentials (US-AD86) ----------------------------------
+	//
+	// These three carry sealed bytes only: encryption happens in the handler
+	// layer where the master key lives, so internal/board never sees a
+	// plaintext credential and cannot log one by accident. The bools are the
+	// generated column agents.has_provider_key, read straight off the
+	// statement's RETURNING rather than recomputed in Go (DECISIONS 6A.I).
+	//
+	// SetAgentProviderKey is also the rotation path: it overwrites the column,
+	// so no credential history exists to leak (US-AD86 AC4).
+	SetAgentProviderKey(ctx context.Context, id, orgID string, sealed []byte) (bool, error)
+	// ClearAgentProviderKey revokes the credential. The agent falls back to the
+	// deployment's environment key, which is why this is a 200 and not a delete.
+	ClearAgentProviderKey(ctx context.Context, id, orgID string) (bool, error)
+	// AgentProviderKey is the single reader of the ciphertext column. It returns
+	// ErrNoProviderKey when the column is NULL, so "no credential" is a 400 the
+	// caller can act on rather than an empty string that decrypts to nothing.
+	AgentProviderKey(ctx context.Context, id, orgID string) ([]byte, error)
 
 	// ---- tasks -----------------------------------------------------------
 	CreateTask(ctx context.Context, t Task) (Task, error)
