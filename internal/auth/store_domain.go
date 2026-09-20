@@ -271,6 +271,7 @@ func (s *Store) Workspaces(ctx context.Context, email string) ([]Membership, err
 			WorkspaceID: row.OrgID,
 			Name:        row.Name,
 			Slug:        row.Slug,
+			Kind:        row.Kind,
 			Role:        row.Role,
 		})
 	}
@@ -437,13 +438,19 @@ func (s *Store) resolveAndAuthorize(ctx context.Context, requestedID, actorEmail
 // AC2). Only the owner may rename; admin and member get ErrForbidden. An
 // unknown org is ErrWorkspaceNotFound so the failure is observable.
 func (s *Store) UpdateWorkspace(ctx context.Context, workspaceID, actorEmail, name string) error {
-	if _, _, err := s.resolveAndAuthorize(ctx, workspaceID, actorEmail, Owner); err != nil {
+	workspace, _, err := s.resolveAndAuthorize(ctx, workspaceID, actorEmail, Owner)
+	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(name) == "" {
+	name = strings.TrimSpace(name)
+	if name == "" {
 		return ErrInvalidInput
 	}
-	return s.repo.UpdateOrgName(ctx, workspaceID, strings.TrimSpace(name))
+	actor, err := s.repo.GetUserByEmail(ctx, actorEmail)
+	if err != nil {
+		return err
+	}
+	return s.repo.RenameOrgWithAudit(ctx, workspaceID, actor.ID, "", workspace.Name, name)
 }
 
 // AddMember invites a user into one org by email (US-AD04 AC1). The actor

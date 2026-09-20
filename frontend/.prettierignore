@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+coverage
+*.local
+package-lock.json
+
+# Playwright output (generated, never formatted)
+test-results
+playwright-report

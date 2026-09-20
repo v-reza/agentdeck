@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 160" width="720" height="160" role="img" aria-label="AgentDeck">
+  <title>AgentDeck</title>
+  <!--
+    Horizontal lockup for the README header: the same "A" mark as logo.svg, so the
+    README and the GitHub avatar cannot drift apart, plus the wordmark and the
+    one-line positioning statement.
+
+    Transparent background on purpose — GitHub renders READMEs in both light and
+    dark themes, and a baked-in surface would look like a stray panel in one of
+    them. The wordmark colour is therefore the one that survives both.
+  -->
+  <g transform="translate(16 16)">
+    <rect width="128" height="128" rx="28" fill="#0d7a70"/>
+    <g transform="translate(32 32) scale(1)" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="square" stroke-linejoin="round">
+      <path d="M32 16 L18 48 H46 Z"/>
+      <path d="M24 36 H40"/>
+    </g>
+  </g>
+  <g font-family="Inter, 'Segoe UI', system-ui, -apple-system, sans-serif" fill="#0e1110">
+    <text x="176" y="86" font-size="58" font-weight="700" letter-spacing="-1">AgentDeck</text>
+    <text x="178" y="118" font-size="21" font-weight="500" fill="#4d5553">Self-hosted AI agent fleet orchestration</text>
+  </g>
+</svg>

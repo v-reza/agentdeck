@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512" role="img" aria-label="AgentDeck">
+  <title>AgentDeck</title>
+  <!--
+    The AgentDeck mark: a chunky geometric "A" on the product's accent squircle.
+
+    It deliberately does NOT reuse frontend/public/favicon.svg verbatim. That path
+    is a left spine with three arms — a letter "E" — which is why the first draft of
+    this file read as "E" to anyone who looked at it, while the app's own rail badge
+    says "AD". A mark that spells the wrong letter is worse than a mark that is
+    merely plain, so the glyph is redrawn as an "A".
+
+    Kept as an outline (stroke, not fill) so the counter stays open at this size:
+    a filled triangle with a notch fills in and reads as a solid wedge below ~24px.
+    The 8-unit stroke on a 64-unit canvas holds up down to a 16px browser tab.
+  -->
+  <rect width="64" height="64" rx="14" fill="#0d7a70"/>
+  <g fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="square" stroke-linejoin="round">
+    <path d="M32 16 L18 48 H46 Z"/>
+    <path d="M24 36 H40"/>
+  </g>
+</svg>

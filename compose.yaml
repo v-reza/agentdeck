@@ -1,0 +1,87 @@
+# AgentDeck local stack: Postgres + API + Vite dev server.
+#
+# One command for the whole thing:  docker compose up --build
+# Then open http://localhost:5173
+#
+# The database data lives in the named volume `pgdata`, so `docker compose down`
+# keeps your boards and `docker compose down -v` wipes them.
+
+name: agentdeck
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: agentdeck-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agentdeck}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agentdeck_local_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-agentdeck}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The API migrates on startup, so it must not start against a half-open
+      # database. pg_isready reports ready before the entrypoint has created the
+      # app role, so the check also proves the role can actually connect.
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: agentdeck-api
+    environment:
+      ADDR: ':8080'
+      # Reset links point at the web app, not the API (US-AD88 AC1): the
+      # recipient clicks the link in a browser.
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:5173}
+      # The runtime role is the restricted one; the owner role is only used for
+      # startup migrations (ARCHITECTURE 11.2 least privilege).
+      DATABASE_URL: postgres://${POSTGRES_USER:-agentdeck}:${POSTGRES_PASSWORD:-agentdeck_local_dev}@db:5432/${POSTGRES_DB:-agentdeck}?sslmode=disable
+      MIGRATION_DATABASE_URL: postgres://${POSTGRES_USER:-agentdeck}:${POSTGRES_PASSWORD:-agentdeck_local_dev}@db:5432/${POSTGRES_DB:-agentdeck}?sslmode=disable
+    ports:
+      - '${API_PORT:-8080}:8080'
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/readyz || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: agentdeck-web
+    environment:
+      # The browser talks to the Vite dev server, which proxies /api to the API
+      # container — same origin, so the session cookie is a first-party cookie.
+      VITE_API_PROXY_TARGET: http://api:8080
+    ports:
+      - '${WEB_PORT:-5173}:5173'
+    volumes:
+      # Source is bind-mounted so edits hot-reload; node_modules stays in the
+      # image so the container does not need a host-side install.
+      - ./frontend/src:/app/src
+      - ./frontend/e2e:/app/e2e
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      # vite.config.ts MUST be mounted too. Without it the container runs the
+      # config baked into the image, so any change to the dev server itself —
+      # proxy target, watch behaviour — is silently ignored and the container
+      # keeps serving stale modules. That cost three debugging rounds that each
+      # looked like "my fix does nothing".
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:

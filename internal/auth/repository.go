@@ -29,6 +29,12 @@ type Repository interface {
 	// reports ErrUserNotFound.
 	GetUserByID(ctx context.Context, id string) (User, error)
 
+	// UpdateUserProfile writes the caller's own profile fields (US-AD89 AC2).
+	// It is one statement, so a taken email (ErrEmailExists, AC3) rolls the
+	// whole write back rather than leaving a half-applied name change. An
+	// unknown id is ErrUserNotFound — 404, never 403 (AC4).
+	UpdateUserProfile(ctx context.Context, id, name, email, avatarURL string) (User, error)
+
 	// CreateOrg persists a tenant and records its kind. The personal workspace
 	// of a registering user is kind 'personal'; every other org is 'manual'.
 	CreateOrg(ctx context.Context, id, slug, name, kind string) (Workspace, error)
@@ -38,6 +44,10 @@ type Repository interface {
 
 	// UpdateOrgName renames a tenant. Slug collisions are ErrSlugTaken.
 	UpdateOrgName(ctx context.Context, id, name string) error
+
+	// RenameOrgWithAudit commits the rename and its audit record atomically. A
+	// failed audit write must leave the org name unchanged (US-AD77 AC2).
+	RenameOrgWithAudit(ctx context.Context, id, actorUserID, ip, beforeName, afterName string) error
 
 	// CreateMembership links a user to an org with one role. An invitation to an
 	// existing member leaves the role alone: the inviter asked to add the user,
@@ -85,6 +95,28 @@ type Repository interface {
 
 	// DeleteExpiredSessions is the reaper; call it on a timer.
 	DeleteExpiredSessions(ctx context.Context) error
+
+	// CreatePasswordReset stores one reset token hash for a user (US-AD88
+	// AC1). Only the hash is persisted; the raw token is emailed.
+	CreatePasswordReset(ctx context.Context, tokenHash, userID string, expiresAt time.Time) error
+
+	// ConsumePasswordReset marks a token used in the same statement that
+	// checks it, so two concurrent redemptions cannot both succeed. A token
+	// that is unknown, already used, or past its window reports
+	// ErrResetTokenInvalid (AC3).
+	ConsumePasswordReset(ctx context.Context, tokenHash string) error
+
+	// GetPasswordResetByTokenHash loads the reset row a token points at, so
+	// the redemption updates the right user. It is only called after
+	// ConsumePasswordReset has claimed the token.
+	GetPasswordResetByTokenHash(ctx context.Context, tokenHash string) (PasswordResetRow, error)
+
+	// UpdateUserPassword replaces the password hash of one user (AC2).
+	UpdateUserPassword(ctx context.Context, userID, passwordHash string) error
+
+	// DeleteUserSessions revokes every live session of a user. A reset
+	// revokes all of them: the operator has no trusted device (AC2).
+	DeleteUserSessions(ctx context.Context, userID string) error
 }
 
 // MembershipRow is the persisted (org, user, role) triple.
@@ -110,5 +142,15 @@ type MemberRow struct {
 	Email     string
 	Name      string
 	Role      Role
+	CreatedAt time.Time
+}
+
+// PasswordResetRow is one outstanding reset token. Only the hash is stored;
+// UsedAt marks a spent token, which is how single-use is enforced (AC3).
+type PasswordResetRow struct {
+	TokenHash string
+	UserID    string
+	ExpiresAt time.Time
+	UsedAt    *time.Time
 	CreatedAt time.Time
 }

@@ -53,8 +53,11 @@ type User struct {
 	Email        string
 	Name         string
 	PasswordHash string
-	IsShadow     bool
-	CreatedAt    time.Time
+	// AvatarURL is the uploaded avatar (users.avatar_url, ARCHITECTURE 3.3).
+	// Empty means the shell draws the derived monogram (US-AD89 AC1).
+	AvatarURL string
+	IsShadow  bool
+	CreatedAt time.Time
 }
 
 type Workspace struct {
@@ -79,6 +82,7 @@ type Membership struct {
 	WorkspaceID string
 	Name        string
 	Slug        string
+	Kind        string
 	Role        Role
 }
 
@@ -90,6 +94,18 @@ type WorkspaceMember struct {
 	Name      string
 	Role      Role
 	CreatedAt time.Time
+}
+
+type AuditEntry struct {
+	OrgID       string
+	ActorUserID string
+	Action      string
+	TargetType  string
+	TargetID    string
+	Before      string
+	After       string
+	IP          string
+	CreatedAt   time.Time
 }
 
 const (

@@ -1,0 +1,31 @@
+# AgentDeck API image — ARCHITECTURE 14.1: one static Go binary, no runtime deps.
+#
+# CGO is off so the result is a static binary that runs on the scratch-like
+# alpine base and stays inside the N14 size budget.
+
+FROM golang:1.22-alpine AS build
+WORKDIR /src
+
+# Dependencies first so a source-only change does not re-download the module cache.
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY cmd ./cmd
+COPY internal ./internal
+
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/agentdeck-api ./cmd/api
+
+FROM alpine:3.20
+# ca-certificates for outbound TLS (the invite mailer), tzdata for local time in
+# logs, and busybox wget for the container healthcheck.
+RUN apk add --no-cache ca-certificates tzdata
+
+WORKDIR /app
+COPY --from=build /out/agentdeck-api /app/agentdeck-api
+
+# Runs as a non-root user: the API never needs to write to its own filesystem.
+RUN adduser -D -H -u 10001 agentdeck
+USER 10001
+
+EXPOSE 8080
+ENTRYPOINT ["/app/agentdeck-api"]

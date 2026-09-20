@@ -1,0 +1,15 @@
+# Build context exclusions for the frontend image.
+node_modules
+dist
+test-results
+playwright-report
+.playwright-mcp
+verification
+
+# Never ship local env or secrets into an image layer.
+.env
+.env.*
+!.env.example
+
+*.log
+*.tsbuildinfo

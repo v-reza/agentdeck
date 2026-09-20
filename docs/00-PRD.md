@@ -15,6 +15,58 @@
 
 ---
 
+## Daftar Isi
+
+1. [Problem Statement](#1-problem-statement)
+2. [Goals & Non-Goals](#2-goals--non-goals)
+3. [Personas](#3-personas)
+4. [Core User Journeys](#4-core-user-journeys)
+5. [Scope & Priorities](#5-scope--priorities)
+6. [User Stories & Acceptance Criteria](#6-user-stories--acceptance-criteria)
+7. [Functional Requirements](#7-functional-requirements)
+8. [Non-Functional Requirements](#8-non-functional-requirements)
+9. [Success Metrics](#9-success-metrics)
+10. [Risks & Mitigations](#10-risks--mitigations)
+11. [Open Questions](#11-open-questions)
+12. [Release Plan & Definition of Done](#12-release-plan--definition-of-done)
+13. [Traceability](#13-traceability)
+14. [Lampiran: Peta Kompetitif](#14-lampiran-peta-kompetitif)
+
+---
+
+## Executive Summary
+
+**AgentDeck adalah board orkestrasi untuk fleet AI agent** — kanban, ledger biaya, dan gerbang approval dalam satu biner Go + Postgres. Bukan platform inference, bukan workflow editor node-canvas.
+
+Tim yang menjalankan puluhan agent otonom hari ini memakai papan kerja generik atau wrapper skrip. Papan generik **buta terhadap konteks komputasi AI**: tidak tahu sebuah run menghabiskan berapa token, tidak bisa menahan aksi agent sebelum menyentuh produksi, dan tidak menyimpan trace yang bisa dibuka ulang saat run gagal di langkah ke-14.
+
+| Celah | Jawaban AgentDeck |
+|---|---|
+| Biaya per run tidak terlihat | Ledger **micro-USD integer** per step; `price_version` ikut tercatat sebagai bukti audit historis |
+| Aksi berbahaya lolos | `awaiting_approval` sebagai **status task kelas satu**, dengan expiry `N23` — bukan flag CLI |
+| Run gagal tidak bisa ditelusuri | Timeline hierarkis Step → tool call → payload, satu klik dari Run detail |
+| Multi-tenant nihil | Filter `org_id` di **semua** query, diverifikasi test (US-AD07) |
+
+### Fokus v0.1
+
+| Dimensi | Keputusan |
+|---|---|
+| Segmen masuk | **B2C — solo builder** (P5, §4). Kolaborasi menyusul, bukan syarat untuk memakai |
+| Bentuk produk | Self-hosted: satu biner Go + Postgres, tanpa Redis |
+| Biaya infra | ≤ $10/bulan (`N13`) |
+| Bahasa | Dwibahasa EN/ID penuh, tanpa string keras di komponen |
+| Kontrak | **105 user story · 358 acceptance criteria · 79 `Must`** — katalog beku di §6 |
+
+> [!IMPORTANT]
+> **Non-goals yang mengikat.** AgentDeck **bukan** inference engine (NG1), **bukan** workflow editor node-canvas (NG2), dan **bukan** IDE in-browser (NG5). Tiga hal ini ditolak bukan karena sulit, tapi karena menggeser produk dari orkestrasi menjadi platform lain. Daftar lengkap: §3.
+
+> [!NOTE]
+> **Posisi kompetitif.** Perbandingan dengan Hermes Kanban, Linear, LangSmith, Langfuse, dan Temporal UI ada di §14. Ringkasnya: AgentDeck unggul di cost ledger, approval gate, dan budget guardrail; **kalah** di kedalaman observability trace.
+
+**Cara membaca dokumen ini.** PRD mendefinisikan **apa & kenapa**. DB schema, DDL, endpoint path, dan algoritma dispatcher ada di [ARCHITECTURE.md](ARCHITECTURE.md); token visual di [DESIGN.md](DESIGN.md); metrik kuantitatif `N` di [DECISIONS.md](DECISIONS.md). **Status implementasi tidak ditulis di sini** — kemajuan per story dilacak di [COVERAGE.md](COVERAGE.md), urutan pengerjaan di [ROADMAP.md](ROADMAP.md).
+
+---
+
 ## 1. Problem Statement
 
 Orkestrasi fleet AI agent skala tim dan produksi saat ini menghadapi krisis operasional dan visibilitas. Tim engineering menjalankan puluhan agen otonom (coding, research, QA, data scraper) menggunakan wrapper skrip tidak terstruktur atau papan kerja generik (Jira, Linear, Trello) yang buta terhadap konteks komputasi AI.

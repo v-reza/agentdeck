@@ -1,0 +1,19 @@
+# Build context exclusions for the API image.
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+# Frontend is built by its own image; the API image does not need it.
+frontend/
+apps/
+design/
+diagrams/
+docs/
+archive/
+tools/
+*.md
+
+# Local artifacts
+*.log

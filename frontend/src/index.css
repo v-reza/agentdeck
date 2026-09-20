@@ -1,0 +1,127 @@
+@import 'tailwindcss';
+
+/* AgentDeck design tokens — mirror of docs/DESIGN.md (DECISIONS 8).
+   DESIGN.md is the lintable source; this file is the runtime projection of it.
+   Do not invent a colour here that is not in DESIGN.md. */
+@theme {
+  /* --- text: green-black, not blue-neutral --- */
+  --color-primary: #0e1110;
+  --color-secondary: #4d5553;
+  --color-tertiary: #6b7370;
+  --color-quaternary: #98a09d;
+
+  /* --- surfaces: green-tinted neutral --- */
+  --color-surface-page: #f6f7f6;
+  /* `canvas` is what 04-reset-confirm calls the page background. Same value as
+     surface-page; kept as its own name because the design file names it. */
+  --color-canvas: #f6f7f6;
+  --color-surface-panel: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-surface-hover: #eff2f1;
+  --color-surface-sunken: #e8ecea;
+  --color-surface-well: #eef1f0;
+
+  /* --- borders: green ink, not blue --- */
+  --color-border-subtle: rgb(12 26 22 / 0.07);
+  --color-border-standard: rgb(12 26 22 / 0.12);
+  --color-border-strong: rgb(12 26 22 / 0.2);
+
+  /* --- single accent: Signal Teal --- */
+  --color-accent: #0d7a70;
+  --color-accent-hover: #0a625a;
+  --color-accent-tint: #e6f2f0;
+  --color-on-accent: #ffffff;
+  --color-on-primary: #ffffff;
+  --color-on-success: #ffffff;
+  --color-on-warning: #ffffff;
+  --color-on-danger: #ffffff;
+  --color-on-info: #ffffff;
+
+  /* --- semantic --- */
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-danger: #b91c1c;
+  --color-info: #1d4ed8;
+
+  /* --- the 10 task statuses: the primary visual palette --- */
+  --color-status-backlog: #5c6b7a;
+  --color-status-ready: #1d4ed8;
+  --color-status-running: #b45309;
+  --color-status-awaiting-approval: #6d28d9;
+  --color-status-blocked: #c2410c;
+  --color-status-review: #0e7490;
+  --color-status-done: #15803d;
+  --color-status-failed: #b91c1c;
+  --color-status-cancelled: #8a9490;
+  --color-status-archived: #c3cac7;
+
+  /* --- metrics: colour as a number, not decoration --- */
+  --color-token-in: #1d4ed8;
+  --color-token-out: #6d28d9;
+  --color-cost: #0d7a70;
+  --color-cost-over: #b91c1c;
+
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* 03-reset-request and 04-reset-confirm declare this exact shadow as
+     `boxShadow.card`; register uses its own `0 4px 20px rgba(0,0,0,0.04)`. */
+  --shadow-card: 0 1px 3px rgba(12, 26, 22, 0.05), 0 10px 24px -6px rgba(12, 26, 22, 0.04);
+
+  /* DESIGN.md `colors.overlay` — the one backdrop value. Used by the modal. */
+  --color-overlay: rgba(12, 18, 16, 0.44);
+
+  /* shell frame: pinned numbers, do not make these fluid */
+  --spacing-rail: 44px;
+  --spacing-sidebar: 224px;
+  --spacing-topbar: 52px;
+  --spacing-costrail: 264px;
+  /* dense table row (DECISIONS 8: 32px rows, 28px in grouped view) */
+  --spacing-row: 32px;
+  --spacing-row-dense: 28px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-page);
+  color: var(--color-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* tabular numbers for every metric column (DESIGN.md mono-metric) */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Modal open/close. Tailwind v4 needs keyframes declared at top level; the
+   component pairs them with `motion-safe:` so `prefers-reduced-motion` gets the
+   panel without the movement. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.99);
+  }
+}

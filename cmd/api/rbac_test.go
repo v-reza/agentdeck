@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -34,7 +36,14 @@ type rbacTestAPI struct {
 func newRBACTestAPI(t *testing.T) rbacTestAPI {
 	t.Helper()
 
-	api := authAPI{store: auth.NewStore(auth.NewMemoryRepository())}
+	// appBaseURL mirrors config.Load's default. Without it a relative link
+	// would reach the mailer, which is fine for the link's shape but not for
+	// what the recipient is supposed to click.
+	api := authAPI{
+		store:      auth.NewStore(auth.NewMemoryRepository()),
+		logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		appBaseURL: "http://localhost:5173",
+	}
 	server := httptest.NewServer(api.mux(t))
 
 	test := rbacTestAPI{
@@ -83,6 +92,11 @@ func (a authAPI) mux(t *testing.T) *http.ServeMux {
 	mux.HandleFunc("POST /api/v1/auth/login", a.login)
 	mux.HandleFunc("POST /api/v1/auth/logout", a.logout)
 	mux.HandleFunc("GET /api/v1/auth/me", a.me)
+	// US-AD89: the profile is the one resource a user may read and write
+	// without naming a tenant, so both routes sit outside the org-scoped
+	// middleware exactly as they do in main.go.
+	mux.HandleFunc("PATCH /api/v1/auth/me", a.updateMe)
+	mux.HandleFunc("GET /api/v1/users/{id}", a.userProfile)
 	mux.HandleFunc("GET /api/v1/orgs", a.listOrgs)
 	mux.HandleFunc("POST /api/v1/orgs", a.createOrg)
 

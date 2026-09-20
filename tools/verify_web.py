@@ -3,12 +3,18 @@
 
 Cek hal-hal yang pernah lolos dan bikin pelanggaran kontrak:
   A. ROUTER   — nol router manual (window.location.pathname / usePathname sendiri);
-                React Router v7 wajib dipakai sesuai ARCHITECTURE.md:134
+                React Router v7 wajib dipakai sesuai ARCHITECTURE.md 18.2
   B. NAV      — navigasi internal wajib <Link to>; <a href="/..."> internal dilarang
                 (bikin full document reload + mematikan React state)
-  C. DEP      — dependency kontrak ada di apps/web/package.json
+  C. DEP      — dependency kontrak ada di frontend/package.json, dan stack yang
+                dilarang kontrak tidak muncul
   D. FORMAT   — prettier --check bersih (setara gofmt -l)
   E. BANNED   — window.alert/confirm/prompt dilarang
+  F. SPA      — vercel.json punya SPA fallback
+  G. STRUCT   — struktur folder ARCHITECTURE.md 18.2 benar-benar ada, dan
+                server state tidak diambil dengan fetch manual
+  H. REACT19  — primitif memakai ref-as-prop dan <Context value> langsung
+                (nol forwardRef, nol .Provider), sesuai ARCHITECTURE.md 18.2
 
 Exit 0 kalau bersih, 1 kalau ada temuan FAIL.
 
@@ -23,7 +29,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WEB = os.path.join(ROOT, "apps", "web")
+WEB = os.path.join(ROOT, "frontend")
 SRC = os.path.join(WEB, "src")
 
 FAILED = []
@@ -38,8 +44,21 @@ def warn(gate, msg):
     WARNED.append(f"{gate}: {msg}")
 
 
+def strip_comments(text):
+    """Buang komentar supaya cek kode tidak kena prosa.
+
+    Gate ini pernah gagal hanya karena sebuah komentar yang menjelaskan bahwa
+    `forwardRef` TIDAK dipakai. Cek harus membaca kode, bukan dokumentasi kode.
+    ponytail: cukup buang //... dan /*...*/; string yang berisi '//' (URL) tidak
+    dibuang, dan itu tidak masalah karena tidak ada pola terlarang di dalam URL.
+    """
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    text = re.sub(r"//[^\n]*", "", text)
+    return text
+
+
 def walk_sources():
-    """Yield (relpath, text) untuk setiap .ts/.tsx/.css di apps/web/src."""
+    """Yield (relpath, text) untuk setiap .ts/.tsx/.css di frontend/src."""
     for dirpath, dirnames, filenames in os.walk(SRC):
         dirnames[:] = [d for d in dirnames if d != "node_modules"]
         for name in filenames:
@@ -102,32 +121,47 @@ def gate_nav():
 
 
 # --- C. Dependency kontrak --------------------------------------------------
+# ARCHITECTURE.md 18.2 "Frontend": React 19 + Vite, TypeScript, Tailwind v4,
+# shadcn/ui, Redux Toolkit + RTK Query, dnd-kit, Vitest + Playwright.
+REQUIRED_DEPS = (
+    "react-router-dom",
+    "tailwindcss",
+    "@tailwindcss/vite",
+    "@reduxjs/toolkit",
+    "react-redux",
+    "@dnd-kit/core",
+    "@dnd-kit/sortable",
+    "class-variance-authority",
+    "clsx",
+    "tailwind-merge",
+    "vitest",
+    "@playwright/test",
+)
+
+# DECISIONS.md 5: "Redux Toolkit = satu-satunya manajemen state. Tidak ada
+# TanStack Query, tidak ada Zustand, tidak ada Context untuk data aplikasi."
+BANNED_DEPS = ("@tanstack/react-query", "zustand", "jotai", "recoil", "swr")
+
+
 def gate_deps():
     path = os.path.join(WEB, "package.json")
     if not os.path.exists(path):
-        fail("DEP", "apps/web/package.json tidak ada")
+        fail("DEP", "frontend/package.json tidak ada")
         return
 
     with open(path, encoding="utf-8") as handle:
         pkg = json.load(handle)
     deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
 
-    # Wajib: sudah dipakai sekarang.
-    for name in ("react-router-dom",):
-        if name not in deps:
-            fail("DEP", f"{name} hilang dari package.json (kontrak ARCHITECTURE.md:134)")
-        else:
-            print(f"ok    DEP: {name}@{deps[name]} terpasang")
+    missing = [name for name in REQUIRED_DEPS if name not in deps]
+    for name in missing:
+        fail("DEP", f"{name} hilang dari package.json (kontrak ARCHITECTURE.md 18.2)")
+    if not missing:
+        print(f"ok    DEP: {len(REQUIRED_DEPS)} dependency kontrak terpasang")
 
-    # Terlarang: DECISIONS.md melarang TanStack Query, Zustand, Context untuk data.
-    for banned in ("@tanstack/react-query", "zustand"):
+    for banned in BANNED_DEPS:
         if banned in deps:
-            fail("DEP", f"{banned} terlarang (DECISIONS.md: Redux Toolkit satu-satunya state)")
-
-    # Ditunda atas keputusan user 19 Sep: jangan migrasi tanpa izin.
-    for deferred in ("tailwindcss", "tailwindcss-v4"):
-        if deferred in deps:
-            warn("DEP", f"{deferred} terpasang — migrasi Tailwind masih DITUNDA (keputusan user)")
+            fail("DEP", f"{banned} terlarang (DECISIONS.md 5: Redux Toolkit satu-satunya state)")
 
 
 # --- D. Formatting ----------------------------------------------------------
@@ -155,13 +189,25 @@ def gate_format():
 
 
 # --- E. API terlarang -------------------------------------------------------
+# Komentar sering MENYEBUT API terlarang ("bukan window.confirm(), pakai Modal").
+# Scan teks mentah bikin gate nangkap prosa sendiri, jadi komentar dibuang dulu.
+# `(?<!:)//` melindungi "https://" di string literal.
+_COMMENT_BLOCK = re.compile(r"/\*.*?\*/", re.S)
+_COMMENT_LINE = re.compile(r"(?<!:)//[^\n]*")
+
+
+def strip_comments(text):
+    return _COMMENT_LINE.sub("", _COMMENT_BLOCK.sub("", text))
+
+
 def gate_banned():
     found = []
     for rel, text in walk_sources():
         if rel.endswith(".css"):
             continue
+        code = strip_comments(text)
         for call in ("window.alert", "window.confirm", "window.prompt"):
-            if call in text:
+            if call in code:
                 found.append(f"{rel} -> {call}")
     if found:
         for item in found:
@@ -179,7 +225,7 @@ def gate_spa_fallback():
     """
     path = os.path.join(WEB, "vercel.json")
     if not os.path.exists(path):
-        fail("SPA", "apps/web/vercel.json hilang — deep link bakal 404 di Vercel")
+        fail("SPA", "frontend/vercel.json hilang — deep link bakal 404 di Vercel")
         return
 
     with open(path, encoding="utf-8") as handle:
@@ -208,6 +254,108 @@ def gate_spa_fallback():
     print(f"ok    SPA: vercel.json punya SPA fallback ({source} -> /index.html)")
 
 
+# --- G. Struktur ARCHITECTURE.md 18.2 ---------------------------------------
+# File yang kontrak sebut by name. Kalau salah satu hilang, struktur sudah
+# menyimpang dari dokumen — dan itu persis penyebab refactor ulang sebelumnya.
+REQUIRED_PATHS = (
+    "main.tsx",
+    "App.tsx",
+    "app/router.tsx",
+    "routes/auth/Login.tsx",
+    "routes/auth/Register.tsx",
+    "routes/dashboard/Layout.tsx",
+    "routes/dashboard/boards/BoardList.tsx",
+    "routes/dashboard/boards/KanbanBoard.tsx",
+    "routes/dashboard/boards/TableView.tsx",
+    "routes/dashboard/boards/TaskDetailDrawer.tsx",
+    "routes/dashboard/boards/BoardSettings.tsx",
+    "routes/dashboard/approvals/ApprovalInbox.tsx",
+    "routes/dashboard/agents/AgentRegistry.tsx",
+    "routes/dashboard/agents/AgentDetail.tsx",
+    "routes/dashboard/finops/CostOverview.tsx",
+    "routes/dashboard/finops/LedgerExplorer.tsx",
+    "routes/dashboard/settings/Members.tsx",
+    "routes/dashboard/settings/ApiKeys.tsx",
+    "routes/dashboard/settings/Webhooks.tsx",
+    "store/index.ts",
+    "store/hooks.ts",
+    "store/api/base.ts",
+    "store/api/boards.ts",
+    "store/api/agents.ts",
+    "store/api/finops.ts",
+    "store/api/stream.ts",
+    "store/slices/uiSlice.ts",
+    "store/slices/langSlice.ts",
+    "store/slices/sessionSlice.ts",
+    "components/ui",
+    "components/kanban",
+    "components/approvals",
+    "components/terminal",
+    "components/layout",
+    "hooks/use-optimistic-card.ts",
+    "hooks/use-action-form.ts",
+    "hooks/use-sse-cache.ts",
+    "lib/formatters.ts",
+)
+
+
+def gate_structure():
+    missing = [
+        rel for rel in REQUIRED_PATHS if not os.path.exists(os.path.join(SRC, *rel.split("/")))
+    ]
+    if missing:
+        for rel in missing:
+            fail("STRUCT", f"frontend/src/{rel} hilang (ARCHITECTURE.md 18.2)")
+    else:
+        print(f"ok    STRUCT: {len(REQUIRED_PATHS)} path kontrak 18.2 ada")
+
+    # Server state wajib lewat RTK Query. fetch manual di luar store/api adalah
+    # pelanggaran yang sudah pernah terjadi dan bikin dua sumber kebenaran.
+    manual = []
+    for rel, text in walk_sources():
+        if rel.endswith(".css"):
+            continue
+        if rel.replace(os.sep, "/").startswith("store/api/"):
+            continue
+        if re.search(r"\bfetch\s*\(", text) or re.search(r"from\s+['\"]axios['\"]", text):
+            manual.append(rel)
+    if manual:
+        for rel in sorted(set(manual)):
+            fail("STRUCT", f"{rel} memanggil fetch/axios langsung; server state wajib RTK Query")
+    else:
+        print("ok    STRUCT: nol fetch/axios manual di luar store/api")
+
+    # God component: satu file route yang menampung seluruh shell + data.
+    for rel, text in walk_sources():
+        if not rel.endswith(".tsx"):
+            continue
+        lines = text.count("\n") + 1
+        if lines > 400:
+            warn("STRUCT", f"{rel} {lines} baris — pecah jadi komponen (hindari god component)")
+
+
+# --- H. React 19 idioms -----------------------------------------------------
+def gate_react19():
+    """ARCHITECTURE.md 18.2: primitif shadcn menerima `ref` langsung, nol
+    forwardRef; provider ditulis `<X value>` tanpa `.Provider`.
+    """
+    offenders = []
+    for rel, text in walk_sources():
+        if rel.endswith(".css"):
+            continue
+        code = strip_comments(text)
+        if "forwardRef" in code:
+            offenders.append(f"{rel} -> forwardRef (pakai ref as a prop)")
+        if re.search(r"\.Provider\b", code):
+            offenders.append(f"{rel} -> .Provider (pakai <Context value>)")
+
+    if offenders:
+        for item in offenders:
+            fail("REACT19", item)
+    else:
+        print("ok    REACT19: nol forwardRef, nol .Provider")
+
+
 def main():
     if not os.path.isdir(SRC):
         print(f"FAIL: {SRC} tidak ada — jalankan dari root repo agentdeck")
@@ -220,6 +368,8 @@ def main():
     gate_format()
     gate_banned()
     gate_spa_fallback()
+    gate_structure()
+    gate_react19()
 
     print()
     for item in WARNED:

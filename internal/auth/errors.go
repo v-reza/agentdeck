@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"strings"
+	"time"
 )
 
 var (
@@ -22,9 +23,18 @@ var (
 	ErrSlugTaken          = errors.New("slug already taken")
 	ErrUserNotFound       = errors.New("user not found")
 	ErrSessionNotFound    = errors.New("session not found")
+	// ErrResetTokenInvalid covers expired, already-used, and unknown tokens
+	// with one error on purpose (US-AD88 AC3): the caller answers 410 for all
+	// three, so a probe cannot use the response to tell a real token from a
+	// guess or learn that a link was already redeemed.
+	ErrResetTokenInvalid = errors.New("reset token invalid")
 )
 
 const minPasswordLength = 8
+
+// resetTokenTTL is the reset link's window (US-AD88 AC3: expired past 30
+// minutes).
+const resetTokenTTL = 30 * time.Minute
 
 // normalizeEmail lowercases and trims an address and rejects anything that is
 // not shaped like one. Membership keys must be stable and unique per human, so

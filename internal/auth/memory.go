@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,13 +22,22 @@ import (
 // canonical). Keying by email would make ids and emails interchangeable and
 // mask id/email confusion bugs that the Postgres path exposes.
 type memoryRepository struct {
-	mu           sync.RWMutex
-	users        map[string]User
-	byEmail      map[string]string
-	orgs         map[string]Workspace
-	memberships  map[string]map[string]Role
+	mu          sync.RWMutex
+	users       map[string]User
+	byEmail     map[string]string
+	orgs        map[string]Workspace
+	memberships map[string]map[string]Role
+	// joinedAt is when a membership row was written, per (org, user). The
+	// Postgres query selects `m.created_at`, so the in-memory double has to
+	// carry its own timestamp too — falling back to the user's account age
+	// would make GET /orgs/{id}/members report a different `created_at` in a
+	// test than in production.
+	joinedAt     map[string]map[string]time.Time
 	createdOrder []string
 	sessions     map[string]Session
+	resets       map[string]PasswordResetRow
+	audits       []AuditEntry
+	auditErr     error
 }
 
 // NewMemoryRepository builds the in-memory Repository used by the unit tests.
@@ -39,7 +49,10 @@ func newMemoryRepository() *memoryRepository {
 		byEmail:     map[string]string{},
 		orgs:        map[string]Workspace{},
 		memberships: map[string]map[string]Role{},
+		joinedAt:    map[string]map[string]time.Time{},
 		sessions:    map[string]Session{},
+		resets:      map[string]PasswordResetRow{},
+		audits:      []AuditEntry{},
 	}
 }
 
@@ -102,6 +115,32 @@ func (m *memoryRepository) GetUserByID(ctx context.Context, id string) (User, er
 	return User{}, ErrUserNotFound
 }
 
+// UpdateUserProfile mirrors the Postgres statement: the email index is
+// case-folded and unique, so a second account claiming the same address is
+// ErrEmailExists (US-AD89 AC3), and the whole write is abandoned rather than
+// applied field by field. An unknown id is ErrUserNotFound (404, AC4).
+func (m *memoryRepository) UpdateUserProfile(ctx context.Context, id, name, email, avatarURL string) (User, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	user, ok := m.users[id]
+	if !ok {
+		return User{}, ErrUserNotFound
+	}
+	normalized := strings.ToLower(strings.TrimSpace(email))
+	if owner, exists := m.byEmail[normalized]; exists && owner != id {
+		return User{}, ErrEmailExists
+	}
+
+	delete(m.byEmail, user.Email)
+	user.Name = name
+	user.Email = normalized
+	user.AvatarURL = avatarURL
+	m.users[id] = user
+	m.byEmail[normalized] = id
+	return user, nil
+}
+
 func (m *memoryRepository) CreateOrg(ctx context.Context, id, slug, name, kind string) (Workspace, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -140,12 +179,41 @@ func (m *memoryRepository) UpdateOrgName(ctx context.Context, id, name string) e
 	return nil
 }
 
+func (m *memoryRepository) RenameOrgWithAudit(ctx context.Context, id, actorUserID, ip, beforeName, afterName string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.auditErr != nil {
+		return m.auditErr
+	}
+	workspace, ok := m.orgs[id]
+	if !ok {
+		return ErrWorkspaceNotFound
+	}
+	workspace.Name = afterName
+	m.orgs[id] = workspace
+	m.audits = append(m.audits, AuditEntry{
+		OrgID: id, ActorUserID: actorUserID, Action: "org.rename", TargetType: "org", TargetID: id,
+		Before: `{"name":"` + beforeName + `"}`, After: `{"name":"` + afterName + `"}`, IP: ip, CreatedAt: time.Now().UTC(),
+	})
+	return nil
+}
+
+func (m *memoryRepository) lastAudit() (AuditEntry, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if len(m.audits) == 0 {
+		return AuditEntry{}, false
+	}
+	return m.audits[len(m.audits)-1], true
+}
+
 func (m *memoryRepository) CreateMembership(ctx context.Context, orgID, userID string, role Role) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if _, exists := m.memberships[orgID]; !exists {
 		m.memberships[orgID] = map[string]Role{}
+		m.joinedAt[orgID] = map[string]time.Time{}
 	}
 	// A re-invite must not re-rank an existing member: the inviter asked to
 	// add the user, not to change their role, and otherwise an owner's own
@@ -157,6 +225,7 @@ func (m *memoryRepository) CreateMembership(ctx context.Context, orgID, userID s
 		return ErrMemberExists
 	}
 	m.memberships[orgID][userID] = role
+	m.joinedAt[orgID][userID] = time.Now().UTC()
 	return nil
 }
 
@@ -240,7 +309,7 @@ func (m *memoryRepository) ListMembers(ctx context.Context, orgID string) ([]Mem
 			Email:     user.Email,
 			Name:      user.Name,
 			Role:      role,
-			CreatedAt: user.CreatedAt,
+			CreatedAt: m.joinedAt[orgID][userID],
 		})
 	}
 	return rows, nil
@@ -334,6 +403,73 @@ func (m *memoryRepository) DeleteExpiredSessions(ctx context.Context) error {
 	now := time.Now()
 	for hash, session := range m.sessions {
 		if now.After(session.ExpiresAt) || now.Sub(session.LastSeenAt) > idleTimeout {
+			delete(m.sessions, hash)
+		}
+	}
+	return nil
+}
+
+// CreatePasswordReset stores only the token hash (US-AD88 AC1).
+func (m *memoryRepository) CreatePasswordReset(ctx context.Context, hash, userID string, expiresAt time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.resets[hash] = PasswordResetRow{
+		TokenHash: hash,
+		UserID:    userID,
+		ExpiresAt: expiresAt,
+		CreatedAt: time.Now(),
+	}
+	return nil
+}
+
+// ConsumePasswordReset enforces expiry and single-use in one step, mirroring
+// the conditional UPDATE the Postgres repository runs (US-AD88 AC3): every
+// failing case collapses into ErrResetTokenInvalid.
+func (m *memoryRepository) ConsumePasswordReset(ctx context.Context, hash string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	reset, exists := m.resets[hash]
+	if !exists || reset.UsedAt != nil || time.Now().After(reset.ExpiresAt) {
+		return ErrResetTokenInvalid
+	}
+	usedAt := time.Now()
+	reset.UsedAt = &usedAt
+	m.resets[hash] = reset
+	return nil
+}
+
+func (m *memoryRepository) GetPasswordResetByTokenHash(ctx context.Context, hash string) (PasswordResetRow, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	reset, exists := m.resets[hash]
+	if !exists {
+		return PasswordResetRow{}, ErrResetTokenInvalid
+	}
+	return reset, nil
+}
+
+func (m *memoryRepository) UpdateUserPassword(ctx context.Context, userID, passwordHash string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	user, exists := m.users[userID]
+	if !exists {
+		return ErrUserNotFound
+	}
+	user.PasswordHash = passwordHash
+	m.users[userID] = user
+	return nil
+}
+
+func (m *memoryRepository) DeleteUserSessions(ctx context.Context, userID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for hash, session := range m.sessions {
+		if session.UserID == userID {
 			delete(m.sessions, hash)
 		}
 	}

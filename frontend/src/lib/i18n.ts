@@ -1,0 +1,583 @@
+import type { Lang } from './domain'
+
+/**
+ * EN/ID dictionaries (ARCHITECTURE 18.2: i18n is a Promise resource unwrapped
+ * with React 19's `use()`).
+ *
+ * Both dictionaries are complete: `Dictionary` is derived from the English keys,
+ * so adding a key to EN without adding it to ID is a compile error, and a
+ * missing translation can never silently fall back to an English string in the
+ * middle of an Indonesian page. EN is the default and the fallback.
+ */
+export interface Dictionary {
+  'nav.boards': string
+  'nav.projects': string
+  'nav.tasks': string
+  'nav.agents': string
+  'nav.finops': string
+  'nav.approvals': string
+  'nav.settings': string
+  'action.newProject': string
+  'action.create': string
+  'action.cancel': string
+  'action.retry': string
+  'action.open': string
+  'field.name': string
+  'field.slug': string
+  'field.title': string
+  'field.description': string
+  'field.priority': string
+  'field.email': string
+  'field.password': string
+  'field.newPassword': string
+  'field.confirmPassword': string
+  'empty.projects': string
+  'empty.boards': string
+  'empty.tasks': string
+  'state.loading': string
+  'state.error': string
+  'cost.today': string
+  'cost.runningNow': string
+  // Auth screens (01-login, 02-register, 03-reset-request, 04-reset-confirm).
+  // The Indonesian strings are the PRD's own copy — US-AD02 AC5 names the
+  // button "Log in" and the link "Lupa password?" — so ID is the default
+  // locale and EN is the alternate, not the other way round.
+  'auth.tagline': string
+  'auth.login.title': string
+  'auth.login.subtitle': string
+  'auth.login.submit': string
+  'auth.login.pending': string
+  'auth.login.forgot': string
+  'auth.register.title': string
+  'auth.register.subtitle': string
+  'auth.register.submit': string
+  'auth.register.pending': string
+  'auth.register.passwordHint': string
+  'auth.register.workspaceBadgeTitle': string
+  'auth.register.workspaceBadgeText': string
+  'auth.resetRequest.title': string
+  'auth.resetRequest.subtitle': string
+  'auth.resetRequest.submit': string
+  'auth.resetRequest.pending': string
+  'auth.resetRequest.sent': string
+  'auth.resetConfirm.title': string
+  'auth.resetConfirm.subtitle': string
+  'auth.resetConfirm.submit': string
+  'auth.resetConfirm.pending': string
+  'auth.resetConfirm.mismatch': string
+  'auth.resetConfirm.success': string
+  'auth.securityNoticeTitle': string
+  'auth.resetRequest.notice': string
+  'auth.resetConfirm.notice': string
+  'auth.haveAccount': string
+  'auth.noAccount': string
+  'auth.signIn': string
+  /** Sign-out action in the account menu (US-AD89 AC5). */
+  'auth.logout': string
+  'auth.rememberedPassword': string
+
+  // Settings → Members (US-AD04). The roster.
+  'members.title': string
+  'members.subtitle': string
+  'members.joined': string
+  'members.search': string
+  'members.count': string
+  'members.you': string
+  'members.ownerLocked': string
+  'members.empty': string
+  'members.emptyHint': string
+  'members.colUser': string
+  'members.colEmail': string
+  'members.colRole': string
+  'members.colJoined': string
+  'members.colAction': string
+  'members.changeRole': string
+  'members.remove': string
+  // Invite (US-AD04 AC1).
+  'members.invite.cta': string
+  'members.invite.title': string
+  'members.invite.description': string
+  'members.invite.submit': string
+  'members.invite.pending': string
+  'members.invite.done': string
+  'members.invite.failed': string
+  // Change role dialog.
+  'members.role.title': string
+  'members.role.description': string
+  'members.role.submit': string
+  'members.role.failed': string
+  'members.role.ownerHint': string
+  // Remove dialog.
+  'members.remove.title': string
+  'members.remove.description': string
+  'members.remove.submit': string
+  'members.remove.failed': string
+  // Roles, DECISIONS 4.
+  'role.owner': string
+  'role.admin': string
+  'role.member': string
+  'role.viewer': string
+  // Shown when the roster could not be read.
+  'members.loadFailed': string
+  // Workspace settings (US-AD77).
+  'workspace.title': string
+  'workspace.subtitle': string
+  'workspace.badge': string
+  'workspace.description': string
+  'workspace.soloTitle': string
+  'workspace.soloText': string
+  'workspace.soloStatus': string
+  'workspace.cleanTitle': string
+  'workspace.cleanText': string
+  'workspace.cleanStatus': string
+  'workspace.switcher': string
+  'workspace.summaryTitle': string
+  'workspace.summaryHint': string
+  'workspace.id': string
+  'workspace.displayName': string
+  'workspace.slug': string
+  'workspace.kind': string
+  'workspace.role': string
+  'workspace.editName': string
+  'workspace.editTitle': string
+  'workspace.editDescription': string
+  'workspace.save': string
+  'workspace.savePending': string
+  'workspace.resourceTitle': string
+  'workspace.resourceUnavailable': string
+  'workspace.securityTitle': string
+  'workspace.securityText': string
+  'workspace.updateFailed': string
+  'workspace.updated': string
+  // Profil akun sendiri (15-profile, US-AD89). `profile.avatarAuto` is the
+  // design's "Otomatis" chip: the avatar is derived server-side from the name,
+  // so the field is read-only and says so rather than offering an upload the
+  // API does not implement yet.
+  'profile.title': string
+  'profile.subtitle': string
+  'profile.description': string
+  'profile.menu': string
+  'profile.menuOpen': string
+  'profile.account': string
+  'profile.accountActive': string
+  'profile.idField': string
+  'profile.idHint': string
+  'profile.emailField': string
+  'profile.emailHint': string
+  'profile.nameField': string
+  'profile.nameHint': string
+  'profile.avatarField': string
+  'profile.avatarAuto': string
+  'profile.avatarHint': string
+  'profile.save': string
+  'profile.savePending': string
+  'profile.reset': string
+  'profile.saved': string
+  'profile.saveFailed': string
+  'profile.workspacesTitle': string
+  'profile.workspacesHint': string
+  'profile.workspaceRole': string
+  'profile.workspaceKind': string
+  'profile.empty': string
+  'profile.roleNote': string
+  'profile.readOnly': string
+  'profile.editable': string
+
+  // Boards (US-AD09, US-AD91 AC3).
+  'boards.new': string
+  'boards.create.title': string
+  'boards.create.description': string
+  'boards.create.project': string
+  'boards.create.columnsHint': string
+  'boards.create.submit': string
+  'boards.create.pending': string
+  'boards.create.failed': string
+  'boards.empty': string
+  'boards.emptyHint': string
+  'boards.createFirst': string
+  'boards.noProjects': string
+  'boards.noProjectsHint': string
+}
+
+const en: Dictionary = {
+  'nav.boards': 'Boards',
+  'nav.projects': 'Projects',
+  'nav.tasks': 'Tasks',
+  'nav.agents': 'Agents',
+  'nav.finops': 'Cost & Usage',
+  'nav.approvals': 'Approvals',
+  'nav.settings': 'Settings',
+  'action.newProject': 'New project',
+  'action.create': 'Create',
+  'action.cancel': 'Cancel',
+  'action.retry': 'Retry',
+  'action.open': 'Open',
+  'field.name': 'Name',
+  'field.slug': 'Slug',
+  'field.title': 'Title',
+  'field.description': 'Description',
+  'field.priority': 'Priority',
+  'field.email': 'Email',
+  'field.password': 'Password',
+  'field.newPassword': 'New password',
+  'field.confirmPassword': 'Confirm new password',
+  'empty.projects': 'No projects yet',
+  'empty.boards': 'No boards yet',
+  'empty.tasks': 'No tasks yet',
+  'state.loading': 'Loading…',
+  'state.error': 'Something went wrong',
+  'cost.today': 'Today',
+  'cost.runningNow': 'Running now',
+  'auth.tagline': 'Fleet Orchestration',
+  'auth.login.title': 'Sign in to AgentDeck',
+  'auth.login.subtitle': 'Enter your account credentials to reach the fleet.',
+  'auth.login.submit': 'Log in',
+  'auth.login.pending': 'Signing in…',
+  'auth.login.forgot': 'Forgot password?',
+  'auth.register.title': 'Create an AgentDeck account',
+  'auth.register.subtitle': 'Start orchestrating your agent fleet with a new account.',
+  'auth.register.submit': 'Create account',
+  'auth.register.pending': 'Creating…',
+  'auth.register.passwordHint': 'min. 8 characters',
+  'auth.register.workspaceBadgeTitle': 'Personal workspace created automatically',
+  'auth.register.workspaceBadgeText':
+    'A personal workspace is created with no organisation setup. You can go straight to your first project and board.',
+  'auth.resetRequest.title': 'Forgot password',
+  'auth.resetRequest.subtitle': 'Enter your account email. We will send a verification link to set a new password.',
+  'auth.resetRequest.submit': 'Send reset link',
+  'auth.resetRequest.pending': 'Sending…',
+  'auth.resetRequest.sent': 'If that email is registered, a reset link is on its way.',
+  'auth.resetConfirm.title': 'Create a new password',
+  'auth.resetConfirm.subtitle':
+    'Enter a new password for your account. Make sure it meets the fleet security standard.',
+  'auth.resetConfirm.submit': 'Save new password',
+  'auth.resetConfirm.pending': 'Saving…',
+  'auth.resetConfirm.mismatch': 'The two passwords do not match.',
+  'auth.resetConfirm.success': 'Password updated. Every other session was signed out.',
+  'auth.securityNoticeTitle': 'Security requirement (US-AD88 AC2)',
+  'auth.resetRequest.notice':
+    'A reset link requires a new password of at least 8 characters. After a successful reset, every login session ({sessions}) on other devices is revoked automatically.',
+  'auth.resetConfirm.notice':
+    'The new password must be at least 8 characters. After a successful reset the {users.password_hash} column is updated and every {sessions} row for the account is revoked automatically.',
+  'auth.haveAccount': 'Already have an account?',
+  'auth.noAccount': 'New here?',
+  'auth.signIn': 'Sign in',
+  'auth.logout': 'Sign out',
+  'auth.rememberedPassword': 'Remembered your password?',
+
+  // Settings → Members (US-AD04).
+  'members.title': 'Members & roles',
+  'members.subtitle': 'Workspace roster',
+  'members.joined': 'Joined',
+  'members.search': 'Search name, email, role…',
+  'members.count': '{0} members',
+  'members.you': 'you',
+  'members.ownerLocked': 'Full owner',
+  'members.empty': 'No members yet',
+  'members.emptyHint': 'Invite someone by email to give them access to this workspace.',
+  'members.colUser': 'User',
+  'members.colEmail': 'Email',
+  'members.colRole': 'Role',
+  'members.colJoined': 'Joined',
+  'members.colAction': 'Action',
+  'members.changeRole': 'Change role',
+  'members.remove': 'Remove',
+  'members.invite.cta': 'Invite member',
+  'members.invite.title': 'Invite member',
+  'members.invite.description': 'They are added with the role you pick. The address is emailed a notice.',
+  'members.invite.submit': 'Send invite',
+  'members.invite.pending': 'Sending…',
+  'members.invite.done': 'Invite sent to {0} as {1}.',
+  'members.invite.failed': 'The invite was not sent',
+  'members.role.title': 'Change role',
+  'members.role.description': 'The new role applies immediately.',
+  'members.role.submit': 'Save role',
+  'members.role.failed': 'The role was not changed',
+  'members.role.ownerHint': 'Owner is granted when a workspace is created and cannot be assigned here.',
+  'members.remove.title': 'Remove member',
+  'members.remove.description': 'They lose access to this workspace. Their account is not deleted.',
+  'members.remove.submit': 'Remove',
+  'members.remove.failed': 'The member was not removed',
+  'role.owner': 'Owner',
+  'role.admin': 'Admin',
+  'role.member': 'Member',
+  'role.viewer': 'Viewer',
+  'members.loadFailed': 'The roster could not be loaded',
+  'workspace.title': 'Workspace settings',
+  'workspace.subtitle': 'Organization settings',
+  'workspace.badge': 'US-AD03 & US-AD77',
+  'workspace.description': 'A summary of the active workspace. Core work can be completed without opening this page.',
+  'workspace.soloTitle': 'Solo flow stays unblocked',
+  'workspace.soloText':
+    'A user with one workspace can create projects, register agents, and run boards without visiting settings.',
+  'workspace.soloStatus': 'Core B2C flow is active',
+  'workspace.cleanTitle': 'No redundant workspace selector',
+  'workspace.cleanText':
+    'When there is only one workspace, the top bar stays clean and does not render a one-item dropdown.',
+  'workspace.cleanStatus': 'Top bar has no redundant selector',
+  'workspace.switcher': 'Switch workspace',
+  'workspace.summaryTitle': 'Active workspace summary',
+  'workspace.summaryHint':
+    'Real values from the active workspace; resource totals are not available in this milestone.',
+  'workspace.id': 'Workspace ID',
+  'workspace.displayName': 'Display name',
+  'workspace.slug': 'Slug',
+  'workspace.kind': 'Ownership type',
+  'workspace.role': 'Your role',
+  'workspace.editName': 'Rename workspace',
+  'workspace.editTitle': 'Rename workspace',
+  'workspace.editDescription': 'The slug stays unchanged. This change is recorded in the workspace audit trail.',
+  'workspace.save': 'Save name',
+  'workspace.savePending': 'Saving…',
+  'workspace.resourceTitle': 'Registered resources',
+  'workspace.resourceUnavailable':
+    'Resource totals and cost summaries arrive with their respective M1/M2 endpoints. No placeholder numbers are shown here.',
+  'workspace.securityTitle': 'Org-scoped data isolation',
+  'workspace.securityText':
+    'Projects, boards, members, approvals, and cost data are requested in the active workspace context.',
+  'workspace.updateFailed': 'The workspace name was not changed',
+  'workspace.updated': 'Workspace name updated',
+  'profile.title': 'Own account profile',
+  'profile.subtitle': 'Identity and workspace memberships',
+  'profile.description':
+    'Your identity is isolated per login session and read straight from the daemon endpoint GET /api/v1/auth/me.',
+  'profile.menu': 'Open profile menu',
+  'profile.menuOpen': 'Profile menu',
+  'profile.account': 'Active account:',
+  'profile.accountActive': 'Signed in as {0}',
+  'profile.idField': 'id (user id)',
+  'profile.idHint': 'Internal daemon identifier',
+  'profile.emailField': 'email',
+  'profile.emailHint': 'The address used to sign in',
+  'profile.nameField': 'name',
+  'profile.nameHint': 'Display name in the top bar and drawers',
+  'profile.avatarField': 'avatar_user',
+  'profile.avatarAuto': 'Automatic',
+  'profile.avatarHint': 'Derived from the display name by the server',
+  'profile.save': 'Save changes',
+  'profile.savePending': 'Saving…',
+  'profile.reset': 'Reset',
+  'profile.saved': 'Profile updated',
+  'profile.saveFailed': 'The profile was not changed',
+  'profile.workspacesTitle': 'Workspace memberships',
+  'profile.workspacesHint': 'Every workspace this account belongs to, with the role it holds there.',
+  'profile.workspaceRole': 'Role',
+  'profile.workspaceKind': 'Ownership',
+  'profile.empty': 'No workspace membership is recorded for this account.',
+  'profile.roleNote': 'Opening this page needs no owner or admin role.',
+  'profile.readOnly': 'Read-only',
+  'profile.editable': 'Editable',
+
+  'boards.new': 'New board',
+  'boards.create.title': 'New board',
+  'boards.create.description': 'The board is created inside the project you pick, in the active workspace.',
+  'boards.create.project': 'Project',
+  'boards.create.columnsHint': 'Starts with the default columns: Backlog, Ready, Running, Review, Done.',
+  'boards.create.submit': 'Create',
+  'boards.create.pending': 'Creating…',
+  'boards.create.failed': 'The board was not created',
+  'boards.empty': 'No boards yet',
+  'boards.emptyHint': 'Create the first board in this workspace to start moving work.',
+  'boards.createFirst': 'Create your first board',
+  'boards.noProjects': 'No projects yet',
+  'boards.noProjectsHint': 'A board lives inside a project. Create one on the Projects page first.',
+}
+
+const id: Dictionary = {
+  'nav.boards': 'Board',
+  'nav.projects': 'Project',
+  'nav.tasks': 'Task',
+  'nav.agents': 'Agent',
+  'nav.finops': 'Biaya & Pemakaian',
+  'nav.approvals': 'Persetujuan',
+  'nav.settings': 'Pengaturan',
+  'action.newProject': 'Project baru',
+  'action.create': 'Buat',
+  'action.cancel': 'Batal',
+  'action.retry': 'Ulangi',
+  'action.open': 'Buka',
+  'field.name': 'Nama',
+  'field.slug': 'Slug',
+  'field.title': 'Judul',
+  'field.description': 'Deskripsi',
+  'field.priority': 'Prioritas',
+  'field.email': 'Email',
+  'field.password': 'Password',
+  'field.newPassword': 'Password baru',
+  'field.confirmPassword': 'Konfirmasi password baru',
+  'empty.projects': 'Belum ada project',
+  'empty.boards': 'Belum ada board',
+  'empty.tasks': 'Belum ada task',
+  'state.loading': 'Memuat…',
+  'state.error': 'Ada yang gagal',
+  'cost.today': 'Hari ini',
+  'cost.runningNow': 'Sedang jalan',
+  'auth.tagline': 'Fleet Orchestration',
+  'auth.login.title': 'Masuk ke AgentDeck',
+  'auth.login.subtitle': 'Masukkan kredensial akun untuk mengakses fleet.',
+  'auth.login.submit': 'Log in',
+  'auth.login.pending': 'Menghubungkan…',
+  'auth.login.forgot': 'Lupa password?',
+  'auth.register.title': 'Daftar ke AgentDeck',
+  'auth.register.subtitle': 'Mulai orkestrasi armada agen AI Anda dengan akun baru.',
+  'auth.register.submit': 'Daftar Akun',
+  'auth.register.pending': 'Mendaftarkan…',
+  'auth.register.passwordHint': 'min. 8 karakter',
+  'auth.register.workspaceBadgeTitle': 'Workspace Personal Otomatis',
+  'auth.register.workspaceBadgeText':
+    'Workspace personal langsung dibuat tanpa konfigurasi organisasi. Anda dapat langsung membuat project & board pertama Anda.',
+  'auth.resetRequest.title': 'Lupa password',
+  'auth.resetRequest.subtitle':
+    'Masukkan email akun Anda. Kami akan mengirimkan tautan verifikasi untuk menyetel ulang password.',
+  'auth.resetRequest.submit': 'Kirim Tautan Reset',
+  'auth.resetRequest.pending': 'Mengirim…',
+  'auth.resetRequest.sent': 'Kalau email itu terdaftar, tautan reset sedang dikirim.',
+  'auth.resetConfirm.title': 'Buat password baru',
+  'auth.resetConfirm.subtitle': 'Masukkan kata sandi baru untuk akun Anda. Pastikan memenuhi standar keamanan armada.',
+  'auth.resetConfirm.submit': 'Simpan Password Baru',
+  'auth.resetConfirm.pending': 'Menyimpan…',
+  'auth.resetConfirm.mismatch': 'Dua password tidak sama.',
+  'auth.resetConfirm.success': 'Password diperbarui. Semua sesi lain sudah dicabut.',
+  'auth.securityNoticeTitle': 'Ketentuan Keamanan (US-AD88 AC2)',
+  'auth.resetRequest.notice':
+    'Tautan reset mewajibkan password baru minimal 8 karakter. Setelah reset berhasil, seluruh sesi login ({sessions}) pada perangkat lain akan dicabut otomatis.',
+  'auth.resetConfirm.notice':
+    'Password baru minimal 8 karakter. Setelah reset berhasil, kolom {users.password_hash} diperbarui dan seluruh baris {sessions} milik akun dicabut otomatis.',
+  'auth.haveAccount': 'Sudah memiliki akun?',
+  'auth.noAccount': 'Belum punya akun?',
+  'auth.signIn': 'Masuk',
+  'auth.logout': 'Keluar',
+  'auth.rememberedPassword': 'Ingat password Anda?',
+
+  // Settings → Members (US-AD04).
+  'members.title': 'Anggota & role',
+  'members.subtitle': 'Daftar anggota ruang kerja',
+  'members.joined': 'Bergabung',
+  'members.search': 'Cari nama, email, role…',
+  'members.count': '{0} anggota',
+  'members.you': 'anda',
+  'members.ownerLocked': 'Pemilik penuh',
+  'members.empty': 'Belum ada anggota',
+  'members.emptyHint': 'Undang lewat email untuk memberi akses ke ruang kerja ini.',
+  'members.colUser': 'Pengguna',
+  'members.colEmail': 'Email',
+  'members.colRole': 'Role',
+  'members.colJoined': 'Bergabung',
+  'members.colAction': 'Aksi',
+  'members.changeRole': 'Ubah role',
+  'members.remove': 'Keluarkan',
+  'members.invite.cta': 'Undang anggota',
+  'members.invite.title': 'Undang anggota',
+  'members.invite.description':
+    'Anggota langsung ditambahkan dengan role yang dipilih. Alamatnya dikirimi pemberitahuan.',
+  'members.invite.submit': 'Kirim undangan',
+  'members.invite.pending': 'Mengirim…',
+  'members.invite.done': 'Undangan terkirim ke {0} sebagai {1}.',
+  'members.invite.failed': 'Undangan gagal dikirim',
+  'members.role.title': 'Ubah role',
+  'members.role.description': 'Role baru berlaku langsung.',
+  'members.role.submit': 'Simpan role',
+  'members.role.failed': 'Role gagal diubah',
+  'members.role.ownerHint': 'Owner diberikan saat ruang kerja dibuat dan tidak bisa ditetapkan di sini.',
+  'members.remove.title': 'Keluarkan anggota',
+  'members.remove.description': 'Aksesnya ke ruang kerja ini dicabut. Akunnya tidak dihapus.',
+  'members.remove.submit': 'Keluarkan',
+  'members.remove.failed': 'Anggota gagal dikeluarkan',
+  'role.owner': 'Pemilik',
+  'role.admin': 'Admin',
+  'role.member': 'Anggota',
+  'role.viewer': 'Pengamat',
+  'members.loadFailed': 'Daftar anggota gagal dimuat',
+  'workspace.title': 'Pengaturan ruang kerja',
+  'workspace.subtitle': 'Pengaturan organisasi',
+  'workspace.badge': 'US-AD03 & US-AD77',
+  'workspace.description': 'Ringkasan ruang kerja aktif. Alur inti dapat diselesaikan tanpa membuka halaman ini.',
+  'workspace.soloTitle': 'Alur solo tidak terblokir',
+  'workspace.soloText':
+    'Pengguna dengan satu ruang kerja dapat membuat project, mendaftarkan agen, dan menjalankan board tanpa membuka settings.',
+  'workspace.soloStatus': 'Alur inti B2C aktif',
+  'workspace.cleanTitle': 'Tidak ada selector ruang kerja mubazir',
+  'workspace.cleanText': 'Saat hanya ada satu ruang kerja, top bar tetap bersih tanpa dropdown satu item.',
+  'workspace.cleanStatus': 'Top bar tanpa selector redundan',
+  'workspace.switcher': 'Pindah ruang kerja',
+  'workspace.summaryTitle': 'Ringkasan ruang kerja aktif',
+  'workspace.summaryHint': 'Nilai nyata dari ruang kerja aktif; total resource belum tersedia di milestone ini.',
+  'workspace.id': 'ID ruang kerja',
+  'workspace.displayName': 'Nama display',
+  'workspace.slug': 'Slug',
+  'workspace.kind': 'Tipe kepemilikan',
+  'workspace.role': 'Role Anda',
+  'workspace.editName': 'Ganti nama ruang kerja',
+  'workspace.editTitle': 'Ganti nama ruang kerja',
+  'workspace.editDescription': 'Slug tetap sama. Perubahan ini dicatat di audit trail ruang kerja.',
+  'workspace.save': 'Simpan nama',
+  'workspace.savePending': 'Menyimpan…',
+  'workspace.resourceTitle': 'Resource terdaftar',
+  'workspace.resourceUnavailable':
+    'Total resource dan ringkasan biaya hadir bersama endpoint M1/M2 masing-masing. Tidak ada angka placeholder di sini.',
+  'workspace.securityTitle': 'Isolasi data org-scoped',
+  'workspace.securityText':
+    'Project, board, anggota, approval, dan data biaya diminta dalam konteks ruang kerja aktif.',
+  'workspace.updateFailed': 'Nama ruang kerja tidak berubah',
+  'workspace.updated': 'Nama ruang kerja diperbarui',
+  'profile.title': 'Profil akun mandiri',
+  'profile.subtitle': 'Identitas dan keanggotaan ruang kerja',
+  'profile.description':
+    'Identitas Anda diisolasi per sesi login dan dibaca langsung dari endpoint daemon GET /api/v1/auth/me.',
+  'profile.menu': 'Buka menu profil',
+  'profile.menuOpen': 'Menu profil',
+  'profile.account': 'Akun aktif:',
+  'profile.accountActive': 'Masuk sebagai {0}',
+  'profile.idField': 'id (user id)',
+  'profile.idHint': 'Identifier internal daemon',
+  'profile.emailField': 'email',
+  'profile.emailHint': 'Identitas otentikasi login',
+  'profile.nameField': 'name',
+  'profile.nameHint': 'Nama display di topbar & drawer',
+  'profile.avatarField': 'avatar_user',
+  'profile.avatarAuto': 'Otomatis',
+  'profile.avatarHint': 'Diturunkan dari nama display oleh server',
+  'profile.save': 'Simpan perubahan',
+  'profile.savePending': 'Menyimpan…',
+  'profile.reset': 'Reset',
+  'profile.saved': 'Profil diperbarui',
+  'profile.saveFailed': 'Profil tidak berubah',
+  'profile.workspacesTitle': 'Keanggotaan ruang kerja',
+  'profile.workspacesHint': 'Semua ruang kerja yang diikuti akun ini, beserta role-nya.',
+  'profile.workspaceRole': 'Role',
+  'profile.workspaceKind': 'Tipe kepemilikan',
+  'profile.empty': 'Belum ada keanggotaan ruang kerja untuk akun ini.',
+  'profile.roleNote': 'Halaman ini tidak memerlukan peran owner atau admin.',
+  'profile.readOnly': 'Read-Only',
+  'profile.editable': 'Dapat diubah',
+
+  'boards.new': 'Board baru',
+  'boards.create.title': 'Board baru',
+  'boards.create.description': 'Board dibuat di dalam project yang Anda pilih, pada ruang kerja aktif.',
+  'boards.create.project': 'Project',
+  'boards.create.columnsHint': 'Dimulai dengan kolom default: Backlog, Ready, Running, Review, Done.',
+  'boards.create.submit': 'Buat',
+  'boards.create.pending': 'Membuat…',
+  'boards.create.failed': 'Board tidak dibuat',
+  'boards.empty': 'Belum ada board',
+  'boards.emptyHint': 'Buat board pertama di ruang kerja ini untuk mulai memindahkan pekerjaan.',
+  'boards.createFirst': 'Buat board pertama Anda',
+  'boards.noProjects': 'Belum ada project',
+  'boards.noProjectsHint': 'Board berada di dalam project. Buat project dulu di halaman Projects.',
+}
+
+const DICTIONARIES: Record<Lang, Dictionary> = { en, id }
+const cache = new Map<Lang, Promise<Dictionary>>()
+
+export function loadDictionary(lang: Lang): Promise<Dictionary> {
+  const cached = cache.get(lang)
+  if (cached) return cached
+  const promise = Promise.resolve(DICTIONARIES[lang])
+  cache.set(lang, promise)
+  return promise
+}
+
+/** Synchronous lookup for non-render code (listeners, formatters, tests). */
+export function translate(lang: Lang, key: keyof Dictionary): string {
+  return DICTIONARIES[lang][key]
+}

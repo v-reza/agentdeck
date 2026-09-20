@@ -1,13 +1,23 @@
 # Dependencies
 node_modules/
 
+# Go build output — the compiled binary is not source (brief: never commit it)
+/api.exe
+*.exe
+
 # Frontend build output
 dist/
-apps/web/dist/
+frontend/dist/
 
 # Local verification artifacts
-apps/web/verification/*.png
+frontend/verification/*.png
+# Ad-hoc capture scripts and screenshots land here; the brief keeps screenshots
+# OUTSIDE the repo ($LOCALAPPDATA/Temp/agentdeck-shots), so none are tracked.
+frontend/*.png
 .playwright-mcp/
+
+# Local doc backups (pre-format snapshots, not part of the contract)
+docs/.backup/
 
 # Python cache
 __pycache__/
@@ -23,6 +33,11 @@ __pycache__/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Playwright artifacts
+frontend/test-results/
+frontend/playwright-report/
+frontend/.playwright-mcp/
 
 # Temporary reports
 *.log

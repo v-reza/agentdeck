@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"agentdeck/internal/auth"
 )
@@ -23,11 +24,20 @@ type memberRequest struct {
 	Role  string `json:"role"`
 }
 
+// memberResponse is one row of GET /api/v1/orgs/{id}/members.
+//
+// `created_at` is when the membership row was written, not when the user account
+// was created: the SQL join selects `m.created_at` (see
+// internal/store/queries/queries.sql ListMembers) and the domain field is
+// populated all the way through, so the design's "Joined" column renders a real
+// fact instead of a placeholder. There is deliberately no `status` field — the
+// schema has no pending-invite state to report one from.
 type memberResponse struct {
-	UserID string `json:"user_id"`
-	Email  string `json:"email"`
-	Name   string `json:"name"`
-	Role   string `json:"role"`
+	UserID    string `json:"user_id"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"created_at"`
 }
 
 // orgContext is the resolved tenant for one request. It is built once by
@@ -51,6 +61,17 @@ type orgContext struct {
 // checked against; honouring the header over the path would let a caller
 // authenticate against their own org and then address another tenant's.
 func (a authAPI) orgContextMiddleware(next http.Handler) http.Handler {
+	return a.contextMiddleware(next, true)
+}
+
+// orgHeaderContextMiddleware resolves the tenant only from X-Org-ID. M1
+// resource routes use {id} for a project, board, or task, so it must not be
+// mistaken for an organization id.
+func (a authAPI) orgHeaderContextMiddleware(next http.Handler) http.Handler {
+	return a.contextMiddleware(next, false)
+}
+
+func (a authAPI) contextMiddleware(next http.Handler, pathID bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, ok := currentUser(a.store, r)
 		if !ok {
@@ -58,9 +79,12 @@ func (a authAPI) orgContextMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		requestedID := strings.TrimSpace(r.PathValue("id"))
-		if requestedID == "" {
-			requestedID = strings.TrimSpace(r.Header.Get("X-Org-ID"))
+		requestedID := strings.TrimSpace(r.Header.Get("X-Org-ID"))
+		if pathID {
+			requestedID = strings.TrimSpace(r.PathValue("id"))
+			if requestedID == "" {
+				requestedID = strings.TrimSpace(r.Header.Get("X-Org-ID"))
+			}
 		}
 		workspace, role, err := a.store.ResolveWorkspace(r.Context(), user.Email, requestedID)
 		if err != nil {
@@ -115,6 +139,7 @@ func (a authAPI) listOrgs(w http.ResponseWriter, r *http.Request) {
 			"name": membership.Name,
 			"slug": membership.Slug,
 			"role": string(membership.Role),
+			"kind": membership.Kind,
 		})
 	}
 
@@ -184,7 +209,8 @@ func (a authAPI) updateOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := a.store.UpdateWorkspace(r.Context(), orgCtx.workspace.ID, orgCtx.email, input.Name); err != nil {
+	name := strings.TrimSpace(input.Name)
+	if err := a.store.UpdateWorkspace(r.Context(), orgCtx.workspace.ID, orgCtx.email, name); err != nil {
 		writeAuthError(w, err)
 		return
 	}
@@ -192,7 +218,7 @@ func (a authAPI) updateOrg(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"id":   orgCtx.workspace.ID,
-		"name": input.Name,
+		"name": name,
 		"slug": orgCtx.workspace.Slug,
 	})
 }
@@ -215,10 +241,11 @@ func (a authAPI) listMembers(w http.ResponseWriter, r *http.Request) {
 	rows := make([]memberResponse, 0, len(members))
 	for _, member := range members {
 		rows = append(rows, memberResponse{
-			UserID: member.UserID,
-			Email:  member.Email,
-			Name:   member.Name,
-			Role:   string(member.Role),
+			UserID:    member.UserID,
+			Email:     member.Email,
+			Name:      member.Name,
+			Role:      string(member.Role),
+			CreatedAt: member.CreatedAt.Format(time.RFC3339Nano),
 		})
 	}
 
@@ -251,6 +278,17 @@ func (a authAPI) addMember(w http.ResponseWriter, r *http.Request) {
 	if err := a.store.AddMember(r.Context(), orgCtx.workspace.ID, orgCtx.email, input.Email, role); err != nil {
 		writeAuthError(w, err)
 		return
+	}
+
+	// AC1: the invite is emailed. The membership row is already written, so a
+	// dead relay must not fail the request — the member exists either way, and
+	// the failure is the operator's to see in the log. Both seams are optional:
+	// a unit test builds an API with neither.
+	if a.mailer != nil {
+		to := strings.ToLower(strings.TrimSpace(input.Email))
+		if err := a.mailer.SendInvite(r.Context(), to, orgCtx.workspace.Name, string(role), a.signInLink()); err != nil && a.logger != nil {
+			a.logger.Error("member invite mail failed", "error", err)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

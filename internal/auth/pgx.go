@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -97,6 +98,26 @@ func (r *pgxRepository) GetUserByID(ctx context.Context, id string) (User, error
 	return userRowToUser(row), nil
 }
 
+// UpdateUserProfile writes the caller's own row in one statement. The
+// `deleted_at IS NULL` predicate means a closed account matches zero rows, which
+// pgx reports as ErrNoRows — mapped here to ErrUserNotFound so the handler can
+// answer 404 without knowing whether the account exists (US-AD89 AC4).
+func (r *pgxRepository) UpdateUserProfile(ctx context.Context, id, name, email, avatarURL string) (User, error) {
+	row, err := r.q.UpdateUserProfile(ctx, store.UpdateUserProfileParams{
+		ID:        id,
+		Name:      name,
+		Email:     email,
+		AvatarURL: avatarURL,
+	})
+	if err != nil {
+		// A taken address is the users_email_key unique violation, which
+		// mapNotFoundWithEmail turns into ErrEmailExists → 409 (AC3). Any
+		// other failure keeps its own mapping.
+		return User{}, mapNotFoundWithEmail(err, ErrUserNotFound)
+	}
+	return userRowToUser(row), nil
+}
+
 func (r *pgxRepository) CreateOrg(ctx context.Context, id, slug, name, kind string) (Workspace, error) {
 	row, err := r.q.CreateOrg(ctx, store.CreateOrgParams{ID: id, Slug: slug, Name: name})
 	if err != nil {
@@ -144,6 +165,28 @@ func (r *pgxRepository) GetOrgByID(ctx context.Context, id string) (Workspace, e
 
 func (r *pgxRepository) UpdateOrgName(ctx context.Context, id, name string) error {
 	err := r.q.UpdateOrgName(ctx, store.UpdateOrgNameParams{ID: id, Name: name})
+	if err != nil {
+		return mapPgError(err)
+	}
+	return nil
+}
+
+func (r *pgxRepository) RenameOrgWithAudit(ctx context.Context, id, actorUserID, ip, beforeName, afterName string) error {
+	before, err := json.Marshal(map[string]string{"name": beforeName})
+	if err != nil {
+		return err
+	}
+	after, err := json.Marshal(map[string]string{"name": afterName})
+	if err != nil {
+		return err
+	}
+	actor := actorUserID
+	if actor == "" {
+		actor = ""
+	}
+	err = r.q.RenameOrgWithAudit(ctx, store.RenameOrgWithAuditParams{
+		OrgID: id, Name: afterName, ActorUserID: &actor, Column4: before, Column5: after, Ip: ip,
+	})
 	if err != nil {
 		return mapPgError(err)
 	}
@@ -319,6 +362,68 @@ func (r *pgxRepository) DeleteExpiredSessions(ctx context.Context) error {
 	return nil
 }
 
+func (r *pgxRepository) CreatePasswordReset(ctx context.Context, hash, userID string, expiresAt time.Time) error {
+	err := r.q.CreatePasswordReset(ctx, store.CreatePasswordResetParams{
+		TokenHash: hash,
+		UserID:    userID,
+		ExpiresAt: pgTimestamptz(expiresAt),
+		CreatedAt: pgTimestamptz(timeNow()),
+	})
+	if err != nil {
+		return mapPgError(err)
+	}
+	return nil
+}
+
+// ConsumePasswordReset claims a token with a single conditional UPDATE
+// (US-AD88 AC3). Zero affected rows means the token is unknown, already spent,
+// or past its window — all three report the same error so the caller cannot
+// tell them apart.
+func (r *pgxRepository) ConsumePasswordReset(ctx context.Context, hash string) error {
+	affected, err := r.q.ConsumePasswordReset(ctx, hash)
+	if err != nil {
+		return mapPgError(err)
+	}
+	if affected == 0 {
+		return ErrResetTokenInvalid
+	}
+	return nil
+}
+
+func (r *pgxRepository) GetPasswordResetByTokenHash(ctx context.Context, hash string) (PasswordResetRow, error) {
+	row, err := r.q.GetPasswordReset(ctx, hash)
+	if err != nil {
+		return PasswordResetRow{}, mapNotFound(err, ErrResetTokenInvalid)
+	}
+	reset := PasswordResetRow{
+		TokenHash: row.TokenHash,
+		UserID:    row.UserID,
+		ExpiresAt: row.ExpiresAt.Time,
+		CreatedAt: row.CreatedAt.Time,
+	}
+	if row.UsedAt.Valid {
+		usedAt := row.UsedAt.Time
+		reset.UsedAt = &usedAt
+	}
+	return reset, nil
+}
+
+func (r *pgxRepository) UpdateUserPassword(ctx context.Context, userID, passwordHash string) error {
+	err := r.q.UpdateUserPassword(ctx, store.UpdateUserPasswordParams{ID: userID, PasswordHash: passwordHash})
+	if err != nil {
+		return mapPgError(err)
+	}
+	return nil
+}
+
+func (r *pgxRepository) DeleteUserSessions(ctx context.Context, userID string) error {
+	err := r.q.DeleteUserSessions(ctx, userID)
+	if err != nil {
+		return mapPgError(err)
+	}
+	return nil
+}
+
 // orgRowToWorkspace converts the CreateOrg/GetOrg row into the domain
 // Workspace. kind comes from the separate org_kinds table; callers that need
 // it join it in the read path (ListOrgsForUser) rather than denormalizing.
@@ -344,10 +449,10 @@ func rowToUser(storeUser store.User) User {
 
 // userRowToUser converts a CreateUser/GetUser row into the domain User. A
 // shadow row is marked by its password-hash sentinel, which the domain layer
-// checks via IsShadow. All three sqlc row types carry the same columns, so the
-// generic keeps one converter instead of three copies.
+// checks via IsShadow. All four sqlc row types carry the same columns, so the
+// generic keeps one converter instead of four copies.
 type userRow interface {
-	store.CreateUserRow | store.GetUserByEmailRow | store.GetUserByIDRow
+	store.CreateUserRow | store.GetUserByEmailRow | store.GetUserByIDRow | store.UpdateUserProfileRow
 }
 
 func userRowToUser[T userRow](row T) User {
@@ -356,17 +461,32 @@ func userRowToUser[T userRow](row T) User {
 	case store.CreateUserRow:
 		r := any(row).(store.CreateUserRow)
 		out = User{ID: r.ID, Email: r.Email, Name: r.Name, PasswordHash: r.PasswordHash,
-			IsShadow: r.IsShadow, CreatedAt: r.CreatedAt.Time}
+			AvatarURL: avatarOrEmpty(r.AvatarURL), IsShadow: r.IsShadow, CreatedAt: r.CreatedAt.Time}
 	case store.GetUserByEmailRow:
 		r := any(row).(store.GetUserByEmailRow)
 		out = User{ID: r.ID, Email: r.Email, Name: r.Name, PasswordHash: r.PasswordHash,
-			IsShadow: r.IsShadow, CreatedAt: r.CreatedAt.Time}
+			AvatarURL: avatarOrEmpty(r.AvatarURL), IsShadow: r.IsShadow, CreatedAt: r.CreatedAt.Time}
 	case store.GetUserByIDRow:
 		r := any(row).(store.GetUserByIDRow)
 		out = User{ID: r.ID, Email: r.Email, Name: r.Name, PasswordHash: r.PasswordHash,
-			IsShadow: r.IsShadow, CreatedAt: r.CreatedAt.Time}
+			AvatarURL: avatarOrEmpty(r.AvatarURL), IsShadow: r.IsShadow, CreatedAt: r.CreatedAt.Time}
+	case store.UpdateUserProfileRow:
+		r := any(row).(store.UpdateUserProfileRow)
+		out = User{ID: r.ID, Email: r.Email, Name: r.Name, PasswordHash: r.PasswordHash,
+			AvatarURL: avatarOrEmpty(r.AvatarURL), IsShadow: r.IsShadow, CreatedAt: r.CreatedAt.Time}
 	}
 	return out
+}
+
+// avatarOrEmpty flattens the nullable column into the domain type: NULL means
+// "no uploaded avatar", which is exactly the empty string the shell treats as
+// "draw the monogram" (US-AD89 AC1). Keeping the pointer out of the domain
+// removes a nil check from every screen that renders the avatar.
+func avatarOrEmpty(url *string) string {
+	if url == nil {
+		return ""
+	}
+	return *url
 }
 
 func pgTimestamptz(t time.Time) pgtype.Timestamptz {
