@@ -1,8 +1,8 @@
 import type { Agent } from '@/lib/domain'
-import type { AgentCatalog, AgentSkill } from '@/store/api/agents'
+import type { AgentCatalog, AgentSkill, CatalogModel } from '@/store/api/agents'
 import type { Provider } from '@/store/api/providers'
 import { ControlBox, runtimeLabel } from './AgentDetailParts'
-import { PricingCard } from './AgentPricingCard'
+import { PricingCard, type PricingState } from './AgentPricingCard'
 import { interpolate } from '@/lib/format'
 import { useT } from '@/hooks/use-t'
 import { RUNTIME_PRESETS, TOOL_SET } from './AgentDetailOptions'
@@ -47,6 +47,7 @@ export interface AgentFormValues {
 export function AgentConfigSection({
   agent,
   catalog,
+  catalogLoading,
   providers,
   providerID,
   onProviderChange,
@@ -55,6 +56,8 @@ export function AgentConfigSection({
 }: {
   agent: Agent
   catalog: AgentCatalog | undefined
+  /** True while the first catalog read is in flight — not "the catalog is empty". */
+  catalogLoading: boolean
   /** The workspace registry (US-AD109). The endpoint and the credential live here. */
   providers: Provider[]
   providerID: string
@@ -149,9 +152,34 @@ export function AgentConfigSection({
         </p>
       </Panel>
 
-      <PricingCard entry={entry} priceVersion={catalog?.price_version ?? 0} />
+      <PricingCard
+        state={pricingState({ catalogLoading, hasProvider: Boolean(providerID), entry })}
+        model={model}
+        entry={entry}
+        priceVersion={catalog?.price_version ?? 0}
+      />
     </div>
   )
+}
+
+/**
+ * The three ways the card can have no figure, told apart. Order matters: a read
+ * still in flight is not the same answer as a finished read with no entry, and an
+ * agent with no provider cannot be priced no matter what the catalog holds.
+ */
+function pricingState({
+  catalogLoading,
+  hasProvider,
+  entry,
+}: {
+  catalogLoading: boolean
+  hasProvider: boolean
+  entry: CatalogModel | undefined
+}): PricingState {
+  if (entry) return 'priced'
+  if (catalogLoading) return 'loading'
+  if (!hasProvider) return 'noProvider'
+  return 'unpriced'
 }
 
 /** The design's green tick strip beside the provider field. */

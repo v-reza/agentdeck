@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { useListProjectsQuery } from '@/store/api/boards'
 import { useDeleteAgentMutation, useListAgentsQuery } from '@/store/api/agents'
+import { useListProvidersQuery } from '@/store/api/providers'
 import { useCanAct } from '@/hooks/use-orgs'
 import { describeError } from '@/hooks/use-action-form'
 import { useT } from '@/hooks/use-t'
@@ -43,11 +44,18 @@ import type { Agent } from '@/lib/domain'
 export function AgentRegistry() {
   const t = useT()
   const { data: projects } = useListProjectsQuery()
+  const { data: providers = [] } = useListProvidersQuery()
   const [projectID, setProjectID] = useState<string | null>(null)
   const activeProject = projectID ?? projects?.[0]?.id ?? null
   const { data: agents, isLoading } = useListAgentsQuery(activeProject ?? '', {
     skip: !activeProject,
   })
+  // `agents.provider` is the *protocol* the row runs on, derived server-side
+  // from the provider it points at (US-AD109 AC6). The column asks which
+  // provider the operator registered, so it is resolved from the registry the
+  // page already has in cache — not from a second copy of the name on every
+  // agent row, which is the denormalisation US-AD109 removed.
+  const providerName = new Map(providers.map((entry) => [entry.id, entry.name]))
   const canDelete = useCanAct('admin')
   const [deleteAgent] = useDeleteAgentMutation()
   const [pendingDelete, setPendingDelete] = useState<Agent | null>(null)
@@ -176,6 +184,7 @@ export function AgentRegistry() {
                     <AgentRow
                       key={agent.id}
                       agent={agent}
+                      providerName={providerName.get(agent.provider_id ?? '')}
                       canDelete={canDelete}
                       onDelete={() => setPendingDelete(agent)}
                     />
@@ -317,7 +326,18 @@ function filterAgents(list: Agent[], search: string, status: StatusFilterValue):
   })
 }
 
-function AgentRow({ agent, canDelete, onDelete }: { agent: Agent; canDelete: boolean; onDelete: () => void }) {
+function AgentRow({
+  agent,
+  providerName,
+  canDelete,
+  onDelete,
+}: {
+  agent: Agent
+  /** Resolved by the list, which already holds the registry in cache. */
+  providerName?: string
+  canDelete: boolean
+  onDelete: () => void
+}) {
   const t = useT()
   const tools = agent.tools ?? []
 
@@ -341,7 +361,9 @@ function AgentRow({ agent, canDelete, onDelete }: { agent: Agent; canDelete: boo
           </div>
         </div>
       </td>
-      <td className="px-2 py-2 font-mono text-[11px] text-[var(--color-secondary)]">{agent.provider}</td>
+      <td className="px-2 py-2 font-mono text-[11px] text-[var(--color-secondary)]" data-testid="agent-provider">
+        {providerName ?? (agent.provider_id ? '—' : agent.provider)}
+      </td>
       <td className="px-2 py-2 font-mono text-[11px] font-medium text-[var(--color-primary)]">{agent.model}</td>
       <td className="px-2 py-2 font-mono text-[11px] text-[var(--color-secondary)]">
         <span className="rounded bg-[var(--color-surface-sunken)] px-1.5 py-0.5 text-[10px]">

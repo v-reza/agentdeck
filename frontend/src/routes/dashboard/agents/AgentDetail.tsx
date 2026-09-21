@@ -71,9 +71,12 @@ export function AgentDetail() {
   const id = agentID ?? ''
 
   const { data: agent, isError } = useGetAgentQuery(id, { skip: !id })
-  const { data: catalog } = useGetAgentCatalogQuery()
+  const { data: catalog, isLoading: catalogLoading } = useGetAgentCatalogQuery()
   const { data: skills } = useListAgentSkillsQuery()
   const { data: providers = [] } = useListProvidersQuery()
+  // Same resolution as the registry: `agent.provider` is the protocol, the
+  // column and the hero ask which provider the operator registered.
+  const providerName = new Map(providers.map((entry) => [entry.id, entry.name]))
   const [updateAgent] = useUpdateAgentMutation()
   const [archiveAgent] = useArchiveAgentMutation()
   const canArchive = useCanAct('admin')
@@ -178,12 +181,13 @@ export function AgentDetail() {
             </Panel>
           ) : (
             <>
-              <AgentHero agent={agent} />
+              <AgentHero agent={agent} providerName={providerName.get(agent.provider_id ?? '')} />
 
               <form id={FORM_ID} action={saveAction} className="flex flex-col gap-4">
                 <AgentConfigSection
                   agent={agent}
                   catalog={catalog}
+                  catalogLoading={catalogLoading}
                   providers={providers}
                   providerID={providerID}
                   onProviderChange={changeProvider}

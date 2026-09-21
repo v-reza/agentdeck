@@ -239,28 +239,50 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
 
 ## Masalah yang BELUM beres
 
-1. **Design match — ini yang paling gede.** Detail + angka di `docs/DESIGN-INVENTORY.md`
-   (50 layar diaudit, 36 ada impl, 14 nol impl). Lima kelas masalah, urut dari
-   paling murah dibetulin:
+1. **Design match — ini yang paling gede.** Angkanya **dihasilkan**
+   `tools/design_audit.py`, bukan dihitung tangan: `docs/DESIGN-INVENTORY.md`
+   sekarang ditulis ulang script itu tiap dijalankan, dan `--check` jadi gate
+   (exit 1 kalau jargon bocor atau `<select>` bawaan hidup).
+
+   Tiga koreksi yang alat itu temukan di inventory lama — jangan pakai angka lama:
+
+   | Klaim lama | Yang terukur |
+   |---|---|
+   | mockup pakai "satu set konsisten Lucide" | **22 dari 51** file mockup pakai ligature Material Symbols |
+   | 55 `animate-pulse` = skeleton | 55 itu mayoritas dot status; blok skeleton asli **323 di design, 0 di impl** |
+   | "warna status 10 dari 10 beda" | benar, tapi parser lama cuma menemukan **3 dari 10** (bullet di-wrap + `archived` deskriptornya dua kata) |
+
+   Sisa kelas masalah, urut dari paling murah:
 
    | # | Masalah | design | impl | Biaya fix |
    |---|---|---|---|---|
    | 1 | **Warna status beda 10/10** | `#16a34a` (done) | `#15803d` | 10 baris `index.css` |
    | 2 | Icon Lucide | 319 `<svg>` | 3 | 1 dependency, 319 titik |
    | 3 | Grafik batang / sparkline | 119 `<rect>` | 3 | ikut nomor 2 |
-   | 4 | Skeleton loading | 55 `animate-pulse` | 4 | per layar |
+   | 4 | Skeleton loading | 323 blok | **0** | per layar |
    | 5 | State archived | 6 `line-through` | 0 | per layar |
    | 6 | Token `--spacing-*` mati | 6 token | **0 dipakai** | hapus atau pakai |
+   | 7 | `<select>` bawaan | — | **4 file, 7 titik** | per titik, Combobox |
 
    **Akar masalahnya**: nol gate yang ngecek `index.css` terhadap `DESIGN.md`.
    `verify_suite.py` cuma `designmd lint` DESIGN.md sendiri. Persis pola §18 —
-   klaim tanpa gate = drift diam-diam. Kalau bikin gate baru, taruh di sini.
+   klaim tanpa gate = drift diam-diam. Gate baru untuk ini: `tools/design_audit.py
+   --check`.
 2. **Layar agent registry belum nemu "titik enaknya".** Satu hari lebih ngotak-atik
    implementasi, tapi pertanyaan "informasi apa yang harus ada di layar ini" belum
    dijawab. **Perlu sesi khusus nggak ngoding.**
-3. `statusFilter` + `AgentDetailForm` masih ada `<select>` native sisa. **Fase 5
-   tidak menyentuh dua ini** — mereka bukan bagian provider registry, jadi jangan
-   dihitung sebagai kerjaan fase itu.
+3. `<select>` bawaan masih hidup di **4 file** (`AgentDetailForm` 3 titik —
+   runtime/reasoning/retry, `members-actions` 2, `WorkspaceTopbar` 1,
+   `CreateBoardForm` 1). Dihitung `tools/design_audit.py`. Ini kerjaan fase D.
+4. **Kolom Provider sekarang menampilkan NAMA provider, bukan protokol.** Bug yang
+   dilaporkan: agent di provider `9router` tampil sebagai `openai_compatible`,
+   karena `agents.provider` itu protokol yang diturunkan server (US-AD109 AC6).
+   Registry + hero detail me-resolve nama dari `GET /providers` yang sudah ada di
+   cache. **Jangan** tambah kolom `provider_name` di `agents`: itu denormalisasi
+   yang fase 6 baru saja buang.
+5. **Kartu "Estimated rate" sekarang misahin tiga sebab**: `loading` (catalog belum
+   sampai), `noProvider` (agent nggak punya provider), `unpriced` (model memang
+   nggak ada di tabel). Sebelumnya tiga-tiganya satu kalimat.
 4. Pesan backend 409/403 masih Inggris, UI default Indonesia.
 5. Belum ada `LICENSE`/`NOTICE`/`THIRD_PARTY`. Konflik lisensi di design
    (`09b-github.html` Apache-2.0 vs `05-landing.html` MIT).

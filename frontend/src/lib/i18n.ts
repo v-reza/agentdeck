@@ -391,7 +391,6 @@ export interface Dictionary {
   'agents.detail.providerCustom': string
   'agents.detail.model': string
   'agents.detail.modelHint': string
-  'agents.detail.modelUnavailable': string
   'agents.detail.noProvider': string
   'agents.detail.runtimeTitle': string
   'agents.detail.runtimeSubtitle': string
@@ -411,14 +410,13 @@ export interface Dictionary {
   'agents.detail.notFound': string
   'agents.detail.archiveAction': string
   'agents.detail.unarchiveAction': string
-  'agents.detail.archiveHint': string
   'agents.archive.forbidden': string
   'agents.archive.running': string
   'agents.archive.failed': string
   'agents.detail.lifecycleTitle': string
+  'agents.detail.lifecycleFooterActive': string
+  'agents.detail.lifecycleFooterArchived': string
   'agents.detail.assignmentState': string
-  'agents.detail.archiveAuthority': string
-  'agents.detail.unarchiveHint': string
   'agents.detail.rule1Title': string
   'agents.detail.rule1Body': string
   'agents.detail.rule2Title': string
@@ -438,6 +436,11 @@ export interface Dictionary {
   'agents.detail.priceCached': string
   'agents.detail.priceVersion': string
   'agents.detail.priceDisclaimer': string
+  'agents.detail.priceLoading': string
+  'agents.detail.priceLoadingBody': string
+  'agents.detail.priceNoProvider': string
+  'agents.detail.priceUnpricedBody': string
+  'agents.detail.priceNoModel': string
   'agents.detail.providerHint': string
   'agents.detail.minutes': string
   'agents.detail.notFoundHint': string
@@ -822,7 +825,6 @@ const en: Dictionary = {
   'agents.detail.providerCustom': 'custom (self-hosted endpoint)',
   'agents.detail.model': 'Model',
   'agents.detail.modelHint': 'Choose a model from the current pricing catalog.',
-  'agents.detail.modelUnavailable': 'Model is not in the current catalog',
   'agents.detail.noProvider': 'No provider — the deployment default',
   'agents.detail.runtimeTitle': 'Runtime parameters & tool access',
   'agents.detail.runtimeSubtitle': 'Execution limits',
@@ -842,16 +844,13 @@ const en: Dictionary = {
   'agents.detail.notFound': 'Agent not found',
   'agents.detail.archiveAction': 'Archive agent',
   'agents.detail.unarchiveAction': 'Unarchive agent',
-  'agents.detail.archiveHint': 'Archiving hides this agent from new assignments. Running work is not interrupted.',
   'agents.archive.forbidden': 'Only a workspace owner or admin can archive or unarchive an agent.',
   'agents.archive.running': 'This agent still has running work. Let it finish before archiving.',
   'agents.archive.failed': 'Could not change the archive status',
   'agents.detail.lifecycleTitle': 'Assignment lifecycle',
+  'agents.detail.lifecycleFooterActive': 'Enforced: runs finish · out of the assign picker',
+  'agents.detail.lifecycleFooterArchived': 'Enforced: runs finish · hidden from new assignments',
   'agents.detail.assignmentState': 'Assignment state',
-  'agents.detail.archiveAuthority':
-    'Archiving needs an owner or an admin — the same authority that brings an agent back into service.',
-  'agents.detail.unarchiveHint':
-    'This agent is archived: it is hidden from new assignments, while work that is already running still finishes.',
   'agents.detail.rule1Title': 'Running work is never cut off',
   'agents.detail.rule1Body':
     'A task that is already in progress still finishes, and its cost is still written to the ledger.',
@@ -875,6 +874,11 @@ const en: Dictionary = {
   'agents.detail.priceDisclaimer':
     'Rates come from the internal AgentDeck pricing table, not a provider invoice. Actual spend is on each provider dashboard.',
   'agents.detail.providerHint': 'A model outside the catalog is stored as-is, but cannot be priced.',
+  'agents.detail.priceLoading': 'checking',
+  'agents.detail.priceLoadingBody': 'Reading the pricing table for this model…',
+  'agents.detail.priceNoProvider': 'This agent has no provider of its own, so no model is pinned to it yet.',
+  'agents.detail.priceUnpricedBody': 'No price entry for {0}.',
+  'agents.detail.priceNoModel': 'the chosen model',
   'agents.detail.minutes': '({0} min)',
   'agents.detail.notFoundHint': 'It may have been deleted, or it belongs to another workspace.',
   'agents.detail.saveHint': 'The save sends this whole profile; the pickers above only choose its values.',
@@ -1257,7 +1261,6 @@ const id: Dictionary = {
   'agents.detail.providerCustom': 'kustom (endpoint sendiri)',
   'agents.detail.model': 'Model',
   'agents.detail.modelHint': 'Pilih model dari katalog harga terbaru.',
-  'agents.detail.modelUnavailable': 'Model tidak ada di katalog saat ini',
   'agents.detail.noProvider': 'Belum ada provider — pakai default deployment',
   'agents.detail.runtimeTitle': 'Parameter runtime & akses tools',
   'agents.detail.runtimeSubtitle': 'Batas eksekusi',
@@ -1277,17 +1280,13 @@ const id: Dictionary = {
   'agents.detail.notFound': 'Agent tidak ditemukan',
   'agents.detail.archiveAction': 'Arsipkan agent',
   'agents.detail.unarchiveAction': 'Batal arsip agent',
-  'agents.detail.archiveHint':
-    'Arsip menyembunyikan agent dari penugasan baru. Task yang sedang berjalan tidak dihentikan.',
   'agents.archive.forbidden': 'Hanya owner atau admin workspace yang dapat mengarsipkan atau membatalkan arsip agent.',
   'agents.archive.running': 'Agent ini masih punya task yang berjalan. Tunggu sampai selesai sebelum mengarsipkan.',
   'agents.archive.failed': 'Status arsip tidak berubah',
   'agents.detail.lifecycleTitle': 'Siklus penugasan',
+  'agents.detail.lifecycleFooterActive': 'Berlaku: run dituntaskan · keluar dari picker assign',
+  'agents.detail.lifecycleFooterArchived': 'Berlaku: run dituntaskan · disembunyikan dari penugasan baru',
   'agents.detail.assignmentState': 'Status penugasan',
-  'agents.detail.archiveAuthority':
-    'Mengarsipkan butuh owner atau admin — otoritas yang sama dengan yang mengembalikan agent ke layanan.',
-  'agents.detail.unarchiveHint':
-    'Agent ini diarsip: hilang dari penugasan baru, sementara task yang sudah berjalan tetap tuntas.',
   'agents.detail.rule1Title': 'Task berjalan tidak pernah diputus',
   'agents.detail.rule1Body': 'Task yang sedang berjalan tetap diselesaikan, dan biayanya tetap dicatat ke ledger.',
   'agents.detail.rule2Title': 'Keluar dari dropdown penugasan',
@@ -1309,6 +1308,11 @@ const id: Dictionary = {
   'agents.detail.priceVersion': 'tabel harga v{0}',
   'agents.detail.priceDisclaimer':
     'Tarif ini dari tabel harga internal AgentDeck, bukan tagihan provider. Biaya sebenarnya ada di dashboard masing-masing provider.',
+  'agents.detail.priceLoading': 'memeriksa',
+  'agents.detail.priceLoadingBody': 'Membaca tabel harga buat model ini…',
+  'agents.detail.priceNoProvider': 'Agent ini nggak punya provider sendiri, jadi belum ada model yang dipatok.',
+  'agents.detail.priceUnpricedBody': 'Belum ada entri harga buat {0}.',
+  'agents.detail.priceNoModel': 'model yang dipilih',
   'agents.detail.providerHint':
     'Model di luar katalog tetap tersimpan apa adanya, tetapi tidak bisa dihitung biayanya.',
   'agents.detail.minutes': '({0} menit)',

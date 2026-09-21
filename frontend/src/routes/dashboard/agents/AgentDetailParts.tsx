@@ -144,7 +144,7 @@ export function SaveButton({ formID, isPending }: { formID: string; isPending: b
 }
 
 /** HEADER BANNER: monogram, name, status badge, and the two real counters. */
-export function AgentHero({ agent }: { agent: Agent }) {
+export function AgentHero({ agent, providerName }: { agent: Agent; providerName?: string }) {
   const t = useT()
   const state = agentState(agent)
   const badge =
@@ -176,7 +176,7 @@ export function AgentHero({ agent }: { agent: Agent }) {
             </span>
           </div>
           <p className="mt-0.5 truncate font-mono text-[12px] text-[var(--color-secondary)]">
-            {agent.provider} · {agent.model}
+            {providerName ?? agent.provider} · {agent.model}
           </p>
         </div>
       </div>
@@ -282,11 +282,15 @@ export function LifecycleCard({
         </div>
       </div>
 
-      <div className="mt-3 flex items-start justify-between gap-3 border-t border-[var(--color-border-subtle)] pt-2 text-[10.5px] leading-snug text-[var(--color-tertiary)]">
-        <span className="font-mono">
-          {archived ? t['agents.detail.unarchiveHint'] : t['agents.detail.archiveHint']}
+      {/* The design puts one short strip here: `Enforce Rule: AC1 + AC2`, with the
+          jargon stripped. The two long sentences that used to sit in this footer
+          were the over-long text reported on screen — the same facts already live
+          in the two rule cards above, so repeating them at 10.5px was duplication
+          that also made the card taller than the design. */}
+      <div className="mt-3 border-t border-[var(--color-border-subtle)] pt-2 font-mono text-[10.5px] text-[var(--color-tertiary)]">
+        <span data-testid="lifecycle-footer">
+          {archived ? t['agents.detail.lifecycleFooterArchived'] : t['agents.detail.lifecycleFooterActive']}
         </span>
-        <span className="shrink-0 font-mono">{t['agents.detail.archiveAuthority']}</span>
       </div>
     </Panel>
   )

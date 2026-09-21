@@ -381,6 +381,34 @@ test.describe('agent registry (US-AD20)', () => {
     expect(offscreen, 'no column may render past the viewport edge').toBe(0)
   })
 
+  // The reported bug: an agent registered on a provider called "9router" showed
+  // `openai_compatible` in the Provider column. The column printed
+  // `agents.provider`, which US-AD109 AC6 made the *protocol* — so every
+  // openai_compatible provider rendered identically and the operator could not
+  // tell which one an agent draws its endpoint from.
+  test('the Provider column names the provider, not the protocol', async ({ page }) => {
+    const gateway = `gw-name-${Date.now()}`
+    const provider = await seedProvider(page, orgID, gateway)
+    const created = await api<{ id: string; provider: string }>(
+      page,
+      orgID,
+      'POST',
+      `/projects/${projectID}/agents`,
+      agentPayload({ name: 'agent-named', provider_id: provider.id }),
+    )
+    expect(created.status, created.text).toBe(201)
+    // The stored protocol is still what the contract derives — the row is right.
+    expect(created.data.provider).toBe('openai_compatible')
+
+    await page.goto(`/app/${orgID}/agents`)
+    const row = page.getByRole('table').locator('tbody tr').filter({ hasText: 'agent-named' })
+    // `.toHaveText` retries, so this waits out the window where the agent list has
+    // arrived but the provider registry has not — and it fails fast if that window
+    // ever renders the protocol, which is the reported bug.
+    await expect(row.getByTestId('agent-provider')).toHaveText(gateway)
+    await expect(row.getByTestId('agent-provider')).not.toHaveText('openai_compatible')
+  })
+
   // AC4 — the refusal has to reach the operator, not just the API. The delete
   // button previously swallowed the 409 and closed the modal as if it worked. The
   // running-task precondition itself is proved in cmd/api/agents_test.go

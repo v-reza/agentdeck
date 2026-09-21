@@ -82,7 +82,7 @@ wajib, jangan token bawaan browser. Sisa native:
 | file | jumlah | baris |
 |---|---|---|
 | `components/layout/WorkspaceTopbar.tsx` | 1 | 66 |
-| `routes/dashboard/agents/AgentDetailForm.tsx` | 3 | 210, 244, 262 |
+| `routes/dashboard/agents/AgentDetailForm.tsx` | 3 | 238, 272, 290 |
 | `routes/dashboard/boards/CreateBoardForm.tsx` | 1 | 88 |
 | `routes/dashboard/settings/members-actions.tsx` | 2 | 77, 171 |
 
