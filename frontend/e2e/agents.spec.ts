@@ -564,7 +564,9 @@ test.describe('agent registry (US-AD20)', () => {
       /US-AD\d+/, // story ids
       /\bAC\d\b/, // acceptance-criterion numbers
       /HTTP \d{3}/, // status codes used as copy
-      /\bM[1-6]\b/, // roadmap phases
+      // Whitespace-anchored: `\bM[1-6]\b` also matches model names such as
+      // "MiniMax-M2.1", which is a false positive. See agent-detail.spec.ts.
+      /(?:^|\s)M[1-6](?=\s|$)/, // roadmap phases
       /B2C|B2B/, // segment jargon
       /[Ss]pec(ification)?\b.*\b(chip|card)\b/, // spec-document phrasing
     ]) {

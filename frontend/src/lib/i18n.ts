@@ -280,6 +280,10 @@ export interface Dictionary {
   'agents.detail.providerTitle': string
   'agents.detail.providerVerified': string
   'agents.detail.provider': string
+  'agents.detail.providerOpenAI': string
+  'agents.detail.providerAnthropic': string
+  'agents.detail.providerDeepseek': string
+  'agents.detail.providerCustom': string
   'agents.detail.model': string
   'agents.detail.modelHint': string
   'agents.detail.modelUnavailable': string
@@ -307,6 +311,39 @@ export interface Dictionary {
   'agents.archive.forbidden': string
   'agents.archive.running': string
   'agents.archive.failed': string
+  'agents.detail.lifecycleTitle': string
+  'agents.detail.assignmentState': string
+  'agents.detail.archiveAuthority': string
+  'agents.detail.unarchiveHint': string
+  'agents.detail.rule1Title': string
+  'agents.detail.rule1Body': string
+  'agents.detail.rule2Title': string
+  'agents.detail.rule2Body': string
+  'agents.detail.toolsGranted': string
+  'agents.detail.skillsInUse': string
+  'agents.detail.toolsHint': string
+  'agents.detail.skillsHint': string
+  'agents.detail.gatePolicy': string
+  'agents.detail.gateGated': string
+  'agents.detail.gateNone': string
+  'agents.detail.priceTitle': string
+  'agents.detail.pricePriced': string
+  'agents.detail.priceUnpriced': string
+  'agents.detail.priceInput': string
+  'agents.detail.priceOutput': string
+  'agents.detail.priceCached': string
+  'agents.detail.priceVersion': string
+  'agents.detail.priceDisclaimer': string
+  'agents.detail.providerHint': string
+  'agents.detail.minutes': string
+  'agents.detail.notFoundHint': string
+  'agents.detail.saveHint': string
+  'agents.detail.skillsEmpty': string
+  'agents.detail.justNow': string
+  'agents.detail.minutesAgo': string
+  'agents.detail.hoursAgo': string
+  'agents.detail.daysAgo': string
+  'agents.detail.never': string
 }
 
 const en: Dictionary = {
@@ -575,6 +612,10 @@ const en: Dictionary = {
   'agents.detail.providerTitle': 'Provider & model configuration',
   'agents.detail.providerVerified': 'pricing available',
   'agents.detail.provider': 'Provider',
+  'agents.detail.providerOpenAI': 'openai ([OI]-compatible API)',
+  'agents.detail.providerAnthropic': 'anthropic (Claude series)',
+  'agents.detail.providerDeepseek': 'deepseek (Coder / V3)',
+  'agents.detail.providerCustom': 'custom (self-hosted endpoint)',
   'agents.detail.model': 'Model',
   'agents.detail.modelHint': 'Choose a model from the current pricing catalog.',
   'agents.detail.modelUnavailable': 'Model is not in the current catalog',
@@ -602,6 +643,44 @@ const en: Dictionary = {
   'agents.archive.forbidden': 'Only a workspace owner or admin can archive or unarchive an agent.',
   'agents.archive.running': 'This agent still has running work. Let it finish before archiving.',
   'agents.archive.failed': 'Could not change the archive status',
+  'agents.detail.lifecycleTitle': 'Assignment lifecycle',
+  'agents.detail.assignmentState': 'Assignment state',
+  'agents.detail.archiveAuthority':
+    'Archiving needs an owner or an admin — the same authority that brings an agent back into service.',
+  'agents.detail.unarchiveHint':
+    'This agent is archived: it is hidden from new assignments, while work that is already running still finishes.',
+  'agents.detail.rule1Title': 'Running work is never cut off',
+  'agents.detail.rule1Body':
+    'A task that is already in progress still finishes, and its cost is still written to the ledger.',
+  'agents.detail.rule2Title': 'Out of the assignment picker',
+  'agents.detail.rule2Body':
+    'An archived agent is filtered out of the assign picker on the Kanban board and the table view. Its row stays here so it can be brought back.',
+  'agents.detail.toolsGranted': 'Tools granted',
+  'agents.detail.skillsInUse': 'Skills in use',
+  'agents.detail.toolsHint': 'Tools are a closed list — a name outside it is refused.',
+  'agents.detail.skillsHint': 'An agent only reads a skill; it never writes one.',
+  'agents.detail.gatePolicy': 'Approval gate',
+  'agents.detail.gateGated': 'require (gated)',
+  'agents.detail.gateNone': 'not granted',
+  'agents.detail.priceTitle': 'Estimated rate',
+  'agents.detail.pricePriced': 'pricing table',
+  'agents.detail.priceUnpriced': 'no price entry',
+  'agents.detail.priceInput': 'Input / 1M tokens',
+  'agents.detail.priceOutput': 'Output / 1M tokens',
+  'agents.detail.priceCached': 'Cached / 1M tokens',
+  'agents.detail.priceVersion': 'price table v{0}',
+  'agents.detail.priceDisclaimer':
+    'Rates come from the internal AgentDeck pricing table, not a provider invoice. Actual spend is on each provider dashboard.',
+  'agents.detail.providerHint': 'A model outside the catalog is stored as-is, but cannot be priced.',
+  'agents.detail.minutes': '({0} min)',
+  'agents.detail.notFoundHint': 'It may have been deleted, or it belongs to another workspace.',
+  'agents.detail.saveHint': 'The save sends this whole profile; the pickers above only choose its values.',
+  'agents.detail.skillsEmpty': 'No skill in this workspace yet',
+  'agents.detail.justNow': 'just now',
+  'agents.detail.minutesAgo': '{0}m ago',
+  'agents.detail.hoursAgo': '{0}h ago',
+  'agents.detail.daysAgo': '{0}d ago',
+  'agents.detail.never': 'never',
 }
 
 const id: Dictionary = {
@@ -869,6 +948,10 @@ const id: Dictionary = {
   'agents.detail.providerTitle': 'Konfigurasi provider & model',
   'agents.detail.providerVerified': 'harga tersedia',
   'agents.detail.provider': 'Provider',
+  'agents.detail.providerOpenAI': 'openai (API kompatibel [OI])',
+  'agents.detail.providerAnthropic': 'anthropic (seri Claude)',
+  'agents.detail.providerDeepseek': 'deepseek (Coder / V3)',
+  'agents.detail.providerCustom': 'kustom (endpoint sendiri)',
   'agents.detail.model': 'Model',
   'agents.detail.modelHint': 'Pilih model dari katalog harga terbaru.',
   'agents.detail.modelUnavailable': 'Model tidak ada di katalog saat ini',
@@ -897,6 +980,44 @@ const id: Dictionary = {
   'agents.archive.forbidden': 'Hanya owner atau admin workspace yang dapat mengarsipkan atau membatalkan arsip agent.',
   'agents.archive.running': 'Agent ini masih punya task yang berjalan. Tunggu sampai selesai sebelum mengarsipkan.',
   'agents.archive.failed': 'Status arsip tidak berubah',
+  'agents.detail.lifecycleTitle': 'Siklus penugasan',
+  'agents.detail.assignmentState': 'Status penugasan',
+  'agents.detail.archiveAuthority':
+    'Mengarsipkan butuh owner atau admin — otoritas yang sama dengan yang mengembalikan agent ke layanan.',
+  'agents.detail.unarchiveHint':
+    'Agent ini diarsip: hilang dari penugasan baru, sementara task yang sudah berjalan tetap tuntas.',
+  'agents.detail.rule1Title': 'Task berjalan tidak pernah diputus',
+  'agents.detail.rule1Body': 'Task yang sedang berjalan tetap diselesaikan, dan biayanya tetap dicatat ke ledger.',
+  'agents.detail.rule2Title': 'Keluar dari dropdown penugasan',
+  'agents.detail.rule2Body':
+    'Agent yang diarsip tidak dirender di dropdown penugasan pada Kanban board maupun table view. Barisnya tetap ada di sini supaya bisa dikembalikan.',
+  'agents.detail.toolsGranted': 'Tools yang diberikan',
+  'agents.detail.skillsInUse': 'Skill yang dipakai',
+  'agents.detail.toolsHint': 'Tools adalah daftar tertutup — nama di luar daftar ditolak.',
+  'agents.detail.skillsHint': 'Agent hanya membaca skill; tidak pernah menulisnya.',
+  'agents.detail.gatePolicy': 'Gerbang persetujuan',
+  'agents.detail.gateGated': 'require (gated)',
+  'agents.detail.gateNone': 'tidak diberikan',
+  'agents.detail.priceTitle': 'Estimasi tarif',
+  'agents.detail.pricePriced': 'tabel harga',
+  'agents.detail.priceUnpriced': 'belum ada harga',
+  'agents.detail.priceInput': 'Masuk / 1 juta token',
+  'agents.detail.priceOutput': 'Keluar / 1 juta token',
+  'agents.detail.priceCached': 'Cache / 1 juta token',
+  'agents.detail.priceVersion': 'tabel harga v{0}',
+  'agents.detail.priceDisclaimer':
+    'Tarif ini dari tabel harga internal AgentDeck, bukan tagihan provider. Biaya sebenarnya ada di dashboard masing-masing provider.',
+  'agents.detail.providerHint':
+    'Model di luar katalog tetap tersimpan apa adanya, tetapi tidak bisa dihitung biayanya.',
+  'agents.detail.minutes': '({0} menit)',
+  'agents.detail.notFoundHint': 'Mungkin sudah dihapus, atau milik ruang kerja lain.',
+  'agents.detail.saveHint': 'Simpan mengirim seluruh profil ini; pilihan di atas hanya menentukan nilainya.',
+  'agents.detail.skillsEmpty': 'Belum ada skill di ruang kerja ini',
+  'agents.detail.justNow': 'baru saja',
+  'agents.detail.minutesAgo': '{0} menit lalu',
+  'agents.detail.hoursAgo': '{0} jam lalu',
+  'agents.detail.daysAgo': '{0} hari lalu',
+  'agents.detail.never': 'belum pernah',
 }
 
 const DICTIONARIES: Record<Lang, Dictionary> = { en, id }
