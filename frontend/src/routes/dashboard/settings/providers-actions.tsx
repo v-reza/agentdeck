@@ -22,12 +22,20 @@ import { Field, Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
 
 /**
- * US-AD109's three write paths, all as modals.
+ * US-AD109's three write paths: create and edit as the 420px right-anchored
+ * panel, delete as a centred confirmation.
  *
- * The design (`47-providers.html`) draws the list and the 420px detail drawer
- * but no dialog for create, edit or delete — so, as with the members roster, the
- * placement is a UX decision built from the design system's own parts rather
- * than invented chrome.
+ * The design (`47-providers.html`) draws exactly that split — a 420px drawer
+ * beside the list whose footer carries "Simpan Perubahan" and "Hapus Provider",
+ * and no dialog of its own for delete. So create/edit reuse `Modal`'s
+ * `placement="right"` + `size="panel"`, the same geometry the credential panel
+ * (US-AD86) uses, rather than inventing chrome or a second drawer component.
+ * The focus trap, Escape handling, scroll lock and focus restore stay in one
+ * place; only the geometry is a prop.
+ *
+ * Delete stays centred and small. It is a confirmation with two buttons, not a
+ * form, and a full-height panel for it would be geometry pretending to be
+ * meaning.
  *
  * Two shape decisions worth stating:
  *
@@ -106,6 +114,27 @@ export function ProviderFormDialog({
       onClose={onClose}
       title={isEdit ? t['providers.form.edit'] : t['providers.form.create']}
       description={isEdit ? provider?.name : undefined}
+      size="panel"
+      placement="right"
+      footer={
+        <div className="flex w-full items-center justify-between gap-2">
+          {onRequestDelete ? (
+            <Button variant="ghost" size="sm" className="text-[var(--color-danger)]" onClick={onRequestDelete}>
+              {t['providers.delete.title']}
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              {t['action.cancel']}
+            </Button>
+            <Button type="submit" form="provider-form" variant="primary" size="sm" disabled={isPending}>
+              {isPending ? t['providers.form.pending'] : t['providers.form.submit']}
+            </Button>
+          </div>
+        </div>
+      }
     >
       <form action={formAction} id="provider-form" className="flex flex-col gap-3.5">
         <Field label={t['providers.form.name']}>
@@ -152,20 +181,6 @@ export function ProviderFormDialog({
 
         {state.error ? <p className="text-[12px] text-[var(--color-danger)]">{state.error}</p> : null}
       </form>
-
-      <div className="mt-5 flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] pt-4">
-        {onRequestDelete ? (
-          <Button variant="ghost" size="sm" className="mr-auto text-[var(--color-danger)]" onClick={onRequestDelete}>
-            {t['providers.delete.title']}
-          </Button>
-        ) : null}
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          {t['action.cancel']}
-        </Button>
-        <Button type="submit" form="provider-form" variant="primary" size="sm" disabled={isPending}>
-          {isPending ? t['providers.form.pending'] : t['providers.form.submit']}
-        </Button>
-      </div>
     </Modal>
   )
 }
@@ -334,8 +349,37 @@ export function ProviderRowActions({
   )
 }
 
-/** The verified/unverified badge (AC3). */
+/**
+ * AC3's status bullet, drawn beside the provider name.
+ *
+ * The design puts the marker in the name cell, not in the Verifikasi column:
+ * accent when the credential has been proven, neutral when it has not. The
+ * Verifikasi column keeps the word, so the fact is readable in two places and
+ * neither is a colour-only signal.
+ *
+ * It is a `<span>` with a `title`, not a `<button>`: the marker reports state
+ * and does nothing when clicked. The visible word lives in the column beside it,
+ * so the bullet is decorative for a screen reader and is marked as such.
+ */
 export function VerifiedBadge({ provider }: { provider: Provider }) {
+  const t = useT()
+  const verified = Boolean(provider.last_verified_at)
+  return (
+    <span
+      title={verified ? t['providers.verified'] : t['providers.unverified']}
+      aria-hidden="true"
+      data-verified={verified ? 'true' : 'false'}
+      className={
+        verified
+          ? 'h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]'
+          : 'h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-quaternary)]'
+      }
+    />
+  )
+}
+
+/** The word, for the Verifikasi column. Pairs with the bullet in the name cell. */
+export function VerifiedLabel({ provider }: { provider: Provider }) {
   const t = useT()
   if (provider.last_verified_at) {
     return (

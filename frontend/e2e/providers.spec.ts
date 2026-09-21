@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
+import { createServer, type Server } from 'node:http'
+import { AddressInfo } from 'node:net'
 
 /**
  * Screen 47-providers — the credential registry (US-AD109).
@@ -120,6 +122,170 @@ test.describe('providers — reachable from the shell', () => {
       expect(response.status(), href).toBeLessThan(400)
       await page.goto(href)
       await expect(page.getByRole('main').or(page.locator('header')).first(), href).toBeVisible({ timeout: 15_000 })
+    }
+  })
+})
+
+test.describe('providers — the write surface and the status bullet', () => {
+  let orgID: string
+
+  test.beforeEach(async ({ page }) => {
+    orgID = await seedWorkspaceWithProvider(page)
+    await page.goto(`/app/${orgID}/settings/providers`)
+    await expect(page.getByRole('cell', { name: /local ollama/i }).first()).toBeVisible({ timeout: 15_000 })
+  })
+
+  /**
+   * The design draws a 420px drawer pinned to the right edge, and that is what
+   * create/edit must be. A centred 440px dialog is the same fields in the wrong
+   * place: the operator asked for the panel, and the repo already had the
+   * geometry (`Modal placement="right" size="panel"`, the credential panel's).
+   */
+  test('create opens the 420px right-anchored panel, not a centred dialog', async ({ page }) => {
+    await page.getByRole('button', { name: /tambah provider/i }).click()
+
+    const panel = page.getByRole('dialog')
+    await expect(panel).toBeVisible()
+
+    const box = await panel.boundingBox()
+    expect(box, 'the panel must be laid out').not.toBeNull()
+    expect(Math.round(box!.width), 'design: w-[420px]').toBe(420)
+    expect(Math.round(box!.height), 'a right panel is full height').toBe(page.viewportSize()!.height)
+    // Pinned right: its right edge is the viewport's right edge, and its left
+    // edge is not at the viewport's left.
+    expect(Math.round(box!.x + box!.width)).toBe(page.viewportSize()!.width)
+    expect(Math.round(box!.x)).toBeGreaterThan(page.viewportSize()!.width / 2)
+
+    // The design's footer is the write surface: save, and (on edit) delete.
+    await expect(page.getByRole('button', { name: /simpan provider/i })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(panel).toBeHidden()
+  })
+
+  test('edit opens the same panel, carrying the provider and a delete action', async ({ page }) => {
+    await page
+      .getByRole('button', { name: /ubah provider/i })
+      .first()
+      .click()
+
+    const panel = page.getByRole('dialog')
+    await expect(panel).toBeVisible()
+    const box = await panel.boundingBox()
+    expect(Math.round(box!.width), 'edit uses the same 420px panel').toBe(420)
+
+    await expect(panel.getByLabel(/nama provider/i)).toHaveValue('Local Ollama')
+    await expect(page.getByRole('button', { name: /hapus provider/i })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(panel).toBeHidden()
+  })
+
+  /**
+   * The design puts a status bullet beside the provider name: accent when the
+   * credential is proven, neutral when it is not.
+   *
+   * "The bullet exists" is not the assertion — "the bullet turns accent after a
+   * passing verify" is. The verify runs against a local stub that answers 200 on
+   * /chat/completions, so the test proves the colour is driven by
+   * `last_verified_at` rather than by a hardcoded class.
+   *
+   * The stub listens on every interface because the caller is the Go API, not
+   * this test: in this repo's dev setup the API runs in a container, so the
+   * address it can reach is `host.docker.internal`, while a host-run API reaches
+   * the same stub on `127.0.0.1`. Both are guard-allowed exact strings
+   * (DECISIONS 6A.F), and both are tried — the test skips only when neither
+   * works, which means the API could not reach the stub at all and the colour
+   * question was never asked.
+   */
+  test('AC3: the name bullet is neutral until a passing verify turns it accent', async ({ page }) => {
+    // The stub answers both calls the registry makes, and they are different:
+    // model discovery reads `data[].id`, while the credential probe only needs a
+    // 2xx on /chat/completions. Answering one shape to both requests makes the
+    // fetch fail to parse and the test skip for the wrong reason.
+    const stub: Server = createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      if (req.method === 'GET') {
+        res.end(JSON.stringify({ object: 'list', data: [{ id: 'stub-model', object: 'model' }] }))
+        return
+      }
+      res.end(JSON.stringify({ choices: [{ message: { content: 'pong' } }] }))
+    })
+    await new Promise<void>((resolve) => stub.listen(0, '0.0.0.0', resolve))
+    const port = (stub.address() as AddressInfo).port
+    try {
+      // A provider pointing at the stub, with the model list already fetched so
+      // verify has a model to probe with. The reachable address is discovered by
+      // trying them, not by inspecting the API's deployment.
+      //
+      // The name is unique per run: `providers_org_name_key` makes a repeat a 409,
+      // and a test that leaves its row behind would fail the next run with a
+      // name collision rather than with the thing it is checking.
+      const attempt = async (host: string, name: string) => {
+        const baseURL = `http://${host}:${port}/v1`
+        return page.evaluate(
+          async ({ api, org, baseURL, name }) => {
+            const headers = { 'Content-Type': 'application/json', 'X-Org-ID': org }
+            const response = await fetch(`${api}/providers`, {
+              method: 'POST',
+              headers,
+              credentials: 'include',
+              body: JSON.stringify({
+                name,
+                protocol: 'openai_compatible',
+                base_url: baseURL,
+                api_key: '«redacted:sk-…»',
+              }),
+            })
+            // Read as text and parse defensively: a 409 answers with a plain-text
+            // body, and calling .json() on it throws inside the page, which
+            // surfaces as an opaque `page.evaluate: SyntaxError` instead of the
+            // real status.
+            const created = await response.text()
+            if (!response.ok) return { created: response.status, models: 0, id: '', detail: created }
+            const provider = JSON.parse(created) as { id: string }
+            const models = await fetch(`${api}/providers/${provider.id}/models`, {
+              method: 'POST',
+              headers,
+              credentials: 'include',
+            })
+            return { created: response.status, models: models.status, id: provider.id, detail: '' }
+          },
+          { api: API, org: orgID, baseURL, name },
+        )
+      }
+
+      const name = `Stub Gateway ${Date.now()}`
+      let reachable = await attempt('host.docker.internal', name)
+      if (reachable.models !== 200) {
+        // The container address failed, so try the one a host-run API uses. The
+        // name is suffixed so the retry does not collide with the first attempt.
+        reachable = await attempt('127.0.0.1', `${name} b`)
+      }
+      test.skip(
+        reachable.models !== 200,
+        `the api could not reach the stub on either address (last: HTTP ${reachable.models} ${reachable.detail}) — it must share a network with the host for this test to ask its question`,
+      )
+      expect(reachable.created, 'provider create').toBe(201)
+
+      await page.reload()
+      const row = page.getByRole('row').filter({ hasText: name })
+      await expect(row).toBeVisible({ timeout: 15_000 })
+
+      const bullet = row.locator('span[data-verified]')
+      await expect(bullet).toHaveAttribute('data-verified', 'false')
+
+      await row.getByRole('button', { name: new RegExp(`uji — ${name}`, 'i') }).click()
+      // The row is invalidated by the mutation, so the attribute flipping is the
+      // observable the verify produced.
+      await expect(bullet).toHaveAttribute('data-verified', 'true', { timeout: 15_000 })
+
+      // Colour, not just the attribute: the two states must be different
+      // backgrounds, or "accent when verified" is an attribute nothing renders.
+      const verifiedColor = await bullet.evaluate((el) => getComputedStyle(el).backgroundColor)
+      const other = page.getByRole('row').filter({ hasText: 'Local Ollama' }).locator('span[data-verified]')
+      const unverifiedColor = await other.evaluate((el) => getComputedStyle(el).backgroundColor)
+      expect(verifiedColor).not.toBe(unverifiedColor)
+    } finally {
+      await new Promise<void>((resolve) => stub.close(() => resolve()))
     }
   })
 })

@@ -9,7 +9,13 @@ import { useAppSelector } from '@/store/hooks'
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { Button } from '@/components/ui/button'
 import { EmptyState, Panel } from '@/components/ui/card'
-import { DeleteProviderDialog, ProviderFormDialog, ProviderRowActions, VerifiedBadge } from './providers-actions'
+import {
+  DeleteProviderDialog,
+  ProviderFormDialog,
+  ProviderRowActions,
+  VerifiedBadge,
+  VerifiedLabel,
+} from './providers-actions'
 
 /**
  * Screen 47-providers — the per-workspace credential registry (US-AD109).
@@ -20,23 +26,26 @@ import { DeleteProviderDialog, ProviderFormDialog, ProviderRowActions, VerifiedB
  * bullets and never a value (AC2), and the default badge on at most one row
  * (AC9).
  *
- * Four deliberate deviations, each a fact the design cannot know:
+ * Three deliberate deviations, each a fact the design cannot know:
  *
- *  1. The design draws a 420px detail drawer beside the list. It is not cloned.
- *     Everything the drawer shows is already a column, and a second surface
- *     rendering the same fields is a second place for them to disagree. Edit is
- *     a modal instead, matching the members roster's decision.
- *  2. The design annotates the header with `AC1`/`AC3`/`AC7`/`AC9` and a
+ *  1. The design annotates the header with `AC1`/`AC3`/`AC7`/`AC9` and a
  *     "COMPLIANT" badge. Those are notes for whoever reviews the mock, not
  *     product copy, so they are not cloned — the repo forbids spec jargon in
  *     rendered UI.
- *  3. The design shows a fixed `2 jam lalu` / `26 jam lalu (kedaluwarsa)`. Here
+ *  2. The design shows a fixed `2 jam lalu` / `26 jam lalu (kedaluwarsa)`. Here
  *     the column is computed from `models_fetched_at`, and the stale marker uses
  *     the same 24-hour window the backend's refresher uses (AC7) rather than a
  *     number that drifts out of date the moment it is rendered.
- *  4. The design's row actions are two bare icons. They carry `aria-label`s
+ *  3. The design's row actions are two bare icons. They carry `aria-label`s
  *     naming the provider: two unlabelled icon buttons per row is unusable by
  *     screen reader, and the design cannot express that.
+ *
+ * The design's 420px drawer is NOT one of those deviations. It was dropped in
+ * phase 4 on the argument that a second surface rendering the same fields is a
+ * second place for them to disagree — but that is wrong for this screen: the
+ * drawer is the *write* surface (its footer is "Simpan Perubahan" / "Hapus
+ * Provider"), and the registry has no other way to create or edit a provider.
+ * It is now cloned, as the credential panel's `placement="right"` geometry.
  */
 export function Providers() {
   const t = useT()
@@ -122,7 +131,12 @@ export function Providers() {
                       // panel's `overflow-x-auto` takes the overflow.
                       className="h-7 hover:bg-[var(--color-surface-hover)] [&>td]:align-middle [&>td]:whitespace-nowrap"
                     >
-                      <td className="px-3 py-0 font-medium text-[var(--color-primary)]">{provider.name}</td>
+                      <td className="px-3 py-0">
+                        <div className="flex items-center gap-2">
+                          <VerifiedBadge provider={provider} />
+                          <span className="font-medium text-[var(--color-primary)]">{provider.name}</span>
+                        </div>
+                      </td>
                       <td className="px-3 py-0">
                         <span className="rounded-[4px] bg-[var(--color-surface-sunken)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-secondary)]">
                           {provider.protocol}
@@ -143,7 +157,7 @@ export function Providers() {
                         {plural(provider.models.length, 'model')}
                       </td>
                       <td className="px-3 py-0">
-                        <VerifiedBadge provider={provider} />
+                        <VerifiedLabel provider={provider} />
                       </td>
                       <td className="px-3 py-0 text-[11px]">
                         <SyncCell
