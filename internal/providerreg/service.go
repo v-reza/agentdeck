@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -347,8 +348,8 @@ func (s *Service) Verify(ctx context.Context, orgID, id string) (Provider, error
 		return Provider{}, ErrNoKeyForProbe
 	}
 
-	if err := s.probe.ProbeInference(ctx, p.BaseURL, apiKey, p.Models[0]); err != nil {
-		return Provider{}, &ProbeError{Err: err}
+	if err := s.verifyCredential(ctx, p, apiKey); err != nil {
+		return Provider{}, err
 	}
 
 	verifiedAt := time.Now().UTC()
@@ -356,6 +357,79 @@ func (s *Service) Verify(ctx context.Context, orgID, id string) (Provider, error
 		return Provider{}, err
 	}
 	return s.repo.Get(ctx, orgID, id)
+}
+
+// maxProbeModels caps how many models one verify may spend a call on.
+//
+// Three is enough to tell a broken model from a broken credential — the case
+// that motivated the loop is a gateway whose first advertised model is 502 while
+// the credential is fine — and it keeps the cost of a "Test" click bounded at
+// maxProbeModels tokens. Probing the whole list is deliberately not done: a
+// provider advertising 700 models would turn one click into 700 requests against
+// the operator's quota, and DECISIONS 6A.J fixes the rule as "probe only when
+// the button is pressed, to save quota".
+const maxProbeModels = 3
+
+// verifyCredential walks the provider's model list until one of them answers
+// 2xx, which is the only thing that proves the credential (AC3).
+//
+// The walk is what makes the answer correct rather than lucky. A gateway that
+// fronts many upstreams advertises models it cannot always serve: the operator's
+// own 9Router answers 502 for `mimo-v2.5-free` (the first model in its list) and
+// 200 for five others. Probing only Models[0] reported a healthy credential as
+// broken, which is a false negative — the worst kind, because the operator's
+// reaction is to rotate a key that was never the problem.
+//
+// Two rules stop the walk:
+//
+//   - 2xx wins immediately. One working model is proof; the rest are noise.
+//   - 401/403 ends it. Those statuses accuse the credential, and a credential is
+//     the same string for every model, so asking a second model cannot change
+//     the answer.
+//
+// Anything else (400, 402, 429, 5xx, unreachable) is the model's or the
+// upstream's problem, so the next model is tried. When every attempt fails, the
+// error reported is the one that best explains the credential: a rejection if
+// any attempt was rejected, otherwise the first failure.
+func (s *Service) verifyCredential(ctx context.Context, p Provider, apiKey string) error {
+	attempts := p.Models
+	if len(attempts) > maxProbeModels {
+		attempts = attempts[:maxProbeModels]
+	}
+
+	var (
+		firstErr   error
+		rejected   error
+		triedNames []string
+	)
+	for _, model := range attempts {
+		result, err := s.probe.ProbeInference(ctx, p.BaseURL, apiKey, model)
+		if err != nil {
+			return &ProbeError{Err: err}
+		}
+		if result.Err == nil {
+			return nil
+		}
+		triedNames = append(triedNames, model)
+		if firstErr == nil {
+			firstErr = result.Err
+		}
+		if result.CredentialRejected {
+			rejected = result.Err
+			break
+		}
+	}
+
+	if rejected != nil {
+		return &ProbeError{Err: rejected}
+	}
+	if firstErr == nil {
+		// Unreachable: the model list is non-empty (checked by the caller), so
+		// the loop ran at least once. Kept as a guard rather than a panic.
+		return &ProbeError{Err: ErrNoModelsToProbe}
+	}
+	return &ProbeError{Err: fmt.Errorf("no model answered among %s: %w",
+		strings.Join(triedNames, ", "), firstErr)}
 }
 
 // plaintextKey decrypts a provider's stored credential. An absent credential is

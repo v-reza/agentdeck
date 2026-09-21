@@ -123,7 +123,7 @@ export function ProviderFormDialog({
           />
         </Field>
 
-        <Field label={t['providers.form.baseUrl']}>
+        <Field label={t['providers.form.baseUrl']} hint={t['providers.form.baseUrlHint']}>
           <Input
             name="base_url"
             required

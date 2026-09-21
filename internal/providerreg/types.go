@@ -134,6 +134,18 @@ type UpdateInput struct {
 	IsDefault *bool
 }
 
+// ProbeResult is what one inference probe established. It is a struct rather
+// than a bool because "the credential is refused" and "the upstream is broken"
+// lead to opposite decisions: the first ends the search, the second justifies
+// trying the next model.
+type ProbeResult struct {
+	// CredentialRejected is set only when the upstream answered 401/403 — the
+	// two statuses that accuse the credential itself.
+	CredentialRejected bool
+	// Err is the upstream failure, nil when the probe succeeded.
+	Err error
+}
+
 // Probe is the upstream call the registry needs: fetch a model list, or prove
 // a credential with a minimal completion. It is an interface so the service's
 // rules are testable without a live endpoint, and so the HTTP layer owns the
@@ -147,7 +159,11 @@ type Probe interface {
 	ListModels(ctx context.Context, baseURL, apiKey string) ([]string, error)
 	// ProbeInference proves a credential with the cheapest call that
 	// authenticates. A model list does not prove it (AC3).
-	ProbeInference(ctx context.Context, baseURL, apiKey, model string) error
+	//
+	// It returns a result rather than a bare error because the caller has to
+	// choose between giving up and trying another model, and only this layer
+	// can see the status code that decides it.
+	ProbeInference(ctx context.Context, baseURL, apiKey, model string) (ProbeResult, error)
 }
 
 // ProbeError wraps a failure that came from the upstream rather than from us.

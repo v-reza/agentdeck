@@ -1746,6 +1746,15 @@ gateway yang menjawab `200` di `/models` tanpa kredensial sama sekali dan `401` 
 inference, jadi `/models` cuma membuktikan endpoint-nya nyala. Ini panggilan
 inference pertama di seluruh kode — runtime belum pernah memanggil LLM.
 
+Probe-nya **berhenti pada 2xx pertama, dan mencoba paling banyak 3 model** dari
+`models_json` provider itu sendiri. Satu model tidak cukup: gateway yang
+mem-proxy banyak upstream mengiklankan model yang tidak selalu bisa dilayani —
+`Models[0]` di satu provider nyata balas `502` sementara 5 model lain balas `200`
+dengan key yang sama. Yang menuduh kredensial hanya `401`/`403`; status lain
+(`400`, `402`, `429`, `5xx`, timeout) berarti model atau upstream-nya yang
+bermasalah, jadi model berikutnya dicoba. Batas 3 model itu yang menjaga satu klik
+tetap ~3 token, bukan 699 request.
+
 Probe-nya butuh nama model, dan nama itu diambil dari `models_json` provider itu
 sendiri; provider yang daftar modelnya masih kosong ditolak `400` sebelum ada
 panggilan keluar. Kredensial yang tidak ada juga `400` — melaporkan "terverifikasi"

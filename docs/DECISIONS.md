@@ -431,6 +431,46 @@ memeriksanya di inference. Jadi `/models` hanya membuktikan **nyala/tidak**, buk
   "cek saat agent mau jalan" (pilihan di bawah) **belum ada mekanismenya** — itu
   bagian milestone runtime, bukan pekerjaan provider registry.
 
+#### Probe: satu model tidak cukup, dan 401/403 bukan satu-satunya arti "ditolak"
+
+Koreksi kedua, juga dari **tes ke gateway asli**, bukan teori.
+
+**Masalahnya:** `Verify` menembak `Models[0]` satu kali. Gateway yang mem-proxy
+banyak upstream mengiklankan model yang tidak selalu bisa dilayani, jadi satu
+tembakan itu lotere. Terukur di provider `keystore.edumai.tech`: `Models[0]` =
+`mimo-v2.5-free` balas **502**, sementara **5 model lain balas 200** dengan key
+yang sama. Hasilnya badge "gagal" untuk kredensial yang sehat — false negative,
+dan reaksi operatornya adalah merotasi key yang bukan masalahnya.
+
+**Juga terukur:** aturan 9Router (`GET /models`, key valid kalau `res.ok`)
+**tidak aman** di sini. Di gateway yang sama, `GET /models` balas **200 tanpa
+key sama sekali**. Jadi jalur murah itu melanggar AC3 dan bakal memasang badge
+"terverifikasi" di atas key sampah.
+
+**Keputusan:**
+
+| | Aturan |
+|---|---|
+| Status yang menuduh kredensial | **Hanya 401 dan 403.** Sisanya (400, 402, 429, 5xx, timeout) bicara soal request atau kesehatan upstream, bukan keaslian kredensial. Ini aturan 9Router, dan cuma garis itu yang ditarik spek HTTP. |
+| Bukti kredensial | **Satu model balas 2xx sudah cukup.** Kredensial adalah string yang sama untuk semua model, jadi model kedua tidak bisa mengubah jawaban begitu ada yang lolos. |
+| Batas percobaan | **3 model per klik**, berhenti di 2xx pertama atau di 401/403 pertama. Plafon biaya: 3 token. |
+| Larangan | **Tidak ada fan-out seluruh daftar.** Provider dengan 699 model akan mengubah satu klik jadi 699 request ke kuota operator, dan itu melanggar aturan "probe hanya saat tombol ditekan — hemat kuota" di tabel atas. |
+
+**Yang tetap tidak berubah:** `max_tokens: 1`. 9Router menaikkannya ke 1024
+karena dia membaca *body* dan model reasoning bisa kehabisan budget di
+chain-of-thought lalu balas tanpa `choices` (isu mereka #3010). Probe ini **tidak
+pernah membaca body** — status code adalah seluruh jawabannya — jadi 200 dengan
+completion kosong tetap 200. Lebih murah, dan tetap benar.
+
+**Batas yang diketahui, dan tidak ditambal di sini:** kredensial yang ditolak
+upstream *di belakang* proxy tidak bisa dibedakan dari kredensial yang ditolak
+proxy itu sendiri. Di dataset dev, `key/Union-Alpha` balas 401 sementara 5 model
+lain balas 200 dengan key yang sama — jadi 401 di situ berasal dari upstream,
+bukan dari gateway. Karena walk berhenti di 401, provider seperti itu bisa
+dilaporkan gagal walaupun kredensialnya sehat. Membiarkan walk jalan terus
+sesudah 401 akan menukar false negative ini dengan pemakaian kuota yang tidak
+terbatas, jadi batasnya diterima dan dicatat, bukan didiamkan.
+
 #### Aturan yang mengikat
 
 | Pertanyaan | Keputusan |

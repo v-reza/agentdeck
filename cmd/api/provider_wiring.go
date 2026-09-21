@@ -36,8 +36,30 @@ func (p *providerProbe) ListModels(ctx context.Context, baseURL, apiKey string) 
 	return provider.ListModels(ctx, p.client, baseURL, apiKey)
 }
 
-func (p *providerProbe) ProbeInference(ctx context.Context, baseURL, apiKey, model string) error {
-	return provider.ProbeInference(ctx, p.client, baseURL, apiKey, model)
+// ProbeInference classifies the upstream's answer so the service can decide
+// whether another model is worth trying.
+//
+// The split is made here, not in internal/provider, because the classification
+// is a registry policy: internal/provider reports what happened (an error that
+// wraps ErrCredentialRejected, ErrUpstreamError, or ErrUnreachable) and this
+// adapter turns that into the service's ProbeResult. The two sentinels are the
+// contract between them.
+func (p *providerProbe) ProbeInference(ctx context.Context, baseURL, apiKey, model string) (providerreg.ProbeResult, error) {
+	err := provider.ProbeInference(ctx, p.client, baseURL, apiKey, model)
+	if err == nil {
+		return providerreg.ProbeResult{}, nil
+	}
+	// A malformed address is the caller's mistake and keeps travelling as an
+	// error; only a real upstream answer becomes a result.
+	if !errors.Is(err, provider.ErrCredentialRejected) &&
+		!errors.Is(err, provider.ErrUpstreamError) &&
+		!errors.Is(err, provider.ErrUnreachable) {
+		return providerreg.ProbeResult{}, err
+	}
+	return providerreg.ProbeResult{
+		CredentialRejected: errors.Is(err, provider.ErrCredentialRejected),
+		Err:                err,
+	}, nil
 }
 
 // credentialDecrypter builds the service's decrypt function from the raw master

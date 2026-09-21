@@ -359,6 +359,10 @@ type probeCalls struct {
 	lastModel      string
 	lastKey        string
 	lastBaseURL    string
+	// probedModels is every model an inference probe was sent for, in order.
+	// The order is the assertion for the walk: a test can prove the loop tried
+	// the first model, moved on, and stopped where it should.
+	probedModels []string
 }
 
 func (c *probeCalls) snapshot() (listModels, probeInference int) {
@@ -370,6 +374,10 @@ func (c *probeCalls) snapshot() (listModels, probeInference int) {
 // fakeProbe is the in-memory providerreg.Probe. It lets each AC drive the
 // upstream's answer without a live endpoint, and counts calls so "zero upstream
 // traffic" is testable.
+//
+// probeResults is keyed by model so a test can describe a gateway that answers
+// differently per model — the shape of the real bug this loop exists for. A
+// model absent from the map answers successfully.
 type fakeProbe struct {
 	calls *probeCalls
 	// modelsErr / probeErr are the upstream failures to return, if any.
@@ -377,6 +385,8 @@ type fakeProbe struct {
 	probeErr  error
 	// models is the list ListModels answers with.
 	models []string
+	// probeResults maps a model name to the answer its probe gets.
+	probeResults map[string]providerreg.ProbeResult
 }
 
 func (p *fakeProbe) ListModels(_ context.Context, baseURL, apiKey string) ([]string, error) {
@@ -392,14 +402,21 @@ func (p *fakeProbe) ListModels(_ context.Context, baseURL, apiKey string) ([]str
 	return p.models, nil
 }
 
-func (p *fakeProbe) ProbeInference(_ context.Context, baseURL, apiKey, model string) error {
+func (p *fakeProbe) ProbeInference(_ context.Context, baseURL, apiKey, model string) (providerreg.ProbeResult, error) {
 	p.calls.mu.Lock()
 	p.calls.probeInference++
 	p.calls.lastBaseURL = baseURL
 	p.calls.lastKey = apiKey
 	p.calls.lastModel = model
+	p.calls.probedModels = append(p.calls.probedModels, model)
 	p.calls.mu.Unlock()
-	return p.probeErr
+	if p.probeErr != nil {
+		return providerreg.ProbeResult{}, p.probeErr
+	}
+	if result, ok := p.probeResults[model]; ok {
+		return result, nil
+	}
+	return providerreg.ProbeResult{}, nil
 }
 
 // agentBaseURL is what an agent's address column holds after a provider edit,
@@ -1553,6 +1570,143 @@ func TestProviderVerifyWithoutCredentialIs400(t *testing.T) {
 	after, _ := f.calls.snapshot()
 	if after != before {
 		t.Fatal("verify called the upstream for a provider with no credential")
+	}
+}
+
+// TestProviderVerifyWalksPastABrokenModel is the regression for the false
+// negative that motivated the loop: a gateway that fronts many upstreams
+// advertises models it cannot always serve, and the first name in its list is
+// one of the broken ones.
+//
+// The operator's own 9Router is exactly this shape — `mimo-v2.5-free` is
+// models[0] and answers 502, while five later models answer 200 with the same
+// credential. Probing only models[0] reported a healthy credential as broken,
+// which sends the operator off to rotate a key that was never the problem.
+func TestProviderVerifyWalksPastABrokenModel(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"broken-first", "also-broken", "works"}
+	f.probe.probeResults = map[string]providerreg.ProbeResult{
+		"broken-first": {Err: errors.New("provider: gw rejected the inference probe for model \"broken-first\" with HTTP 502: upstream error")},
+		"also-broken":  {Err: errors.New("provider: gw rejected the inference probe for model \"also-broken\" with HTTP 429: upstream error")},
+	}
+	created := f.mustCreate(t, f.scenario.orgA, "Walks", "openai_compatible", "https://gw.example.com/v1", "sk-tes...0000")
+	if recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/models", "", "alice", f.scenario.orgA); recorder.Code != http.StatusOK {
+		t.Fatalf("refresh: status = %d (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/verify", "", "alice", f.scenario.orgA)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("verify: status = %d, want 200 — the third model answers (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	f.calls.mu.Lock()
+	probed := append([]string{}, f.calls.probedModels...)
+	f.calls.mu.Unlock()
+	want := []string{"broken-first", "also-broken", "works"}
+	if !reflect.DeepEqual(probed, want) {
+		t.Fatalf("probed models = %v, want %v (in order, stopping at the first success)", probed, want)
+	}
+
+	got := decodeProvider(t, recorder)
+	if got.LastVerifiedAt == nil {
+		t.Fatal("a credential proven by a later model did not stamp last_verified_at")
+	}
+}
+
+// TestProviderVerifyStopsAtARejectedCredential is the other stopping rule. 401
+// and 403 accuse the credential, and the credential is one string for every
+// model, so a second attempt cannot change the answer — it can only spend
+// another call.
+func TestProviderVerifyStopsAtARejectedCredential(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"first", "second", "third"}
+	f.probe.probeResults = map[string]providerreg.ProbeResult{
+		"first": {CredentialRejected: true, Err: errors.New("provider: gw rejected the inference probe for model \"first\" with HTTP 401: credential rejected")},
+	}
+	created := f.mustCreate(t, f.scenario.orgA, "Rejected", "openai_compatible", "https://gw.example.com/v1", "sk-wrong")
+	if recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/models", "", "alice", f.scenario.orgA); recorder.Code != http.StatusOK {
+		t.Fatalf("refresh: status = %d (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/verify", "", "alice", f.scenario.orgA)
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("verify: status = %d, want 502 (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	f.calls.mu.Lock()
+	probed := append([]string{}, f.calls.probedModels...)
+	f.calls.mu.Unlock()
+	if !reflect.DeepEqual(probed, []string{"first"}) {
+		t.Fatalf("probed models = %v, want only the first — a rejection ends the walk", probed)
+	}
+
+	read := decodeProvider(t, f.doProvider(t, http.MethodGet, "/api/v1/providers/"+created.ID, "", "alice", f.scenario.orgA))
+	if read.LastVerifiedAt != nil {
+		t.Fatalf("a rejected credential stamped last_verified_at = %v", *read.LastVerifiedAt)
+	}
+}
+
+// TestProviderVerifyCapsHowManyModelsItSpends is the quota guard, and it is the
+// reason the loop is bounded rather than exhaustive. A provider may advertise
+// hundreds of models; walking all of them would turn one "Test" click into
+// hundreds of requests against the operator's account, which DECISIONS 6A.J
+// forbids ("probe only when the button is pressed, to save quota").
+func TestProviderVerifyCapsHowManyModelsItSpends(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"}
+	// Every model fails with an upstream error: no attempt proves anything, so
+	// nothing stops the walk except the cap.
+	f.probe.probeResults = map[string]providerreg.ProbeResult{}
+	for _, m := range f.probe.models {
+		f.probe.probeResults[m] = providerreg.ProbeResult{
+			Err: errors.New("provider: gw rejected the inference probe for model \"" + m + "\" with HTTP 503: upstream error"),
+		}
+	}
+	created := f.mustCreate(t, f.scenario.orgA, "Many models", "openai_compatible", "https://gw.example.com/v1", "sk-tes...0000")
+	if recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/models", "", "alice", f.scenario.orgA); recorder.Code != http.StatusOK {
+		t.Fatalf("refresh: status = %d (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/verify", "", "alice", f.scenario.orgA)
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("verify: status = %d, want 502 (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	f.calls.mu.Lock()
+	probed := append([]string{}, f.calls.probedModels...)
+	f.calls.mu.Unlock()
+	if len(probed) != 3 {
+		t.Fatalf("probed %d models (%v), want exactly 3 — the cap is what keeps a click cheap", len(probed), probed)
+	}
+	// The failure message has to name what was tried, otherwise "no model
+	// answered" is unfalsifiable for the operator.
+	if body := recorder.Body.String(); !strings.Contains(body, "m1") {
+		t.Fatalf("error does not name the models it tried: %s", body)
+	}
+}
+
+// TestProviderVerifyPrefersTheRejectionAsTheExplanation covers the message a
+// stuck operator actually reads. When one model was refused and others merely
+// failed, "your credential was rejected" is the actionable fact; a 502 from a
+// different model is not.
+func TestProviderVerifyPrefersTheRejectionAsTheExplanation(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"down", "refused"}
+	f.probe.probeResults = map[string]providerreg.ProbeResult{
+		"down":    {Err: errors.New("provider: gw rejected the inference probe for model \"down\" with HTTP 502: upstream error")},
+		"refused": {CredentialRejected: true, Err: errors.New("provider: gw rejected the inference probe for model \"refused\" with HTTP 401: credential rejected")},
+	}
+	created := f.mustCreate(t, f.scenario.orgA, "Mixed", "openai_compatible", "https://gw.example.com/v1", "sk-wrong")
+	if recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/models", "", "alice", f.scenario.orgA); recorder.Code != http.StatusOK {
+		t.Fatalf("refresh: status = %d (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/verify", "", "alice", f.scenario.orgA)
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("verify: status = %d, want 502 (%s)", recorder.Code, recorder.Body.String())
+	}
+	if body := recorder.Body.String(); !strings.Contains(body, "401") {
+		t.Fatalf("error does not surface the rejection (401), which is the actionable fact: %s", body)
 	}
 }
 

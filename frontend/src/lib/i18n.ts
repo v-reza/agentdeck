@@ -160,6 +160,7 @@ export interface Dictionary {
   'providers.form.name': string
   'providers.form.protocol': string
   'providers.form.baseUrl': string
+  'providers.form.baseUrlHint': string
   'providers.form.apiKey': string
   'providers.form.apiKeyHint': string
   'providers.form.apiKeyOptional': string
@@ -593,6 +594,8 @@ const en: Dictionary = {
   'providers.form.name': 'Provider name',
   'providers.form.protocol': 'Protocol',
   'providers.form.baseUrl': 'Base URL',
+  'providers.form.baseUrlHint':
+    'If AgentDeck runs in a container, localhost means the container itself, not the machine running your endpoint.',
   'providers.form.apiKey': 'API key',
   'providers.form.apiKeyHint': 'Stored encrypted. It is never shown again after saving.',
   'providers.form.apiKeyOptional': 'Optional — a local endpoint that checks nothing needs no key.',
@@ -1033,6 +1036,8 @@ const id: Dictionary = {
   'providers.form.name': 'Nama provider',
   'providers.form.protocol': 'Protokol',
   'providers.form.baseUrl': 'Base URL',
+  'providers.form.baseUrlHint':
+    'Kalau AgentDeck jalan di dalam container, localhost berarti container itu sendiri, bukan mesin yang menjalankan endpoint Anda.',
   'providers.form.apiKey': 'API key',
   'providers.form.apiKeyHint': 'Disimpan terenkripsi. Tidak pernah ditampilkan lagi setelah disimpan.',
   'providers.form.apiKeyOptional': 'Opsional — endpoint lokal yang tidak memeriksa apa pun tidak butuh key.',

@@ -379,7 +379,8 @@ func fetchModels(ctx context.Context, client *http.Client, u *url.URL, apiKey st
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, redact(fmt.Errorf("provider: GET %s: %w", u.Host, err), apiKey)
+		return nil, redact(withLocalhostHint(
+			fmt.Errorf("provider: GET %s: %w", u.Host, err), u), apiKey)
 	}
 	defer resp.Body.Close()
 
@@ -426,7 +427,84 @@ func ProbeInference(ctx context.Context, client *http.Client, baseURL, apiKey, m
 
 // probeMaxTokens is AC3's ceiling: enough to exercise authentication, ~1 token
 // of spend.
+//
+// It stays 1 deliberately, even though some gateways want more. 9Router raised
+// its own ping to 1024 because it reads the *body* and a reasoning model can
+// spend a whole budget on chain-of-thought and return no choices (their issue
+// #3010). We never read the body: the status code is the entire answer, so a
+// 200 with an empty completion is still a 200. One token is enough to prove the
+// credential, and reading only the status is what keeps it that cheap.
 const probeMaxTokens = 1
+
+// Errors that classify an upstream answer. The caller cannot derive this split
+// from the status code alone, and getting it wrong is not cosmetic: a gateway
+// fronting many upstreams answers 401 for a single model whose upstream is down
+// while the credential it was handed is fine, and it answers 502 for a model
+// that is merely misconfigured.
+//
+//   - ErrCredentialRejected — the upstream actively refused the credential. The
+//     only statuses that say this, and only when no model has yet answered 2xx.
+//   - ErrUpstreamError — the upstream answered, badly. The credential is not
+//     what it complained about, so the probe may try another model.
+//   - ErrUnreachable — nothing answered at all.
+var (
+	ErrCredentialRejected = errors.New("credential rejected")
+	ErrUpstreamError      = errors.New("upstream error")
+	ErrUnreachable        = errors.New("upstream unreachable")
+)
+
+// classifyStatus maps an upstream status to the sentinel above. 401 and 403 are
+// the whole "rejected" set: every other non-2xx (400 malformed model, 402 out of
+// credit, 429 rate limit, 5xx upstream down) says something about the request or
+// the upstream's health, not about whether the credential is genuine.
+//
+// This is 9Router's rule — "400/529 still confirms key accepted; only 401/403 =
+// bad key" — with the same two statuses, because it is the only line the HTTP
+// spec actually draws.
+func classifyStatus(code int) error {
+	switch code {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return ErrCredentialRejected
+	default:
+		return ErrUpstreamError
+	}
+}
+
+// localhostHint explains the one mistake a loopback base URL invites, and it is
+// attached only to a *dial* failure against a loopback host — never to a
+// validation error, and never as a rejection.
+//
+// The failure it describes is real and confusing: a container's `localhost` is
+// the container, not the host, so an endpoint the operator can reach from their
+// own shell is unreachable from AgentDeck. Measured on the deployment this was
+// written for — from inside the api container, `localhost:20128` gives
+// "connection refused" while the same gateway answers 200 from the host shell.
+//
+// It deliberately does NOT name a replacement host. The obvious candidate,
+// `host.docker.internal`, is refused by the SSRF guard: plain `http` is allowed
+// only for `localhost` and `127.0.0.1` (DECISIONS 6A.F), so naming it would send
+// the operator to an address the product rejects. What actually works depends on
+// the deployment — a public https endpoint, or running the api where loopback
+// names the machine the endpoint is on — and only the operator knows which.
+//
+// It is a hint rather than a validation rule on purpose. Whether loopback works
+// depends on how AgentDeck is deployed, and the process cannot know that
+// reliably: sniffing /.dockerenv would make validation depend on a hidden
+// runtime condition, and would reject a perfectly valid address in the
+// non-container deployment the product also supports. The address is legal; the
+// operator just may not know which machine it names.
+const localhostHint = " (loopback address: inside a container, localhost is the container itself, " +
+	"not the machine running your endpoint — point this at an address AgentDeck can actually reach)"
+
+// withLocalhostHint appends the container hint when err is a dial failure
+// against a loopback address. Split out so both the model fetch and the
+// inference probe explain the same failure the same way.
+func withLocalhostHint(err error, u *url.URL) error {
+	if err == nil || u == nil || !IsLocalProviderHost(strings.ToLower(u.Hostname())) {
+		return err
+	}
+	return fmt.Errorf("%w%s", err, localhostHint)
+}
 
 // inferenceProbe is the smallest OpenAI-compatible completion request.
 type inferenceProbe struct {
@@ -468,7 +546,8 @@ func fetchInference(ctx context.Context, client *http.Client, u *url.URL, apiKey
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return redact(fmt.Errorf("provider: POST %s: %w", u.Host, err), apiKey)
+		return redact(withLocalhostHint(
+			fmt.Errorf("provider: POST %s: %w: %w", u.Host, ErrUnreachable, err), u), apiKey)
 	}
 	defer resp.Body.Close()
 
@@ -479,7 +558,8 @@ func fetchInference(ctx context.Context, client *http.Client, u *url.URL, apiKey
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxBodyBytes))
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return fmt.Errorf("provider: %s rejected the inference probe with HTTP %d", u.Host, resp.StatusCode)
+		return fmt.Errorf("provider: %s rejected the inference probe for model %q with HTTP %d: %w",
+			u.Host, model, resp.StatusCode, classifyStatus(resp.StatusCode))
 	}
 	return nil
 }

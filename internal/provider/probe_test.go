@@ -8,9 +8,11 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -132,6 +134,52 @@ func TestProbeInferenceDoesNotLeakTheCredential(t *testing.T) {
 	}
 }
 
+// TestProbeInferenceExplainsALoopbackDialFailure pins the hint that turns the
+// most confusing failure an operator can hit into an actionable one.
+//
+// The scenario is measured, not hypothetical: from inside the api container,
+// `localhost:20128` is the container itself and refuses the connection, while
+// the same 9Router answers 200 on `host.docker.internal:20128`. Without the hint
+// the operator reads "connection refused" about a service they can reach from
+// their own shell, and concludes the product is broken.
+func TestProbeInferenceExplainsALoopbackDialFailure(t *testing.T) {
+	// A closed port on loopback: the address passes the guard (127.0.0.1 is
+	// allowlisted) and the dial fails.
+	up := newUpstream(t, http.StatusOK, `{}`)
+	deadURL := up.srv.URL
+	up.srv.Close()
+
+	err := ProbeInference(context.Background(), nil, deadURL, "sk-tes...0000", "m")
+	if err == nil {
+		t.Fatal("ProbeInference reported success against a closed server")
+	}
+	if !strings.Contains(err.Error(), "loopback address") {
+		t.Fatalf("loopback dial failure did not explain the container case: %v", err)
+	}
+	// The hint must not name a host the guard would refuse. `http` outside the
+	// two loopback spellings is rejected (DECISIONS 6A.F), so suggesting
+	// host.docker.internal would send the operator to a dead end.
+	if strings.Contains(err.Error(), "host.docker.internal") {
+		t.Fatalf("the hint names a host the SSRF guard rejects: %v", err)
+	}
+}
+
+// TestProbeInferenceDoesNotHintOnAPublicHost is the other half, and it is what
+// keeps the hint honest. A public host that refuses the connection is a plain
+// outage; mentioning containers there would send the operator looking in the
+// wrong place.
+func TestProbeInferenceDoesNotHintOnAPublicHost(t *testing.T) {
+	// example.com resolves publicly and the port is closed for our purposes;
+	// what matters is that the host is not loopback.
+	err := ProbeInference(context.Background(), nil, "https://this-host-does-not-exist.invalid/v1", "sk-tes...0000", "m")
+	if err == nil {
+		t.Fatal("ProbeInference reported success against an unresolvable host")
+	}
+	if strings.Contains(err.Error(), "host.docker.internal") {
+		t.Fatalf("a non-loopback failure carried the container hint: %v", err)
+	}
+}
+
 // TestProbeInferenceRejectsUnreachableHost keeps the SSRF guard in front of the
 // probe. A private address must be refused before anything is dialed, and the
 // upstream must see zero hits — the assertion that separates "refused" from
@@ -146,5 +194,73 @@ func TestProbeInferenceRejectsUnreachableHost(t *testing.T) {
 	}
 	if _, _, _, _, hits := up.seen(); hits != 0 {
 		t.Fatal("the guard ran after the request, not before it")
+	}
+}
+
+// TestProbeInferenceClassifiesUpstreamFailure pins the distinction the caller
+// cannot make from a status code alone: "the credential was refused" is a
+// different fact from "the upstream could not answer".
+//
+// It matters because a gateway that fronts many upstreams answers 401 for a
+// model whose upstream is down while the credential it was handed is perfectly
+// good. Reading 401 as "bad key" would report a healthy credential as rejected,
+// and reading 502 as "bad key" is the bug this whole change exists to fix.
+func TestProbeInferenceClassifiesUpstreamFailure(t *testing.T) {
+	cases := []struct {
+		status int
+		want   error
+	}{
+		{http.StatusUnauthorized, ErrCredentialRejected},
+		{http.StatusForbidden, ErrCredentialRejected},
+		{http.StatusBadRequest, ErrUpstreamError},
+		{http.StatusPaymentRequired, ErrUpstreamError},
+		{http.StatusTooManyRequests, ErrUpstreamError},
+		{http.StatusInternalServerError, ErrUpstreamError},
+		{http.StatusBadGateway, ErrUpstreamError},
+		{http.StatusServiceUnavailable, ErrUpstreamError},
+	}
+
+	for _, tc := range cases {
+		t.Run(strconv.Itoa(tc.status), func(t *testing.T) {
+			up := newUpstream(t, tc.status, `{"error":"nope"}`)
+
+			err := ProbeInference(context.Background(), nil, up.srv.URL, "sk-tes...0000", "m")
+			if err == nil {
+				t.Fatalf("ProbeInference reported success for HTTP %d", tc.status)
+			}
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("HTTP %d classified as %v, want %v", tc.status, err, tc.want)
+			}
+			// The status has to survive into the message: it is what an
+			// operator reads to tell "my key is wrong" from "my gateway is
+			// broken", and it is the only part of the upstream answer that is
+			// safe to echo.
+			if !strings.Contains(err.Error(), strconv.Itoa(tc.status)) {
+				t.Fatalf("error %q does not name HTTP %d", err, tc.status)
+			}
+		})
+	}
+}
+
+// TestProbeInferenceUnreachableIsNotACredentialFailure is the other half: a
+// host that answers nothing at all must not be reported as a rejected
+// credential. Otherwise a provider whose endpoint is merely down gets its key
+// blamed, and the operator rotates a key that was never the problem.
+func TestProbeInferenceUnreachableIsNotACredentialFailure(t *testing.T) {
+	// A server that was up and is now closed: the address is valid and the
+	// dial fails, which is the shape of an upstream that is down.
+	up := newUpstream(t, http.StatusOK, `{}`)
+	deadURL := up.srv.URL
+	up.srv.Close()
+
+	err := ProbeInference(context.Background(), nil, deadURL, "sk-tes...0000", "m")
+	if err == nil {
+		t.Fatal("ProbeInference reported success against a closed server")
+	}
+	if errors.Is(err, ErrCredentialRejected) {
+		t.Fatalf("an unreachable host was reported as a rejected credential: %v", err)
+	}
+	if !errors.Is(err, ErrUnreachable) {
+		t.Fatalf("error = %v, want it to match ErrUnreachable", err)
 	}
 }

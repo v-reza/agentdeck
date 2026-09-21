@@ -33,6 +33,17 @@ Kredensial juga settings-scoped, sama seperti API key dan webhook. Jadi route-ny
 **AC7 sudah lengkap.** Refresh otomatis >24 jam jalan lewat `ModelRefresher`
 (`internal/providerreg/refresher.go`), tick 15 menit, batch 25 provider per pass.
 
+**AC3: probe mencoba sampai 3 model, berhenti di 2xx pertama.** Sebelumnya cuma
+`Models[0]` satu kali, dan itu bikin false negative yang terukur: di provider
+`keystore.edumai.tech`, `Models[0]` balas `502` sementara 5 model lain balas `200`
+dengan key yang sama — badge "gagal" untuk kredensial sehat. Yang menuduh
+kredensial hanya `401`/`403`; status lain berarti model/upstream-nya yang
+bermasalah, jadi model berikutnya dicoba. Plafon 3 percobaan = ~3 token per klik.
+**Tidak ada fan-out seluruh daftar** — provider dengan 699 model akan mengubah satu
+klik jadi 699 request, melanggar aturan "probe hanya saat tombol ditekan" di
+DECISIONS §6A.J. Detail + batas yang diketahui: `DECISIONS.md` §6A.J sub-bagian
+"Probe: satu model tidak cukup".
+
 Kenapa **background ticker, bukan refresh-saat-dibaca**: floor `GET /providers` itu
 Viewer, dan refresh memanggil upstream pakai kredensial ruang kerja. Viewer yang buka
 halaman nggak boleh bisa memicu panggilan keluar — itu otoritas yang sama yang bikin
