@@ -147,11 +147,6 @@ func (s *Service) Update(ctx context.Context, orgID, id string, in UpdateInput) 
 		return Provider{}, err
 	}
 
-	if in.BaseURL != nil {
-		if err := s.repo.SyncAgentBaseURL(ctx, orgID, id, updated.BaseURL); err != nil {
-			return Provider{}, err
-		}
-	}
 	return updated, nil
 }
 

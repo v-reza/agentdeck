@@ -224,8 +224,14 @@ export interface Agent {
   retry_policy: RetryPolicy | string
   max_attempts: number
   has_provider_key: boolean
-  /** Present only for a BYO provider (openai_compatible). */
-  base_url?: string
+  /**
+   * The workspace provider this agent draws its endpoint and credential from
+   * (US-AD109 AC6). Absent means none: the agent runs on the deployment's
+   * environment default, which is a permanent state rather than a missing
+   * backfill. The endpoint itself is not copied here — it belongs to the
+   * provider, so it is read from the registry.
+   */
+  provider_id?: string
   /** US-AD73: set means retired. Absent means active. */
   archived_at?: string
   created_at: string

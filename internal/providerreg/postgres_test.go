@@ -376,9 +376,9 @@ func TestPgAgentsUsingProviderIsOrgScoped(t *testing.T) {
 	}
 	agentID := ulid.Must()
 	if _, err := pgSuitePool.Exec(ctx,
-		`INSERT INTO agents (id, org_id, project_id, name, provider, model, provider_id, base_url)
-		 VALUES ($1, $2, $3, $4, 'openai_compatible', 'gpt-4o', $5, $6)`,
-		agentID, orgA, projectID, "Reviewer", p.ID, p.BaseURL); err != nil {
+		`INSERT INTO agents (id, org_id, project_id, name, provider, model, provider_id)
+		 VALUES ($1, $2, $3, $4, 'openai_compatible', 'gpt-4o', $5)`,
+		agentID, orgA, projectID, "Reviewer", p.ID); err != nil {
 		t.Fatalf("insert agent: %v", err)
 	}
 
@@ -399,16 +399,25 @@ func TestPgAgentsUsingProviderIsOrgScoped(t *testing.T) {
 		t.Fatalf("a foreign workspace saw %d agents, want 0", len(foreign))
 	}
 
-	// And the AC6 sync reaches that agent — the column the agent screens render.
-	const newURL = "https://moved.example.com/v1"
-	if err := repo.SyncAgentBaseURL(ctx, orgA, p.ID, newURL); err != nil {
-		t.Fatalf("sync base url: %v", err)
+	// AC6, in the form phase 6 leaves it: the agent holds a *reference* to the
+	// provider and nothing else. Before the column was dropped this asserted
+	// that an edit propagated into `agents.base_url`; now the stronger claim is
+	// assertable directly — there is no address column for an agent to carry, so
+	// a provider edit cannot go stale on one.
+	var addr string
+	if err := pgSuitePool.QueryRow(ctx, `SELECT provider_id FROM agents WHERE id = $1`, agentID).Scan(&addr); err != nil {
+		t.Fatalf("read agent provider_id: %v", err)
 	}
-	var got string
-	if err := pgSuitePool.QueryRow(ctx, `SELECT base_url FROM agents WHERE id = $1`, agentID).Scan(&got); err != nil {
-		t.Fatalf("read agent base_url: %v", err)
+	if addr != p.ID {
+		t.Fatalf("agent provider_id = %q, want %q", addr, p.ID)
 	}
-	if got != newURL {
-		t.Fatalf("agent base_url = %q, want %q — the sync did not reach it", got, newURL)
+	var hasBaseURL bool
+	if err := pgSuitePool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		                WHERE table_name = 'agents' AND column_name = 'base_url')`).Scan(&hasBaseURL); err != nil {
+		t.Fatalf("inspect agents: %v", err)
+	}
+	if hasBaseURL {
+		t.Fatal("agents.base_url still exists; phase 6 dropped it and an agent must not carry an address copy")
 	}
 }

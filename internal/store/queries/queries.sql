@@ -238,25 +238,24 @@ WHERE org_id = $1 AND project_id = $2;
 -- Agents. The agent is the retry/limit source for every run it executes.
 -- name: CreateAgent :one
 -- Every mutable column UpdateAgent writes is written here too. The two drifted
--- once: `base_url` and `reasoning_effort` were bound only by UpdateAgent, so a
--- BYO create (US-AD106 AC1) failed agents_base_url_chk as a 500 and a client's
--- reasoning_effort was dropped in silence. internal/store/queries_columns_test.go
--- is the guard that keeps the two lists in step.
+-- once: `reasoning_effort` was bound only by UpdateAgent, so a client's value
+-- was dropped in silence on create. internal/store/queries_columns_test.go is
+-- the guard that keeps the two lists in step.
 --
 -- provider_id is the registry reference (US-AD109). It is written here for the
 -- same reason as everything else on this list: a create that omits it leaves
 -- the agent pointing at no provider, which phase 5 reads as "no credential".
 INSERT INTO agents (id, org_id, project_id, name, provider, model, reasoning_effort,
                     skills_json, tools_json, max_runtime_seconds, retry_policy, max_attempts,
-                    base_url, provider_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                    provider_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
-          tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+          tools_json, max_runtime_seconds, retry_policy, max_attempts,
           archived_at, created_at, has_provider_key, provider_id;
 
 -- name: GetAgent :one
 SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
-       tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+       tools_json, max_runtime_seconds, retry_policy, max_attempts,
        archived_at, created_at, has_provider_key, provider_id
 FROM agents
 WHERE id = $1 AND org_id = $2;
@@ -268,7 +267,7 @@ WHERE id = $1 AND org_id = $2;
 -- assign dropdown, US-AD73 AC2) filter on `archived_at` themselves — see
 -- ListAgentsUsingSkill and the task-assign path.
 SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
-       tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+       tools_json, max_runtime_seconds, retry_policy, max_attempts,
        archived_at, created_at, has_provider_key, provider_id
 FROM agents
 WHERE org_id = $1 AND project_id = $2
@@ -278,20 +277,18 @@ ORDER BY name;
 DELETE FROM agents WHERE id = $1 AND org_id = $2;
 
 -- name: UpdateAgent :one
--- US-AD96/US-AD106: the edit form replaces every mutable field at once, so this
--- is a full update rather than a partial patch. `provider` moves together with
--- `base_url` because the DB constraint (agents_base_url_chk) requires them to
--- agree: 'openai_compatible' iff base_url IS NOT NULL.
+-- US-AD96: the edit form replaces every mutable field at once, so this is a
+-- full update rather than a partial patch.
 --
 -- provider_id is the registry reference (US-AD109). It is nullable and stays
 -- that way: an agent with no provider of its own uses the workspace default.
 UPDATE agents
 SET name = $3, provider = $4, model = $5, reasoning_effort = $6,
     skills_json = $7, tools_json = $8, max_runtime_seconds = $9,
-    retry_policy = $10, max_attempts = $11, base_url = $12, provider_id = $13
+    retry_policy = $10, max_attempts = $11, provider_id = $12
 WHERE id = $1 AND org_id = $2
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
-          tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+          tools_json, max_runtime_seconds, retry_policy, max_attempts,
           archived_at, created_at, has_provider_key, provider_id;
 
 -- name: ArchiveAgent :one
@@ -301,7 +298,7 @@ UPDATE agents
 SET archived_at = now()
 WHERE id = $1 AND org_id = $2
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
-          tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+          tools_json, max_runtime_seconds, retry_policy, max_attempts,
           archived_at, created_at, has_provider_key, provider_id;
 
 -- name: UnarchiveAgent :one
@@ -309,7 +306,7 @@ UPDATE agents
 SET archived_at = NULL
 WHERE id = $1 AND org_id = $2
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
-          tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+          tools_json, max_runtime_seconds, retry_policy, max_attempts,
           archived_at, created_at, has_provider_key, provider_id;
 
 -- name: SetAgentProviderKey :one
@@ -341,7 +338,7 @@ WHERE id = $1 AND org_id = $2;
 -- deliberate counterpart to ListAgents, which returns archived rows so the
 -- registry can unarchive them.
 SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
-       tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
+       tools_json, max_runtime_seconds, retry_policy, max_attempts,
        archived_at, created_at, has_provider_key, provider_id
 FROM agents
 WHERE org_id = $1 AND archived_at IS NULL
@@ -471,21 +468,6 @@ DELETE FROM providers WHERE id = $1 AND org_id = $2;
 SELECT id, name FROM agents
 WHERE org_id = $1 AND provider_id = $2
 ORDER BY name;
-
--- name: SyncAgentBaseURLForProvider :exec
--- AC6 says an agent keeps no copy of the address. Until phase 6 drops
--- agents.base_url, that column is still what the agent screens render, so
--- editing a provider must carry the new address to its agents — otherwise the
--- edit is invisible everywhere an agent's endpoint is shown. Agents with
--- provider_id NULL are deliberately untouched: they do not use this provider.
---
--- The `a.provider = 'openai_compatible'` guard is what keeps this from raising
--- agents_base_url_chk (still in force until phase 6): that constraint allows a
--- base_url exactly when the agent's own provider is 'openai_compatible', so
--- writing an address onto any other agent would be a CHECK violation surfacing
--- as a 500 rather than the no-op it should be.
-UPDATE agents SET base_url = $3
-WHERE org_id = $1 AND provider_id = $2 AND provider = 'openai_compatible';
 
 -- name: GetProviderKey :one
 -- The one query that hands out ciphertext, for the one path that decrypts it

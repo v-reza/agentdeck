@@ -69,7 +69,7 @@ func newCredentialFixtureWithKey(t *testing.T, keyRaw string) credentialFixture 
 		key = k
 	}
 	f.scenario.api.masterKey = keyRaw
-	registerAgentCredentialRoutes(f.mux, f.scenario.api, board.NewService(f.repo))
+	registerAgentCredentialRoutes(f.mux, f.scenario.api, board.NewService(f.repo), nil)
 	return credentialFixture{updateFixture: f, key: key}
 }
 
@@ -423,17 +423,29 @@ func TestValidateProviderWithoutStoredKeyIs400(t *testing.T) {
 	}
 }
 
-// TestValidateProviderOnBuiltInProviderIs400 covers the other unreachable case:
-// a built-in provider carries no base URL in this deployment
-// (agents_base_url_chk), so there is no endpoint to ping.
-func TestValidateProviderOnBuiltInProviderIs400(t *testing.T) {
+// TestValidateProviderWithoutProviderIs400 is the phase-6 shape of the old
+// "built-in provider" case.
+//
+// US-AD109 moved the address onto the provider row, so the agent that has no
+// endpoint in this deployment is the one with no provider — a legitimate
+// permanent state, not a malformed agent. The endpoint must still answer 400:
+// with nothing to ping, a 200 `ok: true` would be a fabricated success.
+//
+// The message is asserted, not just the status. Both this case and the
+// missing-credential case answer 400, so a handler that returned the *wrong*
+// 400 — or one that invented a URL and only failed later on the absent key —
+// would pass a status-only check. The wording is what tells them apart.
+func TestValidateProviderWithoutProviderIs400(t *testing.T) {
 	f := newCredentialFixture(t)
 	agent := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-probe-builtin","provider":"openai","model":"gpt-4o"}`)
+		`{"name":"agent-probe-noprovider","provider":"openai","model":"gpt-4o"}`)
 
 	w := f.validate(t, "alice", f.scenario.orgA, agent.ID)
 	if w.Code != http.StatusBadRequest {
-		t.Fatalf("handshake on a built-in provider: status = %d, want 400 — %s", w.Code, w.Body.String())
+		t.Fatalf("handshake on an agent with no provider: status = %d, want 400 — %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), board.ErrProviderNotProbeable.Error()) {
+		t.Fatalf("the 400 must name the missing provider, got %q", strings.TrimSpace(w.Body.String()))
 	}
 }
 

@@ -24,7 +24,7 @@ func TestPostgres0008TablesAndColumns(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := Apply(ctx, pool); err != nil {
+	if err := apply(ctx, pool, 8); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
 
@@ -124,7 +124,7 @@ func TestPostgres0008AgentsBaseURLConstraint(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := Apply(ctx, pool); err != nil {
+	if err := apply(ctx, pool, 8); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
 

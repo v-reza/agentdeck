@@ -336,7 +336,7 @@ func main() {
 	// them reachable — they were written but unmounted, which left every
 	// agent-catalog, PATCH /agents/{id} and /agent-skills request a 404.
 	registerAgentRoutes(mux, api, boardService, providerSvc)
-	registerAgentCredentialRoutes(mux, api, boardService)
+	registerAgentCredentialRoutes(mux, api, boardService, providerSvc)
 	registerAgentSkillRoutes(mux, api, skill.NewService(skill.NewPgxRepository(pool)))
 	registerProviderRoutes(mux, api, providerSvc)
 

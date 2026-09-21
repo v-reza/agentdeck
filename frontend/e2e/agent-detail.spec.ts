@@ -71,6 +71,25 @@ const AGENT = {
   skills: [],
 }
 
+/**
+ * Seeds a provider through the real API (US-AD109). The address is loopback on
+ * purpose: DECISIONS 6A.F allows `127.0.0.1` as an exact string, so the request
+ * passes the SSRF guard without a network call being made anywhere.
+ */
+async function seedProvider(
+  page: Page,
+  orgID: string,
+  name: string,
+): Promise<{ id: string; name: string; base_url: string }> {
+  const created = await api<{ id: string }>(page, orgID, 'POST', '/providers', {
+    name,
+    protocol: 'openai_compatible',
+    base_url: `http://127.0.0.1:11434/v1/${name}`,
+  })
+  expect(created.status, created.text).toBe(201)
+  return { id: created.data.id, name, base_url: `http://127.0.0.1:11434/v1/${name}` }
+}
+
 /** Seeds one agent through the real API and opens its detail page. */
 async function openDetail(page: Page, orgID: string, overrides: Record<string, unknown> = {}) {
   const projects = await api<{ id: string }[]>(page, orgID, 'GET', '/projects')
@@ -181,5 +200,66 @@ test.describe('agent detail (28-agent-detail)', () => {
 
     await page.reload()
     await expect(page.locator('#agent-attempts')).toHaveValue('5')
+  })
+
+  /**
+   * US-AD109 AC6: the screen edits the *provider*, never the endpoint. The
+   * address is rendered as text under the dropdown and there is no field that
+   * would let the agent carry a copy of it — the copy is what the registry
+   * exists to remove.
+   */
+  test('the endpoint is shown as text and is not editable', async ({ page }) => {
+    const provider = await seedProvider(page, orgID, `detail-url-${Date.now()}`)
+    const { agentID } = await openDetail(page, orgID, { provider_id: provider.id })
+
+    await expect(page.getByTestId('agent-detail-base-url')).toHaveText(provider.base_url)
+
+    // No input, textarea, or select in the config card may carry the address.
+    const editable = await page.evaluate(() => {
+      const fields = [...document.querySelectorAll('input, textarea, select')]
+      return fields.map((field) => (field as HTMLInputElement).name).filter(Boolean)
+    })
+    expect(editable, 'no field may write the endpoint').not.toContain('base_url')
+
+    // The save that the screen sends must not carry it either.
+    const read = await api<Record<string, unknown>>(page, orgID, 'GET', `/agents/${agentID}`)
+    expect(read.data.base_url, 'an agent must not carry an address copy').toBeUndefined()
+  })
+
+  /**
+   * US-AD109 AC10: changing the provider empties the model choice, because the
+   * old provider's models need not exist on the new one.
+   */
+  test('changing the provider empties the model field', async ({ page }) => {
+    const first = await seedProvider(page, orgID, `detail-a-${Date.now()}`)
+    const second = await seedProvider(page, orgID, `detail-b-${Date.now()}`)
+    await openDetail(page, orgID, { provider_id: first.id })
+
+    const model = page.getByRole('combobox', { name: /model/i })
+    await expect(model).toHaveValue('gpt-4o')
+
+    const provider = page.getByRole('combobox', { name: /^Provider$/i })
+    await provider.click()
+    await page.getByRole('option', { name: second.name }).click()
+
+    await expect(model, 'the old provider’s model must not survive the switch').toHaveValue('')
+    await expect(page.getByTestId('agent-detail-base-url')).toHaveText(second.base_url)
+  })
+
+  /**
+   * The provider is a registry row now, so the dropdown offers the workspace's
+   * own providers rather than the four hard-coded vendor names it used to.
+   */
+  test('the provider dropdown lists the workspace registry', async ({ page }) => {
+    const provider = await seedProvider(page, orgID, `detail-reg-${Date.now()}`)
+    await openDetail(page, orgID, { provider_id: provider.id })
+
+    const dropdown = page.getByRole('combobox', { name: /^Provider$/i })
+    await expect(dropdown).toHaveText(provider.name)
+
+    await dropdown.click()
+    await expect(page.getByRole('option', { name: provider.name })).toBeVisible()
+    // The old closed set is gone: `anthropic` was never a row in this workspace.
+    await expect(page.getByRole('option', { name: 'anthropic', exact: true })).toHaveCount(0)
   })
 })

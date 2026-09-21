@@ -52,7 +52,7 @@ func TestPostgres0010ProviderRegistryMatchesContract(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := Apply(ctx, pool); err != nil {
+	if err := apply(ctx, pool, 10); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
 
@@ -228,11 +228,11 @@ func TestPostgres0010BackfillMovesAddressAndCredentialOntoProviders(t *testing.T
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := Apply(ctx, pool); err != nil {
+	if err := apply(ctx, pool, 10); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
 	seedBackfillScenario(t, pool, ctx)
-	if err := Apply(ctx, pool); err != nil {
+	if err := apply(ctx, pool, 10); err != nil {
 		t.Fatalf("re-apply 0010 over seeded agents: %v", err)
 	}
 
@@ -360,11 +360,11 @@ func TestPostgres0010BackfillConvergesWhenReRun(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := Apply(ctx, pool); err != nil {
+	if err := apply(ctx, pool, 10); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
 	seedBackfillScenario(t, pool, ctx)
-	if err := Apply(ctx, pool); err != nil {
+	if err := apply(ctx, pool, 10); err != nil {
 		t.Fatalf("re-apply 0010: %v", err)
 	}
 
@@ -401,7 +401,7 @@ func TestPostgres0010BackfillConvergesWhenReRun(t *testing.T) {
 	if _, err := pool.Exec(ctx, "DELETE FROM schema_migrations WHERE version = 10"); err != nil {
 		t.Fatal(err)
 	}
-	if err := Apply(ctx, pool); err != nil {
+	if err := apply(ctx, pool, 10); err != nil {
 		t.Fatalf("third apply of 0010: %v", err)
 	}
 
@@ -431,7 +431,7 @@ func TestPostgres0010LeavesTheOldColumnsInPlace(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := Apply(ctx, pool); err != nil {
+	if err := apply(ctx, pool, 10); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
 

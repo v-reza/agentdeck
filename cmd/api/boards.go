@@ -47,9 +47,14 @@ func writeBoardError(w http.ResponseWriter, err error) {
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, board.ErrCycleDetected):
 		http.Error(w, err.Error(), http.StatusConflict)
+	// providerreg.ErrInvalidInput is the provider registry's counterpart to the
+	// board sentinel above: a malformed name, an unknown protocol, or — the case
+	// the models probe relies on — a base URL the SSRF guard refused. The fix is
+	// a different address, so it is a 400 on every route that reaches it, not a
+	// 500 that reads as "the server broke".
 	case errors.Is(err, board.ErrColumnsInvalid), errors.Is(err, board.ErrBudgetInvalid),
 		errors.Is(err, board.ErrInvalidInput), errors.Is(err, board.ErrInvalidStatus),
-		errors.Is(err, board.ErrAgentBaseURLMismatch), errors.Is(err, board.ErrBaseURLNotReachable):
+		errors.Is(err, providerreg.ErrInvalidInput):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, board.ErrArchiveRequiresAdmin):
 		http.Error(w, err.Error(), http.StatusForbidden)

@@ -10,7 +10,7 @@ import { describeError } from '@/hooks/use-action-form'
  * match still surfaces at form level rather than being dropped.
  */
 export interface FieldErrors {
-  /** Keyed by the form field name (`name`, `model`, `baseUrl`, `apiKey`). */
+  /** Keyed by the form field name (`name`, `providerID`, `model`, `apiKey`). */
   byField: Record<string, string>
   /** A message that belongs to no single field. */
   form: string | null
@@ -29,9 +29,11 @@ export const NO_FIELD_ERRORS: FieldErrors = { byField: {}, form: null }
  */
 const ROUTES: [RegExp, string][] = [
   [/^an agent with this name already exists/i, 'name'],
-  [/^base_url is required/i, 'baseUrl'],
-  [/^base_url is not a reachable/i, 'baseUrl'],
-  [/^unknown provider$/i, 'provider'],
+  // US-AD109: the agent forms pick a provider from the registry, so the field a
+  // provider error belongs to is the dropdown named `providerID` — the old
+  // `provider` key pointed at a field that no longer exists, which silently
+  // demoted every provider error to the form level.
+  [/^unknown provider$/i, 'providerID'],
   [/^unknown model$/i, 'model'],
   [/^agent has no stored provider credential/i, 'apiKey'],
   [/^provider handshake failed/i, 'apiKey'],

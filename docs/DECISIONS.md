@@ -166,7 +166,7 @@ boards(id, org_id, project_id, slug, name, columns_json, budget_daily_micros, cr
 daily_board_costs(org_id, board_id, day, total_micros, run_count, tokens_in, tokens_out, updated_at)
 agents(id, org_id, project_id, name, provider, provider_id, model, reasoning_effort,
        skills_json, tools_json, max_runtime_seconds, retry_policy, max_attempts,
-       provider_api_key_enc, base_url, archived_at, has_provider_key, created_at)
+       provider_api_key_enc, archived_at, has_provider_key, created_at)
 providers(id, org_id, name, protocol, base_url, api_key_enc, models_json,
           models_fetched_at, last_verified_at, is_default, created_at)
 agent_skills(id, org_id, slug, name, body_md, version, created_by, created_at, updated_at)
@@ -407,13 +407,22 @@ ruang kerja**, dirujuk banyak agent.
 - **Blast radius kecil, sudah diukur**: `agents.provider` dibaca di 4 tempat saja —
   `validateName`, cek `base_url`, `ValidateProvider`, gate model — sisanya
   row-mapping. Yang berubah **arti gate-nya**, bukan strukturnya.
-- **Constraint `agents_base_url_chk` dihapus.** Bunyinya
+- **Constraint `agents_base_url_chk` dihapus** (migrasi `0011`). Bunyinya
   `(provider = 'openai_compatible') = (base_url IS NOT NULL)` — dia mengunci
   `base_url` ke satu jenis provider. Begitu base URL pindah ke provider, constraint
   itu tidak punya arti lagi, dan dia menghalangi provider non-BYO punya base URL
   (mis. `openai` yang diarahkan ke proxy).
-- **`agents.base_url` ditinggalkan**, tidak dihapus sebelum fase 5 hijau. Kolomnya
-  tetap ada selama backfill dan selama form agent masih membacanya.
+- **`agents.base_url` dihapus** (migrasi `0011`), bersama constraint di atas dan
+  `SyncAgentBaseURLForProvider`. Kolomnya dipertahankan sampai form agent berhenti
+  membacanya (fase 5), lalu layar detail agent ikut pindah ke dropdown registry.
+  Sesudah ini **agent tidak menyimpan salinan alamat apa pun** — yang dia simpan
+  cuma `provider_id`. Itu yang bikin AC6 benar secara struktural, bukan lewat
+  sinkronisasi: nggak ada kolom salinan yang bisa basi.
+- **Jangan tambah kolom alamat baru di `agents`.** Satu alamat, satu tempat
+  (`providers.base_url`). Permintaan yang membawa `base_url` di form agent
+  **diabaikan**, bukan ditolak — `applyProvider` selalu menimpanya dari registry.
+  SSRF guard-nya nggak hilang: pindah ke `providers.base_url` (US-AD109 AC4) dan
+  dijaga `TestProviderBaseURLPassesSSRFGuard`.
 
 #### Uji kredensial: `GET /models` TIDAK cukup
 

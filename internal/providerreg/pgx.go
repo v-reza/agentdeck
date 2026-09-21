@@ -167,14 +167,6 @@ func (r *pgxRepo) AgentsUsing(ctx context.Context, orgID, providerID string) ([]
 	return out, nil
 }
 
-func (r *pgxRepo) SyncAgentBaseURL(ctx context.Context, orgID, providerID, baseURL string) error {
-	return r.q.SyncAgentBaseURLForProvider(ctx, store.SyncAgentBaseURLForProviderParams{
-		OrgID:      orgID,
-		ProviderID: &providerID,
-		BaseUrl:    &baseURL,
-	})
-}
-
 // GetEncryptedKey reads the stored ciphertext for the one path that has to
 // decrypt. It is a separate query rather than a field on Get so the ciphertext
 // never travels with the domain Provider, where every read path would carry it.

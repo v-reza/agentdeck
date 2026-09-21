@@ -392,8 +392,7 @@ export interface Dictionary {
   'agents.detail.model': string
   'agents.detail.modelHint': string
   'agents.detail.modelUnavailable': string
-  'agents.detail.baseUrl': string
-  'agents.detail.baseUrlHint': string
+  'agents.detail.noProvider': string
   'agents.detail.runtimeTitle': string
   'agents.detail.runtimeSubtitle': string
   'agents.detail.runtime': string
@@ -824,8 +823,7 @@ const en: Dictionary = {
   'agents.detail.model': 'Model',
   'agents.detail.modelHint': 'Choose a model from the current pricing catalog.',
   'agents.detail.modelUnavailable': 'Model is not in the current catalog',
-  'agents.detail.baseUrl': 'Provider base URL',
-  'agents.detail.baseUrlHint': 'Required for a custom OpenAI-compatible provider.',
+  'agents.detail.noProvider': 'No provider — the deployment default',
   'agents.detail.runtimeTitle': 'Runtime parameters & tool access',
   'agents.detail.runtimeSubtitle': 'Execution limits',
   'agents.detail.runtime': 'Max runtime',
@@ -1260,8 +1258,7 @@ const id: Dictionary = {
   'agents.detail.model': 'Model',
   'agents.detail.modelHint': 'Pilih model dari katalog harga terbaru.',
   'agents.detail.modelUnavailable': 'Model tidak ada di katalog saat ini',
-  'agents.detail.baseUrl': 'URL dasar provider',
-  'agents.detail.baseUrlHint': 'Wajib untuk provider OpenAI-compatible kustom.',
+  'agents.detail.noProvider': 'Belum ada provider — pakai default deployment',
   'agents.detail.runtimeTitle': 'Parameter runtime & akses tools',
   'agents.detail.runtimeSubtitle': 'Batas eksekusi',
   'agents.detail.runtime': 'Runtime maksimum',

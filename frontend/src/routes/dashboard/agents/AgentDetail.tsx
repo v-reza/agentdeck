@@ -8,6 +8,7 @@ import {
   useUpdateAgentMutation,
   type ArchiveAgentArgs,
 } from '@/store/api/agents'
+import { useListProvidersQuery } from '@/store/api/providers'
 import { useCanAct } from '@/hooks/use-orgs'
 import { describeError, useActionForm } from '@/hooks/use-action-form'
 import { useT } from '@/hooks/use-t'
@@ -72,16 +73,31 @@ export function AgentDetail() {
   const { data: agent, isError } = useGetAgentQuery(id, { skip: !id })
   const { data: catalog } = useGetAgentCatalogQuery()
   const { data: skills } = useListAgentSkillsQuery()
+  const { data: providers = [] } = useListProvidersQuery()
   const [updateAgent] = useUpdateAgentMutation()
   const [archiveAgent] = useArchiveAgentMutation()
   const canArchive = useCanAct('admin')
   const canManageKey = useCanAct('admin')
   const [keyPanelOpen, setKeyPanelOpen] = useState(false)
 
+  // US-AD109 AC10: changing the provider empties the model choice, because the
+  // old provider's models need not exist on the new one. The field has to be
+  // controlled for that to be expressible at all, which is why both live here
+  // rather than inside the section.
+  const [chosenProviderID, setChosenProviderID] = useState<string | null>(null)
+  const [chosenModel, setChosenModel] = useState<string | null>(null)
+  const providerID = chosenProviderID ?? agent?.provider_id ?? ''
+  const model = chosenModel ?? agent?.model ?? ''
+
+  function changeProvider(next: string) {
+    setChosenProviderID(next)
+    setChosenModel('')
+  }
+
   const [saveState, saveAction, isSaving] = useActionForm(updateAgent, (form) => ({
     id,
     name: formValue(form, 'name') || (agent?.name ?? ''),
-    provider: formValue(form, 'provider') || (agent?.provider ?? ''),
+    provider_id: formValue(form, 'provider_id') || (agent?.provider_id ?? ''),
     model: formValue(form, 'model') || (agent?.model ?? ''),
     reasoning_effort: formValue(form, 'reasoning_effort') || (agent?.reasoning_effort ?? 'medium'),
     skills: formList(form, 'skills'),
@@ -89,17 +105,14 @@ export function AgentDetail() {
     max_runtime_seconds: formNumber(form, 'max_runtime_seconds', agent?.max_runtime_seconds ?? 14400),
     retry_policy: formValue(form, 'retry_policy') || (agent?.retry_policy ?? 'transient_only'),
     max_attempts: formNumber(form, 'max_attempts', agent?.max_attempts ?? 3),
-    base_url: formValue(form, 'base_url'),
   }))
 
   const archive = useArchiveToggle(id, archiveAgent)
   const archived = Boolean(agent?.archived_at)
 
   const values: AgentFormValues = {
-    provider: agent?.provider ?? '',
-    model: agent?.model ?? '',
+    model,
     reasoning_effort: agent?.reasoning_effort ?? 'medium',
-    base_url: agent?.base_url ?? '',
     max_runtime_seconds: agent?.max_runtime_seconds ?? 14400,
     max_attempts: agent?.max_attempts ?? 3,
     retry_policy: agent?.retry_policy ?? 'transient_only',
@@ -168,7 +181,15 @@ export function AgentDetail() {
               <AgentHero agent={agent} />
 
               <form id={FORM_ID} action={saveAction} className="flex flex-col gap-4">
-                <AgentConfigSection agent={agent} catalog={catalog} values={values} />
+                <AgentConfigSection
+                  agent={agent}
+                  catalog={catalog}
+                  providers={providers}
+                  providerID={providerID}
+                  onProviderChange={changeProvider}
+                  model={model}
+                  onModelChange={setChosenModel}
+                />
 
                 <div className="grid grid-cols-2 gap-4">
                   <LifecycleCard

@@ -159,11 +159,6 @@ type Agent struct {
 	MaxRuntimeSeconds int
 	RetryPolicy       string
 	MaxAttempts       int
-	// BaseURL is the BYO endpoint (DECISIONS 6A.F). The DDL pairs it with
-	// Provider — 'openai_compatible' iff it is set (agents_base_url_chk) — and
-	// validateAgent enforces the same pairing so a mismatch is a 400 rather
-	// than a CHECK violation surfacing as a 500.
-	BaseURL string
 	// ProviderID is the registry row this agent draws its endpoint and
 	// credential from (US-AD109, DECISIONS 6A.J). Empty means the agent has no
 	// provider of its own — it is a valid, permanent state (an agent using the

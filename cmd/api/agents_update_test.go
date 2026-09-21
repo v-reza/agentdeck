@@ -4,7 +4,7 @@ package main
 // GET /api/v1/agent-catalog.
 //
 //	US-AD96 AC1 : the catalog the form is built from is served by the API.
-//	US-AD106 AC1: provider = 'openai_compatible' iff base_url is set; any other
+//	US-AD109: the agent's endpoint and credential belong to its provider; a
 //	              pairing is a 400, not a CHECK violation surfacing as a 500.
 //	US-AD73 AC1 : an archived agent keeps its row but leaves the assign list.
 //	US-AD73 AC3 : archiving an agent that still holds a running task is a 409
@@ -198,107 +198,53 @@ func TestUpdateAgentKeepsOmittedFields(t *testing.T) {
 	}
 }
 
-// ---- PATCH: base_url / provider pairing (US-AD106 AC1) ----------------------
+// ---- PATCH: the endpoint is no longer the agent's (US-AD109 fase 6) ---------
 
-// TestUpdateAgentBaseURLPairingIs400 is US-AD106 AC1. Both directions of the
-// pairing are wrong and both are the caller's mistake, so both are 400: a
-// base_url on a built-in provider reroutes traffic to a host the operator did
-// not choose, and openai_compatible without one has nowhere to send the
-// request. agents_base_url_chk enforces the same rule in the database; the
-// handler validates first so the answer is a 400 naming the rule rather than a
-// raw CHECK violation reported as a 500.
-func TestUpdateAgentBaseURLPairingIs400(t *testing.T) {
+// TestUpdateAgentIgnoresABaseURL is what replaced US-AD106 AC1's pairing rule on
+// this endpoint.
+//
+// That rule — `openai_compatible` iff base_url is set — existed because the agent
+// owned its address. Phase 6 dropped the column, so there is no longer a pairing
+// to validate: a request that sends a base_url is not refused, it is *ignored*,
+// because honouring it would put an endpoint back on a row whose whole point is
+// that it holds only a reference (AC6). Silently accepting it is the failure
+// mode this test exists to catch: an operator who thinks they redirected an agent
+// would see no error and no effect.
+func TestUpdateAgentIgnoresABaseURL(t *testing.T) {
 	f := newUpdateFixture(t)
 	created := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
 		`{"name":"agent-byo","provider":"openai","model":"gpt-4o"}`)
 
-	cases := []struct {
-		name string
-		body string
-	}{
-		{
-			name: "openai_compatible without base_url",
-			body: `{"provider":"openai_compatible"}`,
-		},
-		{
-			name: "built-in provider with base_url",
-			body: `{"provider":"anthropic","base_url":"https://byo.test/v1"}`,
-		},
-		{
-			name: "base_url alone leaves the stored provider a built-in",
-			body: `{"base_url":"https://byo.test/v1"}`,
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			w := f.patchAgent(t, "alice", f.scenario.orgA, created.ID, tc.body)
-			if w.Code != http.StatusBadRequest {
-				t.Fatalf("want 400, got %d — %s", w.Code, w.Body.String())
-			}
-			// The rule is named, not a leaked SQLSTATE.
-			if !bytes.Contains(w.Body.Bytes(), []byte("base_url")) {
-				t.Errorf("400 body does not name base_url: %s", w.Body.String())
-			}
-		})
-	}
-}
-
-// TestUpdateAgentBaseURLRoundTrips is the accepting half: the valid pairing is
-// stored and echoed, which is what lets the UI render the endpoint back.
-func TestUpdateAgentBaseURLRoundTrips(t *testing.T) {
-	f := newUpdateFixture(t)
-	created := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-byo-ok","provider":"openai","model":"gpt-4o"}`)
-
-	w := f.patchAgent(t, "alice", f.scenario.orgA, created.ID,
-		`{"provider":"openai_compatible","base_url":"https://byo.test/v1"}`)
-	if w.Code != http.StatusOK {
-		t.Fatalf("valid BYO pairing want 200, got %d — %s", w.Code, w.Body.String())
-	}
-	got := decodeAgent(t, w)
-	if got.Provider != "openai_compatible" {
-		t.Errorf("provider want openai_compatible, got %q", got.Provider)
-	}
-	if got.BaseURL == nil || *got.BaseURL != "https://byo.test/v1" {
-		t.Errorf("base_url want https://byo.test/v1, got %v", got.BaseURL)
-	}
-}
-
-// TestUpdateAgentPreservesBaseURLOnUnrelatedField is the merge contract for the
-// BYO endpoint.
-//
-// PATCH is a full UPDATE at the SQL layer, so every omitted field has to be
-// carried over from the stored row by the handler. `base_url` used to be the one
-// exception — it was taken as sent, so an omitted value became "" and a PATCH
-// that only renamed an openai_compatible agent failed with 400 "base_url is
-// required". The fix was on the read side: GetAgent now selects the column, so
-// mergeAgent has something to preserve.
-func TestUpdateAgentPreservesBaseURLOnUnrelatedField(t *testing.T) {
-	f := newUpdateFixture(t)
-	created := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-byo-keep","provider":"openai_compatible","model":"gpt-4o","base_url":"https://byo.test/v1"}`)
-
-	// A PATCH that never mentions base_url or provider.
-	w := f.patchAgent(t, "alice", f.scenario.orgA, created.ID, `{"model":"gpt-4o-mini"}`)
-	if w.Code != http.StatusOK {
-		t.Fatalf("renaming only the model want 200, got %d — %s", w.Code, w.Body.String())
-	}
-	got := decodeAgent(t, w)
-	if got.BaseURL == nil || *got.BaseURL != "https://byo.test/v1" {
-		t.Errorf("base_url want the stored endpoint preserved, got %v", got.BaseURL)
-	}
-	if got.Provider != "openai_compatible" {
-		t.Errorf("provider want openai_compatible preserved, got %q", got.Provider)
+	// Every shape the old contract refused or acted on: all of them are now a
+	// no-op on the address, and none of them is an error.
+	for _, body := range []string{
+		`{"base_url":"https://byo.test/v1"}`,
+		`{"provider":"openai_compatible","base_url":"https://byo.test/v1"}`,
+		`{"provider":"anthropic","base_url":"https://byo.test/v1"}`,
+	} {
+		w := f.patchAgent(t, "alice", f.scenario.orgA, created.ID, body)
+		if w.Code != http.StatusOK {
+			t.Fatalf("body %s: want 200 (a base_url is ignored, not refused), got %d — %s",
+				body, w.Code, w.Body.String())
+		}
+		// The request may still set `provider`; it is a protocol label and is
+		// stored as sent when no provider_id is given. What must never appear is
+		// an address on the agent.
+		if bytes.Contains(w.Body.Bytes(), []byte("byo.test")) {
+			t.Errorf("body %s: the agent echoed the base_url it was sent: %s", body, w.Body.String())
+		}
 	}
 
-	// Switching to a built-in provider must still clear it: a base_url on a
-	// built-in provider is the other half of agents_base_url_chk.
-	w = f.patchAgent(t, "alice", f.scenario.orgA, created.ID, `{"provider":"openai"}`)
-	if w.Code != http.StatusOK {
-		t.Fatalf("switching to a built-in provider want 200, got %d — %s", w.Code, w.Body.String())
+	// The last body above set provider=anthropic, and that is a protocol label
+	// the agent legitimately stores — what it must never store is the address
+	// that travelled with it. An unrelated PATCH proves the row is intact and
+	// still carries no endpoint.
+	after := decodeAgent(t, f.patchAgent(t, "alice", f.scenario.orgA, created.ID, `{"model":"gpt-4o-mini"}`))
+	if after.Provider != "anthropic" {
+		t.Errorf("provider must round-trip, got %q", after.Provider)
 	}
-	if got := decodeAgent(t, w); got.BaseURL != nil {
-		t.Errorf("switching to openai must clear base_url, got %v", got.BaseURL)
+	if after.Model != "gpt-4o-mini" {
+		t.Errorf("model must round-trip, got %q", after.Model)
 	}
 }
 

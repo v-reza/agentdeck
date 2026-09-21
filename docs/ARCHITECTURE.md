@@ -407,7 +407,6 @@ CREATE TABLE agents (
     retry_policy         TEXT        NOT NULL DEFAULT 'transient_only',
     max_attempts         INTEGER     NOT NULL DEFAULT 3,
     provider_api_key_enc BYTEA,                  -- AES-256-GCM encrypted (nonce 12B + ciphertext + tag 16B); NULL jika pakai env default (§16)
-    base_url             TEXT,                   -- US-AD109: DITINGGALKAN — pindah ke providers.base_url. Dihapus setelah form agent berhenti membacanya (DECISIONS §6A.J)
     archived_at          TIMESTAMPTZ,            -- US-AD73: nonaktif, tidak muncul di dropdown assign, task running tetap tuntas
     has_provider_key     BOOLEAN     GENERATED ALWAYS AS (provider_api_key_enc IS NOT NULL) STORED,  -- US-AD86: diturunkan, bukan disimpan — flag tidak bisa melenceng dari ciphertext-nya; satu-satunya pembaca ciphertext adalah GetAgentProviderKey (§6.2.7)
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -419,7 +418,6 @@ CREATE TABLE agents (
     CONSTRAINT agents_max_attempts_chk CHECK (max_attempts BETWEEN 1 AND 10),
     CONSTRAINT agents_skills_chk       CHECK (jsonb_typeof(skills_json) = 'array'),
     CONSTRAINT agents_tools_chk        CHECK (jsonb_typeof(tools_json)  = 'array'),
-    CONSTRAINT agents_base_url_chk     CHECK ((provider = 'openai_compatible') = (base_url IS NOT NULL)),
     CONSTRAINT agents_org_fk           FOREIGN KEY (org_id)     REFERENCES orgs(id)     ON DELETE CASCADE,
     CONSTRAINT agents_project_fk       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
@@ -2841,7 +2839,7 @@ DECISIONS §6 dan bukan lagi terselubung:**
 | `notifications` | ditambahkan (§3.21) | notifikasi in-app (US-AD61) butuh baris yang bisa dibaca/ditandai |
 | `users.avatar_url`, `users.deleted_at` | ditambahkan (§3.3) | profil akun (US-AD89) + penutupan akun (US-AD98) |
 | `sessions.user_agent`, `sessions.ip`, `sessions.last_seen_at` | ditambahkan (§3.19) | daftar sesi aktif (US-AD90) butuh identitas perangkat |
-| `agents.base_url` | ditambahkan (§3.7) | provider BYO `openai_compatible` (DECISIONS §6A.F); di-CHECK berpasangan dengan `provider` |
+| `agents.base_url` | ditambahkan (§3.7), **dihapus migrasi 0011** | provider BYO `openai_compatible` (DECISIONS §6A.F). US-AD109 memindahkan alamatnya ke `providers.base_url`; kolomnya dipertahankan sampai form agent berhenti membacanya, lalu dibuang bersama `agents_base_url_chk` |
 | `agents.archived_at` | ditambahkan (§3.7) | US-AD73 nonaktifkan agent; task `running` tetap tuntas |
 | `agent_skills` | ditambahkan (§3.7b) | skill library per org berisi `body_md` (DECISIONS §6A.G) |
 | `ledger_entries.reasoning_tokens`, `.price_source`, `.pricing_model` | ditambahkan (§3.14) | reasoning punya harga sendiri; `price_version` saja tidak cukup membuktikan baris lama (DECISIONS §6A.E) |
@@ -2849,6 +2847,7 @@ DECISIONS §6 dan bukan lagi terselubung:**
 | `GET/POST/PATCH /api/v1/agent-skills` | ditambahkan (§6.2.7) | skill library; hanya owner/admin yang boleh menulis |
 | `DELETE /api/v1/agent-skills/{id}` + `GET /api/v1/agent-skills/{id}/agents` | ditambahkan (§6.2.7) | hapus skill org (skill bawaan `is_system` ditolak 409) dan "dipakai oleh" untuk panel editor §7.1; total endpoint 113 → 115 |
 | `POST /api/v1/provider/models` | ditambahkan (§6.2.7) | probe model stateless: form pendaftaran agent belum punya agent id, jadi `base_url` + `api_key` mentah dibawa di request dan tidak ada yang disimpan; floor `Admin` karena menerima kredensial mentah; total endpoint 115 → 116 |
+| `agents.provider_id` | ditambahkan (§3.7) | US-AD109: agent menunjuk provider registry, dan alamat/kredensialnya dibaca dari sana. `NULL` = alamatnya implisit (env default §16) |
 
 ### 20.1 Rumus harga: §9.1 lama ≠ 9Router
 

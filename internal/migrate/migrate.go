@@ -64,6 +64,17 @@ func load() ([]pendingMigration, error) {
 // transaction, holding an advisory lock so concurrent starters cannot double
 // apply. It is safe to call on every boot.
 func Apply(ctx context.Context, pool *pgxpool.Pool) error {
+	return apply(ctx, pool, 0)
+}
+
+// apply is Apply with a version ceiling; 0 means no ceiling.
+//
+// The ceiling exists for the per-migration tests. A test named after 0008 or
+// 0010 asserts the schema *that file* leaves behind, and a later file can undo
+// part of it — 0011 drops the columns 0010 deliberately kept — so an uncapped
+// run makes those assertions describe a schema their file never produced.
+// Production never passes a ceiling: every migration runs.
+func apply(ctx context.Context, pool *pgxpool.Pool, maxVersion int) error {
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
 		return fmt.Errorf("acquire migration connection: %w", err)
@@ -100,6 +111,9 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 
 	for _, migration := range pending {
 		if applied[migration.version] {
+			continue
+		}
+		if maxVersion > 0 && migration.version > maxVersion {
 			continue
 		}
 		for _, statement := range statements(migration.script) {

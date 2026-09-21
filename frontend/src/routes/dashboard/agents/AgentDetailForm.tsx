@@ -1,10 +1,12 @@
-import { useState } from 'react'
 import type { Agent } from '@/lib/domain'
 import type { AgentCatalog, AgentSkill } from '@/store/api/agents'
+import type { Provider } from '@/store/api/providers'
 import { ControlBox, runtimeLabel } from './AgentDetailParts'
 import { PricingCard } from './AgentPricingCard'
 import { interpolate } from '@/lib/format'
 import { useT } from '@/hooks/use-t'
+import { RUNTIME_PRESETS, TOOL_SET } from './AgentDetailOptions'
+import { Combobox } from '@/components/ui/combobox'
 import { Input } from '@/components/ui/input'
 import { Panel } from '@/components/ui/card'
 
@@ -18,8 +20,13 @@ import { Panel } from '@/components/ui/card'
  * *choices*; the values are committed by the user.
  *
  * Choice lists:
- *  - models come from `GET /agent-catalog`, which is the pricing table's own
- *    surface. The label carries the estimated rate, marked as an estimate.
+ *  - the provider is the workspace registry (US-AD109), and it is what decides
+ *    both the endpoint and the credential. The endpoint is rendered as text
+ *    under the dropdown rather than as a field: the agent stopped carrying a
+ *    copy of it (AC6), so a field here would be a second writer for a fact the
+ *    registry owns.
+ *  - models come from that provider's own list (AC7), falling back to
+ *    `GET /agent-catalog` only for an agent that has no provider at all.
  *  - tools are the contract's closed set of nine primitives (DECISIONS 6A.H).
  *    A name outside it is refused with 400, so the field is a closed multi-select
  *    rather than free text.
@@ -27,32 +34,9 @@ import { Panel } from '@/components/ui/card'
  *    and never write.
  */
 
-const PROVIDER_CHOICES = ['openai', 'anthropic', 'deepseek', 'openai_compatible']
-
-/**
- * The nine tool primitives as a closed multi-select (DECISIONS 6A.H). `bash` is
- * marked because it always goes through the approval gate.
- */
-const TOOL_SET = [
-  { name: 'read_file', gated: false },
-  { name: 'write_file', gated: false },
-  { name: 'edit_file', gated: false },
-  { name: 'list_dir', gated: false },
-  { name: 'search_files', gated: false },
-  { name: 'bash', gated: true },
-  { name: 'sql_query', gated: false },
-  { name: 'http_fetch', gated: false },
-  { name: 'git', gated: false },
-]
-
-/** The daemon's own bounds for max_runtime_seconds, so the field is not free-form. */
-const RUNTIME_PRESETS = [300, 900, 1800, 3600, 7200, 14400, 28800, 86400]
-
 export interface AgentFormValues {
-  provider: string
   model: string
   reasoning_effort: string
-  base_url: string
   max_runtime_seconds: number
   max_attempts: number
   retry_policy: string
@@ -63,21 +47,38 @@ export interface AgentFormValues {
 export function AgentConfigSection({
   agent,
   catalog,
-  values,
+  providers,
+  providerID,
+  onProviderChange,
+  model,
+  onModelChange,
 }: {
   agent: Agent
   catalog: AgentCatalog | undefined
-  values: AgentFormValues
+  /** The workspace registry (US-AD109). The endpoint and the credential live here. */
+  providers: Provider[]
+  providerID: string
+  onProviderChange: (next: string) => void
+  model: string
+  onModelChange: (next: string) => void
 }) {
   const t = useT()
-  const [provider, setProvider] = useState(values.provider)
+  const selected = providers.find((entry) => entry.id === providerID)
+  const providerChoices = providers.map((entry) => ({ value: entry.id, label: entry.name }))
   // The choice list holds only the tiers the catalog resolves exactly. Listing
   // the pattern rows as if they were models would put a glob such as `gemini-*`
   // in a dropdown as a selectable name, and it is not one.
   const models = catalog?.models ?? []
   const exact = models.filter((model) => model.price_source === 'catalog' || model.price_source === 'manual')
-  const entry = exact.find((model) => model.model === values.model)
-  const needsBaseURL = provider === 'openai_compatible'
+  const entry = exact.find((candidate) => candidate.model === model)
+  // US-AD109 AC6/AC7: the model list is the provider's own stored list, and the
+  // catalog is only a fallback for an agent that has no provider at all — which
+  // is a permanent state for a row the backfill deliberately skipped, not a
+  // half-finished one. The stored value stays in the list either way: dropping
+  // it would make the save silently re-model the agent.
+  const modelChoices = [
+    ...new Set([model, ...(selected?.models ?? []), ...(selected ? [] : exact.map((row) => row.model))]),
+  ].filter(Boolean)
 
   return (
     <div key={agent.id} className="grid grid-cols-2 gap-4">
@@ -100,67 +101,51 @@ export function AgentConfigSection({
               htmlFor="agent-provider"
               hint={<VerifiedMark show={Boolean(entry)} />}
             >
-              <select
+              <Combobox
                 id="agent-provider"
-                name="provider"
+                name="provider_id"
                 form="agent-detail-form"
-                value={provider}
-                onChange={(event) => setProvider(event.target.value)}
-                className="h-8 w-full rounded-[6px] border border-[var(--color-border-standard)] bg-[var(--color-surface-page)] px-2.5 font-mono text-[12px] text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-              >
-                {[...new Set([...PROVIDER_CHOICES, values.provider])].map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                label={t['agents.detail.provider']}
+                value={providerID}
+                onChange={onProviderChange}
+                options={providerChoices}
+                placeholder={t['agents.detail.noProvider']}
+              />
             </ControlBox>
+
+            {/* The endpoint is shown, never typed: it belongs to the provider,
+                and a second place to edit it would be a second source of truth
+                for it (AC6). */}
+            {selected ? (
+              <p
+                className="truncate font-mono text-[10.5px] text-[var(--color-tertiary)]"
+                data-testid="agent-detail-base-url"
+              >
+                {selected.base_url}
+              </p>
+            ) : null}
 
             <ControlBox
               label={t['agents.detail.model']}
               htmlFor="agent-model"
               hint={<SnapshotHint catalog={catalog} />}
             >
-              <select
+              <Combobox
                 id="agent-model"
                 name="model"
                 form="agent-detail-form"
-                defaultValue={values.model}
-                className="h-8 w-full rounded-[6px] border border-[var(--color-border-standard)] bg-[var(--color-surface-page)] px-2.5 font-mono text-[12px] text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-              >
-                {/* The stored model stays selectable even when the catalog has
-                    dropped it: it is what the row holds, and the save would
-                    otherwise silently re-model the agent. */}
-                {[...new Set([values.model, ...exact.map((model) => model.model)])].map((model) => (
-                  <option key={model} value={model}>
-                    {model}
-                  </option>
-                ))}
-              </select>
+                label={t['agents.detail.model']}
+                value={model}
+                onChange={onModelChange}
+                options={modelChoices.map((name) => ({ value: name, label: name }))}
+                allowCustom
+              />
             </ControlBox>
-
-            {needsBaseURL ? (
-              <ControlBox
-                label={t['agents.detail.baseUrl']}
-                htmlFor="agent-base-url"
-                hint={<span className="font-mono text-[10px] text-[var(--color-tertiary)]">https</span>}
-              >
-                <Input
-                  id="agent-base-url"
-                  name="base_url"
-                  type="url"
-                  required
-                  defaultValue={values.base_url}
-                  placeholder="https://api.example.com/v1"
-                  className="h-8 rounded-[6px] bg-[var(--color-surface-page)] font-mono text-[12px]"
-                />
-              </ControlBox>
-            ) : null}
           </div>
         </div>
 
         <p className="mt-3 border-t border-[var(--color-border-subtle)] pt-2 text-[10.5px] leading-snug text-[var(--color-tertiary)]">
-          {needsBaseURL ? t['agents.detail.baseUrlHint'] : t['agents.detail.modelHint']}
+          {t['agents.detail.modelHint']}
         </p>
       </Panel>
 

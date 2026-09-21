@@ -17,7 +17,9 @@ package main
 // overwritten, not versioned.
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -25,6 +27,7 @@ import (
 	"agentdeck/internal/board"
 	"agentdeck/internal/crypto"
 	"agentdeck/internal/provider"
+	"agentdeck/internal/providerreg"
 )
 
 // providerKeyRequest is the PUT body. `api_key` is the only required field.
@@ -70,6 +73,11 @@ type credentialAPI struct {
 	svc    *board.Service
 	keyRaw string
 	client *http.Client
+	// providers resolves the agent's endpoint. Until phase 6 the handshake read
+	// `agents.base_url`; that column is gone, and the address belongs to the
+	// provider (US-AD109 AC6), so this is the only place left that can answer
+	// "where do I send this request".
+	providers *providerreg.Service
 }
 
 // registerAgentCredentialRoutes mounts the three US-AD86 routes.
@@ -79,8 +87,8 @@ type credentialAPI struct {
 // owner/admin. One function, one role table, so the floor is declared exactly
 // once — the same shape registerAgentRoutes uses, and the reason the RBAC tests
 // drive the production mux instead of a copy of it.
-func registerAgentCredentialRoutes(mux *http.ServeMux, api authAPI, svc *board.Service) {
-	credAPI := credentialAPI{svc: svc, keyRaw: api.masterKey, client: provider.NewClient()}
+func registerAgentCredentialRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, providers *providerreg.Service) {
+	credAPI := credentialAPI{svc: svc, keyRaw: api.masterKey, client: provider.NewClient(), providers: providers}
 	agentRoute := func(pattern string, handler http.Handler, minimum auth.Role) {
 		mux.Handle(pattern, api.orgHeaderContextMiddleware(api.requireRole(handler, minimum)))
 	}
@@ -191,17 +199,43 @@ func (a credentialAPI) deleteProviderKey(w http.ResponseWriter, r *http.Request)
 	_ = json.NewEncoder(w).Encode(providerKeyResponse{ID: id, HasProviderKey: hasKey})
 }
 
+// agentEndpoint resolves where an agent's inference goes, from the provider it
+// points at (US-AD109 AC6).
+//
+// Three answers, and they are distinct on purpose:
+//   - an agent with no provider has no address this deployment knows: the
+//     deployment's environment default is the runtime's business, not a URL
+//     this endpoint may invent, so it is ErrProviderNotProbeable.
+//   - an agent whose provider row is gone is the same situation as a foreign
+//     provider id (US-AD07): ErrUnknownProvider, not a nil dereference.
+//   - a provider with an empty base_url cannot exist (providers_base_url_chk),
+//     so a blank one here is a stored row that violates its own constraint.
+func (a credentialAPI) agentEndpoint(ctx context.Context, orgID string, agent board.Agent) (string, error) {
+	if agent.ProviderID == "" || a.providers == nil {
+		return "", board.ErrProviderNotProbeable
+	}
+	provider, err := a.providers.Get(ctx, orgID, agent.ProviderID)
+	if err != nil {
+		if errors.Is(err, providerreg.ErrProviderNotFound) {
+			return "", board.ErrUnknownProvider
+		}
+		return "", err
+	}
+	return provider.BaseURL, nil
+}
+
 // POST /api/v1/agents/{id}/validate — handshake with the provider.
 //
 // US-AD86 is silent on this endpoint's body and ARCHITECTURE 6.2.7 only says
 // "test ping", so the contract is deliberately narrow: the agent's own stored
-// endpoint and credential are used, and no URL is accepted from the caller. A
-// caller-supplied base_url would be an SSRF vector dressed as a test; the stored
-// one is already guarded by US-AD106 AC3.
+// credential is used, and no URL is accepted from the caller. A caller-supplied
+// base_url would be an SSRF vector dressed as a test; the stored one is already
+// guarded by US-AD106 AC3.
 //
-// A built-in provider has no base URL in this deployment (agents_base_url_chk),
-// so there is nothing to ping. Answering 200 with ok=true would be a fabricated
-// success; a 400 says exactly that.
+// The endpoint comes from the agent's provider (US-AD109 AC6). An agent with no
+// provider of its own has no address in this deployment, so there is nothing to
+// ping: answering 200 with ok=true would be a fabricated success, and a 400 says
+// exactly that.
 func (a credentialAPI) validateProvider(w http.ResponseWriter, r *http.Request) {
 	orgCtx, err := currentOrgContext(r)
 	if err != nil {
@@ -215,8 +249,9 @@ func (a credentialAPI) validateProvider(w http.ResponseWriter, r *http.Request) 
 		writeBoardError(w, err)
 		return
 	}
-	if agent.Provider != board.ProviderOpenAICompatible || agent.BaseURL == "" {
-		writeBoardError(w, board.ErrProviderNotProbeable)
+	baseURL, err := a.agentEndpoint(r.Context(), orgCtx.workspace.ID, agent)
+	if err != nil {
+		writeBoardError(w, err)
 		return
 	}
 
@@ -238,7 +273,7 @@ func (a credentialAPI) validateProvider(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	models, err := provider.ListModels(r.Context(), a.client, agent.BaseURL, apiKey)
+	models, err := provider.ListModels(r.Context(), a.client, baseURL, apiKey)
 	if err != nil {
 		// The upstream refused or was unreachable. internal/provider has already
 		// redacted the key from the message; report ok=false, because a wrong key

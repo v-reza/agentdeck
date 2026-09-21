@@ -178,9 +178,6 @@ export function AgentHero({ agent }: { agent: Agent }) {
           <p className="mt-0.5 truncate font-mono text-[12px] text-[var(--color-secondary)]">
             {agent.provider} · {agent.model}
           </p>
-          {agent.base_url ? (
-            <p className="mt-0.5 truncate font-mono text-[10.5px] text-[var(--color-tertiary)]">{agent.base_url}</p>
-          ) : null}
         </div>
       </div>
 

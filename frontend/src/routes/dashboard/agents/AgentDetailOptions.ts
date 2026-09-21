@@ -1,5 +1,3 @@
-import type { Dictionary } from '@/lib/i18n'
-
 /**
  * The closed choice lists of screen 28-agent-detail, split out of
  * `AgentDetailForm.tsx` so the section components stay readable.
@@ -7,40 +5,11 @@ import type { Dictionary } from '@/lib/i18n'
  * Every list below mirrors a server-side rule. None of them is a suggestion:
  * `validateAgent` refuses what is not in these sets, so the UI offers exactly
  * what the API accepts.
- */
-
-/** The four provider values the agents table accepts. */
-export const PROVIDER_CHOICES = ['openai', 'anthropic', 'deepseek', 'openai_compatible']
-
-/**
- * What the register form offers (DECISIONS 6A.F).
  *
- * BYO only, by the operator's own decision: they bring an endpoint and a
- * credential, so the model list is pulled from their server rather than from
- * our price catalog. `PROVIDER_CHOICES` stays for the detail screen, where an
- * agent that already carries `openai` must still render its own value — the
- * narrower list here is a choice about *creating*, not about displaying.
+ * The provider lists are gone with US-AD109: the provider is no longer a closed
+ * set of four names typed by the operator, it is a row in the workspace registry
+ * and the dropdown is fed from `GET /providers`.
  */
-export const CREATE_PROVIDER_CHOICES = ['openai_compatible']
-
-const PROVIDER_LABEL: Record<string, keyof Dictionary> = {
-  openai: 'agents.detail.providerOpenAI',
-  anthropic: 'agents.detail.providerAnthropic',
-  deepseek: 'agents.detail.providerDeepseek',
-  openai_compatible: 'agents.detail.providerCustom',
-}
-
-/**
- * The display name of a provider value.
- *
- * The stored value is a machine token and is shown as the label only when it is
- * not one of the four known ones — an unknown provider is real data, so it is
- * printed rather than hidden behind a blank option.
- */
-export function providerLabel(t: Dictionary, value: string): string {
-  const key = PROVIDER_LABEL[value]
-  return key ? t[key] : value
-}
 
 /**
  * The nine tool primitives as a closed multi-select (DECISIONS 6A.H). `bash` is

@@ -210,10 +210,6 @@ type Repo interface {
 	Delete(ctx context.Context, orgID, id string) error
 	// AgentsUsing lists the agents referencing the provider (AC5).
 	AgentsUsing(ctx context.Context, orgID, providerID string) ([]AgentRef, error)
-	// SyncAgentBaseURL carries a provider's address to the agents using it, so
-	// AC6 holds everywhere an agent's endpoint is rendered before phase 6 drops
-	// agents.base_url.
-	SyncAgentBaseURL(ctx context.Context, orgID, providerID, baseURL string) error
 	// GetEncryptedKey returns the stored ciphertext for a provider, or nil when
 	// it has no credential. It is separate from Get because the domain Provider
 	// deliberately carries no ciphertext: only the one path that needs to

@@ -41,10 +41,6 @@ type agentRequest struct {
 	MaxRuntimeSeconds *int     `json:"max_runtime_seconds"`
 	RetryPolicy       string   `json:"retry_policy"`
 	MaxAttempts       *int     `json:"max_attempts"`
-	// BaseURL is the BYO endpoint (DECISIONS 6A.F). A create may set it, which
-	// is what US-AD106 AC1 describes ("mendaftarkan agent dengan provider =
-	// 'openai_compatible' dan base_url yang valid berhasil").
-	BaseURL string `json:"base_url"`
 	// ProviderID points at a workspace provider (US-AD109). Omitted means the
 	// agent keeps whatever it had, which on create is none: an agent with no
 	// provider of its own is a valid, permanent state, not a missing backfill.
@@ -75,10 +71,6 @@ type agentResponse struct {
 	MaxRuntimeSeconds int      `json:"max_runtime_seconds"`
 	RetryPolicy       string   `json:"retry_policy"`
 	MaxAttempts       int      `json:"max_attempts"`
-	// BaseURL is present only for a BYO provider (openai_compatible). It is
-	// omitted rather than sent as "" so the client cannot mistake an absent
-	// endpoint for an empty one.
-	BaseURL *string `json:"base_url,omitempty"`
 	// ArchivedAt is US-AD73: set means retired. Every read path selects it, so
 	// the registry can tell a live agent from a retired one instead of printing
 	// a constant zero for the archive count.
@@ -129,10 +121,6 @@ func toAgentResponse(a board.Agent) agentResponse {
 		HasProviderKey:    a.HasProviderKey,
 		CreatedAt:         a.CreatedAt.Format(time.RFC3339Nano),
 	}
-	if a.BaseURL != "" {
-		baseURL := a.BaseURL
-		resp.BaseURL = &baseURL
-	}
 	if a.ProviderID != "" {
 		providerID := a.ProviderID
 		resp.ProviderID = &providerID
@@ -163,7 +151,6 @@ func (a boardAPI) createAgent(w http.ResponseWriter, r *http.Request) {
 		Provider:          req.Provider,
 		Model:             req.Model,
 		ReasoningEffort:   req.ReasoningEffort,
-		BaseURL:           strings.TrimSpace(req.BaseURL),
 		ProviderID:        strings.TrimSpace(req.ProviderID),
 		MaxRuntimeSeconds: defaultAgentMaxRuntimeSeconds,
 		RetryPolicy:       defaultAgentRetryPolicy,
@@ -189,7 +176,7 @@ func (a boardAPI) createAgent(w http.ResponseWriter, r *http.Request) {
 		agent.MaxAttempts = *req.MaxAttempts
 	}
 	// The provider is resolved before the write: it is what decides `provider`
-	// and `base_url` (US-AD109 AC6), and the model is checked against the list
+	// (US-AD109 AC6), and the model is checked against the list
 	// that provider offers (AC10).
 	if err := a.applyProvider(r.Context(), orgCtx.workspace.ID, &agent); err != nil {
 		writeBoardError(w, err)
@@ -345,7 +332,7 @@ func (a boardAPI) updateAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	merged := mergeAgent(current, req)
-	// Same resolution as create: the provider decides `provider` and `base_url`
+	// Same resolution as create: the provider decides `provider`
 	// (US-AD109 AC6), and the model must be one that provider offers (AC10).
 	if err := a.applyProvider(r.Context(), orgCtx.workspace.ID, &merged); err != nil {
 		writeBoardError(w, err)
@@ -371,13 +358,6 @@ func (a boardAPI) updateAgent(w http.ResponseWriter, r *http.Request) {
 // mergeAgent overlays the request onto the stored row. Absent fields keep their
 // stored value, which is what makes a PATCH-shaped body safe on an endpoint
 // whose SQL is a full UPDATE.
-//
-// base_url follows the same rule as every other field, which it could not do
-// until GetAgent's statement selected it: an omitted base_url now preserves the
-// stored endpoint instead of clearing it. Clearing is expressed by switching the
-// provider away from openai_compatible, which is the only state where a NULL
-// base_url is legal anyway (agents_base_url_chk), so there is no case that needs
-// an explicit "clear" spelling.
 func mergeAgent(current board.Agent, req agentUpdateRequest) board.Agent {
 	if req.Name != "" {
 		current.Name = req.Name
@@ -417,21 +397,6 @@ func mergeAgent(current board.Agent, req agentUpdateRequest) board.Agent {
 	// deployment default (US-AD109 AC6).
 	if req.ProviderID != "" {
 		current.ProviderID = strings.TrimSpace(req.ProviderID)
-	}
-	// provider and base_url move together (agents_base_url_chk): switching to a
-	// built-in provider clears the endpoint, and switching to openai_compatible
-	// requires one. An omitted base_url is not a clear — it keeps the stored
-	// endpoint, so a PATCH that only renames an agent no longer wipes its
-	// provider URL.
-	switch {
-	case req.BaseURL != "":
-		// An explicitly sent endpoint wins whatever the provider says. If the
-		// two disagree, validateAgent answers 400 — dropping a host the
-		// operator typed would silently send traffic somewhere else, which is
-		// the exact failure agents_base_url_chk exists to prevent.
-		current.BaseURL = strings.TrimSpace(req.BaseURL)
-	case req.Provider != "" && req.Provider != board.ProviderOpenAICompatible:
-		current.BaseURL = ""
 	}
 	return current
 }
@@ -480,7 +445,6 @@ func (a boardAPI) applyProvider(ctx context.Context, orgID string, agent *board.
 		return err
 	}
 	agent.Provider = string(provider.Protocol)
-	agent.BaseURL = provider.BaseURL
 	return nil
 }
 

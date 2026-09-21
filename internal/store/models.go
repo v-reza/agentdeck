@@ -25,7 +25,6 @@ type Agent struct {
 	MaxAttempts       int32
 	ProviderApiKeyEnc []byte
 	CreatedAt         pgtype.Timestamptz
-	BaseUrl           *string
 	ArchivedAt        pgtype.Timestamptz
 	HasProviderKey    *bool
 	ProviderID        *string

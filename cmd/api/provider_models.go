@@ -21,6 +21,7 @@ import (
 
 	"agentdeck/internal/board"
 	"agentdeck/internal/provider"
+	"agentdeck/internal/providerreg"
 )
 
 // probeBodyMaxBytes bounds the request body. Both fields are short (a base URL
@@ -67,7 +68,7 @@ func (a credentialAPI) providerModels(w http.ResponseWriter, r *http.Request) {
 	// two tables that can disagree about what is reachable. The cost is one extra
 	// DNS lookup, on a request that then makes an HTTP call anyway.
 	if _, err := provider.ValidateOperatorBaseURL(r.Context(), req.BaseURL); err != nil {
-		writeBoardError(w, fmt.Errorf("%w: %s", board.ErrBaseURLNotReachable, err))
+		writeBoardError(w, fmt.Errorf("%w: %s", providerreg.ErrInvalidInput, err))
 		return
 	}
 

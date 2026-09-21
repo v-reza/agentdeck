@@ -27,7 +27,16 @@ export interface CreateAgentArgs {
 export interface UpdateAgentArgs {
   id: string
   name: string
-  provider: string
+  /**
+   * The workspace provider the agent draws its endpoint and credential from
+   * (US-AD109 AC6). The server derives `provider` and `base_url` from it, so
+   * neither is sent — an agent that carried its own copy of the endpoint is
+   * what the registry exists to remove.
+   *
+   * Empty means "no provider": a valid permanent state for a row the backfill
+   * deliberately skipped, not a half-finished one.
+   */
+  provider_id: string
   model: string
   reasoning_effort: string
   skills: string[]
@@ -35,7 +44,6 @@ export interface UpdateAgentArgs {
   max_runtime_seconds: number
   retry_policy: string
   max_attempts: number
-  base_url?: string
 }
 
 export interface ArchiveAgentArgs {

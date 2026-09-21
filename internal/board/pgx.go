@@ -596,7 +596,6 @@ func (r *pgxRepository) CreateAgent(ctx context.Context, a Agent) (Agent, error)
 		MaxRuntimeSeconds: int32(a.MaxRuntimeSeconds),
 		RetryPolicy:       a.RetryPolicy,
 		MaxAttempts:       int32(a.MaxAttempts),
-		BaseUrl:           nullString(a.BaseURL),
 		ProviderID:        nullString(a.ProviderID),
 	})
 	if err != nil {
@@ -642,7 +641,7 @@ func (r *pgxRepository) CountAgentRunningTasks(ctx context.Context, id, orgID st
 
 // UpdateAgent writes every mutable column at once (US-AD96, US-AD106). Postgres
 // is the arbiter of the name uniqueness it owns: agents_project_name_key, mapped
-// to ErrAgentNameTaken -> 409, exactly as on create. The provider/base_url pair
+// to ErrAgentNameTaken -> 409, exactly as on create. The provider
 // is pre-checked in the service so a mismatch is a 400 instead of a raw CHECK
 // violation surfacing as a 500.
 func (r *pgxRepository) UpdateAgent(ctx context.Context, a Agent) (Agent, error) {
@@ -658,7 +657,6 @@ func (r *pgxRepository) UpdateAgent(ctx context.Context, a Agent) (Agent, error)
 		MaxRuntimeSeconds: int32(a.MaxRuntimeSeconds),
 		RetryPolicy:       a.RetryPolicy,
 		MaxAttempts:       int32(a.MaxAttempts),
-		BaseUrl:           nullString(a.BaseURL),
 		ProviderID:        nullString(a.ProviderID),
 	})
 	if err != nil {
@@ -733,7 +731,7 @@ func (r *pgxRepository) AgentProviderKey(ctx context.Context, id, orgID string) 
 
 // The agent row shapes differ only by generated type, so each shares one mapper.
 //
-// Every shape carries base_url and archived_at, including create/get/list: the
+// Every shape carries archived_at, including create/get/list: the
 // read statements were widened alongside the update/archive ones, because the
 // registry cannot tell an active agent from a retired one without archived_at,
 // and it would print a hardcoded zero for the archive count forever.
@@ -746,7 +744,7 @@ func agentFromCreate(r store.CreateAgentRow) Agent {
 		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
 		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
-		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl), ArchivedAt: ts(r.ArchivedAt),
+		MaxAttempts: int(r.MaxAttempts), ArchivedAt: ts(r.ArchivedAt),
 		HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
 		ProviderID: str(r.ProviderID),
 	}
@@ -758,7 +756,7 @@ func agentFromGet(r store.GetAgentRow) Agent {
 		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
 		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
-		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl), ArchivedAt: ts(r.ArchivedAt),
+		MaxAttempts: int(r.MaxAttempts), ArchivedAt: ts(r.ArchivedAt),
 		HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
 		ProviderID: str(r.ProviderID),
 	}
@@ -770,7 +768,7 @@ func agentFromList(r store.ListAgentsRow) Agent {
 		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
 		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
-		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl), ArchivedAt: ts(r.ArchivedAt),
+		MaxAttempts: int(r.MaxAttempts), ArchivedAt: ts(r.ArchivedAt),
 		HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
 		ProviderID: str(r.ProviderID),
 	}
@@ -786,8 +784,8 @@ func agentFromUpdate(r store.UpdateAgentRow) Agent {
 		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
 		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
-		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl),
-		ArchivedAt: ts(r.ArchivedAt), HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
+		MaxAttempts: int(r.MaxAttempts),
+		ArchivedAt:  ts(r.ArchivedAt), HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
 		ProviderID: str(r.ProviderID),
 	}
 }
@@ -798,8 +796,8 @@ func agentFromArchive(r store.ArchiveAgentRow) Agent {
 		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
 		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
-		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl),
-		ArchivedAt: ts(r.ArchivedAt), HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
+		MaxAttempts: int(r.MaxAttempts),
+		ArchivedAt:  ts(r.ArchivedAt), HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
 		ProviderID: str(r.ProviderID),
 	}
 }
@@ -810,8 +808,8 @@ func agentFromUnarchive(r store.UnarchiveAgentRow) Agent {
 		Provider: r.Provider, Model: r.Model, ReasoningEffort: r.ReasoningEffort,
 		SkillsJSON: r.SkillsJson, ToolsJSON: r.ToolsJson,
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
-		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl),
-		ArchivedAt: ts(r.ArchivedAt), HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
+		MaxAttempts: int(r.MaxAttempts),
+		ArchivedAt:  ts(r.ArchivedAt), HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
 		ProviderID: str(r.ProviderID),
 	}
 }

@@ -64,9 +64,6 @@ type fakeProviderRepo struct {
 	// using is the agents.provider_id side of AC5 and AC6:
 	// orgID -> providerID -> agent id -> agent name.
 	using map[string]map[string]map[string]string
-	// baseURLs is the agents.base_url column AC6 reaches before phase 6 drops
-	// it: orgID -> agentID -> address.
-	baseURLs map[string]map[string]string
 }
 
 func newFakeProviderRepo() *fakeProviderRepo {
@@ -74,7 +71,6 @@ func newFakeProviderRepo() *fakeProviderRepo {
 		providers: map[string]providerreg.Provider{},
 		sealed:    map[string]map[string][]byte{},
 		using:     map[string]map[string]map[string]string{},
-		baseURLs:  map[string]map[string]string{},
 	}
 }
 
@@ -238,24 +234,6 @@ func (r *fakeProviderRepo) AgentsUsing(_ context.Context, orgID, providerID stri
 	return refs, nil
 }
 
-// SyncAgentBaseURL carries a provider's address to the agents using it, which is
-// how AC6 is observed before phase 6 drops agents.base_url.
-func (r *fakeProviderRepo) SyncAgentBaseURL(_ context.Context, orgID, providerID, baseURL string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	// Only openai_compatible agents carry an address: agents_base_url_chk allows
-	// one exactly when the agent's own provider is that value, so the real query
-	// filters on it too. Reproduced here so an AC6 test cannot pass by writing an
-	// address the database would have refused.
-	if r.baseURLs[orgID] == nil {
-		r.baseURLs[orgID] = map[string]string{}
-	}
-	for agentID := range r.using[orgID][providerID] {
-		r.baseURLs[orgID][agentID] = baseURL
-	}
-	return nil
-}
-
 // assign records that agent `id`/`name` uses `providerID` in `orgID`. The map is
 // keyed by agent id, so both the AC5 list and the AC6 sync read it the same way
 // the generated queries do.
@@ -417,14 +395,6 @@ func (p *fakeProbe) ProbeInference(_ context.Context, baseURL, apiKey, model str
 		return result, nil
 	}
 	return providerreg.ProbeResult{}, nil
-}
-
-// agentBaseURL is what an agent's address column holds after a provider edit,
-// which is how AC6 is observed before phase 6 drops that column.
-func (r *fakeProviderRepo) agentBaseURL(orgID, agentID string) string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.baseURLs[orgID][agentID]
 }
 
 // ageModels backdates a provider's models_fetched_at so a test can make it stale
@@ -993,9 +963,6 @@ func TestDeleteProviderInUseIs409(t *testing.T) {
 	}
 
 	// Once the agents are repointed, the delete goes through.
-	if err := f.repo.SyncAgentBaseURL(context.Background(), f.scenario.orgA, provider.ID, ""); err != nil {
-		t.Fatalf("clear base urls: %v", err)
-	}
 	f.repo.mu.Lock()
 	f.repo.using[f.scenario.orgA][provider.ID] = map[string]string{}
 	f.repo.mu.Unlock()
@@ -1017,10 +984,15 @@ func TestDeleteProviderMissingIs404(t *testing.T) {
 
 // ---- AC6: an edit reaches every agent using the provider -------------------
 
-// TestProviderEditReachesItsAgents is AC6. The observable form before phase 6 is
-// the agents' own address column: an agent's screens still render
-// agents.base_url, so leaving it behind after a provider edit would make the
-// change invisible exactly where the operator looks for it.
+// TestProviderEditReachesItsAgents is AC6, in the form phase 6 leaves it.
+//
+// Before the column was dropped, this asserted that a provider edit reached the
+// agents' own `base_url`. That was a bridge, not the contract: AC6 says an agent
+// keeps **no copy** of the address. With `agents.base_url` gone the claim is
+// stronger and simpler — there is nothing to keep in step, so a provider edit is
+// complete the moment the provider row is updated. What this pins is that no
+// agent-side write happens at all, which is the property the bridge used to
+// violate.
 func TestProviderEditReachesItsAgents(t *testing.T) {
 	f := newProviderFixture(t)
 	provider := f.mustCreate(t, f.scenario.orgA, "Acme", "openai_compatible", "https://old.example.com/v1", "")
@@ -1036,22 +1008,26 @@ func TestProviderEditReachesItsAgents(t *testing.T) {
 		t.Fatalf("provider base_url = %q, want %q", got, newURL)
 	}
 
-	for _, agentID := range []string{"agent-1", "agent-2"} {
-		if got := f.repo.agentBaseURL(f.scenario.orgA, agentID); got != newURL {
-			t.Fatalf("agent %s base_url = %q, want %q — the edit did not reach it", agentID, got, newURL)
-		}
+	// The agents still point at the provider; that reference is the whole of
+	// what they hold. Read through the provider, not through a copy.
+	using, err := f.repo.AgentsUsing(context.Background(), f.scenario.orgA, provider.ID)
+	if err != nil {
+		t.Fatalf("AgentsUsing: %v", err)
+	}
+	if len(using) != 2 {
+		t.Fatalf("agents using the provider = %d, want 2 — the edit must not detach them", len(using))
 	}
 
-	// An edit that does not touch the address must not rewrite it: the sync is
-	// driven by the presence of base_url in the request, not by every PATCH.
-	f.repo.mu.Lock()
-	f.repo.baseURLs[f.scenario.orgA]["agent-1"] = "untouched"
-	f.repo.mu.Unlock()
+	// A rename is a different field and must leave the address alone.
 	if recorder := f.patch(t, "alice", f.scenario.orgA, provider.ID, `{"name":"Renamed"}`); recorder.Code != http.StatusOK {
 		t.Fatalf("renaming a provider: status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
 	}
-	if got := f.repo.agentBaseURL(f.scenario.orgA, "agent-1"); got != "untouched" {
-		t.Fatalf("a rename rewrote the agents' base_url to %q; only a base_url edit may", got)
+	read := f.doProvider(t, http.MethodGet, "/api/v1/providers/"+provider.ID, "", "alice", f.scenario.orgA)
+	if read.Code != http.StatusOK {
+		t.Fatalf("reading the provider: status = %d, want 200 (%s)", read.Code, read.Body.String())
+	}
+	if got := decodeProvider(t, read).BaseURL; got != newURL {
+		t.Fatalf("a rename changed the address to %q, want %q", got, newURL)
 	}
 }
 

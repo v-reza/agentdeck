@@ -285,21 +285,19 @@ pernah ditulis di file mana pun (repo ini publik).
 ## Mulai dari mana (buat session baru)
 
 1. Baca `.hermes.md` (auto-load) → `docs/DECISIONS.md` §6A.J → file ini.
-2. **Kalau nggak ada instruksi lain: fase 6** — buang `agents.base_url` +
-   constraint `agents_base_url_chk`. Fase 1 (`0010`) + fase 2 (CRUD, 5 endpoint) +
-   fase 3 (probe + refresh otomatis, 2 endpoint) + fase 4 (halaman
-   `/settings/providers`) + fase 5 (form agent pakai dropdown provider) **selesai**.
-   Prasyarat fase 6 sudah terpenuhi: form agent berhenti membaca `base_url`, dan
-   `SyncAgentBaseURLForProvider` jadi jembatan tanpa pembaca.
-3. **Yang paling murah + paling kerasa kalau mau cepat**: warna status. 10 baris
-   `index.css` — lihat `docs/DESIGN-INVENTORY.md` §2.
-4. Yang **jangan** dikerjain dulu: ~~buang `agents.base_url` (fase 6) sebelum form agent
-   pindah ke dropdown provider (fase 5)~~ — **prasyaratnya sudah terpenuhi**, jadi
-   fase 6 boleh jalan.
-5. **Fase 5 SELESAI**: `agents.base_url` masih disinkronkan dari provider
-   (`SyncAgentBaseURLForProvider`) — jembatan sementara, dibuang bareng kolomnya di
-   fase 6. Form agent sudah berhenti membacanya; jangan tambah pembaca baru untuk
-   kolom itu.
+2. **Roadmap provider registry (fase 1–6) SELESAI SEMUA.** `agents.base_url` +
+   constraint `agents_base_url_chk` sudah dibuang migrasi `0011`, dan
+   `SyncAgentBaseURLForProvider` ikut hilang — agent menyimpan **rujukan**
+   (`provider_id`), bukan salinan alamat. Layar detail agent ikut pindah ke dropdown
+   registry. Nggak ada fase lanjutan yang tertulis di `CONCEPT-PROVIDER-REGISTRY.md`.
+3. **Kalau nggak ada instruksi lain**, pilih dari backlog yang belum tersentuh:
+   endpoint yang belum jalan (61 dari 123 — `ARCHITECTURE.md` §6.2 kolom `Status`,
+   angkanya dijaga `tools/verify_suite.py`) atau warna status (10 baris `index.css`,
+   `docs/DESIGN-INVENTORY.md` §2).
+4. ~~Jangan kerjain fase 6 dulu~~ — **selesai**, jangan diulang.
+5. **Jembatan `SyncAgentBaseURLForProvider` sudah dibuang.** Jangan tambah kolom
+   salinan alamat baru di `agents`: satu alamat, satu tempat (`providers.base_url`),
+   dan itulah yang bikin edit provider nggak bisa basi di agent (AC6).
 
 ## Kemajuan nyata (dihitung dari kode, bukan dari niat)
 

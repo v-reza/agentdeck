@@ -42,10 +42,9 @@ type Querier interface {
 	CountUnfinishedParents(ctx context.Context, childID string) (int32, error)
 	// Agents. The agent is the retry/limit source for every run it executes.
 	// Every mutable column UpdateAgent writes is written here too. The two drifted
-	// once: `base_url` and `reasoning_effort` were bound only by UpdateAgent, so a
-	// BYO create (US-AD106 AC1) failed agents_base_url_chk as a 500 and a client's
-	// reasoning_effort was dropped in silence. internal/store/queries_columns_test.go
-	// is the guard that keeps the two lists in step.
+	// once: `reasoning_effort` was bound only by UpdateAgent, so a client's value
+	// was dropped in silence on create. internal/store/queries_columns_test.go is
+	// the guard that keeps the two lists in step.
 	//
 	// provider_id is the registry reference (US-AD109). It is written here for the
 	// same reason as everything else on this list: a create that omits it leaves
@@ -210,24 +209,10 @@ type Querier interface {
 	// AC3: stamped only after the inference probe passes. Nothing else writes this
 	// column, so a non-null value always means a probe succeeded.
 	SetProviderVerifiedAt(ctx context.Context, arg SetProviderVerifiedAtParams) error
-	// AC6 says an agent keeps no copy of the address. Until phase 6 drops
-	// agents.base_url, that column is still what the agent screens render, so
-	// editing a provider must carry the new address to its agents — otherwise the
-	// edit is invisible everywhere an agent's endpoint is shown. Agents with
-	// provider_id NULL are deliberately untouched: they do not use this provider.
-	//
-	// The `a.provider = 'openai_compatible'` guard is what keeps this from raising
-	// agents_base_url_chk (still in force until phase 6): that constraint allows a
-	// base_url exactly when the agent's own provider is 'openai_compatible', so
-	// writing an address onto any other agent would be a CHECK violation surfacing
-	// as a 500 rather than the no-op it should be.
-	SyncAgentBaseURLForProvider(ctx context.Context, arg SyncAgentBaseURLForProviderParams) error
 	TouchSession(ctx context.Context, tokenHash string) error
 	UnarchiveAgent(ctx context.Context, arg UnarchiveAgentParams) (UnarchiveAgentRow, error)
-	// US-AD96/US-AD106: the edit form replaces every mutable field at once, so this
-	// is a full update rather than a partial patch. `provider` moves together with
-	// `base_url` because the DB constraint (agents_base_url_chk) requires them to
-	// agree: 'openai_compatible' iff base_url IS NOT NULL.
+	// US-AD96: the edit form replaces every mutable field at once, so this is a
+	// full update rather than a partial patch.
 	//
 	// provider_id is the registry reference (US-AD109). It is nullable and stays
 	// that way: an agent with no provider of its own uses the workspace default.

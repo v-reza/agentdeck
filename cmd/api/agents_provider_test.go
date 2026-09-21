@@ -4,7 +4,7 @@ package main
 // endpoint. Each acceptance criterion this phase delivers, with a test that
 // fails for the *right* reason:
 //
-//	AC6 : `agents.provider` and `agents.base_url` are *derived* from the chosen
+//	AC6 : `agents.provider` is *derived* from the chosen
 //	      provider, so one edit of the provider reaches every agent using it and
 //	      an agent cannot describe an endpoint its credential does not belong to.
 //	AC10: switching provider clears the model choice, and a model the provider
@@ -145,33 +145,41 @@ func TestAgentProviderIsResolvedFromTheRegistry(t *testing.T) {
 		t.Errorf("provider: want %q derived from the provider row, got %q",
 			"openai_compatible", stored.Provider)
 	}
-	if stored.BaseURL != "http://127.0.0.1:9999/v1" {
-		t.Errorf("base_url: want the provider's endpoint, got %q", stored.BaseURL)
-	}
 	if stored.ProviderID != "prov-a" {
 		t.Errorf("provider_id: want prov-a, got %q", stored.ProviderID)
 	}
+	// AC6: the attacker-supplied base_url is not merely outvoted, it is not
+	// stored at all — the agent holds a reference, and the endpoint lives on
+	// the provider row. Phase 6 removed the column this used to land in, so the
+	// proof is the row itself: nothing on the agent carries an address.
+	stored = f.storedAgent(t, decodeAgent(t, w).ID)
+	provider, err := f.providers.Get(context.Background(), f.scenario.orgA, stored.ProviderID)
+	if err != nil {
+		t.Fatalf("read the provider the agent points at: %v", err)
+	}
+	if provider.BaseURL != "http://127.0.0.1:9999/v1" {
+		t.Errorf("the endpoint must live on the provider, got %q", provider.BaseURL)
+	}
 }
 
-// TestAgentWithoutProviderKeepsItsOwnEndpoint is the other direction, and it is
-// the state most rows are in: 963 of the dev database's agents are built-in
-// agents the backfill deliberately left without a provider (DECISIONS 6A.J).
-// Omitting provider_id must therefore still accept an explicit BYO endpoint
-// rather than silently rewriting the agent to the deployment default.
-func TestAgentWithoutProviderKeepsItsOwnEndpoint(t *testing.T) {
+// TestAgentWithoutProviderIsStillValid is the state most rows are in: 963 of the
+// dev database's agents are built-in agents the backfill deliberately left
+// without a provider (DECISIONS 6A.J). Their address comes from the deployment's
+// environment default, so omitting provider_id must keep working — and, now that
+// phase 6 dropped the column, the request cannot smuggle its own endpoint in
+// either.
+func TestAgentWithoutProviderIsStillValid(t *testing.T) {
 	f := newPhase5Fixture(t)
 
-	body := `{"name":"agent-byo","provider":"openai_compatible","model":"byo-model",
-	          "base_url":"http://127.0.0.1:9999/v1"}`
+	body := `{"name":"agent-no-provider","provider":"openai","model":"gpt-4o"}`
 	w := f.postAgent(t, "alice", f.scenario.orgA, f.projectID, body)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create without a provider: want 201, got %d — %s", w.Code, w.Body.String())
 	}
 
 	stored := f.storedAgent(t, decodeAgent(t, w).ID)
-	if stored.Provider != "openai_compatible" || stored.BaseURL != "http://127.0.0.1:9999/v1" {
-		t.Errorf("a provider-less BYO agent must keep its own endpoint, got provider=%q base_url=%q",
-			stored.Provider, stored.BaseURL)
+	if stored.Provider != "openai" {
+		t.Errorf("provider: want the request's own value, got %q", stored.Provider)
 	}
 	if stored.ProviderID != "" {
 		t.Errorf("provider_id: want empty, got %q", stored.ProviderID)
@@ -337,8 +345,14 @@ func TestAgentPatchCanMoveTheAgentToAnotherProvider(t *testing.T) {
 	if stored.ProviderID != "prov-b" {
 		t.Errorf("provider_id: want prov-b, got %q", stored.ProviderID)
 	}
-	if stored.BaseURL != "http://127.0.0.1:8888/v1" {
-		t.Errorf("base_url must follow the new provider, got %q", stored.BaseURL)
+	// The endpoint is not on the agent at all: it is read through the reference,
+	// so "follows the new provider" is a property of the provider row.
+	provider, err := f.providers.Get(context.Background(), f.scenario.orgA, stored.ProviderID)
+	if err != nil {
+		t.Fatalf("read the provider the agent moved to: %v", err)
+	}
+	if provider.BaseURL != "http://127.0.0.1:8888/v1" {
+		t.Errorf("the provider the agent points at must hold the endpoint, got %q", provider.BaseURL)
 	}
 	if stored.Model != "model-b" {
 		t.Errorf("model: want model-b, got %q", stored.Model)
@@ -400,7 +414,7 @@ func TestAgentResponseCarriesProviderID(t *testing.T) {
 
 	// An agent with no provider omits the field rather than sending "" — an
 	// absent reference and an empty string must not both reach the client.
-	noProvider := `{"name":"agent-no-provider","provider":"openai_compatible","model":"m","base_url":"http://127.0.0.1:9999/v1"}`
+	noProvider := `{"name":"agent-no-provider","provider":"openai","model":"gpt-4o"}`
 	w2 := f.postAgent(t, "alice", f.scenario.orgA, f.projectID, noProvider)
 	if w2.Code != http.StatusCreated {
 		t.Fatalf("setup create without provider: want 201, got %d — %s", w2.Code, w2.Body.String())
