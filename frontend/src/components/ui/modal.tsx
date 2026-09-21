@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { isComboboxPopupOpen } from '@/components/ui/combobox'
 
 /**
  * The app's one modal.
@@ -22,7 +23,23 @@ import { cn } from '@/lib/cn'
  *   - Tab is trapped inside the panel while open
  *   - background scroll is locked
  *   - the open/close transition honours `prefers-reduced-motion`
+ *
+ * `placement` exists for the 420px credential panel (US-AD86), which the design
+ * draws anchored to the right edge at full height rather than centred. The
+ * alternative was a second dialog component with a copy of the focus trap, the
+ * Escape handler, the scroll lock and the focus restore — four things that are
+ * easy to get subtly wrong once, let alone twice. Geometry is a prop; the
+ * accessibility contract stays in one place.
+ *
+ * One modal can open another (the register modal opens the credential panel),
+ * so Escape and Tab are handled by the *topmost* dialog only. Without this,
+ * one Escape closes both — the operator loses the half-filled form behind the
+ * panel they meant to dismiss.
  */
+
+/** Open modals, oldest first. The last entry is the one that owns the keyboard. */
+const openDialogs: object[] = []
+
 export function Modal({
   open,
   onClose,
@@ -31,6 +48,7 @@ export function Modal({
   children,
   footer,
   size = 'md',
+  placement = 'center',
 }: {
   open: boolean
   onClose: () => void
@@ -38,7 +56,8 @@ export function Modal({
   description?: string
   children: ReactNode
   footer?: ReactNode
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'panel'
+  placement?: 'center' | 'right'
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const titleID = useRef(`modal-title-${Math.random().toString(36).slice(2, 9)}`).current
@@ -54,6 +73,8 @@ export function Modal({
   useEffect(() => {
     if (!open) return
     const trigger = document.activeElement as HTMLElement | null
+    const self = {}
+    openDialogs.push(self)
 
     // Move focus into the panel. Form fields win over the close button: focus
     // landing on "Tutup" would make the first Tab go nowhere useful, and the
@@ -66,11 +87,23 @@ export function Modal({
       panel
     first?.focus()
 
+    // Only the topmost modal locks scroll. A nested panel inherits the lock the
+    // outer one already took, so it must not clear it on the way out.
+    const innermost = openDialogs[openDialogs.length - 1] === self
     const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    if (innermost) document.body.style.overflow = 'hidden'
 
     function onKeyDown(event: KeyboardEvent) {
+      // A modal that is not topmost is inert: the keyboard belongs to the dialog
+      // above it, so Escape dismisses one layer, not the whole stack.
+      if (openDialogs[openDialogs.length - 1] !== self) return
+
       if (event.key === 'Escape') {
+        // An open combobox popup owns Escape: it is one layer above this dialog,
+        // and this listener runs in the capture phase, so the popup never gets
+        // the chance to claim the key itself. Closing the whole form here would
+        // discard a half-filled registration.
+        if (isComboboxPopupOpen()) return
         event.stopPropagation()
         onCloseRef.current()
         return
@@ -101,17 +134,26 @@ export function Modal({
     document.addEventListener('keydown', onKeyDown, true)
     return () => {
       document.removeEventListener('keydown', onKeyDown, true)
-      document.body.style.overflow = previousOverflow
+      const index = openDialogs.indexOf(self)
+      if (index >= 0) openDialogs.splice(index, 1)
+      // Only restore what this modal changed. A nested panel must leave the
+      // outer modal's lock in place, or the page behind both would scroll.
+      if (innermost) document.body.style.overflow = previousOverflow
       trigger?.focus?.()
     }
   }, [open])
 
   if (!open) return null
 
-  const width = size === 'sm' ? 'w-[360px]' : size === 'lg' ? 'w-[560px]' : 'w-[440px]'
+  const width = size === 'sm' ? 'w-[360px]' : size === 'lg' ? 'w-[560px]' : size === 'panel' ? 'w-[420px]' : 'w-[440px]'
+  const right = placement === 'right'
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div
+      className={
+        right ? 'fixed inset-0 z-50 flex justify-end' : 'fixed inset-0 z-50 flex items-center justify-center p-4'
+      }
+    >
       {/* Backdrop. `motion-safe` keeps the fade for everyone except operators who
           asked the OS for reduced motion. `data-testid` because `[aria-hidden]`
           alone is ambiguous — the app has many. */}
@@ -129,9 +171,17 @@ export function Modal({
         aria-labelledby={titleID}
         tabIndex={-1}
         className={cn(
-          'relative flex max-h-[85vh] flex-col overflow-hidden',
-          'rounded-[14px] border border-[var(--color-border-standard)] bg-[var(--color-surface-elevated)] p-5 shadow-card',
-          'motion-safe:animate-[modal-in_140ms_ease-out]',
+          'relative flex shrink-0 flex-col overflow-hidden',
+          // `shrink-0` keeps the right panel at exactly 420px instead of letting
+          // the flex row shave a pixel off it; `max-w-full` keeps every size
+          // usable when the viewport is narrower than the panel.
+          right ? 'h-full max-h-full shrink-0 rounded-none' : 'max-h-[85vh] rounded-[14px]',
+          'max-w-full',
+          'border border-[var(--color-border-standard)] bg-[var(--color-surface-elevated)] p-5 shadow-card',
+          // The right-anchored panel fades only. `modal-in` carries a translateY,
+          // and a transform on a full-height element leaves it briefly unstable —
+          // a click that lands during the 140ms animation can miss its target.
+          right ? 'motion-safe:animate-[fade-in_120ms_ease-out]' : 'motion-safe:animate-[modal-in_140ms_ease-out]',
           width,
         )}
       >

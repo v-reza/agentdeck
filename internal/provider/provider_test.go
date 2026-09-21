@@ -359,6 +359,11 @@ func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { retu
 
 // TestListModels_RejectsPrivateBaseURL covers the wiring: the exported entry
 // point runs the guard before any request goes out.
+//
+// `localhost` and `127.0.0.1` are deliberately NOT in this list. The operator's
+// latest decision allows a self-hosted inference server on those two hosts, so
+// the guard must let them through (US-AD106 AC3 was relaxed for them). They are
+// asserted positively in TestListModels_AllowsOperatorLocalHost instead.
 func TestListModels_RejectsPrivateBaseURL(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("request reached the private server, guard did not run")
@@ -367,14 +372,39 @@ func TestListModels_RejectsPrivateBaseURL(t *testing.T) {
 	defer srv.Close()
 
 	for _, raw := range []string{
-		srv.URL,               // https://127.0.0.1:port
-		"http://127.0.0.1/v1", // not https
-		"https://169.254.169.254/v1",
-		"https://2130706433/v1",
-		"https://[::1]:8080/v1",
+		"https://169.254.169.254/v1", // link-local, the metadata endpoint
+		"https://2130706433/v1",      // loopback written as a decimal integer
+		"https://0x7f000001/v1",      // loopback written in hex
+		"https://[::1]:8080/v1",      // loopback in its IPv6 form
+		"http://api.example.com/v1",  // plain http to a public host
+		"https://10.0.0.1/v1",        // private range
 	} {
 		if _, err := ListModels(context.Background(), NewClient(), raw, "sk-test"); err == nil {
 			t.Errorf("ListModels(%q) succeeded, want refusal", raw)
+		}
+	}
+}
+
+// TestListModels_AllowsOperatorLocalHost is the other half of the relaxed rule.
+//
+// The assertion is on WHERE the failure happens, not on whether one happened:
+// the guard admits these two hosts, so the request actually goes out and fails
+// at the transport (TLS verification against a self-signed test certificate, or
+// nothing listening). A guard refusal is a *validation* error and is named
+// differently, which is what the "base URL" substring rules out.
+func TestListModels_AllowsOperatorLocalHost(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, `{"data":[{"id":"local-model"}]}`)
+	}))
+	defer srv.Close()
+
+	for _, raw := range []string{srv.URL, "http://127.0.0.1:1/v1", "https://localhost:1/v1"} {
+		_, err := ListModels(context.Background(), NewClient(), raw, "sk-test")
+		if err == nil {
+			continue // a local server really answered; nothing to prove here
+		}
+		if strings.Contains(err.Error(), "base URL") {
+			t.Errorf("ListModels(%q) was refused by the guard, want it admitted: %v", raw, err)
 		}
 	}
 }

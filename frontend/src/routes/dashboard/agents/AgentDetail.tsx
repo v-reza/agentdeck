@@ -13,6 +13,7 @@ import { describeError, useActionForm } from '@/hooks/use-action-form'
 import { useT } from '@/hooks/use-t'
 import type { Dictionary } from '@/lib/i18n'
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
+import { Button } from '@/components/ui/button'
 import { EmptyState, Panel } from '@/components/ui/card'
 import {
   AgentConfigSection,
@@ -24,6 +25,7 @@ import {
 } from './AgentDetailForm'
 import { AgentHero, ArchiveButton, LifecycleCard, SaveButton, StatusPill, agentState } from './AgentDetailParts'
 import type { AgentState } from './AgentDetailParts'
+import { AgentProviderKeyPanel } from '@/components/agents/AgentProviderKeyPanel'
 
 const FORM_ID = 'agent-detail-form'
 const ARCHIVE_ERROR_ID = 'agent-archive-error'
@@ -73,6 +75,8 @@ export function AgentDetail() {
   const [updateAgent] = useUpdateAgentMutation()
   const [archiveAgent] = useArchiveAgentMutation()
   const canArchive = useCanAct('admin')
+  const canManageKey = useCanAct('admin')
+  const [keyPanelOpen, setKeyPanelOpen] = useState(false)
 
   const [saveState, saveAction, isSaving] = useActionForm(updateAgent, (form) => ({
     id,
@@ -113,6 +117,18 @@ export function AgentDetail() {
           agent ? (
             <div className="flex items-center gap-2.5">
               <StatusPill agent={agent} />
+              {/* US-AD86: rotating or revoking the credential happens here.
+                  Owner/admin only — the same floor the PUT/DELETE routes carry. */}
+              {canManageKey ? (
+                <Button
+                  variant="secondary"
+                  size="md"
+                  data-testid="agent-key-panel-trigger"
+                  onClick={() => setKeyPanelOpen(true)}
+                >
+                  {t['agents.key.title']}
+                </Button>
+              ) : null}
               <ArchiveButton
                 archived={archived}
                 allowed={canArchive}
@@ -175,6 +191,20 @@ export function AgentDetail() {
           )}
         </div>
       </div>
+
+      {agent ? (
+        <AgentProviderKeyPanel
+          open={keyPanelOpen}
+          onClose={() => setKeyPanelOpen(false)}
+          agent={{
+            id: agent.id,
+            name: agent.name,
+            provider: agent.provider,
+            model: agent.model,
+            has_provider_key: agent.has_provider_key,
+          }}
+        />
+      ) : null}
     </>
   )
 }

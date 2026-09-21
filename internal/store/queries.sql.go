@@ -320,9 +320,10 @@ func (q *Queries) CountUnfinishedParents(ctx context.Context, childID string) (i
 }
 
 const createAgent = `-- name: CreateAgent :one
-INSERT INTO agents (id, org_id, project_id, name, provider, model, skills_json, tools_json,
-                    max_runtime_seconds, retry_policy, max_attempts)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO agents (id, org_id, project_id, name, provider, model, reasoning_effort,
+                    skills_json, tools_json, max_runtime_seconds, retry_policy, max_attempts,
+                    base_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
           tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
           archived_at, created_at, has_provider_key
@@ -335,11 +336,13 @@ type CreateAgentParams struct {
 	Name              string
 	Provider          string
 	Model             string
+	ReasoningEffort   string
 	SkillsJson        []byte
 	ToolsJson         []byte
 	MaxRuntimeSeconds int32
 	RetryPolicy       string
 	MaxAttempts       int32
+	BaseUrl           *string
 }
 
 type CreateAgentRow struct {
@@ -362,6 +365,11 @@ type CreateAgentRow struct {
 }
 
 // Agents. The agent is the retry/limit source for every run it executes.
+// Every mutable column UpdateAgent writes is written here too. The two drifted
+// once: `base_url` and `reasoning_effort` were bound only by UpdateAgent, so a
+// BYO create (US-AD106 AC1) failed agents_base_url_chk as a 500 and a client's
+// reasoning_effort was dropped in silence. internal/store/queries_columns_test.go
+// is the guard that keeps the two lists in step.
 func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (CreateAgentRow, error) {
 	row := q.db.QueryRow(ctx, createAgent,
 		arg.ID,
@@ -370,11 +378,13 @@ func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (Creat
 		arg.Name,
 		arg.Provider,
 		arg.Model,
+		arg.ReasoningEffort,
 		arg.SkillsJson,
 		arg.ToolsJson,
 		arg.MaxRuntimeSeconds,
 		arg.RetryPolicy,
 		arg.MaxAttempts,
+		arg.BaseUrl,
 	)
 	var i CreateAgentRow
 	err := row.Scan(

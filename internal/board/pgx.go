@@ -590,11 +590,13 @@ func (r *pgxRepository) CreateAgent(ctx context.Context, a Agent) (Agent, error)
 		Name:              a.Name,
 		Provider:          a.Provider,
 		Model:             a.Model,
+		ReasoningEffort:   a.ReasoningEffort,
 		SkillsJson:        a.SkillsJSON,
 		ToolsJson:         a.ToolsJSON,
 		MaxRuntimeSeconds: int32(a.MaxRuntimeSeconds),
 		RetryPolicy:       a.RetryPolicy,
 		MaxAttempts:       int32(a.MaxAttempts),
+		BaseUrl:           nullString(a.BaseURL),
 	})
 	if err != nil {
 		return Agent{}, agentNameTakenError(err)

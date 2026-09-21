@@ -41,13 +41,15 @@ func writeBoardError(w http.ResponseWriter, err error) {
 		http.Error(w, err.Error(), http.StatusConflict)
 	case errors.Is(err, board.ErrColumnsInvalid), errors.Is(err, board.ErrBudgetInvalid),
 		errors.Is(err, board.ErrInvalidInput), errors.Is(err, board.ErrInvalidStatus),
-		errors.Is(err, board.ErrAgentBaseURLMismatch):
+		errors.Is(err, board.ErrAgentBaseURLMismatch), errors.Is(err, board.ErrBaseURLNotReachable):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, board.ErrArchiveRequiresAdmin):
 		http.Error(w, err.Error(), http.StatusForbidden)
 	// US-AD86 AC3: an unknown provider is the caller's mistake and the fix is a
-	// different provider, so it is a 400 rather than a 409.
-	case errors.Is(err, board.ErrUnknownProvider), errors.Is(err, board.ErrNoProviderKey),
+	// different provider, so it is a 400 rather than a 409. Same for US-AD67
+	// AC2's unpriced model — the fix is a different model.
+	case errors.Is(err, board.ErrUnknownProvider), errors.Is(err, board.ErrUnknownModel),
+		errors.Is(err, board.ErrNoProviderKey),
 		errors.Is(err, board.ErrProviderNotProbeable):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	// The upstream provider refused us (US-AD86 validate). 502, not 500: our

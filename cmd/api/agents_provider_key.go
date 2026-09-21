@@ -91,6 +91,10 @@ func registerAgentCredentialRoutes(mux *http.ServeMux, api authAPI, svc *board.S
 	// ARCHITECTURE 6.2.7 puts the handshake at Member: it is a diagnostic, not a
 	// credential write, and it never returns the key.
 	agentRoute("POST /api/v1/agents/{id}/validate", http.HandlerFunc(credAPI.validateProvider), auth.Member)
+	// The stateless probe takes a raw credential, so it carries the credential
+	// floor (Admin), not the diagnostic one. It is deliberately not mounted under
+	// /agents/{id}: the caller has no id yet — that is the whole reason it exists.
+	agentRoute("POST /api/v1/provider/models", http.HandlerFunc(credAPI.providerModels), auth.Admin)
 }
 
 // masterKey decodes AGENTDECK_MASTER_KEY. An unusable key is a 500 that stores

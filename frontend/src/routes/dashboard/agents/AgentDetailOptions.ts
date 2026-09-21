@@ -12,6 +12,17 @@ import type { Dictionary } from '@/lib/i18n'
 /** The four provider values the agents table accepts. */
 export const PROVIDER_CHOICES = ['openai', 'anthropic', 'deepseek', 'openai_compatible']
 
+/**
+ * What the register form offers (DECISIONS 6A.F).
+ *
+ * BYO only, by the operator's own decision: they bring an endpoint and a
+ * credential, so the model list is pulled from their server rather than from
+ * our price catalog. `PROVIDER_CHOICES` stays for the detail screen, where an
+ * agent that already carries `openai` must still render its own value — the
+ * narrower list here is a choice about *creating*, not about displaying.
+ */
+export const CREATE_PROVIDER_CHOICES = ['openai_compatible']
+
 const PROVIDER_LABEL: Record<string, keyof Dictionary> = {
   openai: 'agents.detail.providerOpenAI',
   anthropic: 'agents.detail.providerAnthropic',
@@ -49,6 +60,16 @@ export const TOOL_SET: { name: string; gated: boolean }[] = [
 
 /** The daemon's own bounds for max_runtime_seconds, so the field is not free-form. */
 export const RUNTIME_PRESETS = [300, 900, 1800, 3600, 7200, 14400, 28800, 86400]
+
+/**
+ * The reasoning levels the provider adapter passes through. A closed list, not a
+ * free-form field: the value goes into the request body verbatim, so anything
+ * else is a runtime error the form could have caught.
+ */
+export const REASONING_EFFORTS = ['low', 'medium', 'high']
+
+/** The retry policies `agents_retry_policy_chk` accepts, in escalation order. */
+export const RETRY_POLICIES = ['never', 'transient_only', 'always']
 
 /**
  * The tool choices for one agent: the closed set, plus any name the row already

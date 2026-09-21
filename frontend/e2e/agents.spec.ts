@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { chooseOption, typeCustom } from './combobox'
 
 /**
  * Screen 25-agent-registry — US-AD20, the agent registry.
@@ -171,11 +172,17 @@ test.describe('agent registry (US-AD20)', () => {
     await page.goto(`/app/${orgID}/agents`)
     await page.getByRole('button', { name: /daftarkan agent/i }).click()
     await page.getByLabel(/nama/i).fill('agent-backend')
-    await page.getByLabel(/^provider$/i).fill('openai')
-    await page.getByLabel(/^model$/i).fill('gpt-4o')
+    await chooseOption(page, /^provider$/i, 'openai_compatible')
+    await page.getByLabel(/url dasar provider|provider base url/i).fill('http://localhost:11434/v1')
+    await typeCustom(page, /^model$/i, 'probe-model-1')
     await page.getByRole('button', { name: /^simpan$/i }).click()
 
-    await expect(page.getByText(/agent tidak terdaftar/i)).toBeVisible()
+    // The message belongs under the field that caused it, and the input carries
+    // the a11y state: an operator should not have to hunt for the one red line
+    // at the bottom of a long dialog to find out which input the server refused.
+    const nameField = page.locator('label:has(input[name="name"])')
+    await expect(nameField.getByText(/agent tidak terdaftar/i)).toBeVisible()
+    await expect(page.locator('input[name="name"]')).toHaveAttribute('aria-invalid', 'true')
   })
 
   // AC2 — the gate is the server's, and the UI does not render the control.
@@ -278,15 +285,29 @@ test.describe('agent registry (US-AD20)', () => {
 
     const table = page.getByRole('table')
     await expect(table).toBeVisible()
-    for (const column of ['Agent / ID', 'Provider', 'Model', 'Reasoning', 'Status fleet', 'Runtime & retry']) {
+    for (const column of ['Agent', 'Provider', 'Model', 'Reasoning', 'Status', 'Runtime']) {
       await expect(table.getByRole('columnheader', { name: column })).toBeVisible()
     }
 
     // The design's header is 32px and rows are 28px. The header's own height is
     // 34px because the design also draws a 1px bottom border; the row itself is
     // 28 and is the number the density rule is about.
+    // The design's header row is 32px, and it is exactly 32 now. It used to
+    // measure 34 because "Status fleet" and "Runtime & retry" wrapped to a
+    // second line and grew the row; single-word labels removed that line box.
     const headerHeight = await table.locator('thead tr').evaluate((el) => Math.round(el.getBoundingClientRect().height))
-    expect(headerHeight).toBe(34)
+    expect(headerHeight).toBe(32)
+
+    // Every header must be one line. The design draws labels like "Status fleet"
+    // and "Runtime & retry", which wrapped to two and three lines in a fixed
+    // table and made the header taller than the rows under it. The labels are
+    // single words now, and this is the assertion that keeps them that way.
+    const wrapped = await table
+      .locator('thead th')
+      .evaluateAll((els) =>
+        els.filter((el) => el.getBoundingClientRect().height > 32).map((el) => (el.textContent || '').trim()),
+      )
+    expect(wrapped, 'no header label may wrap to a second line').toEqual([])
 
     // Row density. The design's own annotation claims "Tinggi baris: 28px density",
     // but its markup is `h-[28px]` on the <tr> with `py-2` cells holding a 20px
@@ -298,11 +319,16 @@ test.describe('agent registry (US-AD20)', () => {
     const row = table.locator('tbody tr').first()
     await expect(row.getByRole('link', { name: 'agent-table' })).toBeVisible()
 
+    // A floor, not the design's exact 190. The table is `table-fixed` with an
+    // explicit colgroup so the columns stop being redistributed by content, and
+    // this column is 196 — sized so the whole table fits the pane instead of
+    // scrolling. The number that matters is that it never drops back under the
+    // design's minimum, which is what collapsed the row to four lines.
     const firstColumnWidth = await table
       .locator('thead th')
       .first()
       .evaluate((el) => Math.round(el.getBoundingClientRect().width))
-    expect(firstColumnWidth, 'design min-w-[190px] on the agent column').toBe(190)
+    expect(firstColumnWidth, 'the agent column keeps the design minimum').toBeGreaterThanOrEqual(190)
 
     const rowHeight = await row.evaluate((el) => Math.round(el.getBoundingClientRect().height))
     expect(rowHeight, 'two text lines, matching the design row').toBeLessThanOrEqual(64)

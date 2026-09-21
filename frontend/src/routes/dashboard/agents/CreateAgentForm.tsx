@@ -1,24 +1,52 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Plus } from 'lucide-react'
-import { useCreateAgentMutation } from '@/store/api/agents'
+import {
+  useCreateAgentMutation,
+  useListAgentSkillsQuery,
+  usePutProviderKeyMutation,
+  useProbeProviderModelsMutation,
+} from '@/store/api/agents'
 import { useCanAct } from '@/hooks/use-orgs'
-import { useActionForm } from '@/hooks/use-action-form'
 import { useT } from '@/hooks/use-t'
 import { Button } from '@/components/ui/button'
-import { Field, Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
+import { AgentProviderKeyPanel } from '@/components/agents/AgentProviderKeyPanel'
+import {
+  CredentialSection,
+  IdentitySection,
+  ProviderSection,
+  RuntimeSection,
+  type RuntimeValues,
+} from './CreateAgentFields'
+import { NO_FIELD_ERRORS, routeFieldError, type FieldErrors } from '@/lib/field-error'
+
+const FORM_ID = 'create-agent-form'
 
 /**
- * "Daftarkan Agent Baru" on the agent registry (US-AD20 AC1), cloned from the
- * design's own toolbar CTA in `25-agent-registry.html` and its form panel in
- * `26-agent-form.html`: filled accent, 30px tall, radius 6, `text-[12px]`,
- * plus glyph before the label.
+ * "Daftarkan Agent Baru" on the agent registry — screen 26-agent-form as a
+ * modal (US-AD96), replacing the free-text form that used to sit on the page.
  *
- * The design's form also asks for an API key. That field is deliberately absent:
- * `PUT /agents/{id}/provider-key` is US-AD86 (M2) and has no route yet, and
- * US-AD20 AC5 says an agent registered without a credential is valid — it is
- * simply not ready to run. Rendering the field would promise a write that can
- * only answer 404.
+ * The shell is the app's one `Modal` with `placement="right"` and
+ * `size="panel"` (420px), which is the geometry the design draws for this
+ * screen. That geometry is two props rather than a second dialog component:
+ * the focus trap, the Escape handler, the scroll lock and the focus restore are
+ * one contract and stay in one file.
+ *
+ * Four things are wired to the real API and none of them is hardcoded:
+ *  - provider and model come from `GET /agent-catalog` (US-AD96 AC1), offered
+ *    as datalists and refused by `validateCatalogModel` before the request;
+ *  - `tools` is the closed set of nine primitives (AC7) and `skills` is the org
+ *    library from `GET /agent-skills` (AC8);
+ *  - the credential block is owner/admin only (AC4) and optional (AC3/AC5): an
+ *    agent registered without a key is valid and simply not ready;
+ *  - the handshake is a manual button (AC5), never fired on submit.
+ *
+ * Two writes, in this order and for a reason: `POST /projects/{id}/agents`
+ * creates the row, and only then can the key be stored — the credential
+ * endpoint resolves the agent's provider from the stored row, so it has nothing
+ * to read before the create lands. A credential write that fails after a
+ * successful create is reported inline and the agent stays registered without a
+ * key, which is the state AC3 describes.
  *
  * AC1 makes registering a Member action, so the trigger hides below `member`.
  * The server enforces the same minimum through `requireRole`, so hiding it is a
@@ -34,29 +62,152 @@ export function CreateAgentForm({
 }) {
   const t = useT()
   const [open, setOpen] = useState(false)
-  const [createAgent] = useCreateAgentMutation()
-  const canCreate = useCanAct('member')
+  const [created, setCreated] = useState<{ id: string; name: string } | null>(null)
+  const [hasKey, setHasKey] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>(NO_FIELD_ERRORS)
+  const [probedModels, setProbedModels] = useState<string[]>([])
+  const [probeNote, setProbeNote] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  const [state, formAction, isPending] = useActionForm(
-    createAgent,
-    (form) => ({
-      projectID: String(form.get('projectID') ?? ''),
-      name: String(form.get('name') ?? ''),
-      provider: String(form.get('provider') ?? ''),
-      model: String(form.get('model') ?? ''),
-      reasoningEffort: String(form.get('reasoningEffort') ?? ''),
-      maxRuntimeSeconds: Number(form.get('maxRuntimeSeconds') ?? 0),
-      retryPolicy: String(form.get('retryPolicy') ?? ''),
-      maxAttempts: Number(form.get('maxAttempts') ?? 0),
-      // Free-text lists: the contract stores jsonb arrays, and the design's
-      // tools field is a comma-separated input rather than a multi-select.
-      tools: splitList(form.get('tools')),
-      skills: splitList(form.get('skills')),
-    }),
-    () => setOpen(false),
-  )
+  const [createAgent] = useCreateAgentMutation()
+  const [putProviderKey] = usePutProviderKeyMutation()
+  const [probeProviderModels, { isLoading: probing }] = useProbeProviderModelsMutation()
+  // The skill list is only needed while the modal is open, so a closed form
+  // costs no request on a registry page the operator may never register from.
+  // The price catalog is no longer fetched: the register form is BYO-only, so
+  // its model list comes from the probe, not from our table (DECISIONS 6A.F).
+  const { data: skills } = useListAgentSkillsQuery(undefined, { skip: !open })
+  const canCreate = useCanAct('member')
+  const canManageKey = useCanAct('admin')
+
+  const [runtime, setRuntime] = useState<RuntimeValues>({
+    reasoningEffort: 'medium',
+    maxRuntimeSeconds: 14400,
+    maxAttempts: 3,
+    retryPolicy: 'transient_only',
+  })
+  // Defaults to the only provider this form offers. It used to default to
+  // `openai`, which then leaked into the choice list as a second entry and let
+  // the operator pick a provider whose model list this form cannot populate.
+  const [provider, setProvider] = useState('openai_compatible')
+  const [model, setModel] = useState('')
 
   if (!canCreate || projects.length === 0) return null
+
+  /**
+   * One submit path, driven from React rather than a `form action`.
+   *
+   * US-AD96 AC1 refuses an off-catalog combination *before* the request, and a
+   * `form action` cannot do that. React 19 runs the action on submit even when
+   * `onSubmit` calls `preventDefault` — calling it is the only way to stop the
+   * action, so there is no second handler left to refuse from. Here refusing is
+   * an early `return`, and the request happens only once the combination is one
+   * the catalog prices.
+   */
+  /**
+   * Pulls the model list from the operator's own endpoint (US-AD106 AC2).
+   *
+   * The endpoint and the key are read out of the form at click time rather than
+   * mirrored into state: the key field is a password, and copying it on every
+   * keystroke would leave a second live copy of the credential in React state
+   * for no gain. The probe stores nothing server-side either.
+   */
+  async function fetchModels() {
+    const form = document.getElementById(FORM_ID) as HTMLFormElement | null
+    if (!form) return
+    const data = new FormData(form)
+    const baseUrl = String(data.get('baseUrl') ?? '').trim()
+    const apiKey = String(data.get('apiKey') ?? '').trim()
+    setProbeNote('')
+    if (!baseUrl || !apiKey) {
+      setProbeNote(t['agents.create.fetchNeedsBase'])
+      return
+    }
+    try {
+      const answer = await probeProviderModels({ baseUrl, apiKey }).unwrap()
+      setProbedModels(answer.models)
+      setProbeNote(`${answer.models.length} ${t['agents.create.fetchOk']}`)
+    } catch (rejection) {
+      // A probe failure is not a form failure: the agent can still be registered
+      // and the model typed by hand, so this never blocks the submit.
+      setProbeNote(routeFieldError(rejection).form ?? '')
+    }
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const chosenProvider = String(form.get('provider') ?? '')
+    const chosenModel = String(form.get('model') ?? '')
+    setError(null)
+    setFieldErrors(NO_FIELD_ERRORS)
+
+    // US-AD96 AC1's catalog refusal is deliberately gone from this form: the
+    // register flow is BYO-only (DECISIONS 6A.F), so the model list comes from
+    // the operator's own endpoint and there is no catalog of ours to check
+    // against. `validateCatalogModel` stays exported for the detail screen.
+    // The server still gates provider and model (US-AD67), so this is a UX
+    // change, not a hole.
+
+    setBusy(true)
+    try {
+      const row = (await createAgent({
+        projectID: String(form.get('projectID') ?? ''),
+        name: String(form.get('name') ?? ''),
+        provider: chosenProvider,
+        model: chosenModel,
+        // Only meaningful for the BYO provider, and the server refuses a
+        // base_url on any other one. The field is not even rendered then, so
+        // this reads empty and is dropped by the slice.
+        baseURL: String(form.get('baseUrl') ?? '').trim() || undefined,
+        reasoningEffort: runtime.reasoningEffort,
+        maxRuntimeSeconds: runtime.maxRuntimeSeconds,
+        retryPolicy: runtime.retryPolicy,
+        maxAttempts: runtime.maxAttempts,
+        tools: form.getAll('tools').map(String),
+        skills: form.getAll('skills').map(String),
+      }).unwrap()) as { id?: string; name?: string }
+
+      if (!row?.id) return
+      setCreated({ id: row.id, name: row.name ?? '' })
+      setProvider(chosenProvider)
+      setModel(chosenModel)
+
+      const key = String(form.get('apiKey') ?? '').trim()
+      if (!key) return
+      // The key is stored in the same submit because the credential endpoint
+      // needs the row to exist first. A failure is reported without undoing the
+      // create: the agent is registered, just not ready (AC3).
+      try {
+        const answer = await putProviderKey({ id: row.id, apiKey: key }).unwrap()
+        setHasKey(answer.has_provider_key)
+      } catch (rejection) {
+        // The agent is already registered, so this failure belongs to the key
+        // field alone — not to the form, and never to the create.
+        setFieldErrors(routeFieldError(rejection, t['agents.key.failed']))
+      }
+    } catch (rejection) {
+      // A message the server did not tie to a field stays at form level rather
+      // than being dropped or guessed onto the wrong input.
+      const routed = routeFieldError(rejection, t['agents.create.failed'])
+      setFieldErrors(routed)
+      setError(routed.form)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function close() {
+    setOpen(false)
+    setCreated(null)
+    setHasKey(false)
+    setPanelOpen(false)
+    setError(null)
+    setFieldErrors(NO_FIELD_ERRORS)
+    setModel('')
+  }
 
   return (
     <>
@@ -67,110 +218,104 @@ export function CreateAgentForm({
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={close}
         title={t['agents.create.title']}
         description={t['agents.create.description']}
+        /* The design draws this form as a 420px aside, and at that width the
+           model name is clipped inside its own field — the operator cannot read
+           back what they are about to register. Widened to the `lg` step rather
+           than inventing a size: the credential panel keeps its measured 420px
+           (27-agent-provider-key), this one only needs room to read. */
+        size="lg"
+        placement="right"
+        footer={
+          <div className="flex w-full items-center justify-between gap-2">
+            <Button variant="ghost" size="sm" onClick={close}>
+              {t['action.cancel']}
+            </Button>
+            <Button type="submit" form={FORM_ID} variant="primary" size="sm" disabled={busy}>
+              {busy ? t['agents.create.pending'] : t['agents.create.submit']}
+            </Button>
+          </div>
+        }
       >
-        <form action={formAction} id="create-agent-form" className="flex flex-col gap-3.5">
-          <Field label={t['boards.create.project']}>
-            <select
-              name="projectID"
-              required
-              defaultValue={activeProjectID}
-              className="h-8 w-full rounded-[6px] border border-[var(--color-border-subtle)] bg-[var(--color-surface-panel)] px-2.5 text-[12px] text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
+        <form id={FORM_ID} onSubmit={submit} className="flex flex-col gap-4">
+          <IdentitySection defaultProject={activeProjectID} errors={fieldErrors} />
+
+          <ProviderSection
+            provider={provider}
+            onProviderChange={(next) => {
+              setProvider(next)
+              setModel('')
+              setError(null)
+              setFieldErrors(NO_FIELD_ERRORS)
+              setProbedModels([])
+            }}
+            model={model}
+            onModelChange={(next) => {
+              setModel(next)
+              setError(null)
+              setFieldErrors(NO_FIELD_ERRORS)
+            }}
+            probedModels={probedModels}
+            onFetchModels={fetchModels}
+            fetching={probing}
+            fetchNote={probeNote}
+            canFetch={canManageKey}
+            errors={fieldErrors}
+          />
+
+          <CredentialSection allowed={canManageKey} agentID={created?.id} errors={fieldErrors} />
+
+          <RuntimeSection
+            skills={skills}
+            runtime={runtime}
+            onRuntimeChange={(next) => setRuntime((current) => ({ ...current, ...next }))}
+          />
+
+          {/* US-AD96 AC1 refusal, and the create / credential failures. One
+              inline surface: the modal is what caused them, and the toast
+              listener deliberately refuses to duplicate a write's message. */}
+          {error ? (
+            <p role="alert" className="text-[11px] leading-snug text-[var(--color-danger)]">
+              {error}
+            </p>
+          ) : null}
+
+          {/* Once the row exists the full 420px panel is available — the same
+              component the detail page uses to rotate and revoke. */}
+          {created && canManageKey ? (
+            <button
+              type="button"
+              data-testid="open-provider-key-panel"
+              onClick={() => setPanelOpen(true)}
+              className="self-start font-mono text-[11px] text-[var(--color-accent)] underline-offset-2 hover:underline"
             >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label={t['field.name']}>
-            <Input name="name" required placeholder="agent-backend" className="h-9 text-[13px]" />
-          </Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t['agents.field.provider']}>
-              <Input name="provider" required placeholder="openai" className="h-9 text-[13px]" />
-            </Field>
-            <Field label={t['agents.field.model']}>
-              <Input name="model" required placeholder="gpt-4o" className="h-9 text-[13px]" />
-            </Field>
-          </div>
-          <p className="text-[11px] text-[var(--color-tertiary)]">{t['agents.field.modelHint']}</p>
-
-          <div className="grid grid-cols-3 gap-3">
-            <Field label={t['agents.field.reasoning']}>
-              <select
-                name="reasoningEffort"
-                defaultValue="medium"
-                className="h-9 w-full rounded-[6px] border border-[var(--color-border-subtle)] bg-[var(--color-surface-panel)] px-2.5 text-[12px] text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-              >
-                <option value="low">low</option>
-                <option value="medium">medium</option>
-                <option value="high">high</option>
-              </select>
-            </Field>
-            <Field label={t['agents.field.runtime']}>
-              <Input
-                name="maxRuntimeSeconds"
-                type="number"
-                min={1}
-                max={86400}
-                defaultValue={14400}
-                className="h-9 text-[13px]"
-              />
-            </Field>
-            <Field label={t['agents.field.attempts']}>
-              <Input name="maxAttempts" type="number" min={1} max={10} defaultValue={3} className="h-9 text-[13px]" />
-            </Field>
-          </div>
-
-          <Field label={t['agents.field.retry']}>
-            <select
-              name="retryPolicy"
-              defaultValue="transient_only"
-              className="h-8 w-full rounded-[6px] border border-[var(--color-border-subtle)] bg-[var(--color-surface-panel)] px-2.5 text-[12px] text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-            >
-              <option value="never">never</option>
-              <option value="transient_only">transient_only</option>
-              <option value="always">always</option>
-            </select>
-          </Field>
-
-          <Field label={t['agents.field.tools']}>
-            <Input name="tools" placeholder="git, bash" className="h-9 text-[13px]" />
-          </Field>
-          <p className="text-[11px] text-[var(--color-tertiary)]">{t['agents.field.toolsHint']}</p>
-
-          <Field label={t['agents.field.skills']}>
-            <Input name="skills" placeholder="code-review" className="h-9 text-[13px]" />
-          </Field>
-
-          {state.error ? (
-            <p className="text-[12px] text-[var(--color-danger)]">{`${t['agents.create.failed']}: ${state.error}`}</p>
+              {t['agents.key.open']}
+            </button>
           ) : null}
         </form>
-
-        <div className="mt-5 flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] pt-4">
-          <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-            {t['action.cancel']}
-          </Button>
-          <Button type="submit" form="create-agent-form" variant="primary" size="sm" disabled={isPending}>
-            {isPending ? t['agents.create.pending'] : t['agents.create.submit']}
-          </Button>
-        </div>
       </Modal>
+
+      <AgentProviderKeyPanel
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        agent={
+          created
+            ? {
+                id: created.id,
+                name: created.name,
+                provider,
+                model,
+                has_provider_key: hasKey,
+              }
+            : undefined
+        }
+        onSaved={(next) => {
+          setHasKey(next)
+          setError(null)
+        }}
+      />
     </>
   )
-}
-
-/** Splits a comma-separated input into trimmed, non-empty entries. */
-function splitList(raw: FormDataEntryValue | null): string[] {
-  return String(raw ?? '')
-    .split(',')
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0)
 }

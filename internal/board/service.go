@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"unicode"
 
 	"agentdeck/internal/pricing"
+	"agentdeck/internal/provider"
 )
 
 // Domain errors. Handlers map these to stable HTTP codes; the same failure must
@@ -54,6 +56,9 @@ var (
 	// own sentinel so the handler answers 400 with the rule named, instead of
 	// letting Postgres report it as a CHECK violation and a 500.
 	ErrAgentBaseURLMismatch = errors.New("base_url is required exactly when provider is 'openai_compatible'")
+	// ErrBaseURLNotReachable is US-AD106 AC3: the BYO endpoint is not one this
+	// deployment will call — wrong scheme, or an address the SSRF guard refuses.
+	ErrBaseURLNotReachable = errors.New("base_url is not a reachable provider endpoint")
 	// ErrArchiveRequiresAdmin is US-AD73 AC4. It is checked in the handler
 	// rather than at the route because PATCH /agents/{id} carries two floors:
 	// Member for the field update (US-AD96) and owner/admin for retiring the
@@ -65,6 +70,9 @@ var (
 	// deliberately not ErrInvalidInput: the operator's fix is "pick a provider
 	// this deployment supports", not "your payload is malformed".
 	ErrUnknownProvider = errors.New("unknown provider")
+	// ErrUnknownModel is US-AD67 AC2: the model resolves to no price at all, so
+	// the agent could never be costed or claimed.
+	ErrUnknownModel = errors.New("unknown model")
 	// ErrCredentialKeyUnavailable is returned when AGENTDECK_MASTER_KEY is
 	// missing or malformed. It must never fall back to storing the key in the
 	// clear — an unavailable master key is a 500 that stores nothing, which is
@@ -359,6 +367,9 @@ func (s *Service) CreateAgent(ctx context.Context, a Agent) (Agent, error) {
 	if err := validateAgent(a); err != nil {
 		return Agent{}, err
 	}
+	if err := validateBaseURL(ctx, a); err != nil {
+		return Agent{}, err
+	}
 	if a.ID == "" {
 		a.ID = Must()
 	}
@@ -401,6 +412,27 @@ func validateAgent(a Agent) error {
 	if (a.Provider == ProviderOpenAICompatible) != (a.BaseURL != "") {
 		return ErrAgentBaseURLMismatch
 	}
+	// US-AD67 AC1/AC2: an agent must be registerable against a provider and a
+	// model this deployment can actually price.
+	//
+	// Provider: ValidateProvider reads the price table, so the rule cannot drift
+	// from the catalog the way a hand-written allowlist would.
+	//
+	// Model: the AC says a combination absent from the price table is a 400.
+	// Read literally that would also reject `openai_compatible`, whose model
+	// list comes from the operator's own endpoint (US-AD106 AC2) and is
+	// therefore never in our catalog — enforcing it there would make BYO
+	// impossible while US-AD106 is a Must in the same milestone. So AC2 applies
+	// to the built-in providers only, and "known" means the name resolves to
+	// something priced: an exact entry OR a pattern. `unpriced` is the 400.
+	if err := ValidateProvider(a.Provider); err != nil {
+		return err
+	}
+	if a.Provider != ProviderOpenAICompatible {
+		if pricing.Resolve(a.Model, nil).Source == pricing.SourceUnpriced {
+			return fmt.Errorf("%w: model %q is in no price table", ErrUnknownModel, a.Model)
+		}
+	}
 	return nil
 }
 
@@ -442,7 +474,65 @@ func (s *Service) UpdateAgent(ctx context.Context, a Agent) (Agent, error) {
 	if err := validateAgent(a); err != nil {
 		return Agent{}, err
 	}
+	if err := validateBaseURL(ctx, a); err != nil {
+		return Agent{}, err
+	}
 	return s.repo.UpdateAgent(ctx, a)
+}
+
+// validateBaseURL runs the SSRF guard on a BYO endpoint before it is stored.
+//
+// Nothing used to check this on the write path: the only caller of the guard was
+// `POST /agents/{id}/validate`, so an arbitrary string could be saved as
+// `base_url` and only fail later, at handshake time, as a 502. It belongs here
+// because the operator cannot fix an address that the API already accepted.
+//
+// The rule itself lives in internal/provider — one table, one implementation,
+// so the write path and the handshake path cannot disagree about what is
+// reachable. `openai_compatible` is the only provider that carries a base_url
+// (`agents_base_url_chk`), so there is nothing to check otherwise.
+func validateBaseURL(ctx context.Context, a Agent) error {
+	if a.Provider != ProviderOpenAICompatible || a.BaseURL == "" {
+		return nil
+	}
+	// `ValidateAddressOnly`, not `ValidateOperatorBaseURL`: this runs on the write
+	// path, and the operator validator also *resolves* the host to prove it is
+	// not loopback. Resolving here made registering an agent depend on live DNS —
+	// a save would fail for a host that is down, behind a VPN, or not deployed
+	// yet, which is the normal state while the operator is still filling the form
+	// in.
+	//
+	// The write path's job is to reject an *address* (metadata endpoint, private
+	// range, loopback spelling, embedded credentials), not to prove liveness.
+	// Liveness is what `POST /agents/{id}/validate` is for, and the operator
+	// presses that button deliberately. A hostname that resolves to a blocked
+	// address is still caught by the full validator on every path that connects.
+	//
+	// The localhost allowance is applied as a pre-check rather than by calling
+	// the operator validator: `IsLocalProviderHost` is the same predicate that
+	// validator uses, so the two cannot disagree about which hosts are allowed,
+	// but no DNS lookup happens for them.
+	if _, err := provider.ValidateAddressOnly(a.BaseURL); err == nil {
+		return nil
+	}
+	if isOperatorLocalBaseURL(a.BaseURL) {
+		return nil
+	}
+	return fmt.Errorf("%w: base_url is not a reachable provider endpoint", ErrBaseURLNotReachable)
+}
+
+// isOperatorLocalBaseURL reports whether the URL points at one of the two
+// loopback spellings an operator may run a provider on (DECISIONS 6A.F).
+// Text-only: no DNS, no dial.
+func isOperatorLocalBaseURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	return provider.IsLocalProviderHost(u.Hostname())
 }
 
 // ArchiveAgent retires an agent without deleting it (US-AD73). The running-task

@@ -219,6 +219,53 @@ export interface Dictionary {
   'agents.create.submit': string
   'agents.create.pending': string
   'agents.create.failed': string
+  // Register modal sections (26-agent-form, US-AD96).
+  'agents.create.section.identity': string
+  'agents.create.section.provider': string
+  'agents.create.section.credential': string
+  'agents.create.section.runtime': string
+  'agents.create.required': string
+  'agents.create.optional': string
+  'agents.create.fromEndpoint': string
+  'agents.create.fetchModels': string
+  'agents.create.fetching': string
+  'agents.create.fetchOk': string
+  'agents.create.fetchNeedsBase': string
+  'agents.create.adminOnly': string
+  'agents.create.memberHidden': string
+  'agents.create.credentialRestricted': string
+  'agents.create.modelPlaceholder': string
+  'agents.create.modelNotInCatalog': string
+  'agents.create.catalogLoading': string
+  // The write-only credential field (US-AD96 AC2/AC4/AC5).
+  'agents.cred.field': string
+  'agents.cred.fieldHint': string
+  'agents.cred.stored': string
+  'agents.cred.missing': string
+  'agents.cred.masked': string
+  'agents.cred.optional': string
+  'agents.cred.test': string
+  'agents.cred.testing': string
+  'agents.cred.testOk': string
+  'agents.cred.testRefused': string
+  'agents.cred.testFailed': string
+  'agents.cred.testNeedsSave': string
+  // The 420px credential panel (27-agent-provider-key, US-AD86).
+  'agents.key.title': string
+  'agents.key.newAgent': string
+  'agents.key.newAgentHint': string
+  'agents.key.target': string
+  'agents.key.provider': string
+  'agents.key.unsaved': string
+  'agents.key.save': string
+  'agents.key.saving': string
+  'agents.key.saved': string
+  'agents.key.failed': string
+  'agents.key.revoke': string
+  'agents.key.revoking': string
+  'agents.key.open': string
+  'agents.key.encryption': string
+  'agents.key.empty': string
   'agents.field.provider': string
   'agents.field.model': string
   'agents.field.modelHint': string
@@ -531,13 +578,13 @@ const en: Dictionary = {
   'agents.title': 'Agent Registry',
   'agents.new': 'Register agent',
   'agents.search': 'Search agent, model, or skill...',
-  'agents.col.agent': 'Agent / ID',
+  'agents.col.agent': 'Agent',
   'agents.col.provider': 'Provider',
   'agents.col.model': 'Model',
   'agents.col.reasoning': 'Reasoning',
-  'agents.col.status': 'Fleet status',
-  'agents.col.runtime': 'Runtime & retry',
-  'agents.col.tools': 'Tools / skills',
+  'agents.col.status': 'Status',
+  'agents.col.runtime': 'Runtime',
+  'agents.col.tools': 'Tools',
   'agents.col.actions': 'Actions',
   'agents.count': 'agents registered',
   'agents.empty': 'No agents in this project',
@@ -549,6 +596,55 @@ const en: Dictionary = {
   'agents.create.submit': 'Save',
   'agents.create.pending': 'Saving…',
   'agents.create.failed': 'The agent was not registered',
+  'agents.create.section.identity': 'Agent identity',
+  'agents.create.section.provider': 'Provider & model',
+  'agents.create.section.credential': 'Provider credential',
+  'agents.create.section.runtime': 'Runtime & access',
+  'agents.create.required': 'Required',
+  'agents.create.optional': 'Optional',
+  'agents.create.fromEndpoint': 'From your endpoint',
+  'agents.create.fetchModels': 'Fetch models',
+  'agents.create.fetching': 'Fetching…',
+  'agents.create.fetchOk': 'models found at that endpoint',
+  'agents.create.fetchNeedsBase': 'Fill in the endpoint and the API key first.',
+  'agents.create.adminOnly': 'Owner and admin',
+  'agents.create.memberHidden': 'Hidden for your role',
+  'agents.create.credentialRestricted':
+    'Only the workspace owner and admins can set a provider credential. The agent is registered either way and stays unconfigured until one is added.',
+  'agents.create.modelPlaceholder': 'model name at your endpoint',
+  'agents.create.modelNotInCatalog':
+    'That model is not in the pricing catalog, so its cost could not be estimated. Pick one from the list, or switch the provider to a custom endpoint.',
+  'agents.create.catalogLoading': 'The model list is still loading. Try again in a moment.',
+  'agents.cred.field': 'Provider API key',
+  'agents.cred.fieldHint':
+    'Write-only: the key is encrypted before it is stored and no endpoint ever returns it. Leaving it empty registers the agent without a credential — it is then not ready to take work.',
+  'agents.cred.stored': 'CREDENTIAL STORED',
+  'agents.cred.missing': 'NO CREDENTIAL',
+  'agents.cred.masked': 'masked',
+  'agents.cred.optional': 'Optional. Rotating replaces the stored key; no history is kept.',
+  'agents.cred.test': 'Test credential',
+  'agents.cred.testing': 'Testing…',
+  'agents.cred.testOk': 'The provider accepted the credential.',
+  'agents.cred.testRefused': 'The provider refused the credential.',
+  'agents.cred.testFailed': 'The credential could not be tested',
+  'agents.cred.testNeedsSave': 'Save the agent first — the test calls the provider through it.',
+  'agents.key.title': 'Provider credential',
+  'agents.key.newAgent': 'New agent',
+  'agents.key.newAgentHint':
+    'This agent has no id yet, so there is nowhere to store a key. Fill in the credential in the form instead — it is stored as part of the save.',
+  'agents.key.target': 'Agent',
+  'agents.key.provider': 'Provider',
+  'agents.key.unsaved': 'not saved yet',
+  'agents.key.save': 'Encrypt & save',
+  'agents.key.saving': 'Saving…',
+  'agents.key.saved': 'Credential saved.',
+  'agents.key.failed': 'The credential was not saved',
+  'agents.key.revoke': 'Revoke',
+  'agents.key.revoking': 'Revoking…',
+  'agents.key.open': 'Open the credential panel',
+  'agents.key.encryption':
+    'The key is sealed with AES-256-GCM before it reaches the database. The plaintext is never logged and never returned by a read.',
+  'agents.key.empty': 'Type the credential first.',
   'agents.field.provider': 'Provider',
   'agents.field.model': 'Model',
   'agents.field.modelHint': 'Stored verbatim: this string is the pricing key.',
@@ -867,13 +963,13 @@ const id: Dictionary = {
   'agents.title': 'Agent Registry',
   'agents.new': 'Daftarkan agent',
   'agents.search': 'Cari agent, model, atau skill...',
-  'agents.col.agent': 'Agent / ID',
+  'agents.col.agent': 'Agent',
   'agents.col.provider': 'Provider',
   'agents.col.model': 'Model',
   'agents.col.reasoning': 'Reasoning',
-  'agents.col.status': 'Status fleet',
-  'agents.col.runtime': 'Runtime & retry',
-  'agents.col.tools': 'Tools / skill',
+  'agents.col.status': 'Status',
+  'agents.col.runtime': 'Runtime',
+  'agents.col.tools': 'Tools',
   'agents.col.actions': 'Aksi',
   'agents.count': 'agent terdaftar',
   'agents.empty': 'Belum ada agent di project ini',
@@ -885,6 +981,55 @@ const id: Dictionary = {
   'agents.create.submit': 'Simpan',
   'agents.create.pending': 'Menyimpan…',
   'agents.create.failed': 'Agent tidak terdaftar',
+  'agents.create.section.identity': 'Identitas agent',
+  'agents.create.section.provider': 'Provider & model',
+  'agents.create.section.credential': 'Kredensial provider',
+  'agents.create.section.runtime': 'Runtime & akses',
+  'agents.create.required': 'Wajib diisi',
+  'agents.create.optional': 'Opsional',
+  'agents.create.fromEndpoint': 'Dari endpoint Anda',
+  'agents.create.fetchModels': 'Tarik daftar model',
+  'agents.create.fetching': 'Menarik…',
+  'agents.create.fetchOk': 'model ditemukan di endpoint itu',
+  'agents.create.fetchNeedsBase': 'Isi endpoint dan API key dulu.',
+  'agents.create.adminOnly': 'Owner dan admin',
+  'agents.create.memberHidden': 'Tidak ditampilkan untuk peran Anda',
+  'agents.create.credentialRestricted':
+    'Hanya owner dan admin ruang kerja yang bisa menyimpan kredensial provider. Agent tetap terdaftar, dan statusnya belum terkonfigurasi sampai kredensial ditambahkan.',
+  'agents.create.modelPlaceholder': 'nama model di endpoint Anda',
+  'agents.create.modelNotInCatalog':
+    'Model itu tidak ada di katalog harga, jadi biayanya tidak bisa diestimasi. Pilih dari daftar, atau ganti provider ke endpoint sendiri.',
+  'agents.create.catalogLoading': 'Daftar model masih dimuat. Coba lagi sebentar lagi.',
+  'agents.cred.field': 'API key provider',
+  'agents.cred.fieldHint':
+    'Tulis-saja: kunci dienkripsi sebelum disimpan dan tidak ada endpoint yang mengembalikannya. Kalau dibiarkan kosong, agent terdaftar tanpa kredensial — statusnya belum siap menerima task.',
+  'agents.cred.stored': 'KREDENSIAL TERSIMPAN',
+  'agents.cred.missing': 'BELUM ADA KREDENSIAL',
+  'agents.cred.masked': 'ter-mask',
+  'agents.cred.optional': 'Opsional. Mengganti kunci menimpa yang lama; tidak ada riwayat yang disimpan.',
+  'agents.cred.test': 'Uji kredensial',
+  'agents.cred.testing': 'Menguji…',
+  'agents.cred.testOk': 'Provider menerima kredensial ini.',
+  'agents.cred.testRefused': 'Provider menolak kredensial ini.',
+  'agents.cred.testFailed': 'Kredensial tidak bisa diuji',
+  'agents.cred.testNeedsSave': 'Simpan agent dulu — uji ini memanggil provider lewat agent tersebut.',
+  'agents.key.title': 'Kredensial provider',
+  'agents.key.newAgent': 'Agent baru',
+  'agents.key.newAgentHint':
+    'Agent ini belum punya id, jadi belum ada tempat untuk menyimpan kunci. Isi kredensialnya di formulir — kunci disimpan bersamaan dengan penyimpanan agent.',
+  'agents.key.target': 'Agent',
+  'agents.key.provider': 'Provider',
+  'agents.key.unsaved': 'belum tersimpan',
+  'agents.key.save': 'Enkripsi & simpan',
+  'agents.key.saving': 'Menyimpan…',
+  'agents.key.saved': 'Kredensial tersimpan.',
+  'agents.key.failed': 'Kredensial tidak tersimpan',
+  'agents.key.revoke': 'Cabut',
+  'agents.key.revoking': 'Mencabut…',
+  'agents.key.open': 'Buka panel kredensial',
+  'agents.key.encryption':
+    'Kunci disegel dengan AES-256-GCM sebelum masuk database. Plaintext-nya tidak pernah dicatat di log dan tidak pernah dikembalikan oleh pembacaan mana pun.',
+  'agents.key.empty': 'Isi kredensialnya dulu.',
   'agents.field.provider': 'Provider',
   'agents.field.model': 'Model',
   'agents.field.modelHint': 'Disimpan apa adanya: string ini jadi kunci harga.',

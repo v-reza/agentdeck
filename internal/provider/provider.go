@@ -59,15 +59,107 @@ func mustCIDR(s string) *net.IPNet {
 	return n
 }
 
+// localHostAllowlist is the set of hosts an operator may point a BYO provider
+// at even though they are loopback.
+//
+// The PRD's US-AD106 AC3 rejects loopback outright. That rule was written for a
+// hosted deployment, where the only loopback that exists is ours; it breaks the
+// self-hosted case the product is actually for, where the operator's own
+// inference server (Ollama, LM Studio, a local gateway) runs on the same
+// machine and has no other address. The operator's latest decision is that
+// these two hosts are allowed, and only these two.
+//
+// Matching is on the literal host string, never on the parsed address. That is
+// what keeps the relaxation narrow: `2130706433`, `0x7f000001`, `0177.0.0.1`
+// and `[::1]` all mean loopback but are not on this list, so they stay refused.
+// An operator who means loopback writes `localhost` or `127.0.0.1`.
+var localHostAllowlist = map[string]bool{
+	"localhost": true,
+	"127.0.0.1": true,
+}
+
+// IsLocalProviderHost reports whether host is one of the allowed loopback names.
+func IsLocalProviderHost(host string) bool {
+	return localHostAllowlist[strings.ToLower(host)]
+}
+
+// ValidateOperatorBaseURL validates a base URL the operator typed, allowing the
+// two loopback hosts above — and, for those two only, plain `http`.
+//
+// `http` is permitted there and nowhere else because a local inference server
+// commonly serves plain HTTP, and traffic to loopback never leaves the machine,
+// so there is no network to eavesdrop on. A public host keeps the https-only
+// rule.
+//
+// This is deliberately a different function from ValidateURL rather than a flag
+// on it: ValidateURL also guards redirects, and a redirect from a public host to
+// loopback is the classic SSRF pivot. Relaxing one must not relax the other.
+func ValidateOperatorBaseURL(ctx context.Context, raw string) (*url.URL, error) {
+	u, err := parseBaseURL(raw)
+	if err != nil {
+		return nil, err
+	}
+	host := strings.ToLower(u.Hostname())
+	if IsLocalProviderHost(host) {
+		if u.Scheme != "https" && u.Scheme != "http" {
+			return nil, fmt.Errorf("provider: base URL scheme %q is not allowed, only https or http", u.Scheme)
+		}
+		return u, nil
+	}
+	return finishValidateURL(ctx, u)
+}
+
 // ValidateBaseURL rejects a base URL that could be used for SSRF and returns
 // the parsed URL on success. It resolves DNS and inspects every answer.
 func ValidateBaseURL(raw string) (*url.URL, error) {
 	return ValidateURL(context.Background(), raw)
 }
 
+// ValidateAddressOnly applies every check that needs only the URL text plus a
+// literal-IP test, and deliberately does NOT resolve DNS.
+//
+// The write path needs this. Resolving on save makes registering an agent
+// depend on live DNS: a host that is down, behind a VPN, or not deployed yet
+// would be refused, and that is the ordinary state of a form the operator is
+// still filling in. It also makes the check depend on whatever the host's
+// resolver returns at that instant, so the same body can succeed and fail on
+// consecutive attempts.
+//
+// What is lost: a hostname that *resolves* to a blocked address (DNS rebinding,
+// `evil.example.com → 127.0.0.1`). That case is still caught by
+// `ValidateURL` on every path that actually connects, which is where it
+// matters. A name is not an address until something dials it.
+func ValidateAddressOnly(raw string) (*url.URL, error) {
+	u, err := parseBaseURL(raw)
+	if err != nil {
+		return nil, err
+	}
+	if u.Scheme != "https" {
+		return nil, fmt.Errorf("provider: base URL scheme %q is not allowed, only https", u.Scheme)
+	}
+	host := strings.ToLower(u.Hostname())
+	// A literal address is decidable from the text alone, so it is still checked
+	// here — that is the metadata endpoint and the private-range case.
+	if ip := parseIPLiteral(host); ip != nil {
+		if err := checkIP(ip); err != nil {
+			return nil, fmt.Errorf("provider: base URL host %q: %w", host, err)
+		}
+	}
+	return u, nil
+}
+
 // ValidateURL is ValidateBaseURL with a caller-supplied context, so a request
 // path can bound the DNS lookup. Redirects are validated through this too.
 func ValidateURL(ctx context.Context, raw string) (*url.URL, error) {
+	u, err := parseBaseURL(raw)
+	if err != nil {
+		return nil, err
+	}
+	return finishValidateURL(ctx, u)
+}
+
+// parseBaseURL applies the checks that need only the URL text.
+func parseBaseURL(raw string) (*url.URL, error) {
 	if strings.TrimSpace(raw) == "" {
 		return nil, errors.New("provider: base URL is required")
 	}
@@ -77,9 +169,6 @@ func ValidateURL(ctx context.Context, raw string) (*url.URL, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return nil, fmt.Errorf("provider: invalid base URL: %w", err)
-	}
-	if u.Scheme != "https" {
-		return nil, fmt.Errorf("provider: base URL scheme %q is not allowed, only https", u.Scheme)
 	}
 	if u.User != nil {
 		return nil, errors.New("provider: base URL must not embed credentials")
@@ -94,6 +183,16 @@ func ValidateURL(ctx context.Context, raw string) (*url.URL, error) {
 			return nil, fmt.Errorf("provider: base URL has an invalid port %q", port)
 		}
 	}
+	return u, nil
+}
+
+// finishValidateURL rejects any address that is not publicly routable, including
+// every loopback spelling. It enforces the https-only rule too.
+func finishValidateURL(ctx context.Context, u *url.URL) (*url.URL, error) {
+	if u.Scheme != "https" {
+		return nil, fmt.Errorf("provider: base URL scheme %q is not allowed, only https", u.Scheme)
+	}
+	host := strings.ToLower(u.Hostname())
 
 	if ip := parseIPLiteral(host); ip != nil {
 		if err := checkIP(ip); err != nil {
@@ -251,7 +350,7 @@ func NewClient() *http.Client {
 // refuses redirects to private addresses (NewClient); a nil client gets
 // NewClient.
 func ListModels(ctx context.Context, client *http.Client, baseURL, apiKey string) ([]string, error) {
-	u, err := ValidateURL(ctx, baseURL)
+	u, err := ValidateOperatorBaseURL(ctx, baseURL)
 	if err != nil {
 		return nil, redact(err, apiKey)
 	}

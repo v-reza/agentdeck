@@ -248,9 +248,14 @@ func TestCreateAgentAC3SameNameDifferentProject(t *testing.T) {
 // TestCreateAgentAC5NoCredentialRequired is the B2C path: name, provider and
 // model are the only required fields, and the omitted ones must land on the
 // DDL's defaults rather than on Go zero values.
+//
+// The provider/model pair is a real catalog entry on purpose. It used to be
+// `local`/`llama3`, which is in no price table — harmless while nothing checked,
+// but US-AD67 AC1/AC2 now rejects it, and this test is about the *defaults* of
+// the omitted fields, not about how far the catalog reaches.
 func TestCreateAgentAC5NoCredentialRequired(t *testing.T) {
 	f := newAgentFixture(t)
-	w := f.postAgent(t, "bella", f.scenario.orgB, "proj-b", `{"name":"agent-solo","provider":"local","model":"llama3"}`)
+	w := f.postAgent(t, "bella", f.scenario.orgB, "proj-b", `{"name":"agent-solo","provider":"openai","model":"gpt-4o"}`)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("AC5: minimal agent want 201, got %d — %s", w.Code, w.Body.String())
 	}

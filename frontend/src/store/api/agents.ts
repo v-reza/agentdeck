@@ -12,6 +12,12 @@ export interface CreateAgentArgs {
   maxAttempts?: number
   tools?: string[]
   skills?: string[]
+  /**
+   * The BYO endpoint (US-AD106 AC1). Required whenever `provider` is
+   * `openai_compatible` — the server answers 400 without it, because
+   * `agents_base_url_chk` makes the two an equivalence.
+   */
+  baseURL?: string
 }
 
 /** The complete mutable agent profile accepted by PATCH /agents/{id}. */
@@ -74,6 +80,52 @@ export interface AgentSkill {
   updated_at: string
 }
 
+/**
+ * The three credential endpoints of ARCHITECTURE 6.2.7 (US-AD86) were absent
+ * from this file: the backend landed them in `cmd/api/agents_provider_key.go`
+ * and no client ever called them. They are added here rather than fetched
+ * directly because `verify_web.py` fails any `fetch(` outside `store/api/`.
+ *
+ * `masked_key` is derived from the plaintext in that one request and never
+ * stored, so it is only present on the PUT answer — a later GET cannot
+ * reproduce it. `has_provider_key` is the generated column (DECISIONS 6A.I).
+ */
+export interface ProviderKeyArgs {
+  id: string
+  apiKey: string
+  /** Applied only when the agent does not carry a provider yet (test-before-save). */
+  provider?: string
+  model?: string
+  baseUrl?: string
+}
+
+export interface ProviderKeyResult {
+  id: string
+  has_provider_key: boolean
+  masked_key?: string
+}
+
+/** The handshake answer: `ok: false` is a successful test with a negative result. */
+export interface ValidateResult {
+  ok: boolean
+  detail: string
+  models?: string[]
+}
+
+/**
+ * The stateless probe (ARCHITECTURE 6.2.7, US-AD106 AC2). The register form has
+ * a provider and a pasted key but no agent id yet, so the key travels with the
+ * request instead of being read back from the database. Nothing is stored.
+ */
+export interface ProbeModelsArgs {
+  baseUrl: string
+  apiKey: string
+}
+
+export interface ProbeModelsResult {
+  models: string[]
+}
+
 export const agentsApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     listAgents: build.query<Agent[], string>({
@@ -97,6 +149,20 @@ export const agentsApi = baseApi.injectEndpoints({
       providesTags: [{ type: 'Agent', id: 'CATALOG' }],
     }),
 
+    /**
+     * Stateless probe. Deliberately a mutation, not a query: it carries a raw
+     * credential in the body, and RTK Query caches query results — a cached
+     * response would leave a provider key sitting in the store after the form
+     * closed. A mutation is never cached, so the key lives for one request.
+     */
+    probeProviderModels: build.mutation<ProbeModelsResult, ProbeModelsArgs>({
+      query: ({ baseUrl, apiKey }) => ({
+        url: 'provider/models',
+        method: 'POST',
+        body: { base_url: baseUrl, api_key: apiKey },
+      }),
+    }),
+
     listAgentSkills: build.query<AgentSkill[], void>({
       query: () => 'agent-skills',
       providesTags: [{ type: 'Agent', id: 'SKILLS' }],
@@ -116,6 +182,12 @@ export const agentsApi = baseApi.injectEndpoints({
           max_attempts: body.maxAttempts,
           skills: body.skills,
           tools: body.tools,
+          // This list is spelled out rather than spread on purpose — the server
+          // rejects unknown keys. It drifted once: `base_url` was omitted here
+          // and again in the form's submit, so a BYO create sent
+          // `provider: openai_compatible` with no endpoint and the server
+          // answered 400. `src/store/api/agents.test.ts` pins the list.
+          base_url: body.baseURL,
         },
       }),
       invalidatesTags: (_r, _e, { projectID }) => [{ type: 'Agent', id: `PROJECT-${projectID}` }],
@@ -129,6 +201,41 @@ export const agentsApi = baseApi.injectEndpoints({
     archiveAgent: build.mutation<Agent, ArchiveAgentArgs>({
       query: ({ id, archived }) => ({ url: `agents/${id}`, method: 'PATCH', body: { archived } }),
       invalidatesTags: (_r, _e, { id }) => ['Agent', { type: 'Agent', id }],
+    }),
+
+    /**
+     * US-AD86 AC1/AC2/AC4 — store or rotate the credential. The answer reports
+     * presence and a masked shape, never the value: `masked_key` is derived from
+     * the plaintext inside that one request and discarded, so it cannot be
+     * reproduced by a later read.
+     *
+     * The `Agent` tag is invalidated so `has_provider_key` on the registry row
+     * and on the detail page refetches instead of showing a stale badge.
+     */
+    putProviderKey: build.mutation<ProviderKeyResult, ProviderKeyArgs>({
+      query: ({ id, apiKey, provider, model, baseUrl }) => ({
+        url: `agents/${id}/provider-key`,
+        method: 'PUT',
+        body: { api_key: apiKey, provider, model, base_url: baseUrl },
+      }),
+      invalidatesTags: (_r, _e, { id }) => ['Agent', { type: 'Agent', id }],
+    }),
+
+    /** US-AD86 AC2 — revoke. Idempotent: no key is not an error. */
+    deleteProviderKey: build.mutation<ProviderKeyResult, string>({
+      query: (id) => ({ url: `agents/${id}/provider-key`, method: 'DELETE' }),
+      invalidatesTags: (_r, _e, id) => ['Agent', { type: 'Agent', id }],
+    }),
+
+    /**
+     * The handshake. A refused key answers 200 with `ok: false` — "the provider
+     * said 401" is a successful test with a negative result — so a caller must
+     * read `ok`, not the HTTP status. A 4xx/5xx means the test could not run at
+     * all, which is why the mutation is not tagged for invalidation: it changes
+     * nothing.
+     */
+    validateAgent: build.mutation<ValidateResult, string>({
+      query: (id) => ({ url: `agents/${id}/validate`, method: 'POST' }),
     }),
 
     deleteAgent: build.mutation<void, string>({
@@ -146,5 +253,9 @@ export const {
   useCreateAgentMutation,
   useUpdateAgentMutation,
   useArchiveAgentMutation,
+  usePutProviderKeyMutation,
+  useDeleteProviderKeyMutation,
+  useValidateAgentMutation,
   useDeleteAgentMutation,
+  useProbeProviderModelsMutation,
 } = agentsApi

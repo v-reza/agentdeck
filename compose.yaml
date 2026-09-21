@@ -48,6 +48,14 @@ services:
       # startup migrations (ARCHITECTURE 11.2 least privilege).
       DATABASE_URL: postgres://${POSTGRES_USER:-agentdeck}:${POSTGRES_PASSWORD:-agentdeck_local_dev}@db:5432/${POSTGRES_DB:-agentdeck}?sslmode=disable
       MIGRATION_DATABASE_URL: postgres://${POSTGRES_USER:-agentdeck}:${POSTGRES_PASSWORD:-agentdeck_local_dev}@db:5432/${POSTGRES_DB:-agentdeck}?sslmode=disable
+      # US-AD86: seals per-agent provider credentials. Deliberately not required
+      # to boot — only the three credential endpoints read it, and refusing to
+      # start would take the product down over a feature nobody has used yet.
+      # Unset, every credential write answers "provider credential encryption is
+      # not configured". Generate once and keep it: rotating it makes every
+      # stored key unreadable.
+      #   openssl rand -hex 32
+      AGENTDECK_MASTER_KEY: ${AGENTDECK_MASTER_KEY:-}
     ports:
       - '${API_PORT:-8080}:8080'
     depends_on:

@@ -237,9 +237,15 @@ WHERE org_id = $1 AND project_id = $2;
 
 -- Agents. The agent is the retry/limit source for every run it executes.
 -- name: CreateAgent :one
-INSERT INTO agents (id, org_id, project_id, name, provider, model, skills_json, tools_json,
-                    max_runtime_seconds, retry_policy, max_attempts)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+-- Every mutable column UpdateAgent writes is written here too. The two drifted
+-- once: `base_url` and `reasoning_effort` were bound only by UpdateAgent, so a
+-- BYO create (US-AD106 AC1) failed agents_base_url_chk as a 500 and a client's
+-- reasoning_effort was dropped in silence. internal/store/queries_columns_test.go
+-- is the guard that keeps the two lists in step.
+INSERT INTO agents (id, org_id, project_id, name, provider, model, reasoning_effort,
+                    skills_json, tools_json, max_runtime_seconds, retry_policy, max_attempts,
+                    base_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
           tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
           archived_at, created_at, has_provider_key;

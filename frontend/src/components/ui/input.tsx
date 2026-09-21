@@ -13,6 +13,9 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
       className={cn(
         'h-8 w-full rounded-[6px] border border-[var(--color-border-subtle)] bg-[var(--color-surface-panel)] px-2.5 text-[12px] text-[var(--color-primary)]',
         'placeholder:text-[var(--color-tertiary)] focus:border-[var(--color-accent)] focus:outline-none',
+        // Driven by the a11y attribute itself, so a field cannot be red without
+        // also announcing why, and every caller gets it without a prop.
+        'aria-invalid:border-[var(--color-danger)]',
         'disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}

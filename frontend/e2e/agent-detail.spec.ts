@@ -139,6 +139,11 @@ test.describe('agent detail (28-agent-detail)', () => {
   test('every rate carries the estimate wording', async ({ page }) => {
     await openDetail(page, orgID)
 
+    // The rates arrive from their own query, so they are not necessarily on
+    // screen the moment the status pill appears. Reading `innerText` once raced
+    // that query and passed only when the module happened to be warm; a
+    // web-first assertion retries instead of sampling once.
+    await expect(page.locator('#root')).toContainText(/\$[\d.,]+/)
     const body = await page.locator('#root').innerText()
     const rates = body.match(/\$[\d.,]+/g) ?? []
     expect(rates.length, 'the model has catalog rates to render').toBeGreaterThan(0)

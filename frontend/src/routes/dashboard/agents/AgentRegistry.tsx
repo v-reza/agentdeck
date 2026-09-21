@@ -8,6 +8,7 @@ import { describeError } from '@/hooks/use-action-form'
 import { useT } from '@/hooks/use-t'
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { Button } from '@/components/ui/button'
+import { Combobox } from '@/components/ui/combobox'
 import { EmptyState, Panel } from '@/components/ui/card'
 import { Modal } from '@/components/ui/modal'
 import { cn } from '@/lib/cn'
@@ -102,18 +103,13 @@ export function AgentRegistry() {
             />
 
             {(projects ?? []).length > 1 ? (
-              <select
+              <Combobox
                 value={activeProject ?? ''}
-                onChange={(event) => setProjectID(event.target.value)}
-                aria-label={t['boards.create.project']}
-                className="h-[30px] rounded-[6px] border border-[var(--color-border-subtle)] bg-[var(--color-surface-page)] px-2 text-[12px] text-[var(--color-primary)]"
-              >
-                {(projects ?? []).map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setProjectID}
+                label={t['boards.create.project']}
+                options={(projects ?? []).map((project) => ({ value: project.id, label: project.name }))}
+                className="w-[180px]"
+              />
             ) : null}
             <CreateAgentForm projects={projects ?? []} activeProjectID={activeProject ?? ''} />
           </div>
@@ -143,17 +139,36 @@ export function AgentRegistry() {
         ) : (
           <Panel className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] border-collapse text-left">
+              <table className="w-full min-w-[858px] table-fixed border-collapse text-left">
+                {/* Explicit widths, sized from the longest value each column has
+                    to hold rather than from the design's spacing. Auto layout
+                    ignores a `width` hint once the sum exceeds the table and
+                    redistributes by content instead — which left the agent
+                    column at 100px while a trailing spacer took 199. The total
+                    stays under the panel's ~874px so no horizontal scrollbar
+                    appears at the design's own breakpoint. `px-2` not `px-3`:
+                    eight columns of 24px padding is 64px this table cannot
+                    spare, and every value here is short. */}
+                <colgroup>
+                  <col className="w-[196px]" />
+                  <col className="w-[126px]" />
+                  <col className="w-[118px]" />
+                  <col className="w-[86px]" />
+                  <col className="w-[104px]" />
+                  <col className="w-[110px]" />
+                  <col className="w-[54px]" />
+                  {canDelete ? <col className="w-[66px]" /> : null}
+                </colgroup>
                 <thead>
                   <tr className="h-[32px] border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-sunken)] text-[11px] font-semibold uppercase tracking-wider text-[var(--color-tertiary)]">
-                    <th className="min-w-[190px] px-3">{t['agents.col.agent']}</th>
-                    <th className="w-[110px] px-3">{t['agents.col.provider']}</th>
-                    <th className="w-[150px] px-3">{t['agents.col.model']}</th>
-                    <th className="w-[120px] px-3">{t['agents.col.reasoning']}</th>
-                    <th className="w-[110px] px-3">{t['agents.col.status']}</th>
-                    <th className="w-[120px] px-3">{t['agents.col.runtime']}</th>
-                    <th className="w-[130px] px-3">{t['agents.col.tools']}</th>
-                    {canDelete ? <th className="w-[100px] px-3 text-right">{t['agents.col.actions']}</th> : null}
+                    <th className="px-2">{t['agents.col.agent']}</th>
+                    <th className="px-2">{t['agents.col.provider']}</th>
+                    <th className="px-2">{t['agents.col.model']}</th>
+                    <th className="px-2">{t['agents.col.reasoning']}</th>
+                    <th className="px-2">{t['agents.col.status']}</th>
+                    <th className="px-2">{t['agents.col.runtime']}</th>
+                    <th className="px-2">{t['agents.col.tools']}</th>
+                    {canDelete ? <th className="px-2 text-right">{t['agents.col.actions']}</th> : null}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border-subtle)] text-[12px]">
@@ -308,7 +323,7 @@ function AgentRow({ agent, canDelete, onDelete }: { agent: Agent; canDelete: boo
 
   return (
     <tr className="h-[28px] transition-colors hover:bg-[var(--color-surface-sunken)]">
-      <td className="px-3 py-2">
+      <td className="px-2 py-2">
         <div className="flex items-center gap-2">
           <div className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-surface-sunken)] font-mono text-[10px] font-bold text-[var(--color-accent)]">
             {agent.name.slice(0, 2).toLowerCase()}
@@ -326,14 +341,14 @@ function AgentRow({ agent, canDelete, onDelete }: { agent: Agent; canDelete: boo
           </div>
         </div>
       </td>
-      <td className="px-3 py-2 font-mono text-[11px] text-[var(--color-secondary)]">{agent.provider}</td>
-      <td className="px-3 py-2 font-mono text-[11px] font-medium text-[var(--color-primary)]">{agent.model}</td>
-      <td className="px-3 py-2 font-mono text-[11px] text-[var(--color-secondary)]">
+      <td className="px-2 py-2 font-mono text-[11px] text-[var(--color-secondary)]">{agent.provider}</td>
+      <td className="px-2 py-2 font-mono text-[11px] font-medium text-[var(--color-primary)]">{agent.model}</td>
+      <td className="px-2 py-2 font-mono text-[11px] text-[var(--color-secondary)]">
         <span className="rounded bg-[var(--color-surface-sunken)] px-1.5 py-0.5 text-[10px]">
           {agent.reasoning_effort}
         </span>
       </td>
-      <td className="px-3 py-2">
+      <td className="px-2 py-2">
         {agent.archived_at ? (
           <span className="inline-flex items-center gap-1 rounded-[4px] bg-[var(--color-surface-sunken)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--color-tertiary)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-status-archived)]" />
@@ -351,13 +366,13 @@ function AgentRow({ agent, canDelete, onDelete }: { agent: Agent; canDelete: boo
           </span>
         )}
       </td>
-      <td className="px-3 py-2 font-mono text-[10px] text-[var(--color-secondary)]">
+      <td className="px-2 py-2 font-mono text-[10px] text-[var(--color-secondary)]">
         <div>{agent.max_runtime_seconds.toLocaleString()}s max</div>
         <div className="text-[var(--color-quaternary)]">
           {agent.retry_policy} (x{agent.max_attempts})
         </div>
       </td>
-      <td className="px-3 py-2 font-mono text-[10px] text-[var(--color-secondary)]">
+      <td className="px-2 py-2 font-mono text-[10px] text-[var(--color-secondary)]">
         {tools.length === 0 ? (
           <span className="text-[var(--color-quaternary)]">—</span>
         ) : (
@@ -372,7 +387,7 @@ function AgentRow({ agent, canDelete, onDelete }: { agent: Agent; canDelete: boo
         )}
       </td>
       {canDelete ? (
-        <td className="px-3 py-2 text-right">
+        <td className="px-2 py-2 text-right">
           <Button variant="ghost" size="sm" onClick={onDelete} className="text-[var(--color-danger)]">
             {t['agents.delete']}
           </Button>

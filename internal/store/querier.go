@@ -32,6 +32,11 @@ type Querier interface {
 	// this returns zero (ARCHITECTURE 4e).
 	CountUnfinishedParents(ctx context.Context, childID string) (int32, error)
 	// Agents. The agent is the retry/limit source for every run it executes.
+	// Every mutable column UpdateAgent writes is written here too. The two drifted
+	// once: `base_url` and `reasoning_effort` were bound only by UpdateAgent, so a
+	// BYO create (US-AD106 AC1) failed agents_base_url_chk as a 500 and a client's
+	// reasoning_effort was dropped in silence. internal/store/queries_columns_test.go
+	// is the guard that keeps the two lists in step.
 	CreateAgent(ctx context.Context, arg CreateAgentParams) (CreateAgentRow, error)
 	// Agent skills (US-AD107). Skill is org-scoped data: users read and edit the
 	// markdown, agents only read it. Nothing here exposes a write path an agent
