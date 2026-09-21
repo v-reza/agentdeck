@@ -5,7 +5,7 @@ All notable changes to AgentDeck are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Versions below `1.0.0` are pre-release: the API may change between minor versions
-until the milestone plan in [docs/PLAN-M0-M4.md](docs/PLAN-M0-M4.md) completes.
+until the milestone plan in [archive/reports/PLAN-M0-M4.md](archive/reports/PLAN-M0-M4.md) completes.
 
 ## [0.2.0] - 2026-09-20
 

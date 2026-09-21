@@ -1,7 +1,7 @@
 # OVERNIGHT LOG — AgentDeck M0 → M4
 
 > Append-only. One block per run. Dibaca ulang di setiap run sebagai memori
-> lintas-sesi (brief: `docs/OVERNIGHT-BRIEF.md`).
+> lintas-sesi (brief: `archive/reports/OVERNIGHT-BRIEF.md`).
 
 ---
 
@@ -9,7 +9,7 @@
 
 **Story:** `US-AD89` — Profil akun sendiri (`15-profile`, Must, M0).
 
-**Keadaan awal run.** `docs/OVERNIGHT-LOG.md` belum ada (ini run pertama yang
+**Keadaan awal run.** `archive/reports/OVERNIGHT-LOG.md` belum ada (ini run pertama yang
 menulisnya). `tools/checklist_status.json` menandai US-AD89 `todo`; M0 lain
 sudah `pass` kecuali `US-AD92` (`defer`, keputusan user). Working tree berisi
 kerja M0 yang belum di-commit.

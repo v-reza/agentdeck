@@ -18,7 +18,7 @@ import (
 //	PATCH  /api/v1/agent-skills/{id}         Admin
 //	DELETE /api/v1/agent-skills/{id}         Admin
 //	GET    /api/v1/agent-skills/{id}/agents  Viewer   (added: the "dipakai oleh"
-//	                                                   list PLAN-WAVE2 7.1 needs)
+//	                                                   list ARCHITECTURE 6.2.9 + US-AD107 needs)
 //
 // Every mutating route is Admin. There is no route — and no handler function —
 // that accepts an agent identity: the only authentication on this surface is a
@@ -51,7 +51,7 @@ type skillResponse struct {
 	BodyMD   string `json:"body_md"`
 	Version  int    `json:"version"`
 	IsSystem bool   `json:"is_system"`
-	// UsedBy is the "dipakai N agent" counter of PLAN-WAVE2 7.1, present on
+	// UsedBy is the "dipakai N agent" counter of ARCHITECTURE 6.2.9 + US-AD107, present on
 	// every row of the list so the UI never has to ask per skill.
 	UsedBy    int    `json:"used_by"`
 	CreatedBy string `json:"created_by"`
@@ -193,7 +193,7 @@ func (a skillAPI) deleteSkill(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// GET /api/v1/agent-skills/{id}/agents — "dipakai oleh" (PLAN-WAVE2 7.1).
+// GET /api/v1/agent-skills/{id}/agents — "dipakai oleh" (ARCHITECTURE 6.2.9 + US-AD107).
 func (a skillAPI) listSkillAgents(w http.ResponseWriter, r *http.Request) {
 	orgCtx, err := a.context(r)
 	if err != nil {

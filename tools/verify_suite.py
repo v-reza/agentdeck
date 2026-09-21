@@ -284,6 +284,126 @@ def check_migrations():
         say("ok", f"MIGRASI: {len(columns)} kolom ALTER TABLE semua terdokumentasi")
 
 
+def check_structure():
+    """§18 menggambar struktur nyata, jadi gate harus membuktikannya.
+
+    Versi sebelumnya dari §18 menggambarkan layout rencana — `internal/api/`,
+    `internal/db/`, `internal/dispatcher/`, `tests/` — yang tidak pernah dibuat,
+    dan nol gate yang menangkapnya. 29 dari 31 nama file yang dikontrak tidak
+    ada, sementara 8 modul yang benar-benar ada tidak tercatat. Akibatnya dokumen
+    jadi jebakan: yang mengikutinya mencari direktori yang tidak ada, yang
+    mengabaikannya dianggap melanggar kontrak.
+
+    Dua arah diperiksa: yang disebut §18 harus ada, dan modul nyata di
+    `internal/` harus disebut. `frontend/` punya gate sendiri di `verify_web.py`
+    (§18.2) karena ceknya butuh resolusi path di dalam `frontend/src/`.
+    """
+    arch = read("ARCHITECTURE.md")
+    start = arch.find("## 18. Struktur Folder")
+    end = arch.find("### 18.2 Frontend")
+    if start < 0 or end < 0:
+        say("FAIL", "STRUCT: §18 atau §18.2 tidak ditemukan di ARCHITECTURE.md")
+        return
+    section = arch[start:end]
+
+    fence = re.search(r"```\n(.*?)```", section, re.S)
+    if not fence:
+        say("FAIL", "STRUCT: §18 tidak memuat blok struktur (fenced code)")
+        return
+    body = fence.group(1)
+
+    claimed = sorted({m.group(1) for m in re.finditer(r"([A-Za-z0-9_.\-]+)/", body)}
+                     - {"agentdeck", "https", "http"})
+    claimed_files = sorted(set(re.findall(
+        r"([A-Za-z0-9_.\-]+\.(?:go|sql|mod|sum|yaml|yml|json|ts|tsx))", body)))
+
+    # Nama di blok struktur itu bersarang (`main.go` ada di `cmd/api/`), jadi
+    # kecocokan dicari di seluruh repo, bukan di root. Ini yang bikin versi
+    # pertama gate ini salah lapor.
+    skip = {"node_modules", ".git", "dist", "test-results", "playwright-report"}
+    dirs, files = set(), set()
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in skip]
+        for d in dirnames:
+            dirs.add(d)
+        for f in filenames:
+            files.add(f)
+
+    missing = [n + "/" for n in claimed if n not in dirs]
+    missing += [n for n in claimed_files if n not in files]
+
+    if missing:
+        for name in missing:
+            say("FAIL", f"STRUCT: §18 menyebut '{name}' tapi tidak ada di repo")
+    else:
+        say("ok", f"STRUCT: {len(claimed)} direktori + {len(claimed_files)} file §18 ada")
+
+    undocumented = []
+    internal = os.path.join(ROOT, "internal")
+    if os.path.isdir(internal):
+        for name in sorted(os.listdir(internal)):
+            if os.path.isdir(os.path.join(internal, name)) and name not in section:
+                undocumented.append("internal/" + name + "/")
+    if undocumented:
+        for name in undocumented:
+            say("FAIL", f"STRUCT: {name} ada tapi tidak tercatat di §18")
+    else:
+        say("ok", "STRUCT: semua modul internal/ tercatat di §18")
+
+    # Modul yang belum dibangun harus tetap terdaftar, supaya gambar struktur
+    # di atas tidak dibaca sebagai janji.
+    if "### 18.3 Modul yang belum dibangun" not in arch:
+        say("FAIL", "STRUCT: §18.3 (modul yang belum dibangun) hilang")
+
+
+    # Kolom `Status` di tabel §6.2 harus mencerminkan KODE, bukan niat. Tanpa
+    # cek ini, tanda ✅/⬜ jadi klaim bebas yang bisa basi — persis masalah §18
+    # sebelum diperbaiki. Arah yang ditegakkan: tanda ✅ wajib punya route di
+    # `cmd/api`. Arah sebaliknya (route ada tapi ditandai ⬜) juga FAIL, karena
+    # itu berarti dokumen menjanjikan lebih sedikit daripada yang sudah jalan.
+    #
+    # ponytail: arah "route ada tapi tidak tercatat sama sekali" belum dicek —
+    # itu butuh penanganan path berparameter yang berbeda dan sudah dijaga
+    # sebagian oleh cek PRD->ARCH di atas.
+    routes = set()
+    for name in sorted(os.listdir(os.path.join(ROOT, "cmd", "api"))):
+        if not name.endswith(".go") or name.endswith("_test.go"):
+            continue
+        src = io.open(os.path.join(ROOT, "cmd", "api", name), encoding="utf-8", errors="replace").read()
+        for pat in (r'HandleFunc\(\s*"([A-Z]+)\s+(/[^"]*)"',
+                    r'(?:agentRoute|boardRoute|skillRoute|credRoute|orgRoute|apiRoute)\(\s*"([A-Z]+)\s+(/[^"]*)"',
+                    r'mux\.Handle\(\s*"([A-Z]+)\s+(/[^"]*)"'):
+            for m in re.finditer(pat, src):
+                routes.add((m.group(1), re.sub(r"\{[^}]+\}", "{}", m.group(2)).split("?")[0]))
+
+    claimed_done, claimed_todo, wrong = 0, 0, []
+    for m in re.finditer(r"(?m)^\|\s*`(GET|POST|PUT|PATCH|DELETE)`\s*\|\s*`([^`]+)`\s*\|(.*)$", arch):
+        meth, path, rest = m.group(1), m.group(2), m.group(3)
+        cells = [c.strip() for c in rest.split("|")]
+        # Kolom `Idempotent` berisi `Ya`/`Tidak`, jadi jumlah sel tidak tetap —
+        # yang dicari adalah sel yang isinya HANYA tanda status.
+        marks = [c for c in cells if c in ("✅", "⬜")]
+        if not marks:
+            continue
+        mark = marks[0]
+        norm = re.sub(r"\{[^}]+\}", "{}", path).split("?")[0]
+        implemented = (meth, norm) in routes
+        if mark == "✅":
+            claimed_done += 1
+            if not implemented:
+                wrong.append(f"{meth} {path} ditandai ✅ tapi tidak ada di cmd/api")
+        else:
+            claimed_todo += 1
+            if implemented:
+                wrong.append(f"{meth} {path} ditandai ⬜ tapi route-nya ada")
+
+    if wrong:
+        for w in wrong:
+            say("FAIL", f"STATUS ENDPOINT: {w}")
+    else:
+        say("ok", f"STATUS ENDPOINT: {claimed_done} ✅ dan {claimed_todo} ⬜ cocok dengan cmd/api")
+
+
 def check_suite():
     prd = read("00-PRD.md")
     arch = read("ARCHITECTURE.md")
@@ -563,6 +683,8 @@ def main():
     check_contract()
     print()
     check_arch()
+    print()
+    check_structure()
     print()
     check_suite()
     print()

@@ -2,7 +2,7 @@
 
 > **Kamu jalan unattended.** Tidak ada manusia yang bisa menjawab. Jangan pernah
 > `clarify`, jangan tunggu approval, jangan berhenti dengan pertanyaan. Kalau
-> mentok, catat di `docs/OVERNIGHT-LOG.md` sebagai `BLOCKED-HUMAN` lalu lanjut
+> mentok, catat di `archive/reports/OVERNIGHT-LOG.md` sebagai `BLOCKED-HUMAN` lalu lanjut
 > ke story berikutnya.
 >
 > Dibaca oleh cron job `agentdeck-m0-m4-worker` setiap 10 menit. Baca ulang
@@ -47,7 +47,7 @@ satu story dengan `python tools/update_checklist.py US-ADxx`.
 ## Langkah tiap run (urut, jangan dilompati)
 
 1. **Baca status.** Baca `tools/checklist_status.json`, `docs/CHECKLIST.md`, dan
-   30 baris terakhir `docs/OVERNIGHT-LOG.md`. Itu satu-satunya memori kamu.
+   30 baris terakhir `archive/reports/OVERNIGHT-LOG.md`. Itu satu-satunya memori kamu.
 2. **Pastikan lingkungan hidup.**
    ```bash
    cd /d/Project/agentdeck && docker compose ps
@@ -87,7 +87,7 @@ satu story dengan `python tools/update_checklist.py US-ADxx`.
    ```
    Commit per story supaya ada checkpoint dan bisa di-rollback. **Push ke remote
    publik DILARANG** — itu menunggu keputusan manusia.
-9. **Tulis progres** ke `docs/OVERNIGHT-LOG.md` (append, satu blok per run):
+9. **Tulis progres** ke `archive/reports/OVERNIGHT-LOG.md` (append, satu blok per run):
    timestamp, story, apa yang dikerjakan, hasil gate, hambatan. Ringkas.
 10. **Ping WhatsApp** (lihat bagian bawah) kalau ada perubahan status story.
 11. **Lanjut story berikutnya** selama masih ada konteks.
@@ -125,7 +125,7 @@ satu story dengan `python tools/update_checklist.py US-ADxx`.
   kalau belum benar-benar dijalankan.
 - Jangan memalsukan angka, response API, atau hasil test.
 - Kalau sebuah story butuh keputusan manusia (scope, UX, kredensial), catat di
-  `docs/OVERNIGHT-LOG.md` sebagai `BLOCKED-HUMAN` dan lanjut ke story lain.
+  `archive/reports/OVERNIGHT-LOG.md` sebagai `BLOCKED-HUMAN` dan lanjut ke story lain.
   Jangan menebak.
 - `US-AD92` (onboarding) **ditunda** atas keputusan user. Jangan kerjakan.
 - Story `M5`/`M6` di luar scope. Jangan kerjakan.
@@ -153,7 +153,7 @@ Jangan pernah memasukkan credential/token/secret ke pesan.
 Tidak ada jam berhenti — jalan terus. Tapi:
 
 - Kalau satu run **tidak menghasilkan perubahan status apa pun**, tetap tulis
-  satu blok ringkas di `docs/OVERNIGHT-LOG.md` (apa yang dicoba, kenapa gagal),
+  satu blok ringkas di `archive/reports/OVERNIGHT-LOG.md` (apa yang dicoba, kenapa gagal),
   kirim satu ping, lalu **lanjut** ke story berikutnya. Jangan diam.
 - Jangan tinggalkan repo dalam keadaan setengah jadi tanpa catatan. Kalau kamu
   harus berhenti di tengah story, tulis di log: file apa yang sedang diubah dan

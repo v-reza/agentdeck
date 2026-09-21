@@ -313,7 +313,7 @@ func TestSkillWriteRequiresAdmin(t *testing.T) {
 
 // TestSkillReadsAreViewerPlus is the other half of AC4: a viewer reads the
 // library and the "dipakai oleh" list. Denying the read would break the screen
-// PLAN-WAVE2 7.1 specifies without protecting anything — a viewer can already
+// ARCHITECTURE 6.2.9 + US-AD107 specifies without protecting anything — a viewer can already
 // list the agents whose names that list contains.
 func TestSkillReadsAreViewerPlus(t *testing.T) {
 	f := newSkillFixture(t)
@@ -624,7 +624,7 @@ func TestSkillTenantBoundaryIs404(t *testing.T) {
 	t.Fatal("the skill is missing from its own workspace")
 }
 
-// TestSkillListReportsUsageAndAgentsUsing is the PLAN-WAVE2 7.1 requirement that
+// TestSkillListReportsUsageAndAgentsUsing is the ARCHITECTURE 6.2.9 + US-AD107 requirement that
 // every list row carries "dipakai N agent" and the editor can resolve the names.
 // Without it a user edits a skill agents are running without knowing.
 func TestSkillListReportsUsageAndAgentsUsing(t *testing.T) {
@@ -676,7 +676,7 @@ func TestSkillListReportsUsageAndAgentsUsing(t *testing.T) {
 }
 
 // TestSkillListIsEmptyArrayNot404: a workspace whose library is empty answers an
-// empty array. The UI's empty state is driven by length (PLAN-WAVE2 7.1 item 5),
+// empty array. The UI's empty state is driven by length (ARCHITECTURE 6.2.9 + US-AD107 item 5),
 // and a 404 would make it render an error instead of "Buat skill pertama".
 func TestSkillListIsEmptyArrayNot404(t *testing.T) {
 	f := newSkillFixture(t)
