@@ -93,11 +93,46 @@ NOTES = {
             "`DIARSIP` di registry; agent terarsip dikeluarkan dari hitungan siap-ditugaskan.",
             "Belum: AC2 menuntut agent terarsip hilang dari **dropdown assign task** "
             "(`<select name=\"assigned_agent\">`) di papan Kanban dan Table View. "
-            "Backend-nya ada (`ListAssignableAgents`), dropdown-nya belum dibangun. "
+            "Query `ListAssignableAgents` SUDAH ter-generate di `internal/store`, tapi "
+            "**tidak ada handler maupun endpoint yang memakainya** — jadi dropdown-nya "
+            "belum punya sumber data. Klaim lama di catatan ini ('backend-nya ada') "
+            "keliru dan sudah dikoreksi.",
             "AC1 (task `running` tetap tuntas saat agent diarsip) baru bisa dibuktikan "
             "end-to-end setelah executor M4 ada.",
             "Status PASS ditahan sampai kedua AC itu bisa dibuktikan — bukan karena "
             "gate merah.",
+        ],
+    ),
+    "US-AD67": (
+        "todo",
+        "endpoint validate ada, cek harga belum",
+        [
+            "Sudah jalan: `POST /api/v1/agents/{id}/validate` (Member) ada dan "
+            "terverifikasi runtime; `PATCH /api/v1/agents/{id}` menerima "
+            "`provider`/`model` dengan floor role di route.",
+            "Belum: AC1 dan AC2 menuntut kombinasi `provider`+`model` yang tidak ada di "
+            "tabel harga ditolak **400**. `validateAgent` di `internal/board/service.go` "
+            "hanya memeriksa format nama, retry policy, rentang runtime, dan pasangan "
+            "`base_url`. Nol panggilan ke `internal/pricing` dari jalur create/update.",
+            "Halaman detail (`28-agent-detail`) sudah menampilkan tarif dari "
+            "`GET /agent-catalog`, tetapi itu lapisan tampilan — bukan penegakan AC.",
+        ],
+    ),
+    "US-AD108": (
+        "todo",
+        "label estimasi di UI selesai, ledger belum ada",
+        [
+            "Sudah jalan: AC1 — setiap angka biaya di UI melewati "
+            "`formatEstimatedMicroUSD`, yang menuliskan `(estimate)`. "
+            "`GET /agent-catalog` mengirim `estimate: true` dan `disclaimer` dari server, "
+            "jadi klien tidak bisa diam-diam menghapus labelnya.",
+            "Belum: AC2 dan AC3. Kolom `price_source` dan `pricing_model` ada di "
+            "`internal/migrate/0008.up.sql` dan struct `store.LedgerEntry` ada, tetapi "
+            "**nol query sqlc dan nol handler** menyentuh `ledger_entries` — tidak ada "
+            "baris ledger yang ditulis, jadi tidak ada `price_source` yang dicatat.",
+            "AC5 (5 komponen, `reasoning` tidak pernah disamakan dengan `output`) sudah "
+            "terpenuhi di tabel harga: 271 entri membawa `ReasoningMicrosPer1M` terpisah "
+            "dan gate `verify_suite.py` memeriksa blok rumusnya.",
         ],
     ),
 }
