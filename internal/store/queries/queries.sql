@@ -394,6 +394,92 @@ RETURNING id, org_id, slug, name, body_md, version, is_system, created_by, creat
 -- from, and removing one would silently strip capability from existing agents.
 DELETE FROM agent_skills WHERE id = $1 AND org_id = $2 AND is_system = false;
 
+-- Providers (US-AD109, DECISIONS 6A.J). The credential and the address live
+-- here, once per workspace, instead of once per agent: agents point at a
+-- provider row, so one edit reaches every agent that uses it (AC6). Every query
+-- carries org_id explicitly, like the rest of this file.
+
+-- name: CreateProvider :one
+INSERT INTO providers (id, org_id, name, protocol, base_url, api_key_enc, is_default)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, org_id, name, protocol, base_url, api_key_enc, models_json,
+          models_fetched_at, last_verified_at, is_default, created_at;
+
+-- name: GetProvider :one
+-- Returns api_key_enc because the handler layer is what decrypts, and it needs
+-- the sealed bytes to do so. Nothing in this file puts them in a response.
+SELECT id, org_id, name, protocol, base_url, api_key_enc, models_json,
+       models_fetched_at, last_verified_at, is_default, created_at
+FROM providers
+WHERE id = $1 AND org_id = $2;
+
+-- name: ListProviders :many
+-- The default sorts first because it is what the agent form preselects (AC9).
+SELECT id, org_id, name, protocol, base_url, api_key_enc, models_json,
+       models_fetched_at, last_verified_at, is_default, created_at
+FROM providers
+WHERE org_id = $1
+ORDER BY is_default DESC, name;
+
+-- name: CountProviders :one
+-- Decides whether a provider being created becomes the workspace default: the
+-- first one does, so a workspace that has exactly one never has to pick.
+SELECT count(*)::int FROM providers WHERE org_id = $1;
+
+-- name: UpdateProvider :one
+-- A partial update, deliberately — not the full-replace shape UpdateAgent uses.
+-- A full replace would blank every column the caller omitted, and three of them
+-- (models_json, models_fetched_at, last_verified_at) belong to phase 3: renaming
+-- a provider would silently erase its model list and its verification
+-- timestamp. COALESCE keeps whatever the request leaves out, and those three
+-- columns are not in the SET list at all.
+--
+-- There is no way to clear api_key_enc here: passing NULL means "leave it", so
+-- a provider that has a credential keeps it. Removing a credential is not in
+-- the contract's seven endpoints.
+UPDATE providers
+SET name        = COALESCE(sqlc.narg('name'), name),
+    protocol    = COALESCE(sqlc.narg('protocol'), protocol),
+    base_url    = COALESCE(sqlc.narg('base_url'), base_url),
+    api_key_enc = COALESCE(sqlc.narg('api_key_enc'), api_key_enc),
+    is_default  = COALESCE(sqlc.narg('is_default'), is_default)
+WHERE id = sqlc.arg('id') AND org_id = sqlc.arg('org_id')
+RETURNING id, org_id, name, protocol, base_url, api_key_enc, models_json,
+          models_fetched_at, last_verified_at, is_default, created_at;
+
+-- name: ClearDefaultProvider :exec
+-- providers_org_default_key is a non-deferrable partial unique index, so a
+-- single `UPDATE ... SET is_default = (id = $x)` can still raise 23505: Postgres
+-- checks the index per row, and the new default may be visited before the old
+-- one is unset. Clearing first and setting second are two statements that
+-- cannot collide. AC9 makes the cleared state legitimate, not a half-write.
+UPDATE providers SET is_default = false WHERE org_id = $1 AND is_default;
+
+-- name: DeleteProvider :exec
+DELETE FROM providers WHERE id = $1 AND org_id = $2;
+
+-- name: ListAgentsUsingProvider :many
+-- AC5: the 409 has to name the agents pinning this provider, so this is a read
+-- of names the caller can already list, not a count.
+SELECT id, name FROM agents
+WHERE org_id = $1 AND provider_id = $2
+ORDER BY name;
+
+-- name: SyncAgentBaseURLForProvider :exec
+-- AC6 says an agent keeps no copy of the address. Until phase 6 drops
+-- agents.base_url, that column is still what the agent screens render, so
+-- editing a provider must carry the new address to its agents — otherwise the
+-- edit is invisible everywhere an agent's endpoint is shown. Agents with
+-- provider_id NULL are deliberately untouched: they do not use this provider.
+--
+-- The `a.provider = 'openai_compatible'` guard is what keeps this from raising
+-- agents_base_url_chk (still in force until phase 6): that constraint allows a
+-- base_url exactly when the agent's own provider is 'openai_compatible', so
+-- writing an address onto any other agent would be a CHECK violation surfacing
+-- as a 500 rather than the no-op it should be.
+UPDATE agents SET base_url = $3
+WHERE org_id = $1 AND provider_id = $2 AND provider = 'openai_compatible';
+
 -- Tasks. created_by is the acting user; assignee_agent_id is nullable.
 -- name: CreateTask :one
 INSERT INTO tasks (id, org_id, board_id, title, body, status, priority, assignee_agent_id,

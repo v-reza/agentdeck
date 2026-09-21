@@ -371,7 +371,7 @@ def check_structure():
             continue
         src = io.open(os.path.join(ROOT, "cmd", "api", name), encoding="utf-8", errors="replace").read()
         for pat in (r'HandleFunc\(\s*"([A-Z]+)\s+(/[^"]*)"',
-                    r'(?:agentRoute|boardRoute|skillRoute|credRoute|orgRoute|apiRoute)\(\s*"([A-Z]+)\s+(/[^"]*)"',
+                    r'(?:agentRoute|boardRoute|skillRoute|credRoute|orgRoute|apiRoute|providerRoute)\(\s*"([A-Z]+)\s+(/[^"]*)"',
                     r'mux\.Handle\(\s*"([A-Z]+)\s+(/[^"]*)"'):
             for m in re.finditer(pat, src):
                 routes.add((m.group(1), re.sub(r"\{[^}]+\}", "{}", m.group(2)).split("?")[0]))

@@ -28,6 +28,7 @@ type Agent struct {
 	BaseUrl           *string
 	ArchivedAt        pgtype.Timestamptz
 	HasProviderKey    *bool
+	ProviderID        *string
 }
 
 type AgentSkill struct {
@@ -133,6 +134,20 @@ type Project struct {
 	Slug      string
 	Name      string
 	CreatedAt pgtype.Timestamptz
+}
+
+type Provider struct {
+	ID              string
+	OrgID           string
+	Name            string
+	Protocol        string
+	BaseUrl         string
+	ApiKeyEnc       []byte
+	ModelsJson      []byte
+	ModelsFetchedAt pgtype.Timestamptz
+	LastVerifiedAt  pgtype.Timestamptz
+	IsDefault       bool
+	CreatedAt       pgtype.Timestamptz
 }
 
 type Run struct {

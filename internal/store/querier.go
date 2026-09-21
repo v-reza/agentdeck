@@ -21,6 +21,12 @@ type Querier interface {
 	ClaimShadowUser(ctx context.Context, arg ClaimShadowUserParams) error
 	// Rotation and revocation are the same statement with a NULL ciphertext.
 	ClearAgentProviderKey(ctx context.Context, arg ClearAgentProviderKeyParams) (ClearAgentProviderKeyRow, error)
+	// providers_org_default_key is a non-deferrable partial unique index, so a
+	// single `UPDATE ... SET is_default = (id = $x)` can still raise 23505: Postgres
+	// checks the index per row, and the new default may be visited before the old
+	// one is unset. Clearing first and setting second are two statements that
+	// cannot collide. AC9 makes the cleared state legitimate, not a half-write.
+	ClearDefaultProvider(ctx context.Context, orgID string) error
 	ConsumePasswordReset(ctx context.Context, tokenHash string) (int64, error)
 	// Guards US-AD20 AC4: an agent holding a task in `running` may not be deleted,
 	// because the run it is executing would lose its retry/limit source mid-flight.
@@ -28,6 +34,9 @@ type Querier interface {
 	CountBoardsInProject(ctx context.Context, arg CountBoardsInProjectParams) (int32, error)
 	// Guards the last-owner rule: an org must never be left without an owner.
 	CountOrgOwners(ctx context.Context, orgID string) (int32, error)
+	// Decides whether a provider being created becomes the workspace default: the
+	// first one does, so a workspace that has exactly one never has to pick.
+	CountProviders(ctx context.Context, orgID string) (int32, error)
 	// Counts unfinished parents: the dispatcher promotes a child to ready only when
 	// this returns zero (ARCHITECTURE 4e).
 	CountUnfinishedParents(ctx context.Context, childID string) (int32, error)
@@ -65,6 +74,11 @@ type Querier interface {
 	// unique. There is no second code path that could forget the scope.
 	// ============================================================================
 	CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error)
+	// Providers (US-AD109, DECISIONS 6A.J). The credential and the address live
+	// here, once per workspace, instead of once per agent: agents point at a
+	// provider row, so one edit reaches every agent that uses it (AC6). Every query
+	// carries org_id explicitly, like the rest of this file.
+	CreateProvider(ctx context.Context, arg CreateProviderParams) (Provider, error)
 	// token_hash is SHA-256 of the 64-byte raw token; the raw token only ever
 	// exists in the Set-Cookie (ARCHITECTURE 3.19).
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
@@ -82,6 +96,7 @@ type Querier interface {
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteMembership(ctx context.Context, arg DeleteMembershipParams) error
 	DeleteProject(ctx context.Context, arg DeleteProjectParams) error
+	DeleteProvider(ctx context.Context, arg DeleteProviderParams) error
 	DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error
 	DeleteTask(ctx context.Context, arg DeleteTaskParams) error
 	DeleteTaskLink(ctx context.Context, arg DeleteTaskLinkParams) error
@@ -106,6 +121,9 @@ type Querier interface {
 	// resolving it here would hand them a workspace that is not theirs.
 	GetPersonalWorkspace(ctx context.Context, userID string) (Org, error)
 	GetProject(ctx context.Context, arg GetProjectParams) (Project, error)
+	// Returns api_key_enc because the handler layer is what decrypts, and it needs
+	// the sealed bytes to do so. Nothing in this file puts them in a response.
+	GetProvider(ctx context.Context, arg GetProviderParams) (Provider, error)
 	// Sliding idle window (US-AD02 AC4): a session that has been idle longer than
 	// the idle timeout is rejected, so last_seen_at is bumped on every use.
 	GetSessionByTokenHash(ctx context.Context, arg GetSessionByTokenHashParams) (GetSessionByTokenHashRow, error)
@@ -124,6 +142,9 @@ type Querier interface {
 	// assign dropdown, US-AD73 AC2) filter on `archived_at` themselves — see
 	// ListAgentsUsingSkill and the task-assign path.
 	ListAgents(ctx context.Context, arg ListAgentsParams) ([]ListAgentsRow, error)
+	// AC5: the 409 has to name the agents pinning this provider, so this is a read
+	// of names the caller can already list, not a count.
+	ListAgentsUsingProvider(ctx context.Context, arg ListAgentsUsingProviderParams) ([]ListAgentsUsingProviderRow, error)
 	// Feeds the "dipakai oleh" list under the editor; each name routes to the agent
 	// detail page, which is what stops a user from editing a live skill blindly.
 	ListAgentsUsingSkill(ctx context.Context, arg ListAgentsUsingSkillParams) ([]ListAgentsUsingSkillRow, error)
@@ -141,6 +162,8 @@ type Querier interface {
 	// leak a tenant the user is not part of (tenant isolation, ARCHITECTURE 17).
 	ListOrgsForUser(ctx context.Context, userID string) ([]ListOrgsForUserRow, error)
 	ListProjects(ctx context.Context, orgID string) ([]Project, error)
+	// The default sorts first because it is what the agent form preselects (AC9).
+	ListProviders(ctx context.Context, orgID string) ([]Provider, error)
 	ListTaskChildren(ctx context.Context, parentID string) ([]ListTaskChildrenRow, error)
 	ListTaskEvents(ctx context.Context, taskID *string) ([]Event, error)
 	ListTaskParents(ctx context.Context, childID string) ([]ListTaskParentsRow, error)
@@ -152,6 +175,12 @@ type Querier interface {
 	// cannot recover a provider key. Returning the derived flag lets the handler
 	// answer without a second round-trip.
 	SetAgentProviderKey(ctx context.Context, arg SetAgentProviderKeyParams) (SetAgentProviderKeyRow, error)
+	// AC6 says an agent keeps no copy of the address. Until phase 6 drops
+	// agents.base_url, that column is still what the agent screens render, so
+	// editing a provider must carry the new address to its agents — otherwise the
+	// edit is invisible everywhere an agent's endpoint is shown. Agents with
+	// provider_id NULL are deliberately untouched: they do not use this provider.
+	SyncAgentBaseURLForProvider(ctx context.Context, arg SyncAgentBaseURLForProviderParams) error
 	TouchSession(ctx context.Context, tokenHash string) error
 	UnarchiveAgent(ctx context.Context, arg UnarchiveAgentParams) (UnarchiveAgentRow, error)
 	// US-AD96/US-AD106: the edit form replaces every mutable field at once, so this
@@ -168,6 +197,17 @@ type Querier interface {
 	UpdateMembershipRole(ctx context.Context, arg UpdateMembershipRoleParams) error
 	UpdateOrgName(ctx context.Context, arg UpdateOrgNameParams) error
 	UpdateProjectName(ctx context.Context, arg UpdateProjectNameParams) error
+	// A partial update, deliberately — not the full-replace shape UpdateAgent uses.
+	// A full replace would blank every column the caller omitted, and three of them
+	// (models_json, models_fetched_at, last_verified_at) belong to phase 3: renaming
+	// a provider would silently erase its model list and its verification
+	// timestamp. COALESCE keeps whatever the request leaves out, and those three
+	// columns are not in the SET list at all.
+	//
+	// There is no way to clear api_key_enc here: passing NULL means "leave it", so
+	// a provider that has a credential keeps it. Removing a credential is not in
+	// the contract's seven endpoints.
+	UpdateProvider(ctx context.Context, arg UpdateProviderParams) (Provider, error)
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) (Task, error)
 	// The status transition guard is in the WHERE clause, not in Go: two writers
 	// racing on the same task produce one winner and one zero-row result, which the

@@ -12,12 +12,17 @@ Konsepnya disetujui 2026-09-21. Tujuh fase, detail di `docs/CONCEPT-PROVIDER-REG
 |---|---|---|
 | 0 | Kontrak: PRD + DECISIONS + ARCHITECTURE | **SELESAI** |
 | 0.5 | Selaraskan §18 + gate backend · arsip dokumen mati | **SELESAI** |
-| 1 | Migrasi `0010`: tabel `providers`, `agents.provider_id`, backfill | belum |
-| 2 | Backend CRUD provider + RBAC | belum |
+| 1 | Migrasi `0010`: tabel `providers`, `agents.provider_id`, backfill | **SELESAI** |
+| 2 | Backend CRUD provider + RBAC (5 endpoint) | **SELESAI** |
 | 3 | Probe protocol-aware (openai_compatible dulu) | belum |
 | 4 | Halaman Provider (nav baru) | belum |
 | 5 | Form agent: provider jadi dropdown | belum |
 | 6 | Buang `agents.base_url` + constraint `agents_base_url_chk` | belum |
+
+Fase 2 dikerjakan sebagai **5 endpoint, bukan 7**. `POST /providers/{id}/verify` (AC3)
+dan `POST /providers/{id}/models` (AC7) butuh panggilan protocol-aware ke upstream dan
+tetap di fase 3. Barisnya di §6.2.8 tetap ⬜ — handler yang didaftarkan tanpa bisa
+bekerja lebih buruk daripada baris yang jujur belum.
 
 Aturan mengikat: `DECISIONS.md` §6A.J. Endpoint: `ARCHITECTURE.md` §6.2.8 (total 123).
 
@@ -71,6 +76,32 @@ Yang berubah:
 
 ## Keputusan final yang mengikat
 
+- **`provider_id` NULL itu sah dan permanen** (diputuskan di fase 1). Bukan cuma
+  transient backfill seperti yang sempat ditulis di DDL. Artinya sama dengan
+  `provider_api_key_enc IS NULL`: alamatnya implisit lewat env default §16.
+  963 agent `openai` + 10 `anthropic` + 2 `google` + 1 `deepseek` memang tanpa
+  base URL, jadi mereka **tidak** dapat provider — mengarang base URL buat mereka
+  ditabrak §6A.J ("provider bawaan: kosong total, nggak ada template siap pakai").
+- **Backfill grup per `(org_id, base_url, api_key_enc)`**, bukan per org. Per org
+  bakal melebur dua agent satu org dengan alamat beda jadi satu provider dan
+  diam-diam memindahkan alamat salah satunya.
+- **ID provider = `min(agent.id)`** dari grupnya, bukan ULID baru. Generator ULID
+  di SQL berarti dua implementasi ULID (Go + plpgsql) — persis pola dual source of
+  truth yang repo ini perangi. Nyilih id agent: valid 26 char, unik, urut waktu,
+  deterministik, nol objek baru.
+- **`models_json` diisi model yang lagi dipakai** grup itu; `models_fetched_at`
+  tetap NULL. `'[]'` bikin fase 5 punya state rusak (model agent nggak ada di
+  allowlist providernya). **Fase 3 wajib baca NULL sebagai "belum pernah tarik →
+  tarik"**, bukan "nggak perlu refresh".
+- **Nol FK `provider_id → providers(id)`** — DDL §3 nggak nyantumin, dan FK nggak
+  bisa negasin kecocokan org. AC5 tetap query app-level karena wajib nyebut agent
+  mana yang memakai.
+- **Klaim §6A.J "15 agent menyimpan key yang sama persis" tidak bisa diverifikasi
+  dari DB.** Yang terukur: 47 agent BYO, 15 punya key, **15 org berbeda**, dan
+  **0 org punya >1 agent ber-key**. Ciphertext beda semua, tapi itu tidak
+  membuktikan apa-apa (nonce AES-GCM acak per baris). Yang jelas: di dataset dev
+  ini nol workspace menyimpan key dobel, jadi payoff dedupe-nya nol di sini.
+  Klaim itu tetap jadi alasan desain, tapi jangan diulang sebagai fakta terukur.
 - **Provider BYO-only di form register** — **DIBATALKAN** oleh `DECISIONS.md` §6A.J.
   Provider sekarang datang dari daftar milik org. `CREATE_PROVIDER_CHOICES` akan diganti
   daftar itu di fase 5; jangan dipertahankan sebagai keputusan.
@@ -84,6 +115,68 @@ Yang berubah:
   `400` user-error / `502` upstream.
 - **Satu dropdown**: `Combobox` buat semua select.
 - **Modal register 560px** (`size="lg"`), panel kredensial tetap 420px.
+- **`PATCH /providers/{id}` itu partial, bukan full-replace.** Bentuk `UpdateAgent`
+  (tulis semua kolom) akan mengosongkan tiap kolom yang nggak dikirim — dan tiga di
+  antaranya (`models_json`, `models_fetched_at`, `last_verified_at`) milik fase 3.
+  Ganti nama provider = model list + timestamp verifikasi hilang diam-diam.
+  Implementasi: `COALESCE(sqlc.narg(...), kolom)`, dan tiga kolom fase 3 **tidak ada**
+  di SET clause sama sekali.
+- **`is_default` digerakkan dua statement: clear dulu, baru set.**
+  `providers_org_default_key` itu partial unique index non-deferrable, jadi satu
+  `UPDATE ... SET is_default = (id = $x)` masih bisa kena 23505 — Postgres cek index
+  per baris dan bisa mengunjungi default baru lebih dulu. State nol-default sah (AC9),
+  jadi ini bukan setengah-tulis.
+- **`CreateInput.IsDefault` tri-state (`*bool`).** Create nggak punya nilai tersimpan
+  buat fallback, jadi "nggak dikirim" dan "eksplisit false" bakal sama-sama jadi zero
+  value. Provider pertama satu workspace **wajib** jadi default (AC9) sementara
+  `false` eksplisit wajib dihormati — dua hal itu cuma bisa dibedakan kalau
+  tri-state. `nil` = workspace yang mutusin (`count == 0`).
+- **Edit provider menyinkronkan `agents.base_url`.** Sampai fase 6 buang kolomnya,
+  `agents.base_url` masih yang dirender layar agent — tanpa sinkron, AC6 gagal secara
+  observable. Query-nya dijaga `AND provider = 'openai_compatible'` biar nggak
+  nabrak `agents_base_url_chk` (constraint itu baru dibuang di fase 6, bukan sekarang).
+  Ini jembatan sementara, dibuang bareng kolomnya.
+- **AC5 409 pakai JSON body** `{error, agents[], total}`, bukan `http.Error` teks
+  polos — AC5 minta nyebut agent mana yang memakai. Daftar dibatasi 20 + `total`
+  supaya pemotongan nggak dibaca sebagai kebenaran utuh.
+- **Kredensial tetap tulis-saja di registry.** `has_key` di semua read; `masked_key`
+  cuma di response request yang mengirim key, dan dihitung dari plaintext request itu
+  (storage cuma punya ciphertext). Nol endpoint yang bisa menghapus kredensial — di
+  luar 7 endpoint kontrak, jadi nggak dikarang.
+- **`POST /providers` menerima tiga protokol**, bukan cuma `openai_compatible`.
+  DDL nerima ketiganya dan nolak selain itu = API lebih ketat dari kontrak tanpa AC
+  yang memintanya. Yang belum ada cuma probe-nya (fase 3).
+
+## Divergensi struktur backend yang BELUM ditangani
+
+Dua hal ini nyata dan terukur, tapi **sengaja ditunda** (keputusan user 2026-09-21:
+fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibangun).
+
+1. **`cmd/agentdeck` vs `cmd/api` — nol gate.** `ARCHITECTURE.md:66` (P5) nulis
+   "`cmd/agentdeck` menerima flag `-role=api|dispatcher|worker|all`". Realita: cuma
+   `cmd/api/`, dan `grep 'flag\.' cmd/api/main.go` → nol. §18 bahkan nggak punya §18.1
+   (lompat §18 → §18.3 → §18.2) dan gate lolos. Ini klaim kontrak tanpa wujud yang
+   **nggak ketangkep gate apa pun**.
+   Nggak bisa dibangun sekarang: flag `-role` baru ada artinya kalau
+   dispatcher/worker ada, dan §18.3 bilang semuanya "Belum". Bangun sekarang =
+   scaffolding buat nanti.
+2. **`internal/board/` paket 4 domain — 2325 LOC, 40+ method `Service`.** Project,
+   Board, Agent, Task, TaskLink, Event numpuk di situ; lima modul §6.2.20 ada di
+   dalamnya (Projects 5/5, Boards 7/7, Agents 15/15, Task Links 4/4, Tasks 7/11).
+   `internal/auth/` juga multi-tanggung-jawab (3759 LOC: session, RBAC, API key,
+   audit, profil, avatar, reset) tapi itu satu bounded context "identity", lebih
+   bisa dibela.
+
+   **Opini: jangan pecah sekarang.** Kontraknya sendiri nggak minta paket per domain
+   — yang diminta P5 cuma *aturan arah import* (`internal/dispatcher` nggak boleh
+   di-import handler HTTP), bukan jumlah paket. Restructure sekarang = ubah §18 +
+   ubah gate + pindah 4 domain + tulis ulang test yang nyetir `board.Service`: diff
+   gede, nol hasil yang keliatan user, sementara runtime 0% jadi. Kalau nanti mulai,
+   tempat paling natural itu paket domain baru — `internal/providerreg/` (fase 2)
+   udah jadi preseden split tanpa big-bang.
+
+   **Yang murah dan pantes dibetulin sekarang**: divergensi P5. Betulin dokumennya
+   biar cocok realita (`cmd/api/`, flag ditunda sampai role-nya ada).
 
 ## Masalah yang BELUM beres
 
@@ -106,7 +199,9 @@ Yang berubah:
 2. **Layar agent registry belum nemu "titik enaknya".** Satu hari lebih ngotak-atik
    implementasi, tapi pertanyaan "informasi apa yang harus ada di layar ini" belum
    dijawab. **Perlu sesi khusus nggak ngoding.**
-3. `statusFilter` + `AgentDetailForm` masih ada `<select>` native sisa.
+3. `statusFilter` + `AgentDetailForm` masih ada `<select>` native sisa. **Fase 5
+   tidak menyentuh dua ini** — mereka bukan bagian provider registry, jadi jangan
+   dihitung sebagai kerjaan fase itu.
 4. Pesan backend 409/403 masih Inggris, UI default Indonesia.
 5. Belum ada `LICENSE`/`NOTICE`/`THIRD_PARTY`. Konflik lisensi di design
    (`09b-github.html` Apache-2.0 vs `05-landing.html` MIT).
@@ -131,27 +226,40 @@ pernah ditulis di file mana pun (repo ini publik).
 ## Mulai dari mana (buat session baru)
 
 1. Baca `.hermes.md` (auto-load) → `docs/DECISIONS.md` §6A.J → file ini.
-2. **Kalau nggak ada instruksi lain: fase 1** — migrasi `0010` (tabel `providers`,
-   `agents.provider_id`, backfill). Tujuh fase di tabel atas.
+2. **Kalau nggak ada instruksi lain: fase 3** — probe protocol-aware
+   (`openai_compatible` dulu). Fase 1 (`0010`) + fase 2 (CRUD provider, 5 endpoint)
+   **selesai**. Tujuh fase di tabel atas.
 3. **Yang paling murah + paling kerasa kalau mau cepat**: warna status. 10 baris
    `index.css` — lihat `docs/DESIGN-INVENTORY.md` §2.
-4. Yang **jangan** dikerjain dulu: layar Provider (fase 4) sebelum fase 1–3 kelar.
+4. Yang **jangan** dikerjain dulu: layar Provider (fase 4) sebelum fase 3 kelar.
+5. **Fase 3**: `models_fetched_at IS NULL` wajib dibaca sebagai "belum pernah
+   tarik → tarik", bukan "nggak perlu refresh" (lihat keputusan mengikat).
+   Sekalian: `POST /providers/{id}/verify` (AC3) + `POST /providers/{id}/models` (AC7)
+   — dua baris §6.2.8 yang masih ⬜. Probe-nya jalan lewat `ValidateOperatorBaseURL`
+   (yang resolve DNS), bukan `ValidateAddressOnly`.
 
 ## Kemajuan nyata (dihitung dari kode, bukan dari niat)
 
 | | Jumlah |
 |---|---|
 | Endpoint terdefinisi di kontrak | 123 |
-| **Endpoint jalan** (route terdaftar di `cmd/api`) | **55** |
-| Endpoint belum | 68 |
+| **Endpoint jalan** (route terdaftar di `cmd/api`) | **60** |
+| Endpoint belum | 63 |
 | Tabel kontrak | 26 |
 | Tabel ada migrasi + DB | 17 |
 
+Angka tabel itu sempat **basi satu** sebelum fase 1: HANDOFF menulis 17 sementara
+gate menghitung 16 dari `internal/migrate/*.up.sql`. Sekarang 17 dan cocok —
+tapi jangan percaya angka tabel di dokumen tanpa menjalankan `verify_suite.py`.
+
 Per modul (detail di `ARCHITECTURE.md` §6.2.20): Agents **15/15** · Boards **7/7** ·
-Projects **5/5** · Task Links **4/4** · Orgs **8/9** · Auth **7/11** · Tasks **7/11** ·
-Health **2/4** · API Keys **0/5** · Providers **0/7** · Runs **0/6** · Steps **0/3** ·
+Projects **5/5** · Task Links **4/4** · Providers **5/7** · Orgs **8/9** · Auth **7/11** ·
+Tasks **7/11** · Health **2/4** · API Keys **0/5** · Runs **0/6** · Steps **0/3** ·
 SSE **0/4** · Approvals **0/5** · Ledger **0/5** · Artifacts **0/5** · Comments **0/4** ·
 Webhooks **0/7** · Audit **0/6**.
+
+Providers 5/7 karena `verify` (AC3) + `models` (AC7) masih fase 3 — lihat tabel fase
+di atas.
 
 Modul runtime (`dispatcher`, `executor`, `sse`, `storage`, `webhook`) **nol kode**.
 Runtime belum pernah memanggil LLM (`grep chat/completions` → nol).

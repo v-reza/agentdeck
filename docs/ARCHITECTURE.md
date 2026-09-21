@@ -398,7 +398,7 @@ CREATE TABLE agents (
     project_id           TEXT        NOT NULL,
     name                 TEXT        NOT NULL,
     provider             TEXT        NOT NULL,   -- protokol/dialect, diturunkan dari providers.protocol (US-AD109); masih dipakai pricing §9
-    provider_id          TEXT,                   -- US-AD109: provider registry pemilik kredensial & base_url; NULL hanya selama backfill migrasi 0010
+    provider_id          TEXT,                   -- US-AD109: provider registry pemilik kredensial & base_url. NULL = alamatnya implisit (provider bawaan lewat env default §16), sama seperti `provider_api_key_enc IS NULL`. Backfill 0010 hanya mengisi baris yang punya base_url; sisanya tetap NULL dengan sengaja. Tanpa FK: DDL §3 tidak mendeklarasikannya, dan FK tidak bisa menyatakan bagian yang penting (provider harus se-org dengan agent) — AC5 menghitung pemakai lewat query.
     model                TEXT        NOT NULL,   -- string model apa adanya, dipakai sebagai kunci pricing (§9)
     reasoning_effort     TEXT        NOT NULL DEFAULT 'medium',  -- passthrough ke provider; bukan enum kontrak §4 → tidak di-CHECK
     skills_json          JSONB       NOT NULL DEFAULT '[]'::jsonb,  -- daftar skill yang boleh dimuat agent
@@ -1732,13 +1732,18 @@ penambahan kode nanti, bukan migrasi data.
 
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/providers` | Session/Key | Viewer | Ya | ⬜ | Daftar provider ruang kerja; kredensial tidak pernah dikembalikan |
-| `POST` | `/api/v1/providers` | Session/Key | Admin | Ya (Key) | ⬜ | `{name, protocol, base_url, api_key?}` → `201`; nama duplikat → `409` |
-| `GET` | `/api/v1/providers/{id}` | Session/Key | Viewer | Ya | ⬜ | Detail provider |
-| `PATCH` | `/api/v1/providers/{id}` | Session/Key | Admin | Ya | ⬜ | Ubah provider; berlaku ke seluruh agent pemakainya (AC6) |
-| `DELETE` | `/api/v1/providers/{id}` | Session/Key | Admin | Ya | ⬜ | Masih dipakai agent → `409` + daftar pemakainya (AC5) |
+| `GET` | `/api/v1/providers` | Session/Key | Viewer | Ya | ✅ | Daftar provider ruang kerja; kredensial tidak pernah dikembalikan |
+| `POST` | `/api/v1/providers` | Session/Key | Admin | Ya (Key) | ✅ | `{name, protocol, base_url, api_key?}` → `201`; nama duplikat → `409` |
+| `GET` | `/api/v1/providers/{id}` | Session/Key | Viewer | Ya | ✅ | Detail provider |
+| `PATCH` | `/api/v1/providers/{id}` | Session/Key | Admin | Ya | ✅ | Ubah provider; berlaku ke seluruh agent pemakainya (AC6) |
+| `DELETE` | `/api/v1/providers/{id}` | Session/Key | Admin | Ya | ✅ | Masih dipakai agent → `409` + daftar pemakainya (AC5) |
 | `POST` | `/api/v1/providers/{id}/verify` | Session/Key | Admin | Tidak | ⬜ | Uji kredensial lewat panggilan inference minimal; lolos → `last_verified_at` (AC3) |
 | `POST` | `/api/v1/providers/{id}/models` | Session/Key | Admin | Ya | ⬜ | Tarik ulang daftar model → `models_json` (AC7) |
+
+Dua baris terakhir sengaja belum dipasang. Keduanya butuh panggilan protocol-aware ke
+endpoint upstream, dan kontrak menjadwalkannya ke fase 3 (`HANDOFF.md`). Handler yang
+didaftarkan tanpa bisa bekerja adalah kebohongan yang lebih besar daripada baris yang
+tetap ⬜.
 
 #### 6.2.9 Tasks (11 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
@@ -1856,7 +1861,7 @@ penambahan kode nanti, bukan migrasi data.
 | 6.2.5 | Projects | 5 | 0 | 5 |
 | 6.2.6 | Boards | 7 | 0 | 7 |
 | 6.2.7 | Agents | 15 | 0 | 15 |
-| 6.2.8 | Providers | 0 | 7 | 7 |
+| 6.2.8 | Providers | 5 | 2 | 7 |
 | 6.2.9 | Tasks | 7 | 4 | 11 |
 | 6.2.10 | Task Links / Dependencies | 4 | 0 | 4 |
 | 6.2.11 | Runs | 0 | 6 | 6 |
@@ -1868,7 +1873,7 @@ penambahan kode nanti, bukan migrasi data.
 | 6.2.17 | Comments | 0 | 4 | 4 |
 | 6.2.18 | Webhooks & Deliveries | 0 | 7 | 7 |
 | 6.2.19 | Audit, Search & System | 0 | 6 | 6 |
-| | **Total** | **55** | **68** | **123** |
+| | **Total** | **60** | **63** | **123** |
 
 *Total endpoint terdefinisi: 123 endpoint.*
 
@@ -2621,6 +2626,7 @@ agentdeck/
 │       ├── orgs.go              # Org & membership
 │       ├── profile.go           # Profil & avatar user
 │       ├── password_reset.go    # Alur reset password
+│       ├── providers.go         # Registry provider per org (US-AD109)
 │       └── provider_models.go   # Probe model stateless (US-AD106 AC2)
 ├── internal/
 │   ├── auth/                    # Sesi, RBAC, API key, audit, profil
@@ -2640,13 +2646,17 @@ agentdeck/
 │   ├── crypto/                  # AES-256-GCM untuk kredensial provider
 │   ├── migrate/                 # Migrasi database (embed.FS)
 │   │   ├── migrate.go           # Runner
-│   │   └── 0001.up.sql … 0009.up.sql   # Satu file per langkah
+│   │   └── 0001.up.sql … 0010.up.sql   # Satu file per langkah
 │   ├── notify/                  # Email undangan & notifikasi
 │   ├── pricing/                 # Engine akuntansi biaya
 │   │   ├── pricing.go           # Resolusi harga 4 tingkat (§9.1)
 │   │   ├── catalog.go           # Daftar provider & model
 │   │   └── table_gen.go         # Tabel harga (generated)
 │   ├── provider/                # Klien provider LLM + guard SSRF
+│   ├── providerreg/             # Registry provider per org (US-AD109)
+│   │   ├── types.go             # Domain + kontrak Repo + error
+│   │   ├── service.go           # Validasi + aturan lifecycle
+│   │   └── pgx.go               # Implementasi Postgres
 │   ├── skill/                   # Skill library: sanitasi, seed, service
 │   ├── store/                   # Query sqlc + model DB
 │   │   ├── querier.go           # Interface generated

@@ -17,6 +17,7 @@ import (
 	"agentdeck/internal/config"
 	"agentdeck/internal/migrate"
 	"agentdeck/internal/notify"
+	"agentdeck/internal/providerreg"
 	"agentdeck/internal/skill"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -327,6 +328,9 @@ func main() {
 	registerAgentRoutes(mux, api, boardService)
 	registerAgentCredentialRoutes(mux, api, boardService)
 	registerAgentSkillRoutes(mux, api, skill.NewService(skill.NewPgxRepository(pool)))
+	// US-AD109: the provider registry is org-scoped, so it rides the runtime
+	// pool the same way the skill library does.
+	registerProviderRoutes(mux, api, providerreg.NewService(providerreg.NewPgxRepository(pool)))
 
 	server := &http.Server{Addr: cfg.Addr, Handler: mux}
 	go func() {

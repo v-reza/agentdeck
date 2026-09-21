@@ -252,6 +252,20 @@ func (q *Queries) ClearAgentProviderKey(ctx context.Context, arg ClearAgentProvi
 	return i, err
 }
 
+const clearDefaultProvider = `-- name: ClearDefaultProvider :exec
+UPDATE providers SET is_default = false WHERE org_id = $1 AND is_default
+`
+
+// providers_org_default_key is a non-deferrable partial unique index, so a
+// single `UPDATE ... SET is_default = (id = $x)` can still raise 23505: Postgres
+// checks the index per row, and the new default may be visited before the old
+// one is unset. Clearing first and setting second are two statements that
+// cannot collide. AC9 makes the cleared state legitimate, not a half-write.
+func (q *Queries) ClearDefaultProvider(ctx context.Context, orgID string) error {
+	_, err := q.db.Exec(ctx, clearDefaultProvider, orgID)
+	return err
+}
+
 const countAgentRunningTasks = `-- name: CountAgentRunningTasks :one
 SELECT count(*) FROM tasks
 WHERE assignee_agent_id = $1 AND org_id = $2 AND status = 'running'
@@ -298,6 +312,19 @@ WHERE org_id = $1 AND role = 'owner'
 // Guards the last-owner rule: an org must never be left without an owner.
 func (q *Queries) CountOrgOwners(ctx context.Context, orgID string) (int32, error) {
 	row := q.db.QueryRow(ctx, countOrgOwners, orgID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countProviders = `-- name: CountProviders :one
+SELECT count(*)::int FROM providers WHERE org_id = $1
+`
+
+// Decides whether a provider being created becomes the workspace default: the
+// first one does, so a workspace that has exactly one never has to pick.
+func (q *Queries) CountProviders(ctx context.Context, orgID string) (int32, error) {
+	row := q.db.QueryRow(ctx, countProviders, orgID)
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -630,6 +657,55 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 	return i, err
 }
 
+const createProvider = `-- name: CreateProvider :one
+
+INSERT INTO providers (id, org_id, name, protocol, base_url, api_key_enc, is_default)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, org_id, name, protocol, base_url, api_key_enc, models_json,
+          models_fetched_at, last_verified_at, is_default, created_at
+`
+
+type CreateProviderParams struct {
+	ID        string
+	OrgID     string
+	Name      string
+	Protocol  string
+	BaseUrl   string
+	ApiKeyEnc []byte
+	IsDefault bool
+}
+
+// Providers (US-AD109, DECISIONS 6A.J). The credential and the address live
+// here, once per workspace, instead of once per agent: agents point at a
+// provider row, so one edit reaches every agent that uses it (AC6). Every query
+// carries org_id explicitly, like the rest of this file.
+func (q *Queries) CreateProvider(ctx context.Context, arg CreateProviderParams) (Provider, error) {
+	row := q.db.QueryRow(ctx, createProvider,
+		arg.ID,
+		arg.OrgID,
+		arg.Name,
+		arg.Protocol,
+		arg.BaseUrl,
+		arg.ApiKeyEnc,
+		arg.IsDefault,
+	)
+	var i Provider
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Name,
+		&i.Protocol,
+		&i.BaseUrl,
+		&i.ApiKeyEnc,
+		&i.ModelsJson,
+		&i.ModelsFetchedAt,
+		&i.LastVerifiedAt,
+		&i.IsDefault,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createSession = `-- name: CreateSession :exec
 INSERT INTO sessions (id, user_id, token_hash, expires_at, last_seen_at, created_at)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -880,6 +956,20 @@ type DeleteProjectParams struct {
 
 func (q *Queries) DeleteProject(ctx context.Context, arg DeleteProjectParams) error {
 	_, err := q.db.Exec(ctx, deleteProject, arg.ID, arg.OrgID)
+	return err
+}
+
+const deleteProvider = `-- name: DeleteProvider :exec
+DELETE FROM providers WHERE id = $1 AND org_id = $2
+`
+
+type DeleteProviderParams struct {
+	ID    string
+	OrgID string
+}
+
+func (q *Queries) DeleteProvider(ctx context.Context, arg DeleteProviderParams) error {
+	_, err := q.db.Exec(ctx, deleteProvider, arg.ID, arg.OrgID)
 	return err
 }
 
@@ -1148,6 +1238,39 @@ func (q *Queries) GetProject(ctx context.Context, arg GetProjectParams) (Project
 		&i.OrgID,
 		&i.Slug,
 		&i.Name,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getProvider = `-- name: GetProvider :one
+SELECT id, org_id, name, protocol, base_url, api_key_enc, models_json,
+       models_fetched_at, last_verified_at, is_default, created_at
+FROM providers
+WHERE id = $1 AND org_id = $2
+`
+
+type GetProviderParams struct {
+	ID    string
+	OrgID string
+}
+
+// Returns api_key_enc because the handler layer is what decrypts, and it needs
+// the sealed bytes to do so. Nothing in this file puts them in a response.
+func (q *Queries) GetProvider(ctx context.Context, arg GetProviderParams) (Provider, error) {
+	row := q.db.QueryRow(ctx, getProvider, arg.ID, arg.OrgID)
+	var i Provider
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Name,
+		&i.Protocol,
+		&i.BaseUrl,
+		&i.ApiKeyEnc,
+		&i.ModelsJson,
+		&i.ModelsFetchedAt,
+		&i.LastVerifiedAt,
+		&i.IsDefault,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -1432,6 +1555,44 @@ func (q *Queries) ListAgents(ctx context.Context, arg ListAgentsParams) ([]ListA
 			&i.CreatedAt,
 			&i.HasProviderKey,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAgentsUsingProvider = `-- name: ListAgentsUsingProvider :many
+SELECT id, name FROM agents
+WHERE org_id = $1 AND provider_id = $2
+ORDER BY name
+`
+
+type ListAgentsUsingProviderParams struct {
+	OrgID      string
+	ProviderID *string
+}
+
+type ListAgentsUsingProviderRow struct {
+	ID   string
+	Name string
+}
+
+// AC5: the 409 has to name the agents pinning this provider, so this is a read
+// of names the caller can already list, not a count.
+func (q *Queries) ListAgentsUsingProvider(ctx context.Context, arg ListAgentsUsingProviderParams) ([]ListAgentsUsingProviderRow, error) {
+	rows, err := q.db.Query(ctx, listAgentsUsingProvider, arg.OrgID, arg.ProviderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAgentsUsingProviderRow
+	for rows.Next() {
+		var i ListAgentsUsingProviderRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1822,6 +1983,47 @@ func (q *Queries) ListProjects(ctx context.Context, orgID string) ([]Project, er
 	return items, nil
 }
 
+const listProviders = `-- name: ListProviders :many
+SELECT id, org_id, name, protocol, base_url, api_key_enc, models_json,
+       models_fetched_at, last_verified_at, is_default, created_at
+FROM providers
+WHERE org_id = $1
+ORDER BY is_default DESC, name
+`
+
+// The default sorts first because it is what the agent form preselects (AC9).
+func (q *Queries) ListProviders(ctx context.Context, orgID string) ([]Provider, error) {
+	rows, err := q.db.Query(ctx, listProviders, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Provider
+	for rows.Next() {
+		var i Provider
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.Name,
+			&i.Protocol,
+			&i.BaseUrl,
+			&i.ApiKeyEnc,
+			&i.ModelsJson,
+			&i.ModelsFetchedAt,
+			&i.LastVerifiedAt,
+			&i.IsDefault,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTaskChildren = `-- name: ListTaskChildren :many
 SELECT l.child_id, t.title, t.status
 FROM task_links l
@@ -1988,6 +2190,26 @@ func (q *Queries) SetAgentProviderKey(ctx context.Context, arg SetAgentProviderK
 	var i SetAgentProviderKeyRow
 	err := row.Scan(&i.ID, &i.HasProviderKey)
 	return i, err
+}
+
+const syncAgentBaseURLForProvider = `-- name: SyncAgentBaseURLForProvider :exec
+UPDATE agents SET base_url = $3 WHERE org_id = $1 AND provider_id = $2
+`
+
+type SyncAgentBaseURLForProviderParams struct {
+	OrgID      string
+	ProviderID *string
+	BaseUrl    *string
+}
+
+// AC6 says an agent keeps no copy of the address. Until phase 6 drops
+// agents.base_url, that column is still what the agent screens render, so
+// editing a provider must carry the new address to its agents — otherwise the
+// edit is invisible everywhere an agent's endpoint is shown. Agents with
+// provider_id NULL are deliberately untouched: they do not use this provider.
+func (q *Queries) SyncAgentBaseURLForProvider(ctx context.Context, arg SyncAgentBaseURLForProviderParams) error {
+	_, err := q.db.Exec(ctx, syncAgentBaseURLForProvider, arg.OrgID, arg.ProviderID, arg.BaseUrl)
+	return err
 }
 
 const touchSession = `-- name: TouchSession :exec
@@ -2282,6 +2504,65 @@ type UpdateProjectNameParams struct {
 func (q *Queries) UpdateProjectName(ctx context.Context, arg UpdateProjectNameParams) error {
 	_, err := q.db.Exec(ctx, updateProjectName, arg.ID, arg.OrgID, arg.Name)
 	return err
+}
+
+const updateProvider = `-- name: UpdateProvider :one
+UPDATE providers
+SET name        = COALESCE($1, name),
+    protocol    = COALESCE($2, protocol),
+    base_url    = COALESCE($3, base_url),
+    api_key_enc = COALESCE($4, api_key_enc),
+    is_default  = COALESCE($5, is_default)
+WHERE id = $6 AND org_id = $7
+RETURNING id, org_id, name, protocol, base_url, api_key_enc, models_json,
+          models_fetched_at, last_verified_at, is_default, created_at
+`
+
+type UpdateProviderParams struct {
+	Name      *string
+	Protocol  *string
+	BaseUrl   *string
+	ApiKeyEnc []byte
+	IsDefault *bool
+	ID        string
+	OrgID     string
+}
+
+// A partial update, deliberately — not the full-replace shape UpdateAgent uses.
+// A full replace would blank every column the caller omitted, and three of them
+// (models_json, models_fetched_at, last_verified_at) belong to phase 3: renaming
+// a provider would silently erase its model list and its verification
+// timestamp. COALESCE keeps whatever the request leaves out, and those three
+// columns are not in the SET list at all.
+//
+// There is no way to clear api_key_enc here: passing NULL means "leave it", so
+// a provider that has a credential keeps it. Removing a credential is not in
+// the contract's seven endpoints.
+func (q *Queries) UpdateProvider(ctx context.Context, arg UpdateProviderParams) (Provider, error) {
+	row := q.db.QueryRow(ctx, updateProvider,
+		arg.Name,
+		arg.Protocol,
+		arg.BaseUrl,
+		arg.ApiKeyEnc,
+		arg.IsDefault,
+		arg.ID,
+		arg.OrgID,
+	)
+	var i Provider
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Name,
+		&i.Protocol,
+		&i.BaseUrl,
+		&i.ApiKeyEnc,
+		&i.ModelsJson,
+		&i.ModelsFetchedAt,
+		&i.LastVerifiedAt,
+		&i.IsDefault,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const updateTaskFields = `-- name: UpdateTaskFields :one
