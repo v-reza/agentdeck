@@ -14,16 +14,39 @@ Konsepnya disetujui 2026-09-21. Tujuh fase, detail di `docs/CONCEPT-PROVIDER-REG
 | 0.5 | Selaraskan §18 + gate backend · arsip dokumen mati | **SELESAI** |
 | 1 | Migrasi `0010`: tabel `providers`, `agents.provider_id`, backfill | **SELESAI** |
 | 2 | Backend CRUD provider + RBAC (5 endpoint) | **SELESAI** |
-| 3 | Probe protocol-aware (openai_compatible dulu) | belum |
+| 3 | Probe protocol-aware (openai_compatible dulu) | **SELESAI** |
 | 4 | Halaman Provider (nav baru) | belum |
 | 5 | Form agent: provider jadi dropdown | belum |
 | 6 | Buang `agents.base_url` + constraint `agents_base_url_chk` | belum |
 
-Fase 2 dikerjakan sebagai **5 endpoint, bukan 7**. `POST /providers/{id}/verify` (AC3)
-dan `POST /providers/{id}/models` (AC7) butuh panggilan protocol-aware ke upstream dan
-tetap di fase 3. Barisnya di §6.2.8 tetap ⬜ — handler yang didaftarkan tanpa bisa
-bekerja lebih buruk daripada baris yang jujur belum.
+Fase 2 dikerjakan sebagai **5 endpoint, bukan 7**; fase 3 melengkapi dua sisanya.
+`POST /providers/{id}/verify` (AC3) menembak `POST {base_url}/chat/completions` dengan
+`max_tokens: 1` — bukan `GET /models`, karena ada gateway yang balas `200` di `/models`
+tanpa kredensial. `POST /providers/{id}/models` (AC7) menarik ulang daftar model.
 
+**AC7 sudah lengkap.** Refresh otomatis >24 jam jalan lewat `ModelRefresher`
+(`internal/providerreg/refresher.go`), tick 15 menit, batch 25 provider per pass.
+
+Kenapa **background ticker, bukan refresh-saat-dibaca**: floor `GET /providers` itu
+Viewer, dan refresh memanggil upstream pakai kredensial ruang kerja. Viewer yang buka
+halaman nggak boleh bisa memicu panggilan keluar — itu otoritas yang sama yang bikin
+`POST /providers/{id}/models` di-floor Admin. Refresher jalan sebagai "nobody", jadi
+nggak butuh role apa pun. Ada test yang mengunci ini: `TestRefresherIsNotTriggeredByARead`.
+
+Ticker-nya 15 menit sementara staleness-nya 24 jam — sengaja. Tick-nya cuma SELECT
+terindeks yang biasanya kosong; yang mahal adalah fetch yang dia mungkin picu. Tick
+24 jam juga berarti provider yang didaftarkan sesaat setelah tick menunggu sehari
+penuh untuk daftar pertamanya.
+
+`models_fetched_at IS NULL` dibaca **stale**, bukan fresh: "belum pernah tarik" justru
+state yang perlu diambil. Query-nya `ListStaleProviderModels` — **satu-satunya query
+provider yang sengaja tidak org-scoped**, karena refresher nggak punya tenant di
+tangan. Dikunci test Postgres lintas-org; kode yang melayani request nggak boleh
+memanggilnya.
+
+`ponytail:` refresher-nya single-process. Dua replika API bakal dobel-tick dan
+dobel-fetch. Kalau itu jadi masalah, fix-nya `pg_try_advisory_lock` per batch, bukan
+queue.
 Aturan mengikat: `DECISIONS.md` §6A.J. Endpoint: `ARCHITECTURE.md` §6.2.8 (total 123).
 
 ---
@@ -226,25 +249,24 @@ pernah ditulis di file mana pun (repo ini publik).
 ## Mulai dari mana (buat session baru)
 
 1. Baca `.hermes.md` (auto-load) → `docs/DECISIONS.md` §6A.J → file ini.
-2. **Kalau nggak ada instruksi lain: fase 3** — probe protocol-aware
-   (`openai_compatible` dulu). Fase 1 (`0010`) + fase 2 (CRUD provider, 5 endpoint)
-   **selesai**. Tujuh fase di tabel atas.
+2. **Kalau nggak ada instruksi lain: fase 4** — halaman Provider (nav baru).
+   Fase 1 (`0010`) + fase 2 (CRUD provider, 5 endpoint) + fase 3 (probe + refresh
+   otomatis, 2 endpoint) **selesai**. Tujuh fase di tabel atas.
 3. **Yang paling murah + paling kerasa kalau mau cepat**: warna status. 10 baris
    `index.css` — lihat `docs/DESIGN-INVENTORY.md` §2.
-4. Yang **jangan** dikerjain dulu: layar Provider (fase 4) sebelum fase 3 kelar.
-5. **Fase 3**: `models_fetched_at IS NULL` wajib dibaca sebagai "belum pernah
-   tarik → tarik", bukan "nggak perlu refresh" (lihat keputusan mengikat).
-   Sekalian: `POST /providers/{id}/verify` (AC3) + `POST /providers/{id}/models` (AC7)
-   — dua baris §6.2.8 yang masih ⬜. Probe-nya jalan lewat `ValidateOperatorBaseURL`
-   (yang resolve DNS), bukan `ValidateAddressOnly`.
+4. Yang **jangan** dikerjain dulu: buang `agents.base_url` (fase 6) sebelum form agent
+   pindah ke dropdown provider (fase 5). Kolom itu masih yang dirender layar agent.
+5. **Fase 5**: `agents.base_url` masih disinkronkan dari provider
+   (`SyncAgentBaseURLForProvider`) — jembatan sementara, dibuang bareng kolomnya di
+   fase 6. Jangan tambah pembaca baru untuk kolom itu.
 
 ## Kemajuan nyata (dihitung dari kode, bukan dari niat)
 
 | | Jumlah |
 |---|---|
 | Endpoint terdefinisi di kontrak | 123 |
-| **Endpoint jalan** (route terdaftar di `cmd/api`) | **60** |
-| Endpoint belum | 63 |
+| **Endpoint jalan** (route terdaftar di `cmd/api`) | **62** |
+| Endpoint belum | 61 |
 | Tabel kontrak | 26 |
 | Tabel ada migrasi + DB | 17 |
 
@@ -253,16 +275,18 @@ gate menghitung 16 dari `internal/migrate/*.up.sql`. Sekarang 17 dan cocok —
 tapi jangan percaya angka tabel di dokumen tanpa menjalankan `verify_suite.py`.
 
 Per modul (detail di `ARCHITECTURE.md` §6.2.20): Agents **15/15** · Boards **7/7** ·
-Projects **5/5** · Task Links **4/4** · Providers **5/7** · Orgs **8/9** · Auth **7/11** ·
+Projects **5/5** · Task Links **4/4** · Providers **7/7** · Orgs **8/9** · Auth **7/11** ·
 Tasks **7/11** · Health **2/4** · API Keys **0/5** · Runs **0/6** · Steps **0/3** ·
 SSE **0/4** · Approvals **0/5** · Ledger **0/5** · Artifacts **0/5** · Comments **0/4** ·
 Webhooks **0/7** · Audit **0/6**.
 
-Providers 5/7 karena `verify` (AC3) + `models` (AC7) masih fase 3 — lihat tabel fase
-di atas.
+Providers **7/7** — `verify` (AC3) dan `models` (AC7) selesai di fase 3.
 
 Modul runtime (`dispatcher`, `executor`, `sse`, `storage`, `webhook`) **nol kode**.
-Runtime belum pernah memanggil LLM (`grep chat/completions` → nol).
+Runtime belum pernah memanggil LLM. Satu-satunya panggilan inference di repo adalah
+probe kredensial fase 3 (`internal/provider.ProbeInference`), dan itu bukan runtime:
+`max_tokens: 1`, dipicu tombol Uji, tidak menyimpan hasil. `grep chat/completions` →
+satu, di probe itu.
 
 Angka ini dijaga gate: kolom `Status` di §6.2 diperiksa `verify_suite.py` dua arah,
 jadi ✅ palsu dan ⬜ palsu dua-duanya FAIL.

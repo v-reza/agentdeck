@@ -329,8 +329,17 @@ func main() {
 	registerAgentCredentialRoutes(mux, api, boardService)
 	registerAgentSkillRoutes(mux, api, skill.NewService(skill.NewPgxRepository(pool)))
 	// US-AD109: the provider registry is org-scoped, so it rides the runtime
-	// pool the same way the skill library does.
-	registerProviderRoutes(mux, api, providerreg.NewService(providerreg.NewPgxRepository(pool)))
+	// pool the same way the skill library does. It is wired with the upstream
+	// probe and the credential decrypter because two of its seven endpoints
+	// (verify, models) actually call the operator's endpoint.
+	providerSvc := newProviderService(pool, cfg.MasterKey)
+	registerProviderRoutes(mux, api, providerSvc)
+
+	// AC7's automatic half: refresh model lists older than 24 hours without
+	// anyone pressing the button. It runs as nobody — no role required, no HTTP
+	// surface — because the alternative (refresh on read) would let a Viewer
+	// spend the workspace's credential. Stopped by the same ctx as the server.
+	go providerreg.NewModelRefresher(providerSvc, logger).Run(ctx)
 
 	server := &http.Server{Addr: cfg.Addr, Handler: mux}
 	go func() {

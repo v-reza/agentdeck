@@ -1737,13 +1737,20 @@ penambahan kode nanti, bukan migrasi data.
 | `GET` | `/api/v1/providers/{id}` | Session/Key | Viewer | Ya | ✅ | Detail provider |
 | `PATCH` | `/api/v1/providers/{id}` | Session/Key | Admin | Ya | ✅ | Ubah provider; berlaku ke seluruh agent pemakainya (AC6) |
 | `DELETE` | `/api/v1/providers/{id}` | Session/Key | Admin | Ya | ✅ | Masih dipakai agent → `409` + daftar pemakainya (AC5) |
-| `POST` | `/api/v1/providers/{id}/verify` | Session/Key | Admin | Tidak | ⬜ | Uji kredensial lewat panggilan inference minimal; lolos → `last_verified_at` (AC3) |
-| `POST` | `/api/v1/providers/{id}/models` | Session/Key | Admin | Ya | ⬜ | Tarik ulang daftar model → `models_json` (AC7) |
+| `POST` | `/api/v1/providers/{id}/verify` | Session/Key | Admin | Tidak | ✅ | Uji kredensial lewat panggilan inference minimal; lolos → `last_verified_at` (AC3) |
+| `POST` | `/api/v1/providers/{id}/models` | Session/Key | Admin | Ya | ✅ | Tarik ulang daftar model → `models_json` (AC7) |
 
-Dua baris terakhir sengaja belum dipasang. Keduanya butuh panggilan protocol-aware ke
-endpoint upstream, dan kontrak menjadwalkannya ke fase 3 (`HANDOFF.md`). Handler yang
-didaftarkan tanpa bisa bekerja adalah kebohongan yang lebih besar daripada baris yang
-tetap ⬜.
+`POST /providers/{id}/verify` menembak `POST {base_url}/chat/completions` dengan
+`max_tokens: 1`, bukan `GET /models`. Alasannya terukur (DECISIONS §6A.J): ada
+gateway yang menjawab `200` di `/models` tanpa kredensial sama sekali dan `401` di
+inference, jadi `/models` cuma membuktikan endpoint-nya nyala. Ini panggilan
+inference pertama di seluruh kode — runtime belum pernah memanggil LLM.
+
+Probe-nya butuh nama model, dan nama itu diambil dari `models_json` provider itu
+sendiri; provider yang daftar modelnya masih kosong ditolak `400` sebelum ada
+panggilan keluar. Kredensial yang tidak ada juga `400` — melaporkan "terverifikasi"
+untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upstream
+(401, 5xx, tidak terjangkau) adalah `502`, sama seperti `POST /provider/models`.
 
 #### 6.2.9 Tasks (11 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
@@ -1861,7 +1868,7 @@ tetap ⬜.
 | 6.2.5 | Projects | 5 | 0 | 5 |
 | 6.2.6 | Boards | 7 | 0 | 7 |
 | 6.2.7 | Agents | 15 | 0 | 15 |
-| 6.2.8 | Providers | 5 | 2 | 7 |
+| 6.2.8 | Providers | 7 | 0 | 7 |
 | 6.2.9 | Tasks | 7 | 4 | 11 |
 | 6.2.10 | Task Links / Dependencies | 4 | 0 | 4 |
 | 6.2.11 | Runs | 0 | 6 | 6 |
@@ -1873,7 +1880,7 @@ tetap ⬜.
 | 6.2.17 | Comments | 0 | 4 | 4 |
 | 6.2.18 | Webhooks & Deliveries | 0 | 7 | 7 |
 | 6.2.19 | Audit, Search & System | 0 | 6 | 6 |
-| | **Total** | **60** | **63** | **123** |
+| | **Total** | **62** | **61** | **123** |
 
 *Total endpoint terdefinisi: 123 endpoint.*
 
@@ -2627,6 +2634,7 @@ agentdeck/
 │       ├── profile.go           # Profil & avatar user
 │       ├── password_reset.go    # Alur reset password
 │       ├── providers.go         # Registry provider per org (US-AD109)
+│       ├── provider_wiring.go   # Probe upstream + dekripsi kredensial (fase 3)
 │       └── provider_models.go   # Probe model stateless (US-AD106 AC2)
 ├── internal/
 │   ├── auth/                    # Sesi, RBAC, API key, audit, profil
@@ -2654,8 +2662,9 @@ agentdeck/
 │   │   └── table_gen.go         # Tabel harga (generated)
 │   ├── provider/                # Klien provider LLM + guard SSRF
 │   ├── providerreg/             # Registry provider per org (US-AD109)
-│   │   ├── types.go             # Domain + kontrak Repo + error
-│   │   ├── service.go           # Validasi + aturan lifecycle
+│   │   ├── types.go             # Domain + kontrak Repo + Probe + error
+│   │   ├── service.go           # Validasi, lifecycle, refresh model, verify
+│   │   ├── refresher.go         # Refresh model otomatis >24 jam (AC7)
 │   │   └── pgx.go               # Implementasi Postgres
 │   ├── skill/                   # Skill library: sanitasi, seed, service
 │   ├── store/                   # Query sqlc + model DB
@@ -2696,7 +2705,9 @@ gambar struktur di atas tidak dibaca sebagai janji:
 | `internal/webhook/` | Pengiriman webhook + retry | Belum |
 | `tests/` | Integration test (Testcontainers), load test k6 | Belum |
 
-Runtime **belum pernah memanggil LLM**: `grep -r "chat/completions"` → nol.
+Runtime **belum pernah memanggil LLM**: `grep -r "chat/completions"` → satu hasil, dan
+itu probe kredensial fase 3 (`internal/provider.ProbeInference`, `max_tokens: 1`),
+bukan runtime. Runtime-nya sendiri masih nol.
 Itu juga sebabnya "cek kredensial saat agent mau jalan" belum punya mekanisme
 (lihat `DECISIONS.md` §6A.J).
 

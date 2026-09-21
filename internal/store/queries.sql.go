@@ -1276,6 +1276,28 @@ func (q *Queries) GetProvider(ctx context.Context, arg GetProviderParams) (Provi
 	return i, err
 }
 
+const getProviderKey = `-- name: GetProviderKey :one
+SELECT api_key_enc FROM providers WHERE id = $1 AND org_id = $2
+`
+
+type GetProviderKeyParams struct {
+	ID    string
+	OrgID string
+}
+
+// The one query that hands out ciphertext, for the one path that decrypts it
+// before probing an upstream (phase 3). Returning it as a scalar rather than as
+// a column of GetProvider is deliberate: the domain Provider carries no
+// ciphertext, so no read path can leak what it never receives.
+// api_key_enc is nullable (a local endpoint that checks nothing), and a NULL
+// scans into a nil []byte rather than an error.
+func (q *Queries) GetProviderKey(ctx context.Context, arg GetProviderKeyParams) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getProviderKey, arg.ID, arg.OrgID)
+	var api_key_enc []byte
+	err := row.Scan(&api_key_enc)
+	return api_key_enc, err
+}
+
 const getSessionByTokenHash = `-- name: GetSessionByTokenHash :one
 SELECT id, user_id, token_hash, last_seen_at, expires_at, created_at
 FROM sessions
@@ -2024,6 +2046,69 @@ func (q *Queries) ListProviders(ctx context.Context, orgID string) ([]Provider, 
 	return items, nil
 }
 
+const listStaleProviderModels = `-- name: ListStaleProviderModels :many
+SELECT id, org_id, name, protocol, base_url, api_key_enc, models_json,
+       models_fetched_at, last_verified_at, is_default, created_at
+FROM providers
+WHERE models_fetched_at IS NULL OR models_fetched_at < $1
+ORDER BY models_fetched_at NULLS FIRST, id
+LIMIT $2
+`
+
+type ListStaleProviderModelsParams struct {
+	Before  pgtype.Timestamptz
+	MaxRows int32
+}
+
+// AC7's automatic half. This is the ONE provider query deliberately not scoped by
+// org_id: the background refresher has no tenant in hand — it walks every
+// workspace — so a `WHERE org_id = $1` here would make it impossible to write.
+// Request-serving code must never call this; the reads that answer a user are
+// List/Get, and both carry org_id.
+//
+// NULL models_fetched_at is stale, not fresh: "never fetched" is exactly the
+// state that needs a fetch. The ORDER BY puts those first so a workspace that
+// just registered a provider is served before one that merely aged out.
+//
+// The id tiebreaker makes the batch deterministic. Without it the order among
+// equally-stale rows is unspecified, so with more stale providers than the batch
+// cap the same subset can be chosen every pass and the rest starve.
+// ponytail: deterministic is not the same as fair — a permanently broken provider
+// stays stale forever and keeps its slot. Serving every workspace round-robin
+// needs a last_attempt_at column; add it if a provider is ever observed never
+// getting its turn.
+func (q *Queries) ListStaleProviderModels(ctx context.Context, arg ListStaleProviderModelsParams) ([]Provider, error) {
+	rows, err := q.db.Query(ctx, listStaleProviderModels, arg.Before, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Provider
+	for rows.Next() {
+		var i Provider
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.Name,
+			&i.Protocol,
+			&i.BaseUrl,
+			&i.ApiKeyEnc,
+			&i.ModelsJson,
+			&i.ModelsFetchedAt,
+			&i.LastVerifiedAt,
+			&i.IsDefault,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTaskChildren = `-- name: ListTaskChildren :many
 SELECT l.child_id, t.title, t.status
 FROM task_links l
@@ -2192,8 +2277,51 @@ func (q *Queries) SetAgentProviderKey(ctx context.Context, arg SetAgentProviderK
 	return i, err
 }
 
+const setProviderModels = `-- name: SetProviderModels :exec
+UPDATE providers SET models_json = $3, models_fetched_at = $4
+WHERE id = $1 AND org_id = $2
+`
+
+type SetProviderModelsParams struct {
+	ID              string
+	OrgID           string
+	ModelsJson      []byte
+	ModelsFetchedAt pgtype.Timestamptz
+}
+
+// AC7: the fetched list and the moment it was fetched, written together so a
+// freshness check can never see one without the other.
+func (q *Queries) SetProviderModels(ctx context.Context, arg SetProviderModelsParams) error {
+	_, err := q.db.Exec(ctx, setProviderModels,
+		arg.ID,
+		arg.OrgID,
+		arg.ModelsJson,
+		arg.ModelsFetchedAt,
+	)
+	return err
+}
+
+const setProviderVerifiedAt = `-- name: SetProviderVerifiedAt :exec
+UPDATE providers SET last_verified_at = $3
+WHERE id = $1 AND org_id = $2
+`
+
+type SetProviderVerifiedAtParams struct {
+	ID             string
+	OrgID          string
+	LastVerifiedAt pgtype.Timestamptz
+}
+
+// AC3: stamped only after the inference probe passes. Nothing else writes this
+// column, so a non-null value always means a probe succeeded.
+func (q *Queries) SetProviderVerifiedAt(ctx context.Context, arg SetProviderVerifiedAtParams) error {
+	_, err := q.db.Exec(ctx, setProviderVerifiedAt, arg.ID, arg.OrgID, arg.LastVerifiedAt)
+	return err
+}
+
 const syncAgentBaseURLForProvider = `-- name: SyncAgentBaseURLForProvider :exec
-UPDATE agents SET base_url = $3 WHERE org_id = $1 AND provider_id = $2
+UPDATE agents SET base_url = $3
+WHERE org_id = $1 AND provider_id = $2 AND provider = 'openai_compatible'
 `
 
 type SyncAgentBaseURLForProviderParams struct {
@@ -2207,6 +2335,12 @@ type SyncAgentBaseURLForProviderParams struct {
 // editing a provider must carry the new address to its agents — otherwise the
 // edit is invisible everywhere an agent's endpoint is shown. Agents with
 // provider_id NULL are deliberately untouched: they do not use this provider.
+//
+// The `a.provider = 'openai_compatible'` guard is what keeps this from raising
+// agents_base_url_chk (still in force until phase 6): that constraint allows a
+// base_url exactly when the agent's own provider is 'openai_compatible', so
+// writing an address onto any other agent would be a CHECK violation surfacing
+// as a 500 rather than the no-op it should be.
 func (q *Queries) SyncAgentBaseURLForProvider(ctx context.Context, arg SyncAgentBaseURLForProviderParams) error {
 	_, err := q.db.Exec(ctx, syncAgentBaseURLForProvider, arg.OrgID, arg.ProviderID, arg.BaseUrl)
 	return err

@@ -480,6 +480,52 @@ ORDER BY name;
 UPDATE agents SET base_url = $3
 WHERE org_id = $1 AND provider_id = $2 AND provider = 'openai_compatible';
 
+-- name: GetProviderKey :one
+-- The one query that hands out ciphertext, for the one path that decrypts it
+-- before probing an upstream (phase 3). Returning it as a scalar rather than as
+-- a column of GetProvider is deliberate: the domain Provider carries no
+-- ciphertext, so no read path can leak what it never receives.
+-- api_key_enc is nullable (a local endpoint that checks nothing), and a NULL
+-- scans into a nil []byte rather than an error.
+SELECT api_key_enc FROM providers WHERE id = $1 AND org_id = $2;
+
+-- name: SetProviderModels :exec
+-- AC7: the fetched list and the moment it was fetched, written together so a
+-- freshness check can never see one without the other.
+UPDATE providers SET models_json = $3, models_fetched_at = $4
+WHERE id = $1 AND org_id = $2;
+
+-- name: SetProviderVerifiedAt :exec
+-- AC3: stamped only after the inference probe passes. Nothing else writes this
+-- column, so a non-null value always means a probe succeeded.
+UPDATE providers SET last_verified_at = $3
+WHERE id = $1 AND org_id = $2;
+
+-- name: ListStaleProviderModels :many
+-- AC7's automatic half. This is the ONE provider query deliberately not scoped by
+-- org_id: the background refresher has no tenant in hand — it walks every
+-- workspace — so a `WHERE org_id = $1` here would make it impossible to write.
+-- Request-serving code must never call this; the reads that answer a user are
+-- List/Get, and both carry org_id.
+--
+-- NULL models_fetched_at is stale, not fresh: "never fetched" is exactly the
+-- state that needs a fetch. The ORDER BY puts those first so a workspace that
+-- just registered a provider is served before one that merely aged out.
+--
+-- The id tiebreaker makes the batch deterministic. Without it the order among
+-- equally-stale rows is unspecified, so with more stale providers than the batch
+-- cap the same subset can be chosen every pass and the rest starve.
+-- ponytail: deterministic is not the same as fair — a permanently broken provider
+-- stays stale forever and keeps its slot. Serving every workspace round-robin
+-- needs a last_attempt_at column; add it if a provider is ever observed never
+-- getting its turn.
+SELECT id, org_id, name, protocol, base_url, api_key_enc, models_json,
+       models_fetched_at, last_verified_at, is_default, created_at
+FROM providers
+WHERE models_fetched_at IS NULL OR models_fetched_at < sqlc.arg('before')
+ORDER BY models_fetched_at NULLS FIRST, id
+LIMIT sqlc.arg('max_rows');
+
 -- Tasks. created_by is the acting user; assignee_agent_id is nullable.
 -- name: CreateTask :one
 INSERT INTO tasks (id, org_id, board_id, title, body, status, priority, assignee_agent_id,

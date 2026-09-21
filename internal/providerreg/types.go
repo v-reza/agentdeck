@@ -134,6 +134,43 @@ type UpdateInput struct {
 	IsDefault *bool
 }
 
+// Probe is the upstream call the registry needs: fetch a model list, or prove
+// a credential with a minimal completion. It is an interface so the service's
+// rules are testable without a live endpoint, and so the HTTP layer owns the
+// concrete client and its timeouts.
+//
+// It takes the *plaintext* credential. The service is the only thing that can
+// read one back (Repo.GetEncryptedKey), and passing it here rather than into
+// the Repo keeps the decryption in one place.
+type Probe interface {
+	// ListModels returns the models an upstream advertises.
+	ListModels(ctx context.Context, baseURL, apiKey string) ([]string, error)
+	// ProbeInference proves a credential with the cheapest call that
+	// authenticates. A model list does not prove it (AC3).
+	ProbeInference(ctx context.Context, baseURL, apiKey, model string) error
+}
+
+// ProbeError wraps a failure that came from the upstream rather than from us.
+// It is a distinct type because the HTTP code differs: a rejected credential or
+// an unreachable host is a 502 (the caller's payload was fine, the upstream was
+// not), while a malformed request is a 400.
+type ProbeError struct {
+	Err error
+}
+
+func (e *ProbeError) Error() string { return e.Err.Error() }
+func (e *ProbeError) Unwrap() error { return e.Err }
+
+// ErrNoKeyForProbe is the refusal to probe a provider that stores no
+// credential. A local endpoint that checks nothing has nothing to prove, and
+// reporting "verified" for it would be a claim the probe did not establish.
+var ErrNoKeyForProbe = errors.New("provider has no credential to verify")
+
+// ErrNoModelsToProbe is the refusal to verify when the provider has no model
+// list yet: the probe needs a model name, and inventing one would test a model
+// the operator does not serve.
+var ErrNoModelsToProbe = errors.New("provider has no model list to probe with")
+
 // Repo is the persistence boundary. It is expressed in domain types so the
 // service owns validation and lifecycle rules, and so the HTTP tests can drive
 // the real handlers against an in-memory double (the seam internal/skill and
@@ -161,4 +198,20 @@ type Repo interface {
 	// AC6 holds everywhere an agent's endpoint is rendered before phase 6 drops
 	// agents.base_url.
 	SyncAgentBaseURL(ctx context.Context, orgID, providerID, baseURL string) error
+	// GetEncryptedKey returns the stored ciphertext for a provider, or nil when
+	// it has no credential. It is separate from Get because the domain Provider
+	// deliberately carries no ciphertext: only the one path that needs to
+	// decrypt can obtain the bytes, so no other code path can leak them.
+	GetEncryptedKey(ctx context.Context, orgID, id string) ([]byte, error)
+	// SetModels stores a freshly fetched model list and stamps
+	// models_fetched_at with fetchedAt (AC7).
+	SetModels(ctx context.Context, orgID, id string, models []string, fetchedAt time.Time) error
+	// SetVerifiedAt stamps last_verified_at after a passing inference probe
+	// (AC3).
+	SetVerifiedAt(ctx context.Context, orgID, id string, at time.Time) error
+	// StaleProviders lists providers across every workspace whose model list is
+	// missing or older than before, capped at limit (AC7's automatic half). It
+	// is the one read here that is not org-scoped, because the background
+	// refresher has no tenant in hand; request-serving code must not call it.
+	StaleProviders(ctx context.Context, before time.Time, limit int) ([]Provider, error)
 }

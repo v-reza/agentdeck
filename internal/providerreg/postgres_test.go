@@ -25,6 +25,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -101,6 +102,105 @@ func create(t *testing.T, repo Repo, ctx context.Context, orgID, name, baseURL s
 		t.Fatalf("create provider %s: %v", name, err)
 	}
 	return p
+}
+
+// TestPgStaleProvidersSpansWorkspacesAndOrdersNeverFetchedFirst pins the three
+// properties of AC7's automatic query that nothing else can.
+//
+//  1. It crosses orgs. This is the one provider query without an org_id, so if the
+//     WHERE clause ever gained one the refresher would silently stop seeing every
+//     workspace but one — and no fake repo would notice, because the fake filters
+//     in Go.
+//  2. NULL models_fetched_at is stale, not fresh. `NULL < $1` is NULL in SQL, so a
+//     naive comparison would exclude exactly the rows that need fetching first.
+//  3. The LIMIT is real, so a large backlog degrades into several ticks instead of
+//     one burst of upstream calls.
+func TestPgStaleProvidersSpansWorkspacesAndOrdersNeverFetchedFirst(t *testing.T) {
+	repo := pgRepo(t)
+	ctx := context.Background()
+	orgA := newOrg(t, ctx)
+	orgB := newOrg(t, ctx)
+
+	now := time.Now().UTC()
+	old := now.Add(-48 * time.Hour)
+	recent := now.Add(-1 * time.Hour)
+
+	// Never fetched, in a second workspace: must be found, and first.
+	never := create(t, repo, ctx, orgA, "never-fetched", "https://never.example.com/v1", nil)
+	// Stale, in the other workspace: must be found.
+	aged := create(t, repo, ctx, orgB, "aged-out", "https://aged.example.com/v1", nil)
+	// Fresh: must not be found.
+	fresh := create(t, repo, ctx, orgB, "just-fetched", "https://fresh.example.com/v1", nil)
+
+	if err := repo.SetModels(ctx, never.OrgID, never.ID, []string{"m"}, old); err != nil {
+		t.Fatalf("set models (aged): %v", err)
+	}
+	if err := repo.SetModels(ctx, aged.OrgID, aged.ID, []string{"m"}, old); err != nil {
+		t.Fatalf("set models (aged): %v", err)
+	}
+	if err := repo.SetModels(ctx, fresh.OrgID, fresh.ID, []string{"m"}, recent); err != nil {
+		t.Fatalf("set models (fresh): %v", err)
+	}
+	// Put the never-fetched one back to NULL: SetModels always stamps a time, and
+	// NULL is the state under test.
+	if _, err := pgSuitePool.Exec(ctx,
+		"UPDATE providers SET models_fetched_at = NULL WHERE id = $1", never.ID); err != nil {
+		t.Fatalf("reset models_fetched_at: %v", err)
+	}
+
+	// The dev database already holds providers with NULL models_fetched_at, and
+	// NULLS FIRST means they sort ahead of everything this test creates. So the
+	// assertions below filter to this test's own orgs, and the limit is set high
+	// enough to reach them — the LIMIT behaviour itself is asserted separately at
+	// the end, against the whole table.
+	stale, err := repo.StaleProviders(ctx, now.Add(-ModelsStaleAfter), 10000)
+	if err != nil {
+		t.Fatalf("StaleProviders: %v", err)
+	}
+
+	found := map[string]bool{}
+	for _, p := range stale {
+		if p.OrgID != orgA && p.OrgID != orgB {
+			continue
+		}
+		found[p.ID] = true
+	}
+	if !found[never.ID] {
+		t.Error("a provider with models_fetched_at NULL was not reported stale")
+	}
+	if !found[aged.ID] {
+		t.Error("a stale provider in another workspace was not found — the query is not crossing orgs")
+	}
+	if found[fresh.ID] {
+		t.Error("a fresh provider was reported stale")
+	}
+	// NULLS FIRST: the never-fetched row must precede the aged one, within this
+	// test's own rows.
+	var neverIdx, agedIdx = -1, -1
+	for i, p := range stale {
+		if p.OrgID != orgA && p.OrgID != orgB {
+			continue
+		}
+		if p.ID == never.ID {
+			neverIdx = i
+		}
+		if p.ID == aged.ID {
+			agedIdx = i
+		}
+	}
+	if neverIdx == -1 || agedIdx == -1 || neverIdx > agedIdx {
+		t.Errorf("never-fetched row (idx %d) must come before the aged row (idx %d)", neverIdx, agedIdx)
+	}
+
+	// The limit is honoured: a smaller cap must return fewer rows than the large
+	// one, not the same set.
+	limited, err := repo.StaleProviders(ctx, now.Add(-ModelsStaleAfter), 1)
+	if err != nil {
+		t.Fatalf("StaleProviders (limit 1): %v", err)
+	}
+	if len(limited) != 1 {
+		t.Fatalf("limit 1 returned %d rows", len(limited))
+	}
 }
 
 // TestPgCreateProviderDuplicateNameIsANameConflict is the wiring proof for

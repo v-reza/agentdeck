@@ -11,6 +11,7 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -398,6 +399,89 @@ func fetchModels(ctx context.Context, client *http.Client, u *url.URL, apiKey st
 		return nil, fmt.Errorf("provider: %s: %w", u.Host, err)
 	}
 	return models, nil
+}
+
+// ProbeInference makes the one call that actually proves a credential: a
+// minimal completion against {baseURL}/chat/completions.
+//
+// A model list is not proof, and that is measured rather than assumed
+// (DECISIONS 6A.J): a local gateway answers 200 on /models with no key at all
+// and 401 on inference. So /models says "the endpoint is up" and this says "the
+// key is right". The request asks for a single token, the cheapest call that
+// still passes through authentication (AC3).
+//
+// The model name is a parameter because a hardcoded one would fail on every
+// endpoint that does not serve it; the caller supplies a name from the
+// provider's own list.
+func ProbeInference(ctx context.Context, client *http.Client, baseURL, apiKey, model string) error {
+	u, err := ValidateOperatorBaseURL(ctx, baseURL)
+	if err != nil {
+		return redact(err, apiKey)
+	}
+	if client == nil {
+		client = NewClient()
+	}
+	return fetchInference(ctx, client, u, apiKey, model)
+}
+
+// probeMaxTokens is AC3's ceiling: enough to exercise authentication, ~1 token
+// of spend.
+const probeMaxTokens = 1
+
+// inferenceProbe is the smallest OpenAI-compatible completion request.
+type inferenceProbe struct {
+	Model     string         `json:"model"`
+	MaxTokens int            `json:"max_tokens"`
+	Messages  []probeMessage `json:"messages"`
+}
+
+type probeMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// fetchInference performs the guarded probe against an already-validated base
+// URL. Split out for the same reason fetchModels is: tests point it at an
+// httptest server, and only the loopback allowlist makes that reachable.
+func fetchInference(ctx context.Context, client *http.Client, u *url.URL, apiKey, model string) error {
+	u.Path = strings.TrimRight(u.Path, "/") + "/chat/completions"
+	u.RawQuery, u.Fragment = "", ""
+
+	payload, err := json.Marshal(inferenceProbe{
+		Model:     model,
+		MaxTokens: probeMaxTokens,
+		Messages:  []probeMessage{{Role: "user", Content: "ping"}},
+	})
+	if err != nil {
+		return fmt.Errorf("provider: encoding probe: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewReader(payload))
+	if err != nil {
+		return redact(fmt.Errorf("provider: building request: %w", err), apiKey)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return redact(fmt.Errorf("provider: POST %s: %w", u.Host, err), apiKey)
+	}
+	defer resp.Body.Close()
+
+	// Drain a bounded amount so the connection can be reused, and so a hostile
+	// endpoint cannot stream forever. The body is never read for content: the
+	// status code is the whole answer, and a completion body could echo the
+	// prompt back into an error message.
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxBodyBytes))
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return fmt.Errorf("provider: %s rejected the inference probe with HTTP %d", u.Host, resp.StatusCode)
+	}
+	return nil
 }
 
 // modelsEnvelope covers both shapes seen in the wild: the OpenAI-compatible

@@ -7,12 +7,14 @@ package main
 //	GET    /api/v1/providers/{id}     Viewer
 //	PATCH  /api/v1/providers/{id}     Admin
 //	DELETE /api/v1/providers/{id}     Admin
+//	POST   /api/v1/providers/{id}/verify   Admin   (AC3)
+//	POST   /api/v1/providers/{id}/models   Admin   (AC7)
 //
-// Two of the seven endpoints ARCHITECTURE 6.2.8 defines are deliberately absent
-// here: POST /providers/{id}/verify (AC3) and POST /providers/{id}/models (AC7)
-// both need a protocol-aware call to the upstream endpoint, and the contract
-// schedules those for phase 3. Registering a route whose handler cannot work
-// would be a worse lie than leaving the row marked ⬜.
+// The last two reach the operator's upstream endpoint. They are the only routes
+// in the repo that do: the runtime has never called an LLM, so the probe built
+// here (internal/provider.ProbeInference) is the first inference call in the
+// codebase. It asks for one token, because authenticating is the whole point
+// and the cheapest call that authenticates is the right one (AC3).
 //
 // The credential is write-only. It is sealed with AES-256-GCM on the way in
 // (internal/crypto) and no endpoint here ever returns it: the reads answer
@@ -142,13 +144,24 @@ func toProviderResponse(p providerreg.Provider, maskedKey string) providerRespon
 // ErrProviderInUse is handled before this is called, because its 409 body needs
 // the agents the sentinel alone does not carry.
 func writeProviderError(w http.ResponseWriter, err error) {
+	var probeErr *providerreg.ProbeError
 	switch {
 	case errors.Is(err, providerreg.ErrProviderNotFound):
 		http.Error(w, err.Error(), http.StatusNotFound)
 	case errors.Is(err, providerreg.ErrNameTaken):
 		http.Error(w, err.Error(), http.StatusConflict)
-	case errors.Is(err, providerreg.ErrInvalidInput):
+	case errors.Is(err, providerreg.ErrInvalidInput),
+		errors.Is(err, providerreg.ErrNoKeyForProbe),
+		errors.Is(err, providerreg.ErrNoModelsToProbe):
+		// The caller can act on all three: fix the payload, add a credential,
+		// or refresh the model list first. None is a server fault.
 		http.Error(w, err.Error(), http.StatusBadRequest)
+	case errors.As(err, &probeErr):
+		// The request was well-formed and the credential may be perfectly good;
+		// the upstream refused us or could not be reached. That is a bad
+		// gateway, not a bad request — the same split POST /provider/models
+		// already makes (400 user-error / 502 upstream).
+		http.Error(w, err.Error(), http.StatusBadGateway)
 	default:
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -358,7 +371,54 @@ func (a providerAPI) deleteProvider(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// registerProviderRoutes mounts the five registry routes that phase 2 delivers.
+// POST /api/v1/providers/{id}/verify — AC3.
+//
+// The response is the whole provider, so the caller sees the new
+// last_verified_at without a second request. There is no "verified: true" field:
+// the timestamp is the evidence, and a boolean beside it would be a second
+// source of truth that could disagree.
+//
+// A refusal here is not a 400. A wrong credential is the upstream saying 401,
+// which is a 502 (the payload was fine). What *is* a 400 is a provider with no
+// credential or no model list to probe with — both are states the operator can
+// fix in the UI, and both are mapped in writeProviderError.
+func (a providerAPI) verifyProvider(w http.ResponseWriter, r *http.Request) {
+	orgCtx, err := a.context(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	p, err := a.svc.Verify(r.Context(), orgCtx.workspace.ID, r.PathValue("id"))
+	if err != nil {
+		writeProviderError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(toProviderResponse(p, ""))
+}
+
+// POST /api/v1/providers/{id}/models — AC7's manual refresh.
+//
+// It does not consult ModelsStale: the whole point of the manual button is to
+// fetch now. The 24-hour rule is what a *page load* uses to decide whether to
+// offer the refresh, and that decision belongs to the UI reading
+// models_fetched_at, not to this handler.
+func (a providerAPI) refreshProviderModels(w http.ResponseWriter, r *http.Request) {
+	orgCtx, err := a.context(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	p, err := a.svc.RefreshModels(r.Context(), orgCtx.workspace.ID, r.PathValue("id"))
+	if err != nil {
+		writeProviderError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(toProviderResponse(p, ""))
+}
+
+// registerProviderRoutes mounts the seven registry routes of §6.2.8.
 //
 // It is its own function for the same reason registerAgentRoutes is: the role
 // table is declared exactly once, next to the handlers it guards, and the RBAC
@@ -382,4 +442,12 @@ func registerProviderRoutes(mux *http.ServeMux, api authAPI, svc *providerreg.Se
 	providerRoute("GET /api/v1/providers/{id}", http.HandlerFunc(provAPI.getProvider), auth.Viewer)
 	providerRoute("PATCH /api/v1/providers/{id}", http.HandlerFunc(provAPI.updateProvider), auth.Admin)
 	providerRoute("DELETE /api/v1/providers/{id}", http.HandlerFunc(provAPI.deleteProvider), auth.Admin)
+
+	// Phase 3. Both call the operator's upstream, so both are Admin for the same
+	// reason the writes are: they spend the workspace's credential and its
+	// quota. Neither is idempotent in the strict sense — /models overwrites the
+	// cached list and /verify moves a timestamp — but both are safe to repeat,
+	// which is what the contract's Idempotent column is about.
+	providerRoute("POST /api/v1/providers/{id}/verify", http.HandlerFunc(provAPI.verifyProvider), auth.Admin)
+	providerRoute("POST /api/v1/providers/{id}/models", http.HandlerFunc(provAPI.refreshProviderModels), auth.Admin)
 }

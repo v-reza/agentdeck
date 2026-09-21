@@ -174,3 +174,49 @@ func (r *pgxRepo) SyncAgentBaseURL(ctx context.Context, orgID, providerID, baseU
 		BaseUrl:    &baseURL,
 	})
 }
+
+// GetEncryptedKey reads the stored ciphertext for the one path that has to
+// decrypt. It is a separate query rather than a field on Get so the ciphertext
+// never travels with the domain Provider, where every read path would carry it.
+func (r *pgxRepo) GetEncryptedKey(ctx context.Context, orgID, id string) ([]byte, error) {
+	sealed, err := r.q.GetProviderKey(ctx, store.GetProviderKeyParams{ID: id, OrgID: orgID})
+	if err != nil {
+		return nil, noRowsError(err)
+	}
+	return sealed, nil
+}
+
+func (r *pgxRepo) SetModels(ctx context.Context, orgID, id string, models []string, fetchedAt time.Time) error {
+	return r.q.SetProviderModels(ctx, store.SetProviderModelsParams{
+		ID:              id,
+		OrgID:           orgID,
+		ModelsJson:      EncodeModels(models),
+		ModelsFetchedAt: pgtype.Timestamptz{Time: fetchedAt, Valid: true},
+	})
+}
+
+func (r *pgxRepo) SetVerifiedAt(ctx context.Context, orgID, id string, at time.Time) error {
+	return r.q.SetProviderVerifiedAt(ctx, store.SetProviderVerifiedAtParams{
+		ID:             id,
+		OrgID:          orgID,
+		LastVerifiedAt: pgtype.Timestamptz{Time: at, Valid: true},
+	})
+}
+
+// StaleProviders is the one query here without an org_id, because the background
+// refresher walks every workspace. See the SQL comment for why that is safe and
+// why request-serving code must not reach it.
+func (r *pgxRepo) StaleProviders(ctx context.Context, before time.Time, limit int) ([]Provider, error) {
+	rows, err := r.q.ListStaleProviderModels(ctx, store.ListStaleProviderModelsParams{
+		Before:  pgtype.Timestamptz{Time: before, Valid: true},
+		MaxRows: int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Provider, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, providerFrom(row))
+	}
+	return out, nil
+}

@@ -28,12 +28,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"agentdeck/internal/crypto"
 	"agentdeck/internal/providerreg"
@@ -275,12 +279,162 @@ func (r *fakeProviderRepo) storedCiphertext(orgID, providerID string) []byte {
 	return r.sealed[orgID][providerID]
 }
 
+// GetEncryptedKey mirrors the production query: it is the only way to reach the
+// ciphertext, which is what makes "no read path returns a credential" a property
+// of the interface rather than a promise.
+func (r *fakeProviderRepo) GetEncryptedKey(_ context.Context, orgID, id string) ([]byte, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.providers[id]
+	if !ok || p.OrgID != orgID {
+		return nil, providerreg.ErrProviderNotFound
+	}
+	return r.sealed[orgID][id], nil
+}
+
+// SetModels writes the fetched list and its timestamp together, like the query.
+func (r *fakeProviderRepo) SetModels(_ context.Context, orgID, id string, models []string, fetchedAt time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.providers[id]
+	if !ok || p.OrgID != orgID {
+		return providerreg.ErrProviderNotFound
+	}
+	p.Models = append([]string{}, models...)
+	at := fetchedAt
+	p.ModelsFetchedAt = &at
+	r.providers[id] = p
+	return nil
+}
+
+// SetVerifiedAt stamps the verification instant after a passing probe (AC3).
+func (r *fakeProviderRepo) SetVerifiedAt(_ context.Context, orgID, id string, at time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.providers[id]
+	if !ok || p.OrgID != orgID {
+		return providerreg.ErrProviderNotFound
+	}
+	stamp := at
+	p.LastVerifiedAt = &stamp
+	r.providers[id] = p
+	return nil
+}
+
+// StaleProviders mirrors the cross-org query: rows whose list was never fetched
+// or is older than before, oldest first, capped at limit.
+func (r *fakeProviderRepo) StaleProviders(_ context.Context, before time.Time, limit int) ([]providerreg.Provider, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := []providerreg.Provider{}
+	for _, p := range r.providers {
+		if p.ModelsFetchedAt == nil || p.ModelsFetchedAt.Before(before) {
+			out = append(out, p)
+		}
+	}
+	// ORDER BY models_fetched_at NULLS FIRST: never-fetched rows come first.
+	sort.Slice(out, func(i, j int) bool {
+		if (out[i].ModelsFetchedAt == nil) != (out[j].ModelsFetchedAt == nil) {
+			return out[i].ModelsFetchedAt == nil
+		}
+		if out[i].ModelsFetchedAt == nil {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].ModelsFetchedAt.Before(*out[j].ModelsFetchedAt)
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+// probeCalls records what the fake probe was asked to do, so a test can assert
+// the upstream was never touched — the assertion that separates "refused before
+// dialing" from "dialed and failed".
+type probeCalls struct {
+	mu             sync.Mutex
+	listModels     int
+	probeInference int
+	models         []string
+	lastModel      string
+	lastKey        string
+	lastBaseURL    string
+}
+
+func (c *probeCalls) snapshot() (listModels, probeInference int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.listModels, c.probeInference
+}
+
+// fakeProbe is the in-memory providerreg.Probe. It lets each AC drive the
+// upstream's answer without a live endpoint, and counts calls so "zero upstream
+// traffic" is testable.
+type fakeProbe struct {
+	calls *probeCalls
+	// modelsErr / probeErr are the upstream failures to return, if any.
+	modelsErr error
+	probeErr  error
+	// models is the list ListModels answers with.
+	models []string
+}
+
+func (p *fakeProbe) ListModels(_ context.Context, baseURL, apiKey string) ([]string, error) {
+	p.calls.mu.Lock()
+	p.calls.listModels++
+	p.calls.lastBaseURL = baseURL
+	p.calls.lastKey = apiKey
+	p.calls.models = append([]string{}, p.models...)
+	p.calls.mu.Unlock()
+	if p.modelsErr != nil {
+		return nil, p.modelsErr
+	}
+	return p.models, nil
+}
+
+func (p *fakeProbe) ProbeInference(_ context.Context, baseURL, apiKey, model string) error {
+	p.calls.mu.Lock()
+	p.calls.probeInference++
+	p.calls.lastBaseURL = baseURL
+	p.calls.lastKey = apiKey
+	p.calls.lastModel = model
+	p.calls.mu.Unlock()
+	return p.probeErr
+}
+
 // agentBaseURL is what an agent's address column holds after a provider edit,
 // which is how AC6 is observed before phase 6 drops that column.
 func (r *fakeProviderRepo) agentBaseURL(orgID, agentID string) string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.baseURLs[orgID][agentID]
+}
+
+// ageModels backdates a provider's models_fetched_at so a test can make it stale
+// without sleeping 24 hours. It also seeds a list, so "was refreshed" is
+// distinguishable from "was empty".
+func (r *fakeProviderRepo) ageModels(_ *testing.T, orgID, id string, at time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.providers[id]
+	if !ok || p.OrgID != orgID {
+		return
+	}
+	stamp := at
+	p.ModelsFetchedAt = &stamp
+	p.Models = []string{"seed"}
+	r.providers[id] = p
+}
+
+// models reads back the stored list, which is how AC7 is observed.
+func (r *fakeProviderRepo) models(orgID, id string) []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.providers[id]
+	if !ok || p.OrgID != orgID {
+		return nil
+	}
+	return p.Models
 }
 
 // providerFixture is the shared setup: one mux carrying the real provider routes,
@@ -291,6 +445,14 @@ type providerFixture struct {
 	repo     *fakeProviderRepo
 	scenario rbacTestAPI
 	key      []byte
+	// probe is the fake upstream, and calls records what it was asked to do.
+	// Both are shared with the service, so a test can make the upstream fail or
+	// count the requests that never happened.
+	probe *fakeProbe
+	calls *probeCalls
+	// svc is the same service the routes use, so a test can drive the refresher
+	// through the production path instead of a second, parallel one.
+	svc *providerreg.Service
 }
 
 func newProviderFixture(t *testing.T) providerFixture {
@@ -316,9 +478,20 @@ func newProviderFixtureWithKey(t *testing.T, keyRaw string) providerFixture {
 		key = k
 	}
 	scenario.api.masterKey = keyRaw
+
+	calls := &probeCalls{}
+	probe := &fakeProbe{calls: calls}
+
 	mux := http.NewServeMux()
-	registerProviderRoutes(mux, scenario.api, providerreg.NewService(repo))
-	return providerFixture{mux: mux, repo: repo, scenario: scenario, key: key}
+	// The service is built the same way main.go builds it — with a probe and a
+	// real decrypter — so the two phase-3 endpoints exercise the production
+	// wiring rather than a stubbed-out path. Only the *transport* is fake.
+	svc := providerreg.NewServiceWithProbe(repo, providerreg.ServiceOptions{
+		Probe:   probe,
+		Decrypt: credentialDecrypter(keyRaw),
+	})
+	registerProviderRoutes(mux, scenario.api, svc)
+	return providerFixture{mux: mux, repo: repo, scenario: scenario, key: key, probe: probe, calls: calls, svc: svc}
 }
 
 // doProvider performs one request against the provider mux. An empty actor sends
@@ -991,6 +1164,145 @@ func TestProviderDefaultLifecycle(t *testing.T) {
 	}
 }
 
+// ---- AC7: automatic refresh ------------------------------------------------
+
+// TestRefresherRefetchesOnlyStaleProviders is AC7's automatic half. A list older
+// than 24 hours is refetched with nobody pressing anything; a fresh one is left
+// alone. The second half is what keeps the feature from becoming a poll: without
+// it, every tick would hit every provider.
+func TestRefresherRefetchesOnlyStaleProviders(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"gpt-4o-mini", "gpt-4o"}
+
+	stale := f.mustCreate(t, f.scenario.orgA, "Stale", "openai_compatible", "https://stale.example.com/v1", "sk-tes...0000")
+	fresh := f.mustCreate(t, f.scenario.orgA, "Fresh", "openai_compatible", "https://fresh.example.com/v1", "sk-tes...0000")
+
+	// Age one row past the window and leave the other inside it. Both get a
+	// model list so the refresher has something to compare against.
+	now := time.Now().UTC()
+	f.repo.ageModels(t, f.scenario.orgA, stale.ID, now.Add(-25*time.Hour))
+	f.repo.ageModels(t, f.scenario.orgA, fresh.ID, now.Add(-1*time.Hour))
+
+	refresher := providerreg.NewModelRefresher(f.svc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	refreshed := refresher.RefreshOnce(context.Background())
+
+	if refreshed != 1 {
+		t.Fatalf("refreshed %d providers, want exactly 1 (only the stale one)", refreshed)
+	}
+	if got := f.repo.models(f.scenario.orgA, stale.ID); !reflect.DeepEqual(got, f.probe.models) {
+		t.Fatalf("stale provider has %v, want the fetched list %v", got, f.probe.models)
+	}
+	// The fresh row still carries its seed list: it was not touched.
+	if got := f.repo.models(f.scenario.orgA, fresh.ID); !reflect.DeepEqual(got, []string{"seed"}) {
+		t.Fatalf("fresh provider was refetched: models = %v, want the untouched seed", got)
+	}
+}
+
+// TestRefresherTreatsNeverFetchedAsStale is the case that makes the feature
+// useful on day one: a provider registered a minute ago has no
+// models_fetched_at at all, and reading NULL as "nothing to do" would leave it
+// permanently without a model list.
+func TestRefresherTreatsNeverFetchedAsStale(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"llama3"}
+
+	created := f.mustCreate(t, f.scenario.orgA, "Brand new", "openai_compatible", "https://new.example.com/v1", "sk-tes...0000")
+
+	refresher := providerreg.NewModelRefresher(f.svc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if refreshed := refresher.RefreshOnce(context.Background()); refreshed != 1 {
+		t.Fatalf("refreshed %d providers, want 1 (a never-fetched list is stale)", refreshed)
+	}
+	if got := f.repo.models(f.scenario.orgA, created.ID); len(got) != 1 {
+		t.Fatalf("models = %v, want the fetched list", got)
+	}
+}
+
+// TestRefresherKeepsGoingAfterAFailure: one broken provider must not stop the
+// rest of the batch. The failing upstream is the ordinary case — a provider the
+// operator has not finished configuring — so the loop's job is to continue.
+func TestRefresherKeepsGoingAfterAFailure(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"m"}
+
+	f.mustCreate(t, f.scenario.orgA, "A", "openai_compatible", "https://a.example.com/v1", "sk-tes...0000")
+	f.mustCreate(t, f.scenario.orgA, "B", "openai_compatible", "https://b.example.com/v1", "sk-tes...0000")
+
+	// Every fetch fails.
+	f.probe.modelsErr = errors.New("upstream refused")
+
+	refresher := providerreg.NewModelRefresher(f.svc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if refreshed := refresher.RefreshOnce(context.Background()); refreshed != 0 {
+		t.Fatalf("refreshed %d providers, want 0 when every upstream fails", refreshed)
+	}
+	// Both were attempted, not just the first: that is the property under test.
+	if listCalls, _ := f.calls.snapshot(); listCalls != 2 {
+		t.Fatalf("upstream was called %d times, want 2 (the loop must not stop at the first failure)", listCalls)
+	}
+}
+
+// TestRefresherIsNotTriggeredByARead is the authority argument, asserted rather
+// than described. Refreshing on read would let a Viewer — whose floor on GET
+// /providers is Viewer — spend the workspace's credential against the operator's
+// upstream. The refresher runs as nobody instead, so a Viewer's GET must produce
+// zero upstream traffic.
+func TestRefresherIsNotTriggeredByARead(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"m"}
+	f.mustCreate(t, f.scenario.orgA, "P", "openai_compatible", "https://p.example.com/v1", "sk-tes...0000")
+
+	// vera is a Viewer in orgA.
+	if recorder := f.doProvider(t, http.MethodGet, "/api/v1/providers", "", "vera", f.scenario.orgA); recorder.Code != http.StatusOK {
+		t.Fatalf("viewer list: status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	listCalls, probeCalls := f.calls.snapshot()
+	if listCalls != 0 {
+		t.Fatalf("a viewer's read caused %d upstream model fetches, want 0", listCalls)
+	}
+	if probeCalls != 0 {
+		t.Fatalf("a viewer's read caused %d upstream inference probes, want 0", probeCalls)
+	}
+}
+
+// TestRefresherRunsAPassBeforeTheFirstTick: a provider that has never been fetched
+// is stale from the moment it is created, so the loop must look before it waits.
+// Without the up-front pass a workspace that registers a provider just after a
+// tick waits a full interval for its first model list.
+func TestRefresherRunsAPassBeforeTheFirstTick(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"m"}
+	f.mustCreate(t, f.scenario.orgA, "P", "openai_compatible", "https://p.example.com/v1", "sk-tes...0000")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	refresher := providerreg.NewModelRefresher(f.svc, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		refresher.Run(ctx)
+	}()
+
+	// The interval is 15 minutes, so a call inside the first second can only come
+	// from the up-front pass.
+	deadline := time.After(3 * time.Second)
+	for {
+		if listCalls, _ := f.calls.snapshot(); listCalls > 0 {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatal("Run did not perform a pass before the first tick")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Run did not return after its context was cancelled")
+	}
+}
+
 // TestProviderInUseErrorIsTheSentinel keeps the error contract honest: the
 // service returns a value that satisfies errors.Is(err, ErrProviderInUse), so a
 // caller can branch on the sentinel and read the agents only when it needs them.
@@ -1005,5 +1317,276 @@ func TestProviderInUseErrorIsTheSentinel(t *testing.T) {
 	}
 	if len(target.Agents) != 1 || target.Agents[0].Name != "A" {
 		t.Fatalf("errors.As lost the agents: %+v", target.Agents)
+	}
+}
+
+// ---- AC7: the model list ----------------------------------------------------
+
+// TestProviderModelRefreshStoresTheFetchedList is AC7's manual path. It asserts
+// the list came from the upstream *and* that the timestamp moved, because a
+// response showing models while models_fetched_at stayed null would leave the
+// freshness check unable to tell a fetch from a cache.
+func TestProviderModelRefreshStoresTheFetchedList(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"gpt-4o-mini", "llama3.1:8b"}
+
+	created := f.mustCreate(t, f.scenario.orgA, "Local", "openai_compatible", "https://local.example.com/v1", "sk-tes...0000")
+	if created.ModelsFetchedAt != nil {
+		t.Fatalf("a freshly created provider reports models_fetched_at = %v, want null (never fetched)", *created.ModelsFetchedAt)
+	}
+
+	recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/models", "", "alice", f.scenario.orgA)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("refresh models: status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	got := decodeProvider(t, recorder)
+	if len(got.Models) != 2 || got.Models[0] != "gpt-4o-mini" {
+		t.Fatalf("models = %v, want the two the upstream advertised", got.Models)
+	}
+	if got.ModelsFetchedAt == nil {
+		t.Fatal("models_fetched_at is still null after a successful fetch")
+	}
+	if got.HasKey != true {
+		t.Fatal("refreshing models dropped the credential flag")
+	}
+
+	// The stored row is what the next read serves, not just this response.
+	read := decodeProvider(t, f.doProvider(t, http.MethodGet, "/api/v1/providers/"+created.ID, "", "alice", f.scenario.orgA))
+	if len(read.Models) != 2 || read.ModelsFetchedAt == nil {
+		t.Fatalf("GET after refresh = %+v, want the fetched list and its timestamp", read)
+	}
+}
+
+// TestProviderModelRefreshSendsTheStoredCredential proves the probe runs with the
+// credential the operator saved, decrypted — not with an empty string and not
+// with the ciphertext. A refresh that sent nothing would be a silent 401 on
+// every real provider.
+func TestProviderModelRefreshSendsTheStoredCredential(t *testing.T) {
+	f := newProviderFixture(t)
+	const apiKey = "sk-tes...cdef"
+	created := f.mustCreate(t, f.scenario.orgA, "Keyed", "openai_compatible", "https://keyed.example.com/v1", apiKey)
+
+	if recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/models", "", "alice", f.scenario.orgA); recorder.Code != http.StatusOK {
+		t.Fatalf("refresh: status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	f.calls.mu.Lock()
+	defer f.calls.mu.Unlock()
+	if f.calls.lastKey != apiKey {
+		t.Fatalf("upstream received key %q, want the stored plaintext credential", f.calls.lastKey)
+	}
+	if f.calls.lastBaseURL != "https://keyed.example.com/v1" {
+		t.Fatalf("upstream received base URL %q, want the provider's address", f.calls.lastBaseURL)
+	}
+}
+
+// TestProviderModelRefreshFailureIs502 is AC7's failure path. An upstream that
+// refuses is not the caller's mistake: the body was well-formed and the id
+// exists. 502 keeps it distinct from a 400, which the next test pins.
+func TestProviderModelRefreshFailureIs502(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.modelsErr = errors.New("provider: local.example.com returned HTTP 500")
+
+	created := f.mustCreate(t, f.scenario.orgA, "Broken", "openai_compatible", "https://broken.example.com/v1", "sk-tes...0000")
+	recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/models", "", "alice", f.scenario.orgA)
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("failed refresh: status = %d, want 502 (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	// A failed fetch must not stamp the timestamp: a null is what tells the UI
+	// to offer the button again.
+	read := decodeProvider(t, f.doProvider(t, http.MethodGet, "/api/v1/providers/"+created.ID, "", "alice", f.scenario.orgA))
+	if read.ModelsFetchedAt != nil {
+		t.Fatalf("a failed fetch stamped models_fetched_at = %v", *read.ModelsFetchedAt)
+	}
+}
+
+// TestProviderModelRefreshUnknownIs404 keeps the tenant boundary invisible: a
+// provider of another workspace is answered exactly like one that does not
+// exist, and the upstream is never contacted (US-AD07).
+func TestProviderModelRefreshUnknownIs404(t *testing.T) {
+	f := newProviderFixture(t)
+	created := f.mustCreate(t, f.scenario.orgA, "Acme only", "openai_compatible", "https://acme.example.com/v1", "sk-tes...0000")
+
+	before, _ := f.calls.snapshot()
+	recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/models", "", "bella", f.scenario.orgB)
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("foreign provider refresh: status = %d, want 404 (%s)", recorder.Code, recorder.Body.String())
+	}
+	after, _ := f.calls.snapshot()
+	if after != before {
+		t.Fatal("a 404 refresh still called the upstream")
+	}
+}
+
+// TestModelsStaleTreatsNeverFetchedAsStale is AC7's automatic half at the unit
+// level. The distinction it pins is the one that matters: null means "never
+// fetched", so it is stale. Reading null as "nothing to refresh" would leave a
+// provider that has never been polled permanently empty.
+func TestModelsStaleTreatsNeverFetchedAsStale(t *testing.T) {
+	now := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
+	at := func(d time.Duration) *time.Time {
+		t := now.Add(-d)
+		return &t
+	}
+
+	cases := []struct {
+		name      string
+		fetchedAt *time.Time
+		wantStale bool
+	}{
+		{"never fetched", nil, true},
+		{"fetched one hour ago", at(time.Hour), false},
+		{"fetched 23 hours ago", at(23 * time.Hour), false},
+		{"fetched exactly 24 hours ago", at(providerreg.ModelsStaleAfter), false},
+		{"fetched 25 hours ago", at(25 * time.Hour), true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := providerreg.ModelsStale(providerreg.Provider{ModelsFetchedAt: tc.fetchedAt}, now)
+			if got != tc.wantStale {
+				t.Fatalf("ModelsStale(%s) = %v, want %v", tc.name, got, tc.wantStale)
+			}
+		})
+	}
+}
+
+// ---- AC3: the inference probe ----------------------------------------------
+
+// TestProviderVerifyUsesInferenceNotTheModelList is AC3, and it is the test the
+// whole endpoint exists for.
+//
+// DECISIONS 6A.J measured a gateway that answers /models with no credential at
+// all and 401 on inference. So a verify that only listed models would report a
+// good key as verified and a wrong one as verified too. The assertion is
+// therefore negative as well as positive: the probe must have called
+// ProbeInference, and the stored list must not be what decided the answer.
+func TestProviderVerifyUsesInferenceNotTheModelList(t *testing.T) {
+	f := newProviderFixture(t)
+	created := f.mustCreate(t, f.scenario.orgA, "Probe me", "openai_compatible", "https://probe.example.com/v1", "sk-tes...0000")
+
+	// A verify with no model list yet is refused before any upstream call: the
+	// probe has to name a model, and inventing one would test a model the
+	// operator does not serve.
+	before, _ := f.calls.snapshot()
+	recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/verify", "", "alice", f.scenario.orgA)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("verify without a model list: status = %d, want 400 (%s)", recorder.Code, recorder.Body.String())
+	}
+	after, _ := f.calls.snapshot()
+	if after != before {
+		t.Fatal("verify called the upstream despite having no model list to probe with")
+	}
+
+	// With a list, the probe runs and names a model from that list.
+	f.probe.models = []string{"gpt-4o-mini"}
+	if recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/models", "", "alice", f.scenario.orgA); recorder.Code != http.StatusOK {
+		t.Fatalf("refresh: status = %d (%s)", recorder.Code, recorder.Body.String())
+	}
+	_, probesBefore := f.calls.snapshot()
+	recorder = f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/verify", "", "alice", f.scenario.orgA)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("verify: status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	_, probesAfter := f.calls.snapshot()
+	if probesAfter != probesBefore+1 {
+		t.Fatalf("verify made %d inference probes, want exactly 1", probesAfter-probesBefore)
+	}
+
+	f.calls.mu.Lock()
+	model := f.calls.lastModel
+	f.calls.mu.Unlock()
+	if model != "gpt-4o-mini" {
+		t.Fatalf("probe used model %q, want a name from the provider's own list", model)
+	}
+
+	got := decodeProvider(t, recorder)
+	if got.LastVerifiedAt == nil {
+		t.Fatal("a passing probe did not stamp last_verified_at")
+	}
+}
+
+// TestProviderVerifyFailureIs502AndLeavesNoStamp is AC3's failure path: a
+// credential the upstream rejects must not produce a "verified" badge. The
+// timestamp stays null, which is what makes the badge a fact rather than a
+// decoration.
+func TestProviderVerifyFailureIs502AndLeavesNoStamp(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"gpt-4o-mini"}
+	created := f.mustCreate(t, f.scenario.orgA, "Bad key", "openai_compatible", "https://bad.example.com/v1", "sk-wrong")
+	if recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/models", "", "alice", f.scenario.orgA); recorder.Code != http.StatusOK {
+		t.Fatalf("refresh: status = %d (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	f.probe.probeErr = errors.New("provider: bad.example.com rejected the inference probe with HTTP 401")
+	recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/verify", "", "alice", f.scenario.orgA)
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("failed verify: status = %d, want 502 (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	read := decodeProvider(t, f.doProvider(t, http.MethodGet, "/api/v1/providers/"+created.ID, "", "alice", f.scenario.orgA))
+	if read.LastVerifiedAt != nil {
+		t.Fatalf("a failed probe stamped last_verified_at = %v", *read.LastVerifiedAt)
+	}
+}
+
+// TestProviderVerifyWithoutCredentialIs400 pins the refusal to probe a provider
+// that stores no key. Reporting success would be a badge backed by no evidence,
+// and reporting a 502 would blame the upstream for a state it never saw.
+func TestProviderVerifyWithoutCredentialIs400(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"llama3.1:8b"}
+	// No api_key: a local endpoint that checks nothing.
+	created := f.mustCreate(t, f.scenario.orgA, "No key", "openai_compatible", "https://nokey.example.com/v1", "")
+	if created.HasKey {
+		t.Fatal("a provider created without a key reports has_key = true")
+	}
+	if recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/models", "", "alice", f.scenario.orgA); recorder.Code != http.StatusOK {
+		t.Fatalf("refresh: status = %d (%s)", recorder.Code, recorder.Body.String())
+	}
+
+	before, _ := f.calls.snapshot()
+	recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+"/verify", "", "alice", f.scenario.orgA)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("verify without a credential: status = %d, want 400 (%s)", recorder.Code, recorder.Body.String())
+	}
+	after, _ := f.calls.snapshot()
+	if after != before {
+		t.Fatal("verify called the upstream for a provider with no credential")
+	}
+}
+
+// ---- AC8: the two new routes obey the same floors ---------------------------
+
+// TestProviderPhase3RoutesRequireAdmin is AC8 applied to the endpoints phase 3
+// adds. They spend the workspace's credential and its quota, so the floor is the
+// same as the writes: member and viewer are refused at the gate.
+func TestProviderPhase3RoutesRequireAdmin(t *testing.T) {
+	f := newProviderFixture(t)
+	f.probe.models = []string{"gpt-4o-mini"}
+	created := f.mustCreate(t, f.scenario.orgA, "Floors", "openai_compatible", "https://floors.example.com/v1", "sk-tes...0000")
+
+	for _, path := range []string{"/verify", "/models"} {
+		for _, actor := range []string{"marta", "vera"} {
+			before, _ := f.calls.snapshot()
+			recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+path, "", actor, f.scenario.orgA)
+			if recorder.Code != http.StatusForbidden {
+				t.Fatalf("%s as %s: status = %d, want 403 (%s)", path, actor, recorder.Code, recorder.Body.String())
+			}
+			after, _ := f.calls.snapshot()
+			if after != before {
+				t.Fatalf("%s as %s reached the upstream despite being refused", path, actor)
+			}
+		}
+		// An unauthenticated call is refused too, and never dials.
+		before, _ := f.calls.snapshot()
+		recorder := f.doProvider(t, http.MethodPost, "/api/v1/providers/"+created.ID+path, "", "", f.scenario.orgA)
+		if recorder.Code != http.StatusUnauthorized {
+			t.Fatalf("%s anonymous: status = %d, want 401 (%s)", path, recorder.Code, recorder.Body.String())
+		}
+		after, _ := f.calls.snapshot()
+		if after != before {
+			t.Fatalf("%s anonymous reached the upstream", path)
+		}
 	}
 }

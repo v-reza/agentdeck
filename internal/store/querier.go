@@ -124,6 +124,13 @@ type Querier interface {
 	// Returns api_key_enc because the handler layer is what decrypts, and it needs
 	// the sealed bytes to do so. Nothing in this file puts them in a response.
 	GetProvider(ctx context.Context, arg GetProviderParams) (Provider, error)
+	// The one query that hands out ciphertext, for the one path that decrypts it
+	// before probing an upstream (phase 3). Returning it as a scalar rather than as
+	// a column of GetProvider is deliberate: the domain Provider carries no
+	// ciphertext, so no read path can leak what it never receives.
+	// api_key_enc is nullable (a local endpoint that checks nothing), and a NULL
+	// scans into a nil []byte rather than an error.
+	GetProviderKey(ctx context.Context, arg GetProviderKeyParams) ([]byte, error)
 	// Sliding idle window (US-AD02 AC4): a session that has been idle longer than
 	// the idle timeout is rejected, so last_seen_at is bumped on every use.
 	GetSessionByTokenHash(ctx context.Context, arg GetSessionByTokenHashParams) (GetSessionByTokenHashRow, error)
@@ -164,6 +171,24 @@ type Querier interface {
 	ListProjects(ctx context.Context, orgID string) ([]Project, error)
 	// The default sorts first because it is what the agent form preselects (AC9).
 	ListProviders(ctx context.Context, orgID string) ([]Provider, error)
+	// AC7's automatic half. This is the ONE provider query deliberately not scoped by
+	// org_id: the background refresher has no tenant in hand — it walks every
+	// workspace — so a `WHERE org_id = $1` here would make it impossible to write.
+	// Request-serving code must never call this; the reads that answer a user are
+	// List/Get, and both carry org_id.
+	//
+	// NULL models_fetched_at is stale, not fresh: "never fetched" is exactly the
+	// state that needs a fetch. The ORDER BY puts those first so a workspace that
+	// just registered a provider is served before one that merely aged out.
+	//
+	// The id tiebreaker makes the batch deterministic. Without it the order among
+	// equally-stale rows is unspecified, so with more stale providers than the batch
+	// cap the same subset can be chosen every pass and the rest starve.
+	// ponytail: deterministic is not the same as fair — a permanently broken provider
+	// stays stale forever and keeps its slot. Serving every workspace round-robin
+	// needs a last_attempt_at column; add it if a provider is ever observed never
+	// getting its turn.
+	ListStaleProviderModels(ctx context.Context, arg ListStaleProviderModelsParams) ([]Provider, error)
 	ListTaskChildren(ctx context.Context, parentID string) ([]ListTaskChildrenRow, error)
 	ListTaskEvents(ctx context.Context, taskID *string) ([]Event, error)
 	ListTaskParents(ctx context.Context, childID string) ([]ListTaskParentsRow, error)
@@ -175,11 +200,23 @@ type Querier interface {
 	// cannot recover a provider key. Returning the derived flag lets the handler
 	// answer without a second round-trip.
 	SetAgentProviderKey(ctx context.Context, arg SetAgentProviderKeyParams) (SetAgentProviderKeyRow, error)
+	// AC7: the fetched list and the moment it was fetched, written together so a
+	// freshness check can never see one without the other.
+	SetProviderModels(ctx context.Context, arg SetProviderModelsParams) error
+	// AC3: stamped only after the inference probe passes. Nothing else writes this
+	// column, so a non-null value always means a probe succeeded.
+	SetProviderVerifiedAt(ctx context.Context, arg SetProviderVerifiedAtParams) error
 	// AC6 says an agent keeps no copy of the address. Until phase 6 drops
 	// agents.base_url, that column is still what the agent screens render, so
 	// editing a provider must carry the new address to its agents — otherwise the
 	// edit is invisible everywhere an agent's endpoint is shown. Agents with
 	// provider_id NULL are deliberately untouched: they do not use this provider.
+	//
+	// The `a.provider = 'openai_compatible'` guard is what keeps this from raising
+	// agents_base_url_chk (still in force until phase 6): that constraint allows a
+	// base_url exactly when the agent's own provider is 'openai_compatible', so
+	// writing an address onto any other agent would be a CHECK violation surfacing
+	// as a 500 rather than the no-op it should be.
 	SyncAgentBaseURLForProvider(ctx context.Context, arg SyncAgentBaseURLForProviderParams) error
 	TouchSession(ctx context.Context, tokenHash string) error
 	UnarchiveAgent(ctx context.Context, arg UnarchiveAgentParams) (UnarchiveAgentRow, error)
