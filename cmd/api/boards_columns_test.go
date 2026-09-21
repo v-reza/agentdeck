@@ -75,7 +75,7 @@ func columnEditAPI(t *testing.T) columnFixture {
 		boardB:   seed(scenario.orgB, "proj-b", "board-b"),
 	}
 	f.mux = http.NewServeMux()
-	registerBoardRoutes(f.mux, scenario.api, board.NewService(repo))
+	registerBoardRoutes(f.mux, scenario.api, board.NewService(repo), nil)
 	return f
 }
 

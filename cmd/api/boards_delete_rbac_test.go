@@ -45,7 +45,7 @@ func reachedHandler(mux *http.ServeMux, r *http.Request) (code int, reached bool
 func TestDeleteTaskRequiresAdmin(t *testing.T) {
 	scenario := newRBACTestAPI(t)
 	mux := http.NewServeMux()
-	registerBoardRoutes(mux, scenario.api, board.NewService(nil))
+	registerBoardRoutes(mux, scenario.api, board.NewService(nil), nil)
 
 	// alice=owner, andre=admin, marta=member, vera=viewer (rbac_test.go topology).
 	cases := []struct {

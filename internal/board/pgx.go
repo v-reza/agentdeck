@@ -597,6 +597,7 @@ func (r *pgxRepository) CreateAgent(ctx context.Context, a Agent) (Agent, error)
 		RetryPolicy:       a.RetryPolicy,
 		MaxAttempts:       int32(a.MaxAttempts),
 		BaseUrl:           nullString(a.BaseURL),
+		ProviderID:        nullString(a.ProviderID),
 	})
 	if err != nil {
 		return Agent{}, agentNameTakenError(err)
@@ -658,6 +659,7 @@ func (r *pgxRepository) UpdateAgent(ctx context.Context, a Agent) (Agent, error)
 		RetryPolicy:       a.RetryPolicy,
 		MaxAttempts:       int32(a.MaxAttempts),
 		BaseUrl:           nullString(a.BaseURL),
+		ProviderID:        nullString(a.ProviderID),
 	})
 	if err != nil {
 		return Agent{}, agentNameTakenError(noRowsError(err))
@@ -746,6 +748,7 @@ func agentFromCreate(r store.CreateAgentRow) Agent {
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
 		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl), ArchivedAt: ts(r.ArchivedAt),
 		HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
+		ProviderID: str(r.ProviderID),
 	}
 }
 
@@ -757,6 +760,7 @@ func agentFromGet(r store.GetAgentRow) Agent {
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
 		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl), ArchivedAt: ts(r.ArchivedAt),
 		HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
+		ProviderID: str(r.ProviderID),
 	}
 }
 
@@ -768,6 +772,7 @@ func agentFromList(r store.ListAgentsRow) Agent {
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
 		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl), ArchivedAt: ts(r.ArchivedAt),
 		HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
+		ProviderID: str(r.ProviderID),
 	}
 }
 
@@ -783,6 +788,7 @@ func agentFromUpdate(r store.UpdateAgentRow) Agent {
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
 		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl),
 		ArchivedAt: ts(r.ArchivedAt), HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
+		ProviderID: str(r.ProviderID),
 	}
 }
 
@@ -794,6 +800,7 @@ func agentFromArchive(r store.ArchiveAgentRow) Agent {
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
 		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl),
 		ArchivedAt: ts(r.ArchivedAt), HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
+		ProviderID: str(r.ProviderID),
 	}
 }
 
@@ -805,6 +812,7 @@ func agentFromUnarchive(r store.UnarchiveAgentRow) Agent {
 		MaxRuntimeSeconds: int(r.MaxRuntimeSeconds), RetryPolicy: r.RetryPolicy,
 		MaxAttempts: int(r.MaxAttempts), BaseURL: str(r.BaseUrl),
 		ArchivedAt: ts(r.ArchivedAt), HasProviderKey: boolOf(r.HasProviderKey), CreatedAt: r.CreatedAt.Time,
+		ProviderID: str(r.ProviderID),
 	}
 }
 

@@ -242,18 +242,22 @@ WHERE org_id = $1 AND project_id = $2;
 -- BYO create (US-AD106 AC1) failed agents_base_url_chk as a 500 and a client's
 -- reasoning_effort was dropped in silence. internal/store/queries_columns_test.go
 -- is the guard that keeps the two lists in step.
+--
+-- provider_id is the registry reference (US-AD109). It is written here for the
+-- same reason as everything else on this list: a create that omits it leaves
+-- the agent pointing at no provider, which phase 5 reads as "no credential".
 INSERT INTO agents (id, org_id, project_id, name, provider, model, reasoning_effort,
                     skills_json, tools_json, max_runtime_seconds, retry_policy, max_attempts,
-                    base_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                    base_url, provider_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
           tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-          archived_at, created_at, has_provider_key;
+          archived_at, created_at, has_provider_key, provider_id;
 
 -- name: GetAgent :one
 SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
        tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-       archived_at, created_at, has_provider_key
+       archived_at, created_at, has_provider_key, provider_id
 FROM agents
 WHERE id = $1 AND org_id = $2;
 
@@ -265,7 +269,7 @@ WHERE id = $1 AND org_id = $2;
 -- ListAgentsUsingSkill and the task-assign path.
 SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
        tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-       archived_at, created_at, has_provider_key
+       archived_at, created_at, has_provider_key, provider_id
 FROM agents
 WHERE org_id = $1 AND project_id = $2
 ORDER BY name;
@@ -278,14 +282,17 @@ DELETE FROM agents WHERE id = $1 AND org_id = $2;
 -- is a full update rather than a partial patch. `provider` moves together with
 -- `base_url` because the DB constraint (agents_base_url_chk) requires them to
 -- agree: 'openai_compatible' iff base_url IS NOT NULL.
+--
+-- provider_id is the registry reference (US-AD109). It is nullable and stays
+-- that way: an agent with no provider of its own uses the workspace default.
 UPDATE agents
 SET name = $3, provider = $4, model = $5, reasoning_effort = $6,
     skills_json = $7, tools_json = $8, max_runtime_seconds = $9,
-    retry_policy = $10, max_attempts = $11, base_url = $12
+    retry_policy = $10, max_attempts = $11, base_url = $12, provider_id = $13
 WHERE id = $1 AND org_id = $2
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
           tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-          archived_at, created_at, has_provider_key;
+          archived_at, created_at, has_provider_key, provider_id;
 
 -- name: ArchiveAgent :one
 -- US-AD73: archived agents keep their row (running tasks still resolve their
@@ -295,7 +302,7 @@ SET archived_at = now()
 WHERE id = $1 AND org_id = $2
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
           tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-          archived_at, created_at, has_provider_key;
+          archived_at, created_at, has_provider_key, provider_id;
 
 -- name: UnarchiveAgent :one
 UPDATE agents
@@ -303,7 +310,7 @@ SET archived_at = NULL
 WHERE id = $1 AND org_id = $2
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
           tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-          archived_at, created_at, has_provider_key;
+          archived_at, created_at, has_provider_key, provider_id;
 
 -- name: SetAgentProviderKey :one
 -- US-AD86: store the sealed credential. Encryption/decryption lives in
@@ -335,7 +342,7 @@ WHERE id = $1 AND org_id = $2;
 -- registry can unarchive them.
 SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
        tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-       archived_at, created_at, has_provider_key
+       archived_at, created_at, has_provider_key, provider_id
 FROM agents
 WHERE org_id = $1 AND archived_at IS NULL
 ORDER BY name;

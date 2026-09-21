@@ -495,6 +495,8 @@ terbatas, jadi batasnya diterima dan dicatat, bukan didiamkan.
 | Provider kosong/tanpa template bawaan | **Kosong total.** Tidak ada template OpenAI/Anthropic siap pakai; user mengisi base URL + key sendiri dan menguji di halaman itu. |
 | Provider lintas project | **Org-scoped.** Agent tetap project-scoped. |
 | Kapan "agent rusak" ketahuan | **Saat agent mau jalan.** Nol biaya, ketahuan telat. Mekanismenya belum ada (lihat catatan di atas). |
+| Ruang kerja **belum punya provider** | **Agent nggak bisa didaftarkan**, dan itu memang konsekuensi kontraknya, bukan bug. `provider` + `base_url` diturunkan dari provider (AC6); `POST /agents` tanpa keduanya dijawab `400`. Form-nya menyebut sebabnya dan menautkan ke halaman Provider, bukan menampilkan dropdown kosong + field key yang nilainya bakal diabaikan server. |
+| Field key per-agent di form **register** | **Dibuang.** Karena provider wajib, cabang US-AD86 di form register tak terjangkau secara konstruksi. US-AD86 tetap berlaku di layar **detail** agent. |
 
 #### Yang batal dari keputusan sebelumnya
 

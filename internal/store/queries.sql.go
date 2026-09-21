@@ -17,7 +17,7 @@ SET archived_at = now()
 WHERE id = $1 AND org_id = $2
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
           tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-          archived_at, created_at, has_provider_key
+          archived_at, created_at, has_provider_key, provider_id
 `
 
 type ArchiveAgentParams struct {
@@ -42,6 +42,7 @@ type ArchiveAgentRow struct {
 	ArchivedAt        pgtype.Timestamptz
 	CreatedAt         pgtype.Timestamptz
 	HasProviderKey    *bool
+	ProviderID        *string
 }
 
 // US-AD73: archived agents keep their row (running tasks still resolve their
@@ -66,6 +67,7 @@ func (q *Queries) ArchiveAgent(ctx context.Context, arg ArchiveAgentParams) (Arc
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.HasProviderKey,
+		&i.ProviderID,
 	)
 	return i, err
 }
@@ -349,11 +351,11 @@ func (q *Queries) CountUnfinishedParents(ctx context.Context, childID string) (i
 const createAgent = `-- name: CreateAgent :one
 INSERT INTO agents (id, org_id, project_id, name, provider, model, reasoning_effort,
                     skills_json, tools_json, max_runtime_seconds, retry_policy, max_attempts,
-                    base_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                    base_url, provider_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
           tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-          archived_at, created_at, has_provider_key
+          archived_at, created_at, has_provider_key, provider_id
 `
 
 type CreateAgentParams struct {
@@ -370,6 +372,7 @@ type CreateAgentParams struct {
 	RetryPolicy       string
 	MaxAttempts       int32
 	BaseUrl           *string
+	ProviderID        *string
 }
 
 type CreateAgentRow struct {
@@ -389,6 +392,7 @@ type CreateAgentRow struct {
 	ArchivedAt        pgtype.Timestamptz
 	CreatedAt         pgtype.Timestamptz
 	HasProviderKey    *bool
+	ProviderID        *string
 }
 
 // Agents. The agent is the retry/limit source for every run it executes.
@@ -397,6 +401,10 @@ type CreateAgentRow struct {
 // BYO create (US-AD106 AC1) failed agents_base_url_chk as a 500 and a client's
 // reasoning_effort was dropped in silence. internal/store/queries_columns_test.go
 // is the guard that keeps the two lists in step.
+//
+// provider_id is the registry reference (US-AD109). It is written here for the
+// same reason as everything else on this list: a create that omits it leaves
+// the agent pointing at no provider, which phase 5 reads as "no credential".
 func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (CreateAgentRow, error) {
 	row := q.db.QueryRow(ctx, createAgent,
 		arg.ID,
@@ -412,6 +420,7 @@ func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (Creat
 		arg.RetryPolicy,
 		arg.MaxAttempts,
 		arg.BaseUrl,
+		arg.ProviderID,
 	)
 	var i CreateAgentRow
 	err := row.Scan(
@@ -431,6 +440,7 @@ func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (Creat
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.HasProviderKey,
+		&i.ProviderID,
 	)
 	return i, err
 }
@@ -1017,7 +1027,7 @@ func (q *Queries) DeleteTaskLink(ctx context.Context, arg DeleteTaskLinkParams) 
 const getAgent = `-- name: GetAgent :one
 SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
        tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-       archived_at, created_at, has_provider_key
+       archived_at, created_at, has_provider_key, provider_id
 FROM agents
 WHERE id = $1 AND org_id = $2
 `
@@ -1044,6 +1054,7 @@ type GetAgentRow struct {
 	ArchivedAt        pgtype.Timestamptz
 	CreatedAt         pgtype.Timestamptz
 	HasProviderKey    *bool
+	ProviderID        *string
 }
 
 func (q *Queries) GetAgent(ctx context.Context, arg GetAgentParams) (GetAgentRow, error) {
@@ -1066,6 +1077,7 @@ func (q *Queries) GetAgent(ctx context.Context, arg GetAgentParams) (GetAgentRow
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.HasProviderKey,
+		&i.ProviderID,
 	)
 	return i, err
 }
@@ -1515,7 +1527,7 @@ func (q *Queries) ListAgentSkillsWithUsage(ctx context.Context, orgID string) ([
 const listAgents = `-- name: ListAgents :many
 SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
        tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-       archived_at, created_at, has_provider_key
+       archived_at, created_at, has_provider_key, provider_id
 FROM agents
 WHERE org_id = $1 AND project_id = $2
 ORDER BY name
@@ -1543,6 +1555,7 @@ type ListAgentsRow struct {
 	ArchivedAt        pgtype.Timestamptz
 	CreatedAt         pgtype.Timestamptz
 	HasProviderKey    *bool
+	ProviderID        *string
 }
 
 // Returns archived rows too, deliberately. The registry is where a user finds an
@@ -1576,6 +1589,7 @@ func (q *Queries) ListAgents(ctx context.Context, arg ListAgentsParams) ([]ListA
 			&i.ArchivedAt,
 			&i.CreatedAt,
 			&i.HasProviderKey,
+			&i.ProviderID,
 		); err != nil {
 			return nil, err
 		}
@@ -1666,7 +1680,7 @@ func (q *Queries) ListAgentsUsingSkill(ctx context.Context, arg ListAgentsUsingS
 const listAssignableAgents = `-- name: ListAssignableAgents :many
 SELECT id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
        tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-       archived_at, created_at, has_provider_key
+       archived_at, created_at, has_provider_key, provider_id
 FROM agents
 WHERE org_id = $1 AND archived_at IS NULL
 ORDER BY name
@@ -1689,6 +1703,7 @@ type ListAssignableAgentsRow struct {
 	ArchivedAt        pgtype.Timestamptz
 	CreatedAt         pgtype.Timestamptz
 	HasProviderKey    *bool
+	ProviderID        *string
 }
 
 // US-AD73 AC2: the assign dropdown must never offer a retired agent. This is the
@@ -1720,6 +1735,7 @@ func (q *Queries) ListAssignableAgents(ctx context.Context, orgID string) ([]Lis
 			&i.ArchivedAt,
 			&i.CreatedAt,
 			&i.HasProviderKey,
+			&i.ProviderID,
 		); err != nil {
 			return nil, err
 		}
@@ -2363,7 +2379,7 @@ SET archived_at = NULL
 WHERE id = $1 AND org_id = $2
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
           tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-          archived_at, created_at, has_provider_key
+          archived_at, created_at, has_provider_key, provider_id
 `
 
 type UnarchiveAgentParams struct {
@@ -2388,6 +2404,7 @@ type UnarchiveAgentRow struct {
 	ArchivedAt        pgtype.Timestamptz
 	CreatedAt         pgtype.Timestamptz
 	HasProviderKey    *bool
+	ProviderID        *string
 }
 
 func (q *Queries) UnarchiveAgent(ctx context.Context, arg UnarchiveAgentParams) (UnarchiveAgentRow, error) {
@@ -2410,6 +2427,7 @@ func (q *Queries) UnarchiveAgent(ctx context.Context, arg UnarchiveAgentParams) 
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.HasProviderKey,
+		&i.ProviderID,
 	)
 	return i, err
 }
@@ -2418,11 +2436,11 @@ const updateAgent = `-- name: UpdateAgent :one
 UPDATE agents
 SET name = $3, provider = $4, model = $5, reasoning_effort = $6,
     skills_json = $7, tools_json = $8, max_runtime_seconds = $9,
-    retry_policy = $10, max_attempts = $11, base_url = $12
+    retry_policy = $10, max_attempts = $11, base_url = $12, provider_id = $13
 WHERE id = $1 AND org_id = $2
 RETURNING id, org_id, project_id, name, provider, model, reasoning_effort, skills_json,
           tools_json, max_runtime_seconds, retry_policy, max_attempts, base_url,
-          archived_at, created_at, has_provider_key
+          archived_at, created_at, has_provider_key, provider_id
 `
 
 type UpdateAgentParams struct {
@@ -2438,6 +2456,7 @@ type UpdateAgentParams struct {
 	RetryPolicy       string
 	MaxAttempts       int32
 	BaseUrl           *string
+	ProviderID        *string
 }
 
 type UpdateAgentRow struct {
@@ -2457,12 +2476,16 @@ type UpdateAgentRow struct {
 	ArchivedAt        pgtype.Timestamptz
 	CreatedAt         pgtype.Timestamptz
 	HasProviderKey    *bool
+	ProviderID        *string
 }
 
 // US-AD96/US-AD106: the edit form replaces every mutable field at once, so this
 // is a full update rather than a partial patch. `provider` moves together with
 // `base_url` because the DB constraint (agents_base_url_chk) requires them to
 // agree: 'openai_compatible' iff base_url IS NOT NULL.
+//
+// provider_id is the registry reference (US-AD109). It is nullable and stays
+// that way: an agent with no provider of its own uses the workspace default.
 func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) (UpdateAgentRow, error) {
 	row := q.db.QueryRow(ctx, updateAgent,
 		arg.ID,
@@ -2477,6 +2500,7 @@ func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) (Updat
 		arg.RetryPolicy,
 		arg.MaxAttempts,
 		arg.BaseUrl,
+		arg.ProviderID,
 	)
 	var i UpdateAgentRow
 	err := row.Scan(
@@ -2496,6 +2520,7 @@ func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) (Updat
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.HasProviderKey,
+		&i.ProviderID,
 	)
 	return i, err
 }

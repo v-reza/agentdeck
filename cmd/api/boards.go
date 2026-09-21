@@ -8,6 +8,7 @@ import (
 
 	"agentdeck/internal/auth"
 	"agentdeck/internal/board"
+	"agentdeck/internal/providerreg"
 )
 
 // boardAPI wires the M1 board domain to HTTP. It rides the same authAPI as the
@@ -16,6 +17,13 @@ import (
 // authentication + tenant resolution + role gate exactly like orgRoute.
 type boardAPI struct {
 	svc *board.Service
+	// providers is the workspace provider registry (US-AD109). Phase 5 made the
+	// agent form choose a provider instead of typing an endpoint, so the write
+	// path has to resolve that choice into the protocol and base URL the row
+	// stores — and refuse a provider id from another workspace. It is optional
+	// so the RBAC tests, which mount these routes without a registry, still
+	// exercise the role gates.
+	providers *providerreg.Service
 }
 
 // writeBoardError maps a domain error to its stable HTTP code so the same
@@ -97,8 +105,8 @@ func toProjectResponse(p board.Project) projectResponse {
 //
 // Each route chains authentication + tenant resolution + the role gate, so no
 // board handler can be registered without all three.
-func registerBoardRoutes(mux *http.ServeMux, api authAPI, svc *board.Service) {
-	boardAPI := boardAPI{svc: svc}
+func registerBoardRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, providers *providerreg.Service) {
+	boardAPI := boardAPI{svc: svc, providers: providers}
 	boardRoute := func(pattern string, handler http.Handler, minimum auth.Role) {
 		mux.Handle(pattern, api.orgHeaderContextMiddleware(api.requireRole(handler, minimum)))
 	}

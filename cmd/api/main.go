@@ -319,20 +319,25 @@ func main() {
 	orgRoute("PATCH /api/v1/orgs/{id}/members/{user_id}", http.HandlerFunc(api.updateMember), auth.Admin)
 	orgRoute("DELETE /api/v1/orgs/{id}/members/{user_id}", http.HandlerFunc(api.removeMember), auth.Admin)
 
-	registerBoardRoutes(mux, api, boardService)
+	// US-AD109: the provider registry is org-scoped, so it rides the runtime
+	// pool the same way the skill library does. It is wired with the upstream
+	// probe and the credential decrypter because two of its seven endpoints
+	// (verify, models) actually call the operator's endpoint.
+	//
+	// It is built before the board routes on purpose: phase 5 made the agent
+	// form choose a provider, so the agent write path resolves that choice
+	// through this service (AC6) and checks the model against the provider's
+	// fetched list (AC10).
+	providerSvc := newProviderService(pool, cfg.MasterKey)
+	registerBoardRoutes(mux, api, boardService, providerSvc)
 	// The agent registry and the skill library are their own route files, so
 	// each owns its role table in one place (see registerAgentRoutes /
 	// registerAgentSkillRoutes). Wiring them here is the one line that makes
 	// them reachable — they were written but unmounted, which left every
 	// agent-catalog, PATCH /agents/{id} and /agent-skills request a 404.
-	registerAgentRoutes(mux, api, boardService)
+	registerAgentRoutes(mux, api, boardService, providerSvc)
 	registerAgentCredentialRoutes(mux, api, boardService)
 	registerAgentSkillRoutes(mux, api, skill.NewService(skill.NewPgxRepository(pool)))
-	// US-AD109: the provider registry is org-scoped, so it rides the runtime
-	// pool the same way the skill library does. It is wired with the upstream
-	// probe and the credential decrypter because two of its seven endpoints
-	// (verify, models) actually call the operator's endpoint.
-	providerSvc := newProviderService(pool, cfg.MasterKey)
 	registerProviderRoutes(mux, api, providerSvc)
 
 	// AC7's automatic half: refresh model lists older than 24 hours without

@@ -29,7 +29,7 @@ import (
 func TestCreateProjectRequiresAdmin(t *testing.T) {
 	scenario := newRBACTestAPI(t)
 	mux := http.NewServeMux()
-	registerBoardRoutes(mux, scenario.api, board.NewService(nil))
+	registerBoardRoutes(mux, scenario.api, board.NewService(nil), nil)
 
 	// Every actor is a member of orgA with a distinct role, so a 403 here is the
 	// role gate firing and nothing else. alice=owner, andre=admin, marta=member,
@@ -75,7 +75,7 @@ func TestCreateProjectRequiresAdmin(t *testing.T) {
 func TestCreateProjectGateRejectsViewerBeforeTheBodyIsRead(t *testing.T) {
 	scenario := newRBACTestAPI(t)
 	mux := http.NewServeMux()
-	registerBoardRoutes(mux, scenario.api, board.NewService(nil))
+	registerBoardRoutes(mux, scenario.api, board.NewService(nil), nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects", malformedJSON{})
 	req.Header.Set("Authorization", "Bearer "+scenario.tokens["vera@x.test"])

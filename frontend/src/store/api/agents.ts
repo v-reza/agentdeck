@@ -4,20 +4,23 @@ import type { Agent } from '@/lib/domain'
 export interface CreateAgentArgs {
   projectID: string
   name: string
-  provider: string
   model: string
+  /**
+   * The workspace provider the agent draws its endpoint and credential from
+   * (US-AD109 AC6). The server derives `provider` and `base_url` from it, so
+   * the client never sends either — an agent that carried its own copy of the
+   * endpoint is exactly what the registry exists to remove.
+   *
+   * Omitted means the agent has no provider of its own and uses the
+   * deployment's environment default, which is a valid permanent state.
+   */
+  providerID?: string
   reasoningEffort?: string
   maxRuntimeSeconds?: number
   retryPolicy?: string
   maxAttempts?: number
   tools?: string[]
   skills?: string[]
-  /**
-   * The BYO endpoint (US-AD106 AC1). Required whenever `provider` is
-   * `openai_compatible` — the server answers 400 without it, because
-   * `agents_base_url_chk` makes the two an equivalence.
-   */
-  baseURL?: string
 }
 
 /** The complete mutable agent profile accepted by PATCH /agents/{id}. */
@@ -174,7 +177,6 @@ export const agentsApi = baseApi.injectEndpoints({
         method: 'POST',
         body: {
           name: body.name,
-          provider: body.provider,
           model: body.model,
           reasoning_effort: body.reasoningEffort,
           max_runtime_seconds: body.maxRuntimeSeconds,
@@ -183,11 +185,12 @@ export const agentsApi = baseApi.injectEndpoints({
           skills: body.skills,
           tools: body.tools,
           // This list is spelled out rather than spread on purpose — the server
-          // rejects unknown keys. It drifted once: `base_url` was omitted here
-          // and again in the form's submit, so a BYO create sent
-          // `provider: openai_compatible` with no endpoint and the server
-          // answered 400. `src/store/api/agents.test.ts` pins the list.
-          base_url: body.baseURL,
+          // rejects unknown keys, and the two that used to be here (`provider`
+          // and `base_url`) are now derived server-side from `provider_id`
+          // (US-AD109 AC6). Sending them would be a second writer for a fact
+          // the registry owns, so the omission is the point rather than an
+          // oversight. `src/store/api/agents.test.ts` pins the list.
+          provider_id: body.providerID,
         },
       }),
       invalidatesTags: (_r, _e, { projectID }) => [{ type: 'Agent', id: `PROJECT-${projectID}` }],

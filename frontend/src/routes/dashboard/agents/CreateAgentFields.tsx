@@ -1,10 +1,10 @@
 import type { AgentCatalog, AgentSkill } from '@/store/api/agents'
+import type { Provider } from '@/store/api/providers'
+import { Link, useParams } from 'react-router-dom'
 import { Field, FieldError, Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
 import { useT } from '@/hooks/use-t'
-import { ProviderKeyFields } from '@/components/agents/ProviderKeyFields'
-import { CREATE_PROVIDER_CHOICES, REASONING_EFFORTS, RETRY_POLICIES, TOOL_SET } from './AgentDetailOptions'
+import { REASONING_EFFORTS, RETRY_POLICIES, TOOL_SET } from './AgentDetailOptions'
 import { type Dictionary } from '@/lib/i18n'
 import { type FieldErrors } from '@/lib/field-error'
 
@@ -21,9 +21,10 @@ import { type FieldErrors } from '@/lib/field-error'
  * at 420px the two-column grid clipped the model name. The control is stacked
  * full width here, as the design draws it, and the popup is ours.
  *
- * `base_url` appears only for the BYO provider, because `agents_base_url_chk`
- * makes that an equivalence: a built-in provider with a base_url is exactly as
- * invalid as `openai_compatible` without one.
+ * The provider dropdown lists the workspace registry (US-AD109) and the model
+ * list is the one that provider fetched (AC7). The endpoint is rendered as text
+ * under the provider rather than as a field: the provider owns it, and a second
+ * place to edit it would be a second source of truth for it.
  */
 
 /** The catalog tiers a user may pick by name. A pattern is a rule, not a model. */
@@ -70,84 +71,78 @@ export function IdentitySection({ defaultProject, errors }: { defaultProject: st
 }
 
 export function ProviderSection({
-  provider,
+  providerID,
   onProviderChange,
+  providers,
   model,
   onModelChange,
-  probedModels,
-  onFetchModels,
-  fetching,
-  fetchNote,
-  canFetch,
   errors,
 }: {
-  provider: string
+  /** The workspace provider this agent runs on. Empty means none. */
+  providerID: string
   onProviderChange: (next: string) => void
+  /** The workspace registry (US-AD109). Drives both dropdowns. */
+  providers: Provider[]
   model: string
   onModelChange: (next: string) => void
-  /** Models the operator pulled from their own endpoint (US-AD106 AC2). */
-  probedModels: string[]
-  onFetchModels: () => void
-  fetching: boolean
-  fetchNote: string
-  canFetch: boolean
   errors: FieldErrors
 }) {
   const t = useT()
-  // BYO only, by decision (DECISIONS 6A.F). The operator brings their own
-  // endpoint and credential, so the model list cannot come from our price
-  // catalog — it comes from the probe below. The other provider names stay in
-  // the *detail* screen so an agent already carrying one still displays it.
-  const providerChoices = [...new Set([...CREATE_PROVIDER_CHOICES, provider])]
-  // Whatever the operator pulled, plus the current value so a re-render cannot
-  // silently blank a model they typed.
-  const modelChoices = [...new Set([model, ...probedModels].filter(Boolean))]
+  const { orgID = '' } = useParams<{ orgID: string }>()
+  // US-AD109 AC6/AC10: the provider owns the endpoint and the credential, and
+  // the model list comes from the provider rather than from a probe the operator
+  // has to run by hand. The endpoint field is gone on purpose — an agent that
+  // carried its own copy of the base URL is what the registry exists to remove.
+  const selected = providers.find((entry) => entry.id === providerID)
+  const providerChoices = providers.map((entry) => ({ value: entry.id, label: entry.name }))
+  // The model list is whatever the provider last fetched (AC7), plus the current
+  // value so a re-render cannot blank a model already chosen.
+  const modelChoices = [...new Set([model, ...(selected?.models ?? [])].filter(Boolean))]
+
+  // An empty registry is not a form with an empty dropdown: `provider` and
+  // `base_url` are both derived from the provider now, so there is nothing the
+  // operator could type here that the server would accept. Measured against a
+  // fresh workspace: POST with no provider and no base_url is a 400, and a
+  // workspace that has never created a provider has nothing to pick. The
+  // section therefore points at the page that fixes it instead of offering two
+  // fields whose every value is refused.
+  if (providers.length === 0) {
+    return (
+      <section className="flex flex-col gap-3 rounded-[8px] border border-[var(--color-border-standard)] bg-[var(--color-surface-page)] p-3">
+        <SectionLabel text={t['agents.create.section.provider']} hint={t['agents.create.fromRegistry']} />
+        <p className="text-[11px] leading-snug text-[var(--color-tertiary)]">{t['agents.create.noProvider']}</p>
+        <Link
+          to={`/app/${orgID}/settings/providers`}
+          className="self-start font-mono text-[11px] text-[var(--color-accent)] underline-offset-2 hover:underline"
+        >
+          {t['agents.create.noProviderCta']}
+        </Link>
+      </section>
+    )
+  }
 
   return (
     <section className="flex flex-col gap-3 rounded-[8px] border border-[var(--color-border-standard)] bg-[var(--color-surface-page)] p-3">
-      <SectionLabel text={t['agents.create.section.provider']} hint={t['agents.create.fromEndpoint']} />
+      <SectionLabel text={t['agents.create.section.provider']} hint={t['agents.create.fromRegistry']} />
 
       <Field label={t['agents.field.provider']}>
         <Combobox
-          name="provider"
+          name="providerID"
           label={t['agents.field.provider']}
-          value={provider}
+          value={providerID}
           onChange={onProviderChange}
-          options={providerChoices.map((choice) => ({ value: choice, label: choice }))}
-          invalid={Boolean(errors.byField['provider'])}
+          options={providerChoices}
+          invalid={Boolean(errors.byField['providerID'])}
         />
-        <FieldError>{errors.byField['provider']}</FieldError>
+        <FieldError>{errors.byField['providerID']}</FieldError>
       </Field>
 
-      <Field label={t['agents.detail.baseUrl']}>
-        <Input
-          name="baseUrl"
-          type="url"
-          required
-          placeholder="https://api.example.com/v1"
-          className="font-mono"
-          aria-invalid={errors.byField['baseUrl'] ? true : undefined}
-        />
-        <FieldError>{errors.byField['baseUrl']}</FieldError>
-      </Field>
-
-      {/* Pulling the list needs the endpoint and the key, both of which live in
-          this same form, so the button reads them at click time instead of the
-          form mirroring every keystroke of a password field into state. */}
-      {canFetch ? (
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[10.5px] leading-snug text-[var(--color-quaternary)]">{fetchNote}</span>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            className="shrink-0"
-            disabled={fetching}
-            onClick={onFetchModels}
-          >
-            {fetching ? t['agents.create.fetching'] : t['agents.create.fetchModels']}
-          </Button>
-        </div>
+      {/* The endpoint is shown, never typed: it belongs to the provider, and a
+          second place to edit it would be a second source of truth for it. */}
+      {selected ? (
+        <p className="truncate font-mono text-[10.5px] text-[var(--color-tertiary)]" data-testid="agent-form-base-url">
+          {selected.base_url}
+        </p>
       ) : null}
 
       <Field label={t['agents.field.model']}>
@@ -167,29 +162,23 @@ export function ProviderSection({
   )
 }
 
-export function CredentialSection({
-  allowed,
-  agentID,
-  errors,
-}: {
-  allowed: boolean
-  agentID?: string
-  errors: FieldErrors
-}) {
+/**
+ * The credential block, in its registry form: a statement, not an input.
+ *
+ * US-AD109 AC6 moves the credential onto the provider, and the register form
+ * always has one — a workspace with no provider cannot register an agent at all
+ * (see `ProviderSection`). So the per-agent key field US-AD86 used to draw here
+ * is unreachable by construction, and keeping it would be a field whose value
+ * the server ignores. The key is entered once, on the Provider page.
+ */
+export function CredentialSection() {
   const t = useT()
   return (
     <section className="flex flex-col gap-3 rounded-[8px] border border-[var(--color-border-standard)] bg-[var(--color-surface-page)] p-3">
-      <SectionLabel
-        text={t['agents.create.section.credential']}
-        hint={allowed ? t['agents.create.adminOnly'] : t['agents.create.memberHidden']}
-      />
-      {allowed ? (
-        <ProviderKeyFields inputName="apiKey" hasKey={false} agentID={agentID} error={errors.byField['apiKey']} />
-      ) : (
-        <p className="text-[11px] leading-snug text-[var(--color-tertiary)]">
-          {t['agents.create.credentialRestricted']}
-        </p>
-      )}
+      <SectionLabel text={t['agents.create.section.credential']} hint={t['agents.create.credentialFromProvider']} />
+      <p className="text-[11px] leading-snug text-[var(--color-tertiary)]">
+        {t['agents.create.credentialViaProvider']}
+      </p>
     </section>
   )
 }

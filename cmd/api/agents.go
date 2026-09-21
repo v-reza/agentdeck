@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -9,6 +12,7 @@ import (
 	"agentdeck/internal/auth"
 	"agentdeck/internal/board"
 	"agentdeck/internal/pricing"
+	"agentdeck/internal/providerreg"
 )
 
 // Agent registry HTTP surface (US-AD20).
@@ -41,6 +45,10 @@ type agentRequest struct {
 	// is what US-AD106 AC1 describes ("mendaftarkan agent dengan provider =
 	// 'openai_compatible' dan base_url yang valid berhasil").
 	BaseURL string `json:"base_url"`
+	// ProviderID points at a workspace provider (US-AD109). Omitted means the
+	// agent keeps whatever it had, which on create is none: an agent with no
+	// provider of its own is a valid, permanent state, not a missing backfill.
+	ProviderID string `json:"provider_id"`
 }
 
 // agentUpdateRequest is the PATCH body (US-AD96, US-AD106, US-AD73). It carries
@@ -78,8 +86,11 @@ type agentResponse struct {
 	// HasProviderKey is the generated column agents.has_provider_key: true once
 	// a credential is stored (DECISIONS 6A.I). It reports presence, never the
 	// key — the ciphertext never enters board.Agent, so it cannot leak here.
-	HasProviderKey bool   `json:"has_provider_key"`
-	CreatedAt      string `json:"created_at"`
+	HasProviderKey bool `json:"has_provider_key"`
+	// ProviderID is the workspace provider this agent draws its endpoint and
+	// credential from (US-AD109). Omitted when the agent has none.
+	ProviderID *string `json:"provider_id,omitempty"`
+	CreatedAt  string  `json:"created_at"`
 }
 
 // The DDL defaults, mirrored so a request that omits a field lands on the same
@@ -122,6 +133,10 @@ func toAgentResponse(a board.Agent) agentResponse {
 		baseURL := a.BaseURL
 		resp.BaseURL = &baseURL
 	}
+	if a.ProviderID != "" {
+		providerID := a.ProviderID
+		resp.ProviderID = &providerID
+	}
 	if a.ArchivedAt != nil {
 		archivedAt := a.ArchivedAt.Format(time.RFC3339Nano)
 		resp.ArchivedAt = &archivedAt
@@ -149,6 +164,7 @@ func (a boardAPI) createAgent(w http.ResponseWriter, r *http.Request) {
 		Model:             req.Model,
 		ReasoningEffort:   req.ReasoningEffort,
 		BaseURL:           strings.TrimSpace(req.BaseURL),
+		ProviderID:        strings.TrimSpace(req.ProviderID),
 		MaxRuntimeSeconds: defaultAgentMaxRuntimeSeconds,
 		RetryPolicy:       defaultAgentRetryPolicy,
 		MaxAttempts:       defaultAgentMaxAttempts,
@@ -171,6 +187,22 @@ func (a boardAPI) createAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.MaxAttempts != nil {
 		agent.MaxAttempts = *req.MaxAttempts
+	}
+	// The provider is resolved before the write: it is what decides `provider`
+	// and `base_url` (US-AD109 AC6), and the model is checked against the list
+	// that provider offers (AC10).
+	if err := a.applyProvider(r.Context(), orgCtx.workspace.ID, &agent); err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	models, err := a.providerModels(r.Context(), orgCtx.workspace.ID, agent)
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	if err := validateModelAgainstProvider(agent.Model, models); err != nil {
+		writeBoardError(w, err)
+		return
 	}
 	created, err := a.svc.CreateAgent(r.Context(), agent)
 	if err != nil {
@@ -240,8 +272,8 @@ func (a boardAPI) deleteAgent(w http.ResponseWriter, r *http.Request) {
 //	GET    /api/v1/agents/{id}   Viewer   (registered in registerBoardRoutes)
 //	PATCH  /api/v1/agents/{id}   Member   (here; archive raises it to Admin)
 //	GET    /api/v1/agent-catalog Viewer   (here)
-func registerAgentRoutes(mux *http.ServeMux, api authAPI, svc *board.Service) {
-	boardAPI := boardAPI{svc: svc}
+func registerAgentRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, providers *providerreg.Service) {
+	boardAPI := boardAPI{svc: svc, providers: providers}
 	agentRoute := func(pattern string, handler http.Handler, minimum auth.Role) {
 		mux.Handle(pattern, api.orgHeaderContextMiddleware(api.requireRole(handler, minimum)))
 	}
@@ -312,7 +344,23 @@ func (a boardAPI) updateAgent(w http.ResponseWriter, r *http.Request) {
 		writeBoardError(w, err)
 		return
 	}
-	updated, err := a.svc.UpdateAgent(r.Context(), mergeAgent(current, req))
+	merged := mergeAgent(current, req)
+	// Same resolution as create: the provider decides `provider` and `base_url`
+	// (US-AD109 AC6), and the model must be one that provider offers (AC10).
+	if err := a.applyProvider(r.Context(), orgCtx.workspace.ID, &merged); err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	models, err := a.providerModels(r.Context(), orgCtx.workspace.ID, merged)
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	if err := validateModelAgainstProvider(merged.Model, models); err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	updated, err := a.svc.UpdateAgent(r.Context(), merged)
 	if err != nil {
 		writeBoardError(w, err)
 		return
@@ -362,6 +410,14 @@ func mergeAgent(current board.Agent, req agentUpdateRequest) board.Agent {
 	if req.MaxAttempts != nil {
 		current.MaxAttempts = *req.MaxAttempts
 	}
+	// provider_id is overlaid like every other field, so a PATCH that only
+	// renames an agent keeps its provider. An omitted id is not a clear: the
+	// registry reference is what carries the endpoint and the credential, and
+	// silently dropping it on an unrelated edit would repoint the agent at the
+	// deployment default (US-AD109 AC6).
+	if req.ProviderID != "" {
+		current.ProviderID = strings.TrimSpace(req.ProviderID)
+	}
 	// provider and base_url move together (agents_base_url_chk): switching to a
 	// built-in provider clears the endpoint, and switching to openai_compatible
 	// requires one. An omitted base_url is not a clear — it keeps the stored
@@ -383,6 +439,95 @@ func mergeAgent(current board.Agent, req agentUpdateRequest) board.Agent {
 func writeAgent(w http.ResponseWriter, agent board.Agent) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(toAgentResponse(agent))
+}
+
+// applyProvider resolves the agent's provider_id into the three stored fields
+// that describe where it runs (US-AD109 AC6, DECISIONS 6A.J).
+//
+// This is the hinge of phase 5. `agents.provider` used to be typed by the
+// operator; it is now *derived* from `providers.protocol`, because the provider
+// is what owns the endpoint and the credential. Letting the request also set
+// them would mean two writers for one fact, and the row could describe an
+// endpoint the credential does not belong to.
+//
+// An empty providerID is not an error: it clears the reference and leaves the
+// agent on the deployment's environment default, which is the permanent state of
+// every built-in agent the backfill deliberately skipped (DECISIONS 6A.J).
+//
+// The lookup carries the org id, so a provider id from another workspace is
+// indistinguishable from an absent one — the same tenant boundary every other
+// query in this file holds.
+func (a boardAPI) applyProvider(ctx context.Context, orgID string, agent *board.Agent) error {
+	if agent.ProviderID == "" {
+		// Clearing keeps `provider` as-is: an agent that never had a provider
+		// must not be rewritten to openai_compatible just because the field
+		// went away, and base_url follows the stored provider rather than the
+		// request.
+		return nil
+	}
+	if a.providers == nil {
+		// A deployment that mounted the agent routes without the registry (the
+		// RBAC tests do exactly this) has nothing to resolve against. Answering
+		// "unknown provider" beats a nil dereference.
+		return board.ErrUnknownProvider
+	}
+	provider, err := a.providers.Get(ctx, orgID, agent.ProviderID)
+	if err != nil {
+		if errors.Is(err, providerreg.ErrProviderNotFound) {
+			// US-AD07: a foreign provider id is not found, not forbidden.
+			return board.ErrUnknownProvider
+		}
+		return err
+	}
+	agent.Provider = string(provider.Protocol)
+	agent.BaseURL = provider.BaseURL
+	return nil
+}
+
+// providerModels returns the model list the agent's provider offers, or nil when
+// the agent has no provider.
+//
+// Nil is a distinct answer from an empty list: "this provider has fetched
+// nothing yet" must not be enforced as "no model is allowed", because phase 3
+// fetches lazily and a provider created minutes ago legitimately has none.
+func (a boardAPI) providerModels(ctx context.Context, orgID string, agent board.Agent) ([]string, error) {
+	if agent.ProviderID == "" || a.providers == nil {
+		return nil, nil
+	}
+	provider, err := a.providers.Get(ctx, orgID, agent.ProviderID)
+	if err != nil {
+		if errors.Is(err, providerreg.ErrProviderNotFound) {
+			return nil, board.ErrUnknownProvider
+		}
+		return nil, err
+	}
+	if len(provider.Models) == 0 {
+		return nil, nil
+	}
+	return provider.Models, nil
+}
+
+// validateModelAgainstProvider implements US-AD109 AC10's other half: a model
+// the selected provider does not offer is refused, because the provider is now
+// the thing that knows which models exist.
+//
+// `models` is nil when nothing was fetched yet, and that is deliberately *not* a
+// rejection: the allowlist is only authoritative once it exists.
+//
+// The models come from the provider's fetched list, which the operator controls
+// by editing their own upstream — this is a usability check against a stale or
+// wrong selection, not a security boundary. It cannot be one: the list is
+// whatever the operator's endpoint answered with.
+func validateModelAgainstProvider(model string, models []string) error {
+	if models == nil {
+		return nil
+	}
+	for _, known := range models {
+		if known == model {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: model %q is not offered by this provider", board.ErrUnknownModel, model)
 }
 
 // ---- agent catalog (US-AD96, US-AD108) --------------------------------------

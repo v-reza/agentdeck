@@ -288,14 +288,11 @@ export interface Dictionary {
   'agents.create.section.runtime': string
   'agents.create.required': string
   'agents.create.optional': string
-  'agents.create.fromEndpoint': string
-  'agents.create.fetchModels': string
-  'agents.create.fetching': string
-  'agents.create.fetchOk': string
-  'agents.create.fetchNeedsBase': string
-  'agents.create.adminOnly': string
-  'agents.create.memberHidden': string
-  'agents.create.credentialRestricted': string
+  'agents.create.fromRegistry': string
+  'agents.create.credentialFromProvider': string
+  'agents.create.credentialViaProvider': string
+  'agents.create.noProvider': string
+  'agents.create.noProviderCta': string
   'agents.create.modelPlaceholder': string
   'agents.create.modelNotInCatalog': string
   'agents.create.catalogLoading': string
@@ -325,7 +322,6 @@ export interface Dictionary {
   'agents.key.failed': string
   'agents.key.revoke': string
   'agents.key.revoking': string
-  'agents.key.open': string
   'agents.key.encryption': string
   'agents.key.empty': string
   'agents.field.provider': string
@@ -719,15 +715,12 @@ const en: Dictionary = {
   'agents.create.section.runtime': 'Runtime & access',
   'agents.create.required': 'Required',
   'agents.create.optional': 'Optional',
-  'agents.create.fromEndpoint': 'From your endpoint',
-  'agents.create.fetchModels': 'Fetch models',
-  'agents.create.fetching': 'Fetching…',
-  'agents.create.fetchOk': 'models found at that endpoint',
-  'agents.create.fetchNeedsBase': 'Fill in the endpoint and the API key first.',
-  'agents.create.adminOnly': 'Owner and admin',
-  'agents.create.memberHidden': 'Hidden for your role',
-  'agents.create.credentialRestricted':
-    'Only the workspace owner and admins can set a provider credential. The agent is registered either way and stays unconfigured until one is added.',
+  'agents.create.fromRegistry': 'From the workspace registry',
+  'agents.create.credentialFromProvider': 'Held by the provider',
+  'agents.create.credentialViaProvider':
+    'The endpoint and the API key come from the selected provider, so there is nothing to enter here.',
+  'agents.create.noProvider': 'This workspace has no provider yet, and an agent cannot be registered without one.',
+  'agents.create.noProviderCta': 'Add a provider',
   'agents.create.modelPlaceholder': 'model name at your endpoint',
   'agents.create.modelNotInCatalog':
     'That model is not in the pricing catalog, so its cost could not be estimated. Pick one from the list, or switch the provider to a custom endpoint.',
@@ -758,7 +751,6 @@ const en: Dictionary = {
   'agents.key.failed': 'The credential was not saved',
   'agents.key.revoke': 'Revoke',
   'agents.key.revoking': 'Revoking…',
-  'agents.key.open': 'Open the credential panel',
   'agents.key.encryption':
     'The key is sealed with AES-256-GCM before it reaches the database. The plaintext is never logged and never returned by a read.',
   'agents.key.empty': 'Type the credential first.',
@@ -1159,15 +1151,12 @@ const id: Dictionary = {
   'agents.create.section.runtime': 'Runtime & akses',
   'agents.create.required': 'Wajib diisi',
   'agents.create.optional': 'Opsional',
-  'agents.create.fromEndpoint': 'Dari endpoint Anda',
-  'agents.create.fetchModels': 'Tarik daftar model',
-  'agents.create.fetching': 'Menarik…',
-  'agents.create.fetchOk': 'model ditemukan di endpoint itu',
-  'agents.create.fetchNeedsBase': 'Isi endpoint dan API key dulu.',
-  'agents.create.adminOnly': 'Owner dan admin',
-  'agents.create.memberHidden': 'Tidak ditampilkan untuk peran Anda',
-  'agents.create.credentialRestricted':
-    'Hanya owner dan admin ruang kerja yang bisa menyimpan kredensial provider. Agent tetap terdaftar, dan statusnya belum terkonfigurasi sampai kredensial ditambahkan.',
+  'agents.create.fromRegistry': 'Dari registry ruang kerja',
+  'agents.create.credentialFromProvider': 'Dipegang provider',
+  'agents.create.credentialViaProvider':
+    'Endpoint dan API key ikut provider yang dipilih, jadi tidak ada yang perlu diisi di sini.',
+  'agents.create.noProvider': 'Ruang kerja ini belum punya provider, dan agent tidak bisa didaftarkan tanpa satu.',
+  'agents.create.noProviderCta': 'Tambah provider',
   'agents.create.modelPlaceholder': 'nama model di endpoint Anda',
   'agents.create.modelNotInCatalog':
     'Model itu tidak ada di katalog harga, jadi biayanya tidak bisa diestimasi. Pilih dari daftar, atau ganti provider ke endpoint sendiri.',
@@ -1198,7 +1187,6 @@ const id: Dictionary = {
   'agents.key.failed': 'Kredensial tidak tersimpan',
   'agents.key.revoke': 'Cabut',
   'agents.key.revoking': 'Mencabut…',
-  'agents.key.open': 'Buka panel kredensial',
   'agents.key.encryption':
     'Kunci disegel dengan AES-256-GCM sebelum masuk database. Plaintext-nya tidak pernah dicatat di log dan tidak pernah dikembalikan oleh pembacaan mana pun.',
   'agents.key.empty': 'Isi kredensialnya dulu.',

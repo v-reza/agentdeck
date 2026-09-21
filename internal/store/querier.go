@@ -46,6 +46,10 @@ type Querier interface {
 	// BYO create (US-AD106 AC1) failed agents_base_url_chk as a 500 and a client's
 	// reasoning_effort was dropped in silence. internal/store/queries_columns_test.go
 	// is the guard that keeps the two lists in step.
+	//
+	// provider_id is the registry reference (US-AD109). It is written here for the
+	// same reason as everything else on this list: a create that omits it leaves
+	// the agent pointing at no provider, which phase 5 reads as "no credential".
 	CreateAgent(ctx context.Context, arg CreateAgentParams) (CreateAgentRow, error)
 	// Agent skills (US-AD107). Skill is org-scoped data: users read and edit the
 	// markdown, agents only read it. Nothing here exposes a write path an agent
@@ -224,6 +228,9 @@ type Querier interface {
 	// is a full update rather than a partial patch. `provider` moves together with
 	// `base_url` because the DB constraint (agents_base_url_chk) requires them to
 	// agree: 'openai_compatible' iff base_url IS NOT NULL.
+	//
+	// provider_id is the registry reference (US-AD109). It is nullable and stays
+	// that way: an agent with no provider of its own uses the workspace default.
 	UpdateAgent(ctx context.Context, arg UpdateAgentParams) (UpdateAgentRow, error)
 	// AC6: version rises on every edit and older content is never rewritten in
 	// place, so a run that already loaded v3 keeps meaning what it meant.

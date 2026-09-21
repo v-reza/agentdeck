@@ -164,6 +164,13 @@ type Agent struct {
 	// validateAgent enforces the same pairing so a mismatch is a 400 rather
 	// than a CHECK violation surfacing as a 500.
 	BaseURL string
+	// ProviderID is the registry row this agent draws its endpoint and
+	// credential from (US-AD109, DECISIONS 6A.J). Empty means the agent has no
+	// provider of its own — it is a valid, permanent state (an agent using the
+	// deployment's environment default), not a missing backfill. It is empty
+	// rather than *string because every read path treats "none" and "unset"
+	// identically, and the sqlc params are *string at the boundary.
+	ProviderID string
 	// ArchivedAt is US-AD73: non-nil while the agent is retired. Nil is active.
 	ArchivedAt *time.Time
 	CreatedAt  time.Time

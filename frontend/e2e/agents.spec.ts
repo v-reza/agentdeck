@@ -93,6 +93,25 @@ async function firstProject(page: Page, orgID: string): Promise<string> {
   return projects.data[0].id
 }
 
+/**
+ * Registers a workspace provider and returns it, so the register form has
+ * something to select.
+ *
+ * US-AD109 phase 5: the form derives `provider` and `base_url` from the chosen
+ * provider, so a test that wants the form to submit has to create one first.
+ * The name is unique per run because the dev database keeps providers between
+ * runs and `providers_org_name_key` makes a repeat a 409.
+ */
+async function seedProvider(page: Page, orgID: string, name: string): Promise<{ id: string }> {
+  const created = await api<{ id: string }>(page, orgID, 'POST', '/providers', {
+    name,
+    protocol: 'openai_compatible',
+    base_url: 'http://127.0.0.1:11434/v1',
+  })
+  expect(created.status, created.text).toBe(201)
+  return created.data
+}
+
 function agentPayload(overrides: Record<string, unknown> = {}) {
   return {
     name: 'agent-backend',
@@ -169,11 +188,19 @@ test.describe('agent registry (US-AD20)', () => {
   test('AC3 — the registry surfaces the duplicate-name conflict inline', async ({ page }) => {
     await api(page, orgID, 'POST', `/projects/${projectID}/agents`, agentPayload())
 
+    // Phase 5: the form picks a provider from the registry and derives the
+    // endpoint from it. The provider is seeded *before* the modal opens, because
+    // `seedProvider` writes through a raw fetch — RTK Query never sees it, so a
+    // provider created while the form is already open cannot invalidate the list
+    // the form has loaded. In the product the write goes through the mutation
+    // that invalidates the tag; here the ordering has to carry that.
+    const gateway = `dup-gateway-${Date.now()}`
+    await seedProvider(page, orgID, gateway)
+
     await page.goto(`/app/${orgID}/agents`)
     await page.getByRole('button', { name: /daftarkan agent/i }).click()
     await page.getByLabel(/nama/i).fill('agent-backend')
-    await chooseOption(page, /^provider$/i, 'openai_compatible')
-    await page.getByLabel(/url dasar provider|provider base url/i).fill('http://localhost:11434/v1')
+    await chooseOption(page, /^provider$/i, gateway)
     await typeCustom(page, /^model$/i, 'probe-model-1')
     await page.getByRole('button', { name: /^simpan$/i }).click()
 

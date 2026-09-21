@@ -73,6 +73,31 @@ async function openRegisterModal(page: Page, orgID: string) {
   return { trigger, dialog }
 }
 
+/**
+ * Registers a workspace provider through the real API (US-AD109), so the
+ * register form has a registry to offer. The form cannot invent one: the whole
+ * point of phase 5 is that the endpoint and the credential come from here.
+ */
+async function seedProvider(page: Page, orgID: string, name: string): Promise<{ id: string; base_url: string }> {
+  // The in-page fetch needs a document origin, and this helper runs before the
+  // caller navigates. Landing on the app first is what gives it one.
+  if (new URL(page.url() || 'about:blank').origin === 'null') {
+    await page.goto(`/app/${orgID}/projects`)
+  }
+  const created = await api<{ id: string; base_url: string }>(page, orgID, 'POST', '/providers', {
+    name,
+    protocol: 'openai_compatible',
+    base_url: `http://localhost:11434/v1/${name}`,
+    api_key: '«redacted:sk-…»',
+  })
+  expect(created.status, created.text).toBe(201)
+  // The model list is deliberately left empty. It normally arrives from the
+  // upstream probe (AC7), and a provider with no list yet is the state a
+  // just-registered one is really in — the server skips the allowlist check
+  // until a list exists, which is what lets the form accept a typed model.
+  return created.data
+}
+
 test.describe('register agent modal (26-agent-form, US-AD96)', () => {
   let orgID: string
 
@@ -118,152 +143,128 @@ test.describe('register agent modal (26-agent-form, US-AD96)', () => {
   })
 
   /**
-   * US-AD96 AC1, as re-decided: the register form is BYO-only (DECISIONS 6A.F),
-   * so there is exactly one provider and the model list comes from the
-   * operator's own endpoint through the stateless probe — not from our price
-   * table. Asserting the catalog is *absent* is the point: if someone wires the
-   * priced list back in, this fails.
+   * US-AD109 phase 5: the form offers the workspace registry, not a protocol
+   * name and a hand-typed endpoint. Asserting the endpoint is *not* an input is
+   * the point — an agent that carries its own copy of the base URL is what the
+   * registry exists to remove (AC6).
    */
-  test('AC1 — the register form is BYO-only and offers no priced catalog', async ({ page }) => {
+  test('the form offers the workspace registry and no endpoint field', async ({ page }) => {
+    const provider = await seedProvider(page, orgID, 'registry-gateway')
     const { dialog } = await openRegisterModal(page, orgID)
 
+    // The control shows the provider's name, not its id: an operator picks a
+    // name, and the id is what the request carries. `optionValues` reads the
+    // popup's text, so this is the name.
     const providers = await optionValues(dialog, /^provider$/i)
-    expect(providers).toEqual(['openai_compatible'])
+    expect(providers).toEqual(['registry-gateway'])
 
-    // No probe has run yet, so the model list is empty rather than pre-filled
-    // from the catalog.
-    expect(await optionValues(dialog, /^model$/i)).toEqual([])
+    // The endpoint is shown, read-only, under the provider.
+    await expect(dialog.getByTestId('agent-form-base-url')).toHaveText(provider.base_url)
 
-    // The endpoint field is always rendered now, not only for the BYO provider:
-    // it is the only provider there is.
-    await expect(dialog.getByLabel(/url dasar provider|provider base url/i)).toBeVisible()
+    // There is no way to type an endpoint anywhere in this form.
+    await expect(dialog.locator('input[name="baseUrl"]')).toHaveCount(0)
+    await expect(dialog.getByLabel(/url dasar provider|provider base url/i)).toHaveCount(0)
 
-    // The probe refuses to fire without both inputs, and says which are missing.
-    await dialog.getByRole('button', { name: /tarik daftar model/i }).click()
-    await expect(dialog.getByText(/isi endpoint dan api key dulu/i)).toBeVisible()
-  })
-
-  /** US-AD96 AC8 — skills are the org's library, and an empty library says so. */
-  test('AC8 — skills are the org library, not free text', async ({ page }) => {
-    const { dialog } = await openRegisterModal(page, orgID)
-
-    const skills = await api<{ slug: string }[]>(page, orgID, 'GET', '/agent-skills')
-    expect(skills.status, skills.text).toBe(200)
-
-    const checkboxes = dialog.locator('input[name="skills"]')
-    await expect(checkboxes).toHaveCount(skills.data.length)
-    // There is no text input for skills anywhere in the form.
-    await expect(dialog.locator('input[name="skills"][type="text"]')).toHaveCount(0)
-  })
-
-  /** US-AD96 AC7 — the nine primitives, closed. */
-  test('AC7 — tools are the nine closed primitives', async ({ page }) => {
-    const { dialog } = await openRegisterModal(page, orgID)
-
-    const tools = await dialog
-      .locator('input[name="tools"]')
-      .evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value))
-    expect(tools).toEqual([
-      'read_file',
-      'write_file',
-      'edit_file',
-      'list_dir',
-      'search_files',
-      'bash',
-      'sql_query',
-      'http_fetch',
-      'git',
-    ])
+    // The hand-run probe is gone too: the model list comes from the provider.
+    await expect(dialog.getByRole('button', { name: /tarik daftar model/i })).toHaveCount(0)
   })
 
   /**
-   * The off-catalog refusal is gone from this form on purpose. With no catalog
-   * in the flow there is nothing to check a model against, and a BYO model name
-   * is by definition not in our table — refusing it would make every BYO
-   * registration fail. The server still gates provider and model (US-AD67), so
-   * this pins that the client no longer refuses and the write really goes out.
+   * AC9: the default provider is preselected, so the common case is one click.
+   * The first provider a workspace creates is the default by construction.
    */
-  test('AC1 — a model our table does not price is accepted, not refused', async ({ page }) => {
+  test('the workspace default provider is preselected', async ({ page }) => {
+    await seedProvider(page, orgID, 'default-gateway')
     const { dialog } = await openRegisterModal(page, orgID)
-    const name = `agent-byo-${Date.now()}`
 
-    await dialog.getByLabel(/nama/i).fill(name)
-    await chooseOption(dialog, /^provider$/i, 'openai_compatible')
-    await dialog.getByLabel(/url dasar provider|provider base url/i).fill('http://localhost:11434/v1')
-    await typeCustom(dialog, /^model$/i, 'some-model-we-do-not-price')
-
-    let posted = 0
-    page.on('request', (request) => {
-      if (request.method() === 'POST' && request.url().endsWith('/agents')) posted += 1
-    })
-
-    await page.getByRole('button', { name: /^simpan$/i }).click()
-
-    const projects = await api<{ id: string }[]>(page, orgID, 'GET', '/projects')
-    const list = await api<{ name: string; model: string }[]>(
-      page,
-      orgID,
-      'GET',
-      `/projects/${projects.data[0].id}/agents`,
-    )
-    await expect.poll(() => list.data.find((a) => a.name === name)?.model ?? null).toBe('some-model-we-do-not-price')
-    expect(posted, 'the write reached the API').toBeGreaterThan(0)
+    const control = dialog.getByRole('combobox', { name: /^provider$/i })
+    await expect(control).toHaveText(/default-gateway/)
   })
 
-  /** US-AD96 AC2/AC3 — a key typed in the form is really stored. */
-  test('AC2/AC3 — a credential typed in the form is encrypted and stored', async ({ page }) => {
+  /**
+   * AC10: switching provider clears the model, because the old provider's model
+   * need not exist on the new one.
+   */
+  test('switching provider clears the chosen model', async ({ page }) => {
+    await seedProvider(page, orgID, 'gateway-one')
+    await seedProvider(page, orgID, 'gateway-two')
     const { dialog } = await openRegisterModal(page, orgID)
-    const name = `agent-keyed-${Date.now()}`
+
+    await typeCustom(dialog, /^model$/i, 'model-on-the-first-provider')
+    // The model field accepts a value outside its list (`allowCustom`), so it is
+    // an <input> and the assertion is on its value, not its text.
+    const modelControl = dialog.getByRole('combobox', { name: /^model$/i })
+    await expect(modelControl).toHaveValue('model-on-the-first-provider')
+
+    await chooseOption(dialog, /^provider$/i, 'gateway-two')
+    await expect(modelControl).toHaveValue('')
+  })
+
+  /**
+   * AC6: the agent is registered against the provider, and the row carries the
+   * provider's id rather than a copy of its endpoint.
+   */
+  test('a registered agent points at its provider', async ({ page }) => {
+    const provider = await seedProvider(page, orgID, 'agent-gateway')
+    const { dialog } = await openRegisterModal(page, orgID)
+    const name = `agent-registry-${Date.now()}`
 
     await dialog.getByLabel(/nama/i).fill(name)
-    await chooseOption(dialog, /^provider$/i, 'openai_compatible')
-    await dialog.getByLabel(/url dasar provider|provider base url/i).fill('http://localhost:11434/v1')
-    await typeCustom(dialog, /^model$/i, 'probe-model-1')
-    await dialog.getByLabel(/api key provider/i).fill('sk-e2e-abcdefghijklmnop1234')
+    await chooseOption(dialog, /^provider$/i, 'agent-gateway')
+    await typeCustom(dialog, /^model$/i, 'registry-model')
     await page.getByRole('button', { name: /^simpan$/i }).click()
 
     const projects = await api<{ id: string }[]>(page, orgID, 'GET', '/projects')
     const projectID = projects.data[0].id
 
+    // The list is re-read inside the poll: one read captured before the write
+    // lands asserts against a snapshot that can only ever be stale.
     await expect
       .poll(async () => {
-        const list = await api<{ id: string; name: string; has_provider_key: boolean }[]>(
+        const list = await api<{ name: string; provider_id?: string }[]>(
           page,
           orgID,
           'GET',
           `/projects/${projectID}/agents`,
         )
-        return list.data.find((agent) => agent.name === name)?.has_provider_key
+        const row = list.data.find((agent) => agent.name === name)
+        // A missing row and a row with no provider are different failures;
+        // collapsing both to null would report the wrong one.
+        return row ? (row.provider_id ?? 'no-provider') : 'agent-not-registered'
       })
-      .toBe(true)
-
-    // AC2: the stored value never comes back. A read of the row carries the
-    // boolean and no key material at all.
-    const list = await api<{ name: string }[]>(page, orgID, 'GET', `/projects/${projectID}/agents`)
-    expect(JSON.stringify(list.data)).not.toContain('sk-e2e-abcdefghijklmnop1234')
+      .toBe(provider.id)
   })
 
-  /** US-AD20 AC5 / US-AD96 AC3 — no key is a valid registration, not a failure. */
-  test('AC3 — registering without a credential stays valid and not ready', async ({ page }) => {
+  /**
+   * US-AD109 AC6 versus US-AD86: with a provider selected the credential block
+   * is replaced by a note, because the provider owns the key. This pins the
+   * replacement — a form that kept collecting a per-agent key beside a provider
+   * would be a second writer for one fact.
+   */
+  test('a provider replaces the per-agent credential field', async ({ page }) => {
+    await seedProvider(page, orgID, 'owned-gateway')
     const { dialog } = await openRegisterModal(page, orgID)
-    const name = `agent-keyless-${Date.now()}`
 
-    await dialog.getByLabel(/nama/i).fill(name)
-    await chooseOption(dialog, /^provider$/i, 'openai_compatible')
-    await dialog.getByLabel(/url dasar provider|provider base url/i).fill('http://localhost:11434/v1')
-    await typeCustom(dialog, /^model$/i, 'probe-model-1')
-    await page.getByRole('button', { name: /^simpan$/i }).click()
+    // The first provider of a workspace is its default (AC9), so one is
+    // preselected and the credential field is gone.
+    await expect(dialog.getByLabel(/api key provider/i)).toHaveCount(0)
+    await expect(dialog.getByText(/dipegang provider|held by the provider/i)).toBeVisible()
+  })
 
-    const projects = await api<{ id: string }[]>(page, orgID, 'GET', '/projects')
-    const list = await api<{ name: string; has_provider_key: boolean }[]>(
-      page,
-      orgID,
-      'GET',
-      `/projects/${projects.data[0].id}/agents`,
-    )
-    const row = list.data.find((agent) => agent.name === name)
-    expect(row, 'the agent was registered without a credential').toBeTruthy()
-    expect(row?.has_provider_key).toBe(false)
+  /**
+   * A workspace with no provider cannot register an agent at all — measured
+   * against a fresh workspace, the POST the old form sent answers 400 "invalid
+   * input", and the server derives both `provider` and `base_url` from a
+   * provider the workspace does not have. So the section states that and points
+   * at the page that fixes it, instead of drawing a credential field the server
+   * would never receive.
+   */
+  test('a workspace with no provider is told to add one, and gets no credential field', async ({ page }) => {
+    const { dialog } = await openRegisterModal(page, orgID)
+
+    await expect(dialog.getByLabel(/api key provider/i)).toHaveCount(0)
+    await expect(dialog.getByText(/belum punya provider|no provider yet/i)).toBeVisible()
+    await expect(dialog.getByRole('link', { name: /tambah provider|add a provider/i })).toBeVisible()
   })
 
   /** Escape closes the modal and focus goes back to the button that opened it. */

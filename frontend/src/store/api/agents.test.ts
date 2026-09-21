@@ -47,17 +47,32 @@ describe('the agent write paths carry the same profile', () => {
     expect(created.length, 'the parser found CreateAgentArgs').toBeGreaterThan(5)
     expect(updated.length, 'the parser found UpdateAgentArgs').toBeGreaterThan(5)
 
-    // `id` and `projectID` are addressing, not profile, and differ by design:
-    // create is scoped by project, update by the agent's own id.
-    const addressing = new Set(['id', 'projectID'])
-    const missing = updated.filter((field) => !addressing.has(field) && !created.includes(field))
+    // Two kinds of field are legitimately absent on create.
+    //
+    // `id` and `projectID` are addressing, not profile: create is scoped by
+    // project, update by the agent's own id.
+    //
+    // `provider` and `base_url` are *derived* since US-AD109 phase 5. The
+    // registry owns both, so create sends `provider_id` and the server fills
+    // them in (AC6). Update still carries them because the detail screen is
+    // what edits an agent that has no provider — the US-AD86 case — and
+    // `applyProvider` overwrites them from the registry whenever one is set.
+    // Excluding them here is a statement about the contract, not a loosening:
+    // a create that sent them would be a second writer for a fact the provider
+    // owns, and the test below pins that it does not.
+    const notOnCreate = new Set(['id', 'projectID', 'provider', 'baseurl'])
+    const missing = updated.filter((field) => !notOnCreate.has(field) && !created.includes(field))
 
     expect(missing, 'UpdateAgentArgs fields with no create-side equivalent').toEqual([])
   })
 
-  it('the create body actually sends base_url', () => {
+  it('the create body sends provider_id and never a hand-typed endpoint', () => {
     // Declaring the field is not enough — it has to reach the request, which is
-    // exactly what was broken.
-    expect(source).toMatch(/base_url: body\.baseURL/)
+    // exactly what was broken. The direction has flipped: it is now the
+    // omission of `provider`/`base_url` that is load-bearing, because sending
+    // them would let the agent carry a copy of what the provider owns (AC6).
+    expect(source).toMatch(/provider_id: body\.providerID/)
+    expect(source).not.toMatch(/base_url: body\./)
+    expect(source).not.toMatch(/^\s+provider: body\./m)
   })
 })

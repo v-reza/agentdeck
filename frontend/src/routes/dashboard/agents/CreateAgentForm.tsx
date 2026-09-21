@@ -1,16 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Plus } from 'lucide-react'
-import {
-  useCreateAgentMutation,
-  useListAgentSkillsQuery,
-  usePutProviderKeyMutation,
-  useProbeProviderModelsMutation,
-} from '@/store/api/agents'
+import { useCreateAgentMutation, useListAgentSkillsQuery } from '@/store/api/agents'
+import { useListProvidersQuery } from '@/store/api/providers'
 import { useCanAct } from '@/hooks/use-orgs'
 import { useT } from '@/hooks/use-t'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { AgentProviderKeyPanel } from '@/components/agents/AgentProviderKeyPanel'
 import {
   CredentialSection,
   IdentitySection,
@@ -62,25 +57,19 @@ export function CreateAgentForm({
 }) {
   const t = useT()
   const [open, setOpen] = useState(false)
-  const [created, setCreated] = useState<{ id: string; name: string } | null>(null)
-  const [hasKey, setHasKey] = useState(false)
-  const [panelOpen, setPanelOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>(NO_FIELD_ERRORS)
-  const [probedModels, setProbedModels] = useState<string[]>([])
-  const [probeNote, setProbeNote] = useState('')
   const [busy, setBusy] = useState(false)
 
   const [createAgent] = useCreateAgentMutation()
-  const [putProviderKey] = usePutProviderKeyMutation()
-  const [probeProviderModels, { isLoading: probing }] = useProbeProviderModelsMutation()
   // The skill list is only needed while the modal is open, so a closed form
   // costs no request on a registry page the operator may never register from.
-  // The price catalog is no longer fetched: the register form is BYO-only, so
-  // its model list comes from the probe, not from our table (DECISIONS 6A.F).
   const { data: skills } = useListAgentSkillsQuery(undefined, { skip: !open })
+  // US-AD109 AC6: the endpoint and the credential belong to the provider now, so
+  // the form offers the registry instead of a base URL field. Fetched lazily for
+  // the same reason the skill list is.
+  const { data: providers } = useListProvidersQuery(undefined, { skip: !open })
   const canCreate = useCanAct('member')
-  const canManageKey = useCanAct('admin')
 
   const [runtime, setRuntime] = useState<RuntimeValues>({
     reasoningEffort: 'medium',
@@ -88,80 +77,49 @@ export function CreateAgentForm({
     maxAttempts: 3,
     retryPolicy: 'transient_only',
   })
-  // Defaults to the only provider this form offers. It used to default to
-  // `openai`, which then leaked into the choice list as a second entry and let
-  // the operator pick a provider whose model list this form cannot populate.
-  const [provider, setProvider] = useState('openai_compatible')
+  // Defaults to the workspace default provider when there is one (AC9), and to
+  // none otherwise. It used to default to the literal 'openai_compatible',
+  // which is a protocol rather than a provider and stopped being selectable
+  // once the registry became the source of the list.
+  const [providerID, setProviderID] = useState('')
   const [model, setModel] = useState('')
 
   if (!canCreate || projects.length === 0) return null
 
-  /**
-   * One submit path, driven from React rather than a `form action`.
-   *
-   * US-AD96 AC1 refuses an off-catalog combination *before* the request, and a
-   * `form action` cannot do that. React 19 runs the action on submit even when
-   * `onSubmit` calls `preventDefault` — calling it is the only way to stop the
-   * action, so there is no second handler left to refuse from. Here refusing is
-   * an early `return`, and the request happens only once the combination is one
-   * the catalog prices.
-   */
-  /**
-   * Pulls the model list from the operator's own endpoint (US-AD106 AC2).
-   *
-   * The endpoint and the key are read out of the form at click time rather than
-   * mirrored into state: the key field is a password, and copying it on every
-   * keystroke would leave a second live copy of the credential in React state
-   * for no gain. The probe stores nothing server-side either.
-   */
-  async function fetchModels() {
-    const form = document.getElementById(FORM_ID) as HTMLFormElement | null
-    if (!form) return
-    const data = new FormData(form)
-    const baseUrl = String(data.get('baseUrl') ?? '').trim()
-    const apiKey = String(data.get('apiKey') ?? '').trim()
-    setProbeNote('')
-    if (!baseUrl || !apiKey) {
-      setProbeNote(t['agents.create.fetchNeedsBase'])
-      return
-    }
-    try {
-      const answer = await probeProviderModels({ baseUrl, apiKey }).unwrap()
-      setProbedModels(answer.models)
-      setProbeNote(`${answer.models.length} ${t['agents.create.fetchOk']}`)
-    } catch (rejection) {
-      // A probe failure is not a form failure: the agent can still be registered
-      // and the model typed by hand, so this never blocks the submit.
-      setProbeNote(routeFieldError(rejection).form ?? '')
-    }
-  }
+  const registry = providers ?? []
+  // AC9: a workspace default provider is preselected; without one the operator
+  // picks from the list.
+  const chosenProviderID = providerID || registry.find((entry) => entry.is_default)?.id || ''
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    const chosenProvider = String(form.get('provider') ?? '')
     const chosenModel = String(form.get('model') ?? '')
     setError(null)
     setFieldErrors(NO_FIELD_ERRORS)
 
-    // US-AD96 AC1's catalog refusal is deliberately gone from this form: the
-    // register flow is BYO-only (DECISIONS 6A.F), so the model list comes from
-    // the operator's own endpoint and there is no catalog of ours to check
-    // against. `validateCatalogModel` stays exported for the detail screen.
-    // The server still gates provider and model (US-AD67), so this is a UX
-    // change, not a hole.
+    const pickedProviderID = String(form.get('providerID') ?? '').trim()
+
+    // A workspace with no provider cannot register an agent: `provider` and
+    // `base_url` are derived from the provider (AC6), and the server refuses a
+    // request that carries neither (measured: 400 "invalid input"). Failing here
+    // keeps the refusal on the section that can fix it, instead of letting the
+    // server's generic message land on the name field.
+    if (!pickedProviderID && registry.length === 0) {
+      setError(t['agents.create.noProvider'])
+      return
+    }
 
     setBusy(true)
     try {
       const row = (await createAgent({
         projectID: String(form.get('projectID') ?? ''),
         name: String(form.get('name') ?? ''),
-        provider: chosenProvider,
+        // The server derives `provider` and `base_url` from this (AC6), which is
+        // why neither is sent: the agent must not carry its own copy of the
+        // endpoint. An empty id is a real choice — the deployment default.
+        providerID: pickedProviderID || undefined,
         model: chosenModel,
-        // Only meaningful for the BYO provider, and the server refuses a
-        // base_url on any other one. The field is not even rendered then, so
-        // this reads empty and is dropped by the slice.
-        baseURL: String(form.get('baseUrl') ?? '').trim() || undefined,
         reasoningEffort: runtime.reasoningEffort,
         maxRuntimeSeconds: runtime.maxRuntimeSeconds,
         retryPolicy: runtime.retryPolicy,
@@ -170,24 +128,11 @@ export function CreateAgentForm({
         skills: form.getAll('skills').map(String),
       }).unwrap()) as { id?: string; name?: string }
 
-      if (!row?.id) return
-      setCreated({ id: row.id, name: row.name ?? '' })
-      setProvider(chosenProvider)
-      setModel(chosenModel)
-
-      const key = String(form.get('apiKey') ?? '').trim()
-      if (!key) return
-      // The key is stored in the same submit because the credential endpoint
-      // needs the row to exist first. A failure is reported without undoing the
-      // create: the agent is registered, just not ready (AC3).
-      try {
-        const answer = await putProviderKey({ id: row.id, apiKey: key }).unwrap()
-        setHasKey(answer.has_provider_key)
-      } catch (rejection) {
-        // The agent is already registered, so this failure belongs to the key
-        // field alone — not to the form, and never to the create.
-        setFieldErrors(routeFieldError(rejection, t['agents.key.failed']))
-      }
+      // US-AD109 AC6: the provider owns the endpoint and the credential, so the
+      // create is the whole flow — one write and the form is done. The agent
+      // must have a provider to get here, which the guard above enforces.
+      void row
+      close()
     } catch (rejection) {
       // A message the server did not tie to a field stays at form level rather
       // than being dropped or guessed onto the wrong input.
@@ -201,9 +146,6 @@ export function CreateAgentForm({
 
   function close() {
     setOpen(false)
-    setCreated(null)
-    setHasKey(false)
-    setPanelOpen(false)
     setError(null)
     setFieldErrors(NO_FIELD_ERRORS)
     setModel('')
@@ -243,29 +185,26 @@ export function CreateAgentForm({
           <IdentitySection defaultProject={activeProjectID} errors={fieldErrors} />
 
           <ProviderSection
-            provider={provider}
+            providerID={chosenProviderID}
             onProviderChange={(next) => {
-              setProvider(next)
+              setProviderID(next)
+              // US-AD109 AC10: the previous provider's model need not exist on
+              // the new one, so the model is cleared rather than carried over.
               setModel('')
               setError(null)
               setFieldErrors(NO_FIELD_ERRORS)
-              setProbedModels([])
             }}
+            providers={registry}
             model={model}
             onModelChange={(next) => {
               setModel(next)
               setError(null)
               setFieldErrors(NO_FIELD_ERRORS)
             }}
-            probedModels={probedModels}
-            onFetchModels={fetchModels}
-            fetching={probing}
-            fetchNote={probeNote}
-            canFetch={canManageKey}
             errors={fieldErrors}
           />
 
-          <CredentialSection allowed={canManageKey} agentID={created?.id} errors={fieldErrors} />
+          <CredentialSection />
 
           <RuntimeSection
             skills={skills}
@@ -273,49 +212,16 @@ export function CreateAgentForm({
             onRuntimeChange={(next) => setRuntime((current) => ({ ...current, ...next }))}
           />
 
-          {/* US-AD96 AC1 refusal, and the create / credential failures. One
-              inline surface: the modal is what caused them, and the toast
-              listener deliberately refuses to duplicate a write's message. */}
+          {/* US-AD96 AC1 refusal and the create failure. One inline surface: the
+              modal is what caused them, and the toast listener deliberately
+              refuses to duplicate a write's message. */}
           {error ? (
             <p role="alert" className="text-[11px] leading-snug text-[var(--color-danger)]">
               {error}
             </p>
           ) : null}
-
-          {/* Once the row exists the full 420px panel is available — the same
-              component the detail page uses to rotate and revoke. */}
-          {created && canManageKey ? (
-            <button
-              type="button"
-              data-testid="open-provider-key-panel"
-              onClick={() => setPanelOpen(true)}
-              className="self-start font-mono text-[11px] text-[var(--color-accent)] underline-offset-2 hover:underline"
-            >
-              {t['agents.key.open']}
-            </button>
-          ) : null}
         </form>
       </Modal>
-
-      <AgentProviderKeyPanel
-        open={panelOpen}
-        onClose={() => setPanelOpen(false)}
-        agent={
-          created
-            ? {
-                id: created.id,
-                name: created.name,
-                provider,
-                model,
-                has_provider_key: hasKey,
-              }
-            : undefined
-        }
-        onSaved={(next) => {
-          setHasKey(next)
-          setError(null)
-        }}
-      />
     </>
   )
 }

@@ -43,7 +43,7 @@ type updateFixture struct {
 func newUpdateFixture(t *testing.T) updateFixture {
 	t.Helper()
 	f := columnEditAPI(t)
-	registerAgentRoutes(f.mux, f.scenario.api, board.NewService(f.repo))
+	registerAgentRoutes(f.mux, f.scenario.api, board.NewService(f.repo), nil)
 	return updateFixture{columnFixture: f, projectID: "proj-a"}
 }
 

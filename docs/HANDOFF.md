@@ -16,8 +16,27 @@ Konsepnya disetujui 2026-09-21. Tujuh fase, detail di `docs/CONCEPT-PROVIDER-REG
 | 2 | Backend CRUD provider + RBAC (5 endpoint) | **SELESAI** |
 | 3 | Probe protocol-aware (openai_compatible dulu) | **SELESAI** |
 | 4 | Halaman Provider | **SELESAI** |
-| 5 | Form agent: provider jadi dropdown | belum |
+| 5 | Form agent: provider jadi dropdown | **SELESAI** |
 | 6 | Buang `agents.base_url` + constraint `agents_base_url_chk` | belum |
+
+**Fase 5 selesai.** Form register cuma memilih provider + model: `provider` dan
+`base_url` **diturunkan** dari `providers.protocol` / `providers.base_url` di server
+(`applyProvider`), bukan diketik operator, dan model wajib ada di `models_json`
+provider itu (AC10 — dilewati kalau daftar provider masih kosong, karena fase 3
+menariknya lazily). `agents.provider_id` mengalir di jalur tulis **dan** di lima
+pembaca (`GetAgent`, `ListAgents`, `ArchiveAgent`, `UnarchiveAgent`, `CreateAgent`) —
+tanpa itu PATCH yang cuma ganti nama bakal menghapus provider-nya.
+
+Satu temuan dari pengukuran, bukan penalaran: di ruang kerja yang **belum punya
+provider**, form lama mustahil dipakai. `POST /agents` yang mengirim `{name, model}`
+tanpa provider dan tanpa base_url dijawab **400 `invalid input`** — dan pesan itu
+dipetakan frontend ke field **Nama**, jadi operator mengulang nama padahal masalahnya
+di tempat lain. `ProviderSection` sekarang punya state kosong yang menyebut sebabnya
+dan menautkan ke `/settings/providers`, dan submit menolak lebih awal dengan pesan di
+section yang bisa memperbaikinya. Konsekuensinya `CredentialSection` jadi pernyataan,
+bukan input: karena provider wajib, cabang field key per-agent (US-AD86) tak
+terjangkau secara konstruksi. US-AD86 tetap berlaku di layar **detail** agent, yang di
+luar scope fase 5.
 
 Fase 2 dikerjakan sebagai **5 endpoint, bukan 7**; fase 3 melengkapi dua sisanya.
 `POST /providers/{id}/verify` (AC3) menembak `POST {base_url}/chat/completions` dengan
@@ -266,16 +285,21 @@ pernah ditulis di file mana pun (repo ini publik).
 ## Mulai dari mana (buat session baru)
 
 1. Baca `.hermes.md` (auto-load) → `docs/DECISIONS.md` §6A.J → file ini.
-2. **Kalau nggak ada instruksi lain: fase 5** — form agent pakai dropdown provider.
-   Fase 1 (`0010`) + fase 2 (CRUD, 5 endpoint) + fase 3 (probe + refresh otomatis,
-   2 endpoint) + fase 4 (halaman `/settings/providers`) **selesai**.
+2. **Kalau nggak ada instruksi lain: fase 6** — buang `agents.base_url` +
+   constraint `agents_base_url_chk`. Fase 1 (`0010`) + fase 2 (CRUD, 5 endpoint) +
+   fase 3 (probe + refresh otomatis, 2 endpoint) + fase 4 (halaman
+   `/settings/providers`) + fase 5 (form agent pakai dropdown provider) **selesai**.
+   Prasyarat fase 6 sudah terpenuhi: form agent berhenti membaca `base_url`, dan
+   `SyncAgentBaseURLForProvider` jadi jembatan tanpa pembaca.
 3. **Yang paling murah + paling kerasa kalau mau cepat**: warna status. 10 baris
    `index.css` — lihat `docs/DESIGN-INVENTORY.md` §2.
-4. Yang **jangan** dikerjain dulu: buang `agents.base_url` (fase 6) sebelum form agent
-   pindah ke dropdown provider (fase 5). Kolom itu masih yang dirender layar agent.
-5. **Fase 5**: `agents.base_url` masih disinkronkan dari provider
+4. Yang **jangan** dikerjain dulu: ~~buang `agents.base_url` (fase 6) sebelum form agent
+   pindah ke dropdown provider (fase 5)~~ — **prasyaratnya sudah terpenuhi**, jadi
+   fase 6 boleh jalan.
+5. **Fase 5 SELESAI**: `agents.base_url` masih disinkronkan dari provider
    (`SyncAgentBaseURLForProvider`) — jembatan sementara, dibuang bareng kolomnya di
-   fase 6. Jangan tambah pembaca baru untuk kolom itu.
+   fase 6. Form agent sudah berhenti membacanya; jangan tambah pembaca baru untuk
+   kolom itu.
 
 ## Kemajuan nyata (dihitung dari kode, bukan dari niat)
 
