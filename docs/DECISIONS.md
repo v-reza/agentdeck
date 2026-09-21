@@ -164,9 +164,11 @@ memberships(org_id, user_id, role, created_at)              PK(org_id,user_id)
 projects(id, org_id, slug, name, created_at)
 boards(id, org_id, project_id, slug, name, columns_json, budget_daily_micros, created_at)
 daily_board_costs(org_id, board_id, day, total_micros, run_count, tokens_in, tokens_out, updated_at)
-agents(id, org_id, project_id, name, provider, model, reasoning_effort,
+agents(id, org_id, project_id, name, provider, provider_id, model, reasoning_effort,
        skills_json, tools_json, max_runtime_seconds, retry_policy, max_attempts,
        provider_api_key_enc, base_url, archived_at, has_provider_key, created_at)
+providers(id, org_id, name, protocol, base_url, api_key_enc, models_json,
+          models_fetched_at, last_verified_at, is_default, created_at)
 agent_skills(id, org_id, slug, name, body_md, version, created_by, created_at, updated_at)
 tasks(id, org_id, board_id, title, body, status, priority, assignee_agent_id,
       created_by, idempotency_key, block_kind, consecutive_failures,
@@ -370,7 +372,8 @@ Dua alternatif ditolak:
 `IS NOT NULL` atas BYTEA bersifat immutable, jadi kolom ini sah sebagai `STORED`.
 
 ---
-### J. Provider registry — kredensial per ruang kerja (US-AD109)
+
+### J. Provider registry — kredensial per ruang kerja (US-AD109)
 
 **Menggantikan §6A.F sepenuhnya.** §6A.F menaruh kredensial di agent
 (`agents.base_url` + `agents.provider_api_key_enc`); bagian ini memindahkannya ke
