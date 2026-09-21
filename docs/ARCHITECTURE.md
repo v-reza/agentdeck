@@ -397,7 +397,8 @@ CREATE TABLE agents (
     org_id               TEXT        NOT NULL,
     project_id           TEXT        NOT NULL,
     name                 TEXT        NOT NULL,
-    provider             TEXT        NOT NULL,   -- mis. 'anthropic', 'openai', 'openrouter', 'local'
+    provider             TEXT        NOT NULL,   -- protokol/dialect, diturunkan dari providers.protocol (US-AD109); masih dipakai pricing §9
+    provider_id          TEXT,                   -- US-AD109: provider registry pemilik kredensial & base_url; NULL hanya selama backfill migrasi 0010
     model                TEXT        NOT NULL,   -- string model apa adanya, dipakai sebagai kunci pricing (§9)
     reasoning_effort     TEXT        NOT NULL DEFAULT 'medium',  -- passthrough ke provider; bukan enum kontrak §4 → tidak di-CHECK
     skills_json          JSONB       NOT NULL DEFAULT '[]'::jsonb,  -- daftar skill yang boleh dimuat agent
@@ -406,7 +407,7 @@ CREATE TABLE agents (
     retry_policy         TEXT        NOT NULL DEFAULT 'transient_only',
     max_attempts         INTEGER     NOT NULL DEFAULT 3,
     provider_api_key_enc BYTEA,                  -- AES-256-GCM encrypted (nonce 12B + ciphertext + tag 16B); NULL jika pakai env default (§16)
-    base_url             TEXT,                   -- HANYA untuk provider='openai_compatible' (BYO, DECISIONS §6A.F); NULL untuk provider bawaan
+    base_url             TEXT,                   -- US-AD109: DITINGGALKAN — pindah ke providers.base_url. Dihapus setelah form agent berhenti membacanya (DECISIONS §6A.J)
     archived_at          TIMESTAMPTZ,            -- US-AD73: nonaktif, tidak muncul di dropdown assign, task running tetap tuntas
     has_provider_key     BOOLEAN     GENERATED ALWAYS AS (provider_api_key_enc IS NOT NULL) STORED,  -- US-AD86: diturunkan, bukan disimpan — flag tidak bisa melenceng dari ciphertext-nya; satu-satunya pembaca ciphertext adalah GetAgentProviderKey (§6.2.7)
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -425,6 +426,39 @@ CREATE TABLE agents (
 
 -- Melayani: GET /api/v1/projects/{id}/agents, dan lookup agent per nama di UI.
 CREATE UNIQUE INDEX agents_project_name_key ON agents (project_id, name);
+
+-- Provider registry (US-AD109, DECISIONS §6A.J). Kredensial hidup di sini,
+-- bukan di agents: satu provider dipakai banyak agent, jadi mengganti kunci
+-- cukup sekali. `protocol` menentukan bentuk probe dan bentuk tarik model —
+-- enum-nya sengaja memuat tiga protokol sejak awal supaya menambah Anthropic
+-- atau Google nanti adalah penambahan kode, bukan migrasi data.
+CREATE TABLE providers (
+    id                TEXT        NOT NULL,
+    org_id            TEXT        NOT NULL,
+    name              TEXT        NOT NULL,
+    protocol          TEXT        NOT NULL,   -- 'openai_compatible' | 'anthropic' | 'google'
+    base_url          TEXT        NOT NULL,
+    api_key_enc       BYTEA,                  -- AES-256-GCM; NULL = tanpa kredensial (mis. Ollama lokal)
+    models_json       JSONB       NOT NULL DEFAULT '[]'::jsonb,  -- hasil tarik terakhir
+    models_fetched_at TIMESTAMPTZ,            -- dasar refresh otomatis 24 jam (AC7)
+    last_verified_at  TIMESTAMPTZ,            -- hanya diisi setelah probe inference lolos (AC3)
+    is_default        BOOLEAN     NOT NULL DEFAULT false,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT providers_pk           PRIMARY KEY (id),
+    CONSTRAINT providers_id_ulid_chk  CHECK (char_length(id) = 26),
+    CONSTRAINT providers_name_chk     CHECK (btrim(name) <> ''),
+    CONSTRAINT providers_protocol_chk CHECK (protocol IN ('openai_compatible','anthropic','google')),
+    CONSTRAINT providers_base_url_chk CHECK (btrim(base_url) <> ''),
+    CONSTRAINT providers_models_chk   CHECK (jsonb_typeof(models_json) = 'array'),
+    CONSTRAINT providers_org_fk       FOREIGN KEY (org_id) REFERENCES orgs(id) ON DELETE CASCADE
+);
+
+-- Satu nama provider per ruang kerja, dan paling banyak satu default.
+CREATE UNIQUE INDEX providers_org_name_key    ON providers (org_id, name);
+CREATE UNIQUE INDEX providers_org_default_key ON providers (org_id) WHERE is_default;
+
+-- Melayani: GET /api/v1/providers, dan penghitungan pemakai sebelum hapus (AC5).
+CREATE INDEX providers_org_idx ON providers (org_id);
 -- Melayani: dropdown pemilihan assignee pada form task (hanya kolom ringan, tidak menarik tools_json).
 CREATE INDEX agents_org_name_idx ON agents (org_id, name);
 ```
@@ -1497,37 +1531,37 @@ func (d *Dispatcher) updateTaskAfterRun(ctx context.Context, taskID, runID strin
 
 | Status sebelumnya | Trigger | Status baru | Transisi legal? |
 |---|---|---|---|
-| `backlog` | User/SDK → PATCH status='ready' | `ready` | ✅ |
-| `backlog` | User/SDK → PATCH status='cancelled' | `cancelled` | ✅ |
-| `ready` | Dispatcher: claim (auto) | `running` | ✅ |
-| `ready` | Dispatcher: approval gate | `awaiting_approval` | ✅ |
-| `ready` | User/SDK → PATCH status='backlog' | `backlog` | ✅ |
-| `running` | Dispatcher: step budget exceeded | `ready` | ✅ (N17) |
-| `running` | Dispatcher: run selesai sukses | `done` | ✅ |
-| `running` | Dispatcher: run gagal + retry | `ready` | ✅ |
-| `running` | Dispatcher: run gagal + no retry | `failed` | ✅ |
-| `running` | Dispatcher: run pending (approval) | `awaiting_approval` | ✅ |
-| `running` | Dispatcher: reclaim | `ready` | ✅ (via §4b) |
-| `awaiting_approval` | User → approve | `ready` | ✅ (kembali ke ready untuk klaim) |
-| `awaiting_approval` | User → reject | `blocked` (policy) | ✅ |
-| `awaiting_approval` | Expiry (24h, N23) | `blocked` (policy) | ✅ |
-| `awaiting_approval` | User → cancel | `cancelled` | ✅ |
-| `blocked` | Parent selesai (dispatcher) | `ready` | ✅ |
-| `blocked` (`dependency`) | User/SDK → PATCH status='ready' setelah hulu beres | `ready` | ✅ |
-| `blocked` (`needs_input`) | User memberikan input lalu PATCH status='ready' | `ready` | ✅ |
-| `blocked` (`capability`) | Admin memperbaiki kredensial provider (`US-AD86`) lalu PATCH status='ready' | `ready` | ✅ |
-| `blocked` (`budget`) | Pagu board dinaikkan (`US-AD30`) lalu PATCH status='ready' | `ready` | ✅ |
-| `blocked` (`policy`/`external`) | User/SDK → PATCH status='backlog' untuk ditangani ulang | `backlog` | ✅ |
-| `blocked` | User/SDK → PATCH status='cancelled' | `cancelled` | ✅ |
-| `review` | User → approve hasil | `done` | ✅ |
-| `review` | User → minta perbaikan | `ready` | ✅ |
-| `done` | — | terminal (kecuali arsip di bawah) | ✅ |
-| `failed` | — | terminal (kecuali arsip di bawah) | ✅ |
-| `cancelled` | — | terminal (kecuali arsip di bawah) | ✅ |
-| `done` | User/SDK → PATCH status='archived' (`US-AD59`) | `archived` | ✅ |
-| `failed` | User/SDK → PATCH status='archived' (`US-AD59`) | `archived` | ✅ |
-| `cancelled` | User/SDK → PATCH status='archived' (`US-AD59`) | `archived` | ✅ |
-| `archived` | — | terminal | ✅ |
+| `backlog` | User/SDK → PATCH status='ready' | `ready` | ✅ | |
+| `backlog` | User/SDK → PATCH status='cancelled' | `cancelled` | ✅ | |
+| `ready` | Dispatcher: claim (auto) | `running` | ✅ | |
+| `ready` | Dispatcher: approval gate | `awaiting_approval` | ✅ | |
+| `ready` | User/SDK → PATCH status='backlog' | `backlog` | ✅ | |
+| `running` | Dispatcher: step budget exceeded | `ready` | ✅ | (N17) |
+| `running` | Dispatcher: run selesai sukses | `done` | ✅ | |
+| `running` | Dispatcher: run gagal + retry | `ready` | ✅ | |
+| `running` | Dispatcher: run gagal + no retry | `failed` | ✅ | |
+| `running` | Dispatcher: run pending (approval) | `awaiting_approval` | ✅ | |
+| `running` | Dispatcher: reclaim | `ready` | ✅ | (via §4b) |
+| `awaiting_approval` | User → approve | `ready` | ✅ | (kembali ke ready untuk klaim) |
+| `awaiting_approval` | User → reject | `blocked` (policy) | ✅ | |
+| `awaiting_approval` | Expiry (24h, N23) | `blocked` (policy) | ✅ | |
+| `awaiting_approval` | User → cancel | `cancelled` | ✅ | |
+| `blocked` | Parent selesai (dispatcher) | `ready` | ✅ | |
+| `blocked` (`dependency`) | User/SDK → PATCH status='ready' setelah hulu beres | `ready` | ✅ | |
+| `blocked` (`needs_input`) | User memberikan input lalu PATCH status='ready' | `ready` | ✅ | |
+| `blocked` (`capability`) | Admin memperbaiki kredensial provider (`US-AD86`) lalu PATCH status='ready' | `ready` | ✅ | |
+| `blocked` (`budget`) | Pagu board dinaikkan (`US-AD30`) lalu PATCH status='ready' | `ready` | ✅ | |
+| `blocked` (`policy`/`external`) | User/SDK → PATCH status='backlog' untuk ditangani ulang | `backlog` | ✅ | |
+| `blocked` | User/SDK → PATCH status='cancelled' | `cancelled` | ✅ | |
+| `review` | User → approve hasil | `done` | ✅ | |
+| `review` | User → minta perbaikan | `ready` | ✅ | |
+| `done` | — | terminal (kecuali arsip di bawah) | ✅ | |
+| `failed` | — | terminal (kecuali arsip di bawah) | ✅ | |
+| `cancelled` | — | terminal (kecuali arsip di bawah) | ✅ | |
+| `done` | User/SDK → PATCH status='archived' (`US-AD59`) | `archived` | ✅ | |
+| `failed` | User/SDK → PATCH status='archived' (`US-AD59`) | `archived` | ✅ | |
+| `cancelled` | User/SDK → PATCH status='archived' (`US-AD59`) | `archived` | ✅ | |
+| `archived` | — | terminal | ✅ | |
 
 ### 5.5 State Machine Run
 
@@ -1584,7 +1618,13 @@ Transisi `outcome` di `runs` (hanya diisi saat `status='ended'`): `succeeded`, `
 
 ---
 
-### 6.2 Tabel Endpoint Lengkap (115 Endpoint)
+### 6.2 Tabel Endpoint Lengkap (123 Endpoint)
+
+> **Kolom `Status`** mencerminkan **kode**, bukan niat: ✅ = route terdaftar di
+> `cmd/api`, ⬜ = belum. Tanda ini diperiksa `tools/verify_suite.py` dua arah —
+> ✅ palsu dan ⬜ palsu dua-duanya FAIL, jadi tabelnya tidak bisa berbohong soal
+> kemajuan. Saat ini **55 ✅ / 68 ⬜**; modul runtime (dispatcher, executor, SSE,
+> storage, webhook) belum dibangun sama sekali (§18.3).
 
 **Kolom `Role Min` hanya berlaku untuk aktor manusia.** Nilai yang sah:
 `None` (publik) · `Viewer` · `Member` · `Admin` · `Owner` — persis enum `role`
@@ -1598,193 +1638,239 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 `Worker` — di luar enum `role`, dan sengaja begitu.
 
 #### 6.2.1 Health, Liveness & Metrics (4 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/healthz` | Public | None | Ya | `200 OK` ping liveness container |
-| `GET` | `/livez` | Public | None | Ya | `200 OK` process running |
-| `GET` | `/readyz` | Public | None | Ya | Cek koneksi DB pool & R2 reachability |
-| `GET` | `/metrics` | Basic Auth / Int | Admin | Ya | Prometheus text format scrape metrics (§14) |
+| `GET` | `/healthz` | Public | None | Ya | ✅ | `200 OK` ping liveness container |
+| `GET` | `/livez` | Public | None | Ya | ⬜ | `200 OK` process running |
+| `GET` | `/readyz` | Public | None | Ya | ✅ | Cek koneksi DB pool & R2 reachability |
+| `GET` | `/metrics` | Basic Auth / Int | Admin | Ya | ⬜ | Prometheus text format scrape metrics (§14) |
 
 #### 6.2.2 Auth & Sessions (11 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `POST` | `/api/v1/auth/register` | Public | None | Tidak | Body `{email, password, name?, org_name?}` → `201` + cookie. `name` absen → diisi bagian lokal email; `org_name` absen → workspace personal dibuat otomatis (B2C, US-AD01 AC5/AC6) |
-| `POST` | `/api/v1/auth/login` | Public | None | Tidak | Body `{email, password}` → `200` + cookie session |
-| `POST` | `/api/v1/auth/logout` | Session | Viewer | Ya | Hapus baris di `sessions` → `204 No Content` |
-| `GET` | `/api/v1/auth/me` | Session/Key | Viewer | Ya | Return profile `{id, email, name, workspaces: [...]}` — US-AD89 |
-| `PATCH` | `/api/v1/auth/me` | Session | Viewer | Ya | Update profil sendiri `{name, email, avatar}` → `200`; email duplikat → `409` (US-AD89 AC3) |
-| `DELETE` | `/api/v1/auth/me` | Session | Owner | Tidak | Tutup akun sendiri; wajib konfirmasi `{confirm_email}` → `202`; soft-delete 30 hari (US-AD98) |
-| `POST` | `/api/v1/auth/password/change` | Session | Viewer | Tidak | Body `{old_password, new_password}` → `200`; cabut seluruh sesi LAIN, sesi ini tetap (US-AD90 AC1) |
-| `GET` | `/api/v1/auth/sessions` | Session | Viewer | Ya | List sesi aktif milik user: `{id, user_agent, ip, last_seen_at, current}` (US-AD90 AC2) |
-| `DELETE` | `/api/v1/auth/sessions/{id}` | Session | Viewer | Ya | Cabut sesi sendiri; sesi user lain butuh `owner`/`admin` (US-AD90 AC4, US-AD05) |
-| `POST` | `/api/v1/auth/password/reset-request` | Public | None | Tidak | Body `{email}` → `202 Accepted` — selalu `202`, email tak terdaftar pun (US-AD88 AC5) |
-| `POST` | `/api/v1/auth/password/reset` | Public | None | Tidak | Body `{token, new_password}` → `200 OK`; token kedaluwarsa/dipakai → `410` (US-AD88 AC3) |
+| `POST` | `/api/v1/auth/register` | Public | None | Tidak | ✅ | Body `{email, password, name?, org_name?}` → `201` + cookie. `name` absen → diisi bagian lokal email; `org_name` absen → workspace personal dibuat otomatis (B2C, US-AD01 AC5/AC6) |
+| `POST` | `/api/v1/auth/login` | Public | None | Tidak | ✅ | Body `{email, password}` → `200` + cookie session |
+| `POST` | `/api/v1/auth/logout` | Session | Viewer | Ya | ✅ | Hapus baris di `sessions` → `204 No Content` |
+| `GET` | `/api/v1/auth/me` | Session/Key | Viewer | Ya | ✅ | Return profile `{id, email, name, workspaces: [...]}` — US-AD89 |
+| `PATCH` | `/api/v1/auth/me` | Session | Viewer | Ya | ✅ | Update profil sendiri `{name, email, avatar}` → `200`; email duplikat → `409` (US-AD89 AC3) |
+| `DELETE` | `/api/v1/auth/me` | Session | Owner | Tidak | ⬜ | Tutup akun sendiri; wajib konfirmasi `{confirm_email}` → `202`; soft-delete 30 hari (US-AD98) |
+| `POST` | `/api/v1/auth/password/change` | Session | Viewer | Tidak | ⬜ | Body `{old_password, new_password}` → `200`; cabut seluruh sesi LAIN, sesi ini tetap (US-AD90 AC1) |
+| `GET` | `/api/v1/auth/sessions` | Session | Viewer | Ya | ⬜ | List sesi aktif milik user: `{id, user_agent, ip, last_seen_at, current}` (US-AD90 AC2) |
+| `DELETE` | `/api/v1/auth/sessions/{id}` | Session | Viewer | Ya | ⬜ | Cabut sesi sendiri; sesi user lain butuh `owner`/`admin` (US-AD90 AC4, US-AD05) |
+| `POST` | `/api/v1/auth/password/reset-request` | Public | None | Tidak | ✅ | Body `{email}` → `202 Accepted` — selalu `202`, email tak terdaftar pun (US-AD88 AC5) |
+| `POST` | `/api/v1/auth/password/reset` | Public | None | Tidak | ✅ | Body `{token, new_password}` → `200 OK`; token kedaluwarsa/dipakai → `410` (US-AD88 AC3) |
 
 #### 6.2.3 API Keys (5 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/api-keys` | Session | Member | Ya | List key milik user (`id, name, prefix, last_used_at`) |
-| `POST` | `/api/v1/api-keys` | Session | Member | Ya (Key) | Body `{name}` → `201` + plaintext `adk_...` (hanya sekali) |
-| `GET` | `/api/v1/api-keys/{id}` | Session | Member | Ya | Detail key + statistik pemakaian |
-| `DELETE` | `/api/v1/api-keys/{id}` | Session | Member | Ya | Hapus fisik baris api_key |
-| `POST` | `/api/v1/api-keys/{id}/revoke` | Session | Member | Ya | Update `revoked_at = now()` → `200 OK` |
+| `GET` | `/api/v1/api-keys` | Session | Member | Ya | ⬜ | List key milik user (`id, name, prefix, last_used_at`) |
+| `POST` | `/api/v1/api-keys` | Session | Member | Ya (Key) | ⬜ | Body `{name}` → `201` + plaintext `adk_...` (hanya sekali) |
+| `GET` | `/api/v1/api-keys/{id}` | Session | Member | Ya | ⬜ | Detail key + statistik pemakaian |
+| `DELETE` | `/api/v1/api-keys/{id}` | Session | Member | Ya | ⬜ | Hapus fisik baris api_key |
+| `POST` | `/api/v1/api-keys/{id}/revoke` | Session | Member | Ya | ⬜ | Update `revoked_at = now()` → `200 OK` |
 
 #### 6.2.4 Orgs & Memberships (9 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/orgs` | Session | Viewer | Ya | List org di mana user menjadi anggota |
-| `POST` | `/api/v1/orgs` | Session | Viewer | Ya (Key) | Buat org baru `{name, slug}` → user jadi `owner` |
-| `GET` | `/api/v1/orgs/{id}` | Session/Key | Viewer | Ya | Detail org `{id, slug, name, created_at}` |
-| `PATCH` | `/api/v1/orgs/{id}` | Session/Key | Owner | Ya | Update nama/slug org |
-| `DELETE` | `/api/v1/orgs/{id}` | Session/Key | Owner | Ya | Soft/hard delete org + cascade seluruh data |
-| `GET` | `/api/v1/orgs/{id}/members` | Session/Key | Viewer | Ya | List user di org + role masing-masing |
-| `POST` | `/api/v1/orgs/{id}/members` | Session/Key | Admin | Ya | Invite user `{email, role}` |
-| `PATCH` | `/api/v1/orgs/{id}/members/{user_id}` | Session/Key | Admin | Ya | Ubah role anggota `{role: "admin"|"member"|"viewer"}` |
-| `DELETE` | `/api/v1/orgs/{id}/members/{user_id}` | Session/Key | Admin | Ya | Hapus keanggotaan user dari org |
+| `GET` | `/api/v1/orgs` | Session | Viewer | Ya | ✅ | List org di mana user menjadi anggota |
+| `POST` | `/api/v1/orgs` | Session | Viewer | Ya (Key) | ✅ | Buat org baru `{name, slug}` → user jadi `owner` |
+| `GET` | `/api/v1/orgs/{id}` | Session/Key | Viewer | Ya | ✅ | Detail org `{id, slug, name, created_at}` |
+| `PATCH` | `/api/v1/orgs/{id}` | Session/Key | Owner | Ya | ✅ | Update nama/slug org |
+| `DELETE` | `/api/v1/orgs/{id}` | Session/Key | Owner | Ya | ⬜ | Soft/hard delete org + cascade seluruh data |
+| `GET` | `/api/v1/orgs/{id}/members` | Session/Key | Viewer | Ya | ✅ | List user di org + role masing-masing |
+| `POST` | `/api/v1/orgs/{id}/members` | Session/Key | Admin | Ya | ✅ | Invite user `{email, role}` |
+| `PATCH` | `/api/v1/orgs/{id}/members/{user_id}` | Session/Key | Admin | Ya | Ubah role anggota `{role: "admin"|"member"| ✅ | "viewer"}` |
+| `DELETE` | `/api/v1/orgs/{id}/members/{user_id}` | Session/Key | Admin | Ya | ✅ | Hapus keanggotaan user dari org |
 
 #### 6.2.5 Projects (5 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/projects` | Session/Key | Viewer | Ya | List project dalam org aktif |
-| `POST` | `/api/v1/projects` | Session/Key | Admin | Ya (Key) | Body `{name, slug}` → `201 Created` (US-AD08 AC3) |
-| `GET` | `/api/v1/projects/{id}` | Session/Key | Viewer | Ya | Detail project |
-| `PATCH` | `/api/v1/projects/{id}` | Session/Key | Admin | Ya | Update `{name, slug}` |
-| `DELETE` | `/api/v1/projects/{id}` | Session/Key | Admin | Ya | Hapus project + cascade board & task |
+| `GET` | `/api/v1/projects` | Session/Key | Viewer | Ya | ✅ | List project dalam org aktif |
+| `POST` | `/api/v1/projects` | Session/Key | Admin | Ya (Key) | ✅ | Body `{name, slug}` → `201 Created` (US-AD08 AC3) |
+| `GET` | `/api/v1/projects/{id}` | Session/Key | Viewer | Ya | ✅ | Detail project |
+| `PATCH` | `/api/v1/projects/{id}` | Session/Key | Admin | Ya | ✅ | Update `{name, slug}` |
+| `DELETE` | `/api/v1/projects/{id}` | Session/Key | Admin | Ya | ✅ | Hapus project + cascade board & task |
 
 #### 6.2.6 Boards (7 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/projects/{project_id}/boards` | Session/Key | Viewer | Ya | List board di dalam project |
-| `POST` | `/api/v1/projects/{project_id}/boards` | Session/Key | Admin | Ya (Key) | Body `{name, slug, budget_daily_micros}` (US-AD09 AC3) |
-| `GET` | `/api/v1/boards/{id}` | Session/Key | Viewer | Ya | Detail board + kolom + ringkasan status |
-| `PATCH` | `/api/v1/boards/{id}` | Session/Key | Member | Ya | Update `{name, slug, budget_daily_micros}` |
-| `DELETE` | `/api/v1/boards/{id}` | Session/Key | Admin | Ya | Hapus board + task |
-| `GET` | `/api/v1/boards/{id}/columns` | Session/Key | Viewer | Ya | Get array `columns_json` |
-| `PATCH` | `/api/v1/boards/{id}/columns` | Session/Key | Member | Ya | Update urutan/label kolom di `columns_json` |
+| `GET` | `/api/v1/projects/{project_id}/boards` | Session/Key | Viewer | Ya | ✅ | List board di dalam project |
+| `POST` | `/api/v1/projects/{project_id}/boards` | Session/Key | Admin | Ya (Key) | ✅ | Body `{name, slug, budget_daily_micros}` (US-AD09 AC3) |
+| `GET` | `/api/v1/boards/{id}` | Session/Key | Viewer | Ya | ✅ | Detail board + kolom + ringkasan status |
+| `PATCH` | `/api/v1/boards/{id}` | Session/Key | Member | Ya | ✅ | Update `{name, slug, budget_daily_micros}` |
+| `DELETE` | `/api/v1/boards/{id}` | Session/Key | Admin | Ya | ✅ | Hapus board + task |
+| `GET` | `/api/v1/boards/{id}/columns` | Session/Key | Viewer | Ya | ✅ | Get array `columns_json` |
+| `PATCH` | `/api/v1/boards/{id}/columns` | Session/Key | Member | Ya | ✅ | Update urutan/label kolom di `columns_json` |
 
-#### 6.2.7 Agents (14 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+#### 6.2.7 Agents (15 Endpoint)
+> Provider registry punya section sendiri: §6.2.8 (US-AD109).
+
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/agent-catalog` | Session/Key | Viewer | Tidak | Katalog model + harga estimate dari `internal/pricing` (DECISIONS §6A.C); mengisi dropdown model di form agent |
-| `GET` | `/api/v1/projects/{project_id}/agents` | Session/Key | Viewer | Ya | List agent worker per project |
-| `POST` | `/api/v1/projects/{project_id}/agents` | Session/Key | Member | Ya (Key) | Register agent baru (model, tools, runtime, retry) |
-| `GET` | `/api/v1/agents/{id}` | Session/Key | Viewer | Ya | Detail konfigurasi agent |
-| `PATCH` | `/api/v1/agents/{id}` | Session/Key | Member | Ya | Update model, max_runtime_seconds, retry_policy; `archived_at` untuk arsip/batal arsip (US-AD73: 409 bila agent masih memegang run aktif) |
-| `DELETE` | `/api/v1/agents/{id}` | Session/Key | Admin | Ya | Hapus agent (tasks.assignee_agent_id jadi NULL) |
-| `POST` | `/api/v1/agents/{id}/validate` | Session/Key | Member | Ya | Uji coba handshake / test ping LLM provider |
-| `PUT` | `/api/v1/agents/{id}/provider-key` | Session | Admin | Ya (Key) | Simpan / rotasi API key provider LLM (enkripsi AES-256-GCM, US-AD86). Boleh membawa `provider`+`model`+`base_url` opsional untuk agent yang belum tersimpan |
-| `DELETE` | `/api/v1/agents/{id}/provider-key` | Session | Admin | Ya | Hapus kredensial provider agent (agent kembali pakai env default) |
-| `GET` | `/api/v1/agent-skills` | Session/Key | Viewer | Ya | List skill library org (US-AD96 lanjutan, DECISIONS §6A.G) |
-| `POST` | `/api/v1/agent-skills` | Session | Admin | Tidak | Buat skill baru (`body_md`); agent TIDAK boleh memanggil ini |
-| `PATCH` | `/api/v1/agent-skills/{id}` | Session | Admin | Tidak | Ubah skill; `version` naik, baris lama tidak diubah surut |
-| `DELETE` | `/api/v1/agent-skills/{id}` | Session | Admin | Ya | Hapus skill milik org. Skill bawaan (`is_system`) ditolak dengan 409, bukan dihapus diam-diam |
-| `GET` | `/api/v1/agent-skills/{id}/agents` | Session/Key | Viewer | Ya | "Dipakai oleh": daftar agent aktif yang mereferensikan slug skill ini (agent terarsip dikecualikan). Mengisi panel kanan editor skill §7.1 |
+| `GET` | `/api/v1/agent-catalog` | Session/Key | Viewer | Tidak | ✅ | Katalog model + harga estimate dari `internal/pricing` (DECISIONS §6A.C); mengisi dropdown model di form agent |
+| `GET` | `/api/v1/projects/{project_id}/agents` | Session/Key | Viewer | Ya | ✅ | List agent worker per project |
+| `POST` | `/api/v1/projects/{project_id}/agents` | Session/Key | Member | Ya (Key) | ✅ | Register agent baru (model, tools, runtime, retry) |
+| `GET` | `/api/v1/agents/{id}` | Session/Key | Viewer | Ya | ✅ | Detail konfigurasi agent |
+| `PATCH` | `/api/v1/agents/{id}` | Session/Key | Member | Ya | ✅ | Update model, max_runtime_seconds, retry_policy; `archived_at` untuk arsip/batal arsip (US-AD73: 409 bila agent masih memegang run aktif) |
+| `DELETE` | `/api/v1/agents/{id}` | Session/Key | Admin | Ya | ✅ | Hapus agent (tasks.assignee_agent_id jadi NULL) |
+| `POST` | `/api/v1/agents/{id}/validate` | Session/Key | Member | Ya | ✅ | Uji coba handshake / test ping LLM provider |
+| `PUT` | `/api/v1/agents/{id}/provider-key` | Session | Admin | Ya (Key) | ✅ | Simpan / rotasi API key provider LLM (enkripsi AES-256-GCM, US-AD86). Boleh membawa `provider`+`model`+`base_url` opsional untuk agent yang belum tersimpan |
+| `DELETE` | `/api/v1/agents/{id}/provider-key` | Session | Admin | Ya | ✅ | Hapus kredensial provider agent (agent kembali pakai env default) |
+| `POST` | `/api/v1/provider/models` | Session | Admin | Ya | ✅ | Probe **stateless** untuk dropdown model di form pendaftaran agent (belum ada agent id): body `{base_url, api_key}` mentah → `200 {models: [...]}`. TIDAK menulis DB dan tidak menyentuh `agents`; key tidak pernah masuk log. `base_url` kosong/skema salah/ditolak guard `ValidateOperatorBaseURL` → `400`, upstream menolak → `502` (US-AD106 AC2) |
+| `GET` | `/api/v1/agent-skills` | Session/Key | Viewer | Ya | ✅ | List skill library org (US-AD96 lanjutan, DECISIONS §6A.G) |
+| `POST` | `/api/v1/agent-skills` | Session | Admin | Tidak | ✅ | Buat skill baru (`body_md`); agent TIDAK boleh memanggil ini |
+| `PATCH` | `/api/v1/agent-skills/{id}` | Session | Admin | Tidak | ✅ | Ubah skill; `version` naik, baris lama tidak diubah surut |
+| `DELETE` | `/api/v1/agent-skills/{id}` | Session | Admin | Ya | ✅ | Hapus skill milik org. Skill bawaan (`is_system`) ditolak dengan 409, bukan dihapus diam-diam |
+| `GET` | `/api/v1/agent-skills/{id}/agents` | Session/Key | Viewer | Ya | ✅ | "Dipakai oleh": daftar agent aktif yang mereferensikan slug skill ini (agent terarsip dikecualikan). Mengisi panel kanan editor skill §7.1 |
 
-#### 6.2.8 Tasks (11 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+#### 6.2.8 Providers (7 Endpoint)
+Kredensial LLM hidup di sini, bukan di agent (US-AD109, DECISIONS §6A.J). Satu provider
+dipakai banyak agent, jadi mengganti kunci cukup sekali dan berlaku ke semua pemakainya.
+Kolom `protocol` memuat tiga nilai sejak awal (`openai_compatible`, `anthropic`, `google`),
+tapi implementasi probe dan tarik model baru untuk `openai_compatible`; dua sisanya adalah
+penambahan kode nanti, bukan migrasi data.
+
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/boards/{board_id}/tasks` | Session/Key | Viewer | Ya | List task di board (filter `status, assignee, search`) |
-| `POST` | `/api/v1/boards/{board_id}/tasks` | Session/Key | Member | Ya (Key) | Buat task baru (`title, body, workspace_kind`, dll.) |
-| `GET` | `/api/v1/tasks/{id}` | Session/Key | Viewer | Ya | Detail lengkap task + active run ID |
-| `PATCH` | `/api/v1/tasks/{id}` | Session/Key | Member | Ya | Edit task (`title, body, priority, completion_contract`) |
-| `DELETE` | `/api/v1/tasks/{id}` | Session/Key | Admin | Ya | Soft-delete, bisa dipulihkan 30 hari (US-AD80 AC2) |
-| `POST` | `/api/v1/tasks/{id}/move` | Session/Key | Member | Ya | Geser task ke kolom/status lain (`{to_status: "ready"}`) |
-| `POST` | `/api/v1/tasks/{id}/assign` | Session/Key | Member | Ya | Assign/unassign agent (`{agent_id: "..."}`) |
-| `POST` | `/api/v1/tasks/{id}/claim` | Session/Key | Member | Ya | Manual force claim (bypass loop dispatcher) |
-| `POST` | `/api/v1/tasks/{id}/cancel` | Session/Key | Member | Ya | Batalkan task & abort active run jika ada |
-| `POST` | `/api/v1/tasks/{id}/retry` | Session/Key | Member | Ya | Reset failure count, pindah status ke `ready` |
-| `POST` | `/api/v1/tasks/{id}/archive` | Session/Key | Member | Ya | Set status ke `archived`, sembunyikan dari view board |
+| `GET` | `/api/v1/providers` | Session/Key | Viewer | Ya | ⬜ | Daftar provider ruang kerja; kredensial tidak pernah dikembalikan |
+| `POST` | `/api/v1/providers` | Session/Key | Admin | Ya (Key) | ⬜ | `{name, protocol, base_url, api_key?}` → `201`; nama duplikat → `409` |
+| `GET` | `/api/v1/providers/{id}` | Session/Key | Viewer | Ya | ⬜ | Detail provider |
+| `PATCH` | `/api/v1/providers/{id}` | Session/Key | Admin | Ya | ⬜ | Ubah provider; berlaku ke seluruh agent pemakainya (AC6) |
+| `DELETE` | `/api/v1/providers/{id}` | Session/Key | Admin | Ya | ⬜ | Masih dipakai agent → `409` + daftar pemakainya (AC5) |
+| `POST` | `/api/v1/providers/{id}/verify` | Session/Key | Admin | Tidak | ⬜ | Uji kredensial lewat panggilan inference minimal; lolos → `last_verified_at` (AC3) |
+| `POST` | `/api/v1/providers/{id}/models` | Session/Key | Admin | Ya | ⬜ | Tarik ulang daftar model → `models_json` (AC7) |
 
-#### 6.2.9 Task Links / Dependencies (4 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+#### 6.2.9 Tasks (11 Endpoint)
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/tasks/{id}/links` | Session/Key | Viewer | Ya | List parent dan child task untuk ID tersebut |
-| `POST` | `/api/v1/tasks/{id}/links` | Session/Key | Member | Ya | Tambah edge dependency (`{parent_id: "..."}`) |
-| `DELETE` | `/api/v1/tasks/{id}/links/{parent_id}` | Session/Key | Member | Ya | Hapus edge dependency tertentu |
-| `GET` | `/api/v1/tasks/{id}/dag` | Session/Key | Viewer | Ya | Tree rekursif seluruh prasyarat task (§4e.2) |
+| `GET` | `/api/v1/boards/{board_id}/tasks` | Session/Key | Viewer | Ya | ✅ | List task di board (filter `status, assignee, search`) |
+| `POST` | `/api/v1/boards/{board_id}/tasks` | Session/Key | Member | Ya (Key) | ✅ | Buat task baru (`title, body, workspace_kind`, dll.) |
+| `GET` | `/api/v1/tasks/{id}` | Session/Key | Viewer | Ya | ✅ | Detail lengkap task + active run ID |
+| `PATCH` | `/api/v1/tasks/{id}` | Session/Key | Member | Ya | ✅ | Edit task (`title, body, priority, completion_contract`) |
+| `DELETE` | `/api/v1/tasks/{id}` | Session/Key | Admin | Ya | ✅ | Soft-delete, bisa dipulihkan 30 hari (US-AD80 AC2) |
+| `POST` | `/api/v1/tasks/{id}/move` | Session/Key | Member | Ya | ✅ | Geser task ke kolom/status lain (`{to_status: "ready"}`) |
+| `POST` | `/api/v1/tasks/{id}/assign` | Session/Key | Member | Ya | ✅ | Assign/unassign agent (`{agent_id: "..."}`) |
+| `POST` | `/api/v1/tasks/{id}/claim` | Session/Key | Member | Ya | ⬜ | Manual force claim (bypass loop dispatcher) |
+| `POST` | `/api/v1/tasks/{id}/cancel` | Session/Key | Member | Ya | ⬜ | Batalkan task & abort active run jika ada |
+| `POST` | `/api/v1/tasks/{id}/retry` | Session/Key | Member | Ya | ⬜ | Reset failure count, pindah status ke `ready` |
+| `POST` | `/api/v1/tasks/{id}/archive` | Session/Key | Member | Ya | ⬜ | Set status ke `archived`, sembunyikan dari view board |
 
-#### 6.2.10 Runs (6 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+#### 6.2.10 Task Links / Dependencies (4 Endpoint)
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/tasks/{task_id}/runs` | Session/Key | Viewer | Ya | List seluruh run historis task ini (attempt 1..N) |
-| `GET` | `/api/v1/runs/{id}` | Session/Key | Viewer | Ya | Detail status run, outcome, total tokens, cost |
-| `POST` | `/api/v1/runs/{id}/cancel` | Session/Key | Member | Ya | Cancel run yang sedang `running` (abort context) |
-| `POST` | `/api/v1/runs/{id}/heartbeat` | Internal/Key | Worker | Ya | Worker kirim heartbeat `now()` (N7: 60 s, N8: 15 menit) |
-| `POST` | `/api/v1/runs/{id}/end` | Internal/Key | Worker | Ya | Worker laporkan hasil akhir (`outcome, error, summary`) |
-| `GET` | `/api/v1/runs/{id}/summary` | Session/Key | Viewer | Ya | Ringkasan teks hasil eksekusi run |
+| `GET` | `/api/v1/tasks/{id}/links` | Session/Key | Viewer | Ya | ✅ | List parent dan child task untuk ID tersebut |
+| `POST` | `/api/v1/tasks/{id}/links` | Session/Key | Member | Ya | ✅ | Tambah edge dependency (`{parent_id: "..."}`) |
+| `DELETE` | `/api/v1/tasks/{id}/links/{parent_id}` | Session/Key | Member | Ya | ✅ | Hapus edge dependency tertentu |
+| `GET` | `/api/v1/tasks/{id}/dag` | Session/Key | Viewer | Ya | ✅ | Tree rekursif seluruh prasyarat task (§4e.2) |
 
-#### 6.2.11 Steps (3 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+#### 6.2.11 Runs (6 Endpoint)
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/runs/{run_id}/steps` | Session/Key | Viewer | Ya | List trace seluruh step dalam run urut `seq` |
-| `POST` | `/api/v1/runs/{run_id}/steps` | Internal/Key | Worker | Tidak | Catat step baru (`seq, kind, name, payload`) |
-| `PATCH` | `/api/v1/runs/{run_id}/steps/{seq}` | Internal/Key | Worker | Ya | Selesaikan step (`status, tokens, cost_micros`) |
+| `GET` | `/api/v1/tasks/{task_id}/runs` | Session/Key | Viewer | Ya | ⬜ | List seluruh run historis task ini (attempt 1..N) |
+| `GET` | `/api/v1/runs/{id}` | Session/Key | Viewer | Ya | ⬜ | Detail status run, outcome, total tokens, cost |
+| `POST` | `/api/v1/runs/{id}/cancel` | Session/Key | Member | Ya | ⬜ | Cancel run yang sedang `running` (abort context) |
+| `POST` | `/api/v1/runs/{id}/heartbeat` | Internal/Key | Worker | Ya | ⬜ | Worker kirim heartbeat `now()` (N7: 60 s, N8: 15 menit) |
+| `POST` | `/api/v1/runs/{id}/end` | Internal/Key | Worker | Ya | ⬜ | Worker laporkan hasil akhir (`outcome, error, summary`) |
+| `GET` | `/api/v1/runs/{id}/summary` | Session/Key | Viewer | Ya | ⬜ | Ringkasan teks hasil eksekusi run |
 
-#### 6.2.12 Events & Realtime SSE (4 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+#### 6.2.12 Steps (3 Endpoint)
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/boards/{id}/events` | Session/Key | Viewer | Ya | **SSE Stream** event realtime board (§7) |
-| `GET` | `/api/v1/events?board_id={id}` | Session/Key | Viewer | Ya | **SSE Stream** kanal generik (§7, FR-06, US-AD39 AC1); `board_id` wajib |
-| `GET` | `/api/v1/tasks/{id}/events` | Session/Key | Viewer | Ya | Event log khusus satu task (JSON / SSE stream) |
-| `GET` | `/api/v1/runs/{id}/events` | Session/Key | Viewer | Ya | Replay event log run trace |
+| `GET` | `/api/v1/runs/{run_id}/steps` | Session/Key | Viewer | Ya | ⬜ | List trace seluruh step dalam run urut `seq` |
+| `POST` | `/api/v1/runs/{run_id}/steps` | Internal/Key | Worker | Tidak | ⬜ | Catat step baru (`seq, kind, name, payload`) |
+| `PATCH` | `/api/v1/runs/{run_id}/steps/{seq}` | Internal/Key | Worker | Ya | ⬜ | Selesaikan step (`status, tokens, cost_micros`) |
 
-#### 6.2.13 Approvals (5 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+#### 6.2.13 Events & Realtime SSE (4 Endpoint)
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/approvals` | Session/Key | Member | Ya | Inbox daftar approval berstatus `pending` |
-| `GET` | `/api/v1/approvals/{id}` | Session/Key | Member | Ya | Detail diff preview proposal agent (`preview_json`) |
-| `POST` | `/api/v1/approvals/{id}/approve` | Session/Key | Member | Ya | Setujui aksi agent → task kembali ke `ready` |
-| `POST` | `/api/v1/approvals/{id}/reject` | Session/Key | Member | Ya | Tolak proposal `{reason}` → task jadi `blocked` |
-| `POST` | `/api/v1/tasks/{id}/approvals` | Internal/Key | Worker | Ya | Worker meminta approval gate baru |
+| `GET` | `/api/v1/boards/{id}/events` | Session/Key | Viewer | Ya | ⬜ | **SSE Stream** event realtime board (§7) |
+| `GET` | `/api/v1/events?board_id={id}` | Session/Key | Viewer | Ya | ⬜ | **SSE Stream** kanal generik (§7, FR-06, US-AD39 AC1); `board_id` wajib |
+| `GET` | `/api/v1/tasks/{id}/events` | Session/Key | Viewer | Ya | ⬜ | Event log khusus satu task (JSON / SSE stream) |
+| `GET` | `/api/v1/runs/{id}/events` | Session/Key | Viewer | Ya | ⬜ | Replay event log run trace |
 
-#### 6.2.14 Cost Ledger & Budget (5 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+#### 6.2.14 Approvals (5 Endpoint)
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/boards/{id}/budget` | Session/Key | Viewer | Ya | Realtime usage vs cap harian board (N16: $20/hari, N18: alert 80%) |
-| `PATCH` | `/api/v1/boards/{id}/budget` | Session/Key | Admin | Ya | Ubah `budget_daily_micros` board |
-| `GET` | `/api/v1/boards/{id}/ledger` | Session/Key | Viewer | Ya | Laporan rincian pemakaian token & mikro-USD |
-| `GET` | `/api/v1/runs/{id}/ledger` | Session/Key | Viewer | Ya | Ledger entry terperinci per LLM call di suatu run |
-| `GET` | `/api/v1/orgs/{id}/cost-summary`| Session/Key | Admin | Ya | Total pengeluaran per model & board 30 hari |
+| `GET` | `/api/v1/approvals` | Session/Key | Member | Ya | ⬜ | Inbox daftar approval berstatus `pending` |
+| `GET` | `/api/v1/approvals/{id}` | Session/Key | Member | Ya | ⬜ | Detail diff preview proposal agent (`preview_json`) |
+| `POST` | `/api/v1/approvals/{id}/approve` | Session/Key | Member | Ya | ⬜ | Setujui aksi agent → task kembali ke `ready` |
+| `POST` | `/api/v1/approvals/{id}/reject` | Session/Key | Member | Ya | ⬜ | Tolak proposal `{reason}` → task jadi `blocked` |
+| `POST` | `/api/v1/tasks/{id}/approvals` | Internal/Key | Worker | Ya | ⬜ | Worker meminta approval gate baru |
 
-#### 6.2.15 Artifacts (5 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+#### 6.2.15 Cost Ledger & Budget (5 Endpoint)
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/tasks/{id}/artifacts` | Session/Key | Viewer | Ya | List metadata artifact milik task |
-| `POST` | `/api/v1/tasks/{id}/artifacts/upload-url` | Internal/Key | Worker | Tidak | Minta presigned PUT URL R2 (`filename, size`) |
-| `POST` | `/api/v1/tasks/{id}/artifacts` | Internal/Key | Worker | Ya | Daftarkan file sukses di-upload (`sha256, key`) |
-| `GET` | `/api/v1/artifacts/{id}` | Session/Key | Viewer | Ya | Metadata satu artifact |
-| `GET` | `/api/v1/artifacts/{id}/download`| Session/Key | Viewer | Ya | Redirect `302` ke presigned GET URL R2 |
+| `GET` | `/api/v1/boards/{id}/budget` | Session/Key | Viewer | Ya | ⬜ | Realtime usage vs cap harian board (N16: $20/hari, N18: alert 80%) |
+| `PATCH` | `/api/v1/boards/{id}/budget` | Session/Key | Admin | Ya | ⬜ | Ubah `budget_daily_micros` board |
+| `GET` | `/api/v1/boards/{id}/ledger` | Session/Key | Viewer | Ya | ⬜ | Laporan rincian pemakaian token & mikro-USD |
+| `GET` | `/api/v1/runs/{id}/ledger` | Session/Key | Viewer | Ya | ⬜ | Ledger entry terperinci per LLM call di suatu run |
+| `GET` | `/api/v1/orgs/{id}/cost-summary` | Session/Key | Admin | Ya | ⬜ | Total pengeluaran per model & board 30 hari |
 
-#### 6.2.16 Comments (4 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+#### 6.2.16 Artifacts (5 Endpoint)
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/tasks/{id}/comments` | Session/Key | Viewer | Ya | List komentar diskusi pada task |
-| `POST` | `/api/v1/tasks/{id}/comments` | Session/Key | Member | Tidak | Kirim komentar baru (dari user atau agent) |
-| `PATCH` | `/api/v1/comments/{id}` | Session/Key | Member | Ya | Edit teks komentar milik sendiri |
-| `DELETE` | `/api/v1/comments/{id}` | Session/Key | Member | Ya | Hapus komentar |
+| `GET` | `/api/v1/tasks/{id}/artifacts` | Session/Key | Viewer | Ya | ⬜ | List metadata artifact milik task |
+| `POST` | `/api/v1/tasks/{id}/artifacts/upload-url` | Internal/Key | Worker | Tidak | ⬜ | Minta presigned PUT URL R2 (`filename, size`) |
+| `POST` | `/api/v1/tasks/{id}/artifacts` | Internal/Key | Worker | Ya | ⬜ | Daftarkan file sukses di-upload (`sha256, key`) |
+| `GET` | `/api/v1/artifacts/{id}` | Session/Key | Viewer | Ya | ⬜ | Metadata satu artifact |
+| `GET` | `/api/v1/artifacts/{id}/download` | Session/Key | Viewer | Ya | ⬜ | Redirect `302` ke presigned GET URL R2 |
 
-#### 6.2.17 Webhooks & Deliveries (7 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+#### 6.2.17 Comments (4 Endpoint)
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/boards/{board_id}/webhooks` | Session/Key | Admin | Ya | List webhook subscriptions pada board |
-| `POST` | `/api/v1/boards/{board_id}/webhooks` | Session/Key | Admin | Ya (Key) | Daftarkan webhook `{url, events_json, secret}` |
-| `GET` | `/api/v1/webhooks/{id}` | Session/Key | Admin | Ya | Detail webhook dan status aktif |
-| `PATCH` | `/api/v1/webhooks/{id}` | Session/Key | Admin | Ya | Aktifkan/nonaktifkan webhook atau ubah URL |
-| `DELETE` | `/api/v1/webhooks/{id}` | Session/Key | Admin | Ya | Hapus subscription webhook |
-| `GET` | `/api/v1/webhooks/{id}/deliveries` | Session/Key | Admin | Ya | Log riwayat pengiriman event & HTTP response code |
-| `POST` | `/api/v1/webhooks/{id}/deliveries/{delivery_id}/retry` | Session/Key | Admin | Ya | Kirim ulang webhook delivery yang gagal |
+| `GET` | `/api/v1/tasks/{id}/comments` | Session/Key | Viewer | Ya | ⬜ | List komentar diskusi pada task |
+| `POST` | `/api/v1/tasks/{id}/comments` | Session/Key | Member | Tidak | ⬜ | Kirim komentar baru (dari user atau agent) |
+| `PATCH` | `/api/v1/comments/{id}` | Session/Key | Member | Ya | ⬜ | Edit teks komentar milik sendiri |
+| `DELETE` | `/api/v1/comments/{id}` | Session/Key | Member | Ya | ⬜ | Hapus komentar |
 
-#### 6.2.18 Audit, Search & System (6 Endpoint)
-| METHOD | Path | Auth | Role Min | Idempotent | Ringkasan Request/Response |
+#### 6.2.18 Webhooks & Deliveries (7 Endpoint)
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/audit-log` | Session/Key | Admin | Ya | Paginasi cursor riwayat modifikasi resource workspace; filter `actor, action, from, to` (US-AD95) |
-| `GET` | `/api/v1/notifications` | Session | Viewer | Ya | List notifikasi in-app milik user + `unread_count` (US-AD61) |
-| `POST` | `/api/v1/notifications/read` | Session | Viewer | Ya | Body `{ids: [...]}` atau `{all: true}` → `200`; tandai terbaca (US-AD61 AC1) |
-| `GET` | `/api/v1/search/tasks` | Session/Key | Viewer | Ya | Full-text trigram search task (`?q=...&board_id=...`) |
-| `GET` | `/api/v1/search/runs` | Session/Key | Viewer | Ya | Cari run berdasarkan kegagalan atau metadata |
-| `GET` | `/api/v1/system/info` | Public | None | Ya | Info versi backend Go & commit SHA |
+| `GET` | `/api/v1/boards/{board_id}/webhooks` | Session/Key | Admin | Ya | ⬜ | List webhook subscriptions pada board |
+| `POST` | `/api/v1/boards/{board_id}/webhooks` | Session/Key | Admin | Ya (Key) | ⬜ | Daftarkan webhook `{url, events_json, secret}` |
+| `GET` | `/api/v1/webhooks/{id}` | Session/Key | Admin | Ya | ⬜ | Detail webhook dan status aktif |
+| `PATCH` | `/api/v1/webhooks/{id}` | Session/Key | Admin | Ya | ⬜ | Aktifkan/nonaktifkan webhook atau ubah URL |
+| `DELETE` | `/api/v1/webhooks/{id}` | Session/Key | Admin | Ya | ⬜ | Hapus subscription webhook |
+| `GET` | `/api/v1/webhooks/{id}/deliveries` | Session/Key | Admin | Ya | ⬜ | Log riwayat pengiriman event & HTTP response code |
+| `POST` | `/api/v1/webhooks/{id}/deliveries/{delivery_id}/retry` | Session/Key | Admin | Ya | ⬜ | Kirim ulang webhook delivery yang gagal |
 
-*Total endpoint terdefinisi: 115 endpoint.*
+#### 6.2.19 Audit, Search & System (6 Endpoint)
+| METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
+|---|---|---|---|:---:|---|
+| `GET` | `/api/v1/audit-log` | Session/Key | Admin | Ya | ⬜ | Paginasi cursor riwayat modifikasi resource workspace; filter `actor, action, from, to` (US-AD95) |
+| `GET` | `/api/v1/notifications` | Session | Viewer | Ya | ⬜ | List notifikasi in-app milik user + `unread_count` (US-AD61) |
+| `POST` | `/api/v1/notifications/read` | Session | Viewer | Ya | ⬜ | Body `{ids: [...]}` atau `{all: true}` → `200`; tandai terbaca (US-AD61 AC1) |
+| `GET` | `/api/v1/search/tasks` | Session/Key | Viewer | Ya | ⬜ | Full-text trigram search task (`?q=...&board_id=...`) |
+| `GET` | `/api/v1/search/runs` | Session/Key | Viewer | Ya | ⬜ | Cari run berdasarkan kegagalan atau metadata |
+| `GET` | `/api/v1/system/info` | Public | None | Ya | ⬜ | Info versi backend Go & commit SHA |
+
+
+### 6.2.20 Ringkasan kemajuan per modul
+
+| # | Modul | ✅ | ⬜ | Total |
+|---|---|---:|---:|---:|
+| 6.2.1 | Health, Liveness & Metrics | 2 | 2 | 4 |
+| 6.2.2 | Auth & Sessions | 7 | 4 | 11 |
+| 6.2.3 | API Keys | 0 | 5 | 5 |
+| 6.2.4 | Orgs & Memberships | 8 | 1 | 9 |
+| 6.2.5 | Projects | 5 | 0 | 5 |
+| 6.2.6 | Boards | 7 | 0 | 7 |
+| 6.2.7 | Agents | 15 | 0 | 15 |
+| 6.2.8 | Providers | 0 | 7 | 7 |
+| 6.2.9 | Tasks | 7 | 4 | 11 |
+| 6.2.10 | Task Links / Dependencies | 4 | 0 | 4 |
+| 6.2.11 | Runs | 0 | 6 | 6 |
+| 6.2.12 | Steps | 0 | 3 | 3 |
+| 6.2.13 | Events & Realtime SSE | 0 | 4 | 4 |
+| 6.2.14 | Approvals | 0 | 5 | 5 |
+| 6.2.15 | Cost Ledger & Budget | 0 | 5 | 5 |
+| 6.2.16 | Artifacts | 0 | 5 | 5 |
+| 6.2.17 | Comments | 0 | 4 | 4 |
+| 6.2.18 | Webhooks & Deliveries | 0 | 7 | 7 |
+| 6.2.19 | Audit, Search & System | 0 | 6 | 6 |
+| | **Total** | **55** | **68** | **123** |
+
+*Total endpoint terdefinisi: 123 endpoint.*
 
 ## 7. Realtime (SSE)
 
@@ -2469,7 +2555,7 @@ Sistem pengujian AgentDeck dibangun untuk menjamin kebenaran state machine, keta
                      ┌───────────────────────┐
                      │   Load Tests (k6)     │  Target konkurensi dan volume (N4: 50 agen running, N5: 100.000 run/bulan, N6: 1.000.000 event/bulan)
                      ├───────────────────────┤
-                     │  API Contract Tests   │  115 Endpoint coverage
+                     │  API Contract Tests   │  123 Endpoint coverage
                      ├───────────────────────┤
                      │ Integration (Pg test) │  Testcontainers Postgres 16
                      ├───────────────────────┤
@@ -2512,62 +2598,97 @@ k6 run tests/load/sse_connections.js --vus 1000 --duration 5m
 
 ## 18. Struktur Folder
 
-Repositori Go disusun mengikuti prinsip idiomatik Standard Go Project Layout tanpa lapisan abstraksi yang berlebihan:
+Struktur di bawah ini adalah **keadaan nyata repository**, bukan rencana. Setiap
+direktori dan file yang disebut di sini diperiksa `tools/verify_suite.py`; kalau
+salah satu hilang, gate FAIL. Itu disengaja: versi sebelumnya dari section ini
+menggambarkan layout rencana (`internal/api/`, `internal/db/`, `internal/dispatcher/`,
+`tests/`) yang **tidak pernah dibuat**, dan tidak ada gate yang menangkapnya —
+29 dari 31 nama file yang dikontrak tidak ada, sementara 8 modul yang benar-benar
+ada tidak tercatat sama sekali.
+
+Modul yang **belum dibangun** didaftar terpisah di §18.3 supaya tidak tertukar
+dengan yang sudah ada.
 
 ```
 agentdeck/
 ├── cmd/
-│   └── api/
-│       └── main.go              # Entrypoint binary tunggal: ServeMux, config init, graceful shutdown
+│   └── api/                     # Entrypoint + HTTP handler (binary tunggal)
+│       ├── main.go              # ServeMux, config init, graceful shutdown
+│       ├── agents.go            # Agent CRUD, katalog, arsip
+│       ├── agents_provider_key.go  # Kredensial provider per agent (US-AD86)
+│       ├── agent_skills.go      # Skill library per org (US-AD107)
+│       ├── boards.go            # Board, kolom, task, run, ledger
+│       ├── orgs.go              # Org & membership
+│       ├── profile.go           # Profil & avatar user
+│       ├── password_reset.go    # Alur reset password
+│       └── provider_models.go   # Probe model stateless (US-AD106 AC2)
 ├── internal/
-│   ├── api/                     # HTTP Handlers (115 endpoints)
-│   │   ├── auth_handler.go      # Login, register, logout, session middleware
-│   │   ├── org_handler.go       # Orgs & memberships
-│   │   ├── board_handler.go     # Boards, columns, and budget settings
-│   │   ├── task_handler.go      # Task CRUD, movement, assignment, and DAG
-│   │   ├── run_handler.go       # Run trace, steps, and heartbeat
-│   │   ├── approval_handler.go  # Man-in-the-loop gate decisions
-│   │   ├── ledger_handler.go    # Cost inspection & reporting
-│   │   ├── artifact_handler.go  # Presigned URL generation & download redirect
-│   │   ├── webhook_handler.go   # Webhook subscriptions & manual retry
-│   │   ├── middleware.go        # Auth, RBAC, Rate-limit, Trace-ID, Org-Context
-│   │   └── routes.go            # Go 1.22+ ServeMux route registration table
-│   ├── config/                  # Environment variable parser (os.Getenv)
-│   ├── db/                      # Koneksi database & query sqlc/pgx
-│   │   ├── pool.go              # pgxpool initialization & healthcheck
-│   │   ├── queries.sql.go       # Generated code dari sqlc (tiap query di §4)
-│   │   └── models.go            # Struct representasi tabel DB (§3)
-│   ├── dispatcher/              # Jantung orkestrasi agent
-│   │   ├── dispatcher.go        # Tick loop 2 detik (N19) & worker pool
-│   │   ├── claim.go             # FOR UPDATE SKIP LOCKED batch claiming (N20)
-│   │   ├── reclaim.go           # Heartbeat check & stale cleaner (N7: 60 s, N8: 15 menit)
-│   │   └── budget.go            # Guardrail calculation & hard stop (N16: $20/hari, N17: $2/run)
-│   ├── executor/                # Eksekutor workspace
-│   │   ├── workspace.go         # Scratch, Dir, Git Worktree, & Container driver
-│   │   └── runner.go            # Step loop & LLM invocation wrapper
+│   ├── auth/                    # Sesi, RBAC, API key, audit, profil
+│   │   ├── auth.go              # Login, register, logout, session middleware
+│   │   ├── repository.go        # Kontrak penyimpanan
+│   │   ├── pgx.go               # Implementasi Postgres
+│   │   ├── profile.go           # Profil user
+│   │   ├── avatar.go            # Avatar
+│   │   ├── password_reset.go    # Reset password
+│   │   ├── errors.go            # Error domain
+│   │   └── memory.go            # Implementasi in-memory (test)
+│   ├── board/                   # Domain board, task, agent, ledger
+│   │   ├── service.go           # Aturan domain + validasi
+│   │   ├── pgx.go               # Implementasi Postgres
+│   │   └── types.go             # Struct domain
+│   ├── config/                  # Parser environment variable
+│   ├── crypto/                  # AES-256-GCM untuk kredensial provider
+│   ├── migrate/                 # Migrasi database (embed.FS)
+│   │   ├── migrate.go           # Runner
+│   │   └── 0001.up.sql … 0009.up.sql   # Satu file per langkah
+│   ├── notify/                  # Email undangan & notifikasi
 │   ├── pricing/                 # Engine akuntansi biaya
-│   │   ├── calculator.go        # Token to micro-USD mapping (§9.1)
-│   │   └── models.go            # Snapshot tabel harga model LLM
-│   ├── sse/                     # Server-Sent Events real-time broker
-│   │   ├── hub.go               # In-memory subscription manager & drop policy (N6)
-│   │   └── listener.go          # Postgres LISTEN/NOTIFY agentdeck_events consumer
-│   ├── webhook/                 # Background webhook delivery
-│   │   ├── worker.go            # HMAC signer & HTTP dispatcher
-│   │   └── retry.go             # Exponential backoff scheduler
-│   ├── storage/                 # Cloudflare R2 / S3 Client
-│   │   └── r2.go                # Presigned PUT/GET generator & SHA verification
-│   └── migrate/                 # Database migrations (embed.FS)
-│       ├── fs.go                # embed.FS SQL scripts
-│       └── 0001_init.sql        # DDL lengkap sesuai §3
-├── tests/                       # Suite pengujian
-│   ├── integration/             # Integration tests dengan Testcontainers
-│   ├── tenant_isolation_test.go # Verifikasi kebocoran tenant
-│   └── load/                    # Script k6 untuk target kapasitas N4 (50 agen), N5 (100.000 run), dan N6 (1.000.000 event)
-├── Dockerfile                   # Multi-stage build (distroless final image < 25 MB)
-├── Makefile                     # Build, test, run, migrate automation
-├── go.mod                       # Go 1.22 module definition
+│   │   ├── pricing.go           # Resolusi harga 4 tingkat (§9.1)
+│   │   ├── catalog.go           # Daftar provider & model
+│   │   └── table_gen.go         # Tabel harga (generated)
+│   ├── provider/                # Klien provider LLM + guard SSRF
+│   ├── skill/                   # Skill library: sanitasi, seed, service
+│   ├── store/                   # Query sqlc + model DB
+│   │   ├── querier.go           # Interface generated
+│   │   ├── queries.sql.go       # Query generated
+│   │   ├── password_reset.sql.go
+│   │   ├── models.go            # Struct representasi tabel (§3)
+│   │   ├── db.go                # Setup koneksi
+│   │   └── queries/queries.sql  # Sumber sqlc
+│   └── ulid/                    # Generator ID ULID
+├── frontend/                    # SPA React 19 + Vite (§18.2)
+├── design/                      # Mockup Stitch + prompt (ground truth visual)
+├── docs/                        # Kontrak produk & teknis
+├── tools/                       # Gate & generator
+├── archive/reports/             # Backup dokumen historis (bukan kontrak)
+├── Dockerfile.api               # Build API (distroless final image)
+├── compose.yaml                 # db + api + web
+├── sqlc.yaml                    # Konfigurasi sqlc
+├── go.mod                       # Go 1.22
 └── go.sum
 ```
+
+**Catatan penamaan:** `Dockerfile.api` (bukan `Dockerfile`) karena `frontend/Dockerfile`
+juga ada dan keduanya dipakai `compose.yaml`. Tidak ada `Makefile`; perintah build
+dan test dijalankan langsung (`go build ./...`, `go test ./...`, `npm run build`).
+
+### 18.3 Modul yang belum dibangun
+
+Dikontrak di section lain, tapi **belum ada kodenya**. Didata di sini supaya
+gambar struktur di atas tidak dibaca sebagai janji:
+
+| Modul | Untuk | Status |
+|---|---|---|
+| `internal/dispatcher/` | Tick loop, claiming `FOR UPDATE SKIP LOCKED`, reclaim | Belum |
+| `internal/executor/` | Workspace (scratch/worktree/container) + runner LLM | Belum |
+| `internal/sse/` | Broker SSE + `LISTEN/NOTIFY` | Belum |
+| `internal/storage/` | Klien R2/S3, presigned URL | Belum |
+| `internal/webhook/` | Pengiriman webhook + retry | Belum |
+| `tests/` | Integration test (Testcontainers), load test k6 | Belum |
+
+Runtime **belum pernah memanggil LLM**: `grep -r "chat/completions"` → nol.
+Itu juga sebabnya "cek kredensial saat agent mau jalan" belum punya mekanisme
+(lihat `DECISIONS.md` §6A.J).
 
 ### 18.2 Frontend (`frontend/` — React 19 + Vite + Redux Toolkit)
 
@@ -2696,6 +2817,7 @@ DECISIONS §6 dan bukan lagi terselubung:**
 | `GET /api/v1/agent-catalog` | ditambahkan (§6.2.7) | katalog model + harga estimate, sumber dropdown form agent |
 | `GET/POST/PATCH /api/v1/agent-skills` | ditambahkan (§6.2.7) | skill library; hanya owner/admin yang boleh menulis |
 | `DELETE /api/v1/agent-skills/{id}` + `GET /api/v1/agent-skills/{id}/agents` | ditambahkan (§6.2.7) | hapus skill org (skill bawaan `is_system` ditolak 409) dan "dipakai oleh" untuk panel editor §7.1; total endpoint 113 → 115 |
+| `POST /api/v1/provider/models` | ditambahkan (§6.2.7) | probe model stateless: form pendaftaran agent belum punya agent id, jadi `base_url` + `api_key` mentah dibawa di request dan tidak ada yang disimpan; floor `Admin` karena menerima kredensial mentah; total endpoint 115 → 116 |
 
 ### 20.1 Rumus harga: §9.1 lama ≠ 9Router
 

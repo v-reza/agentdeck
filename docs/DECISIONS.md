@@ -279,12 +279,60 @@ per-org berbeda antar tenant. Tanpa dua kolom ini, baris lama tidak bisa dibukti
 - `provider = 'openai_compatible'` + kolom `agents.base_url`.
 - Kolom `provider` yang ada **TIDAK diganti** — US-AD67 (validasi `provider`+`model` ke tabel harga)
   dan US-AD68 (`price_version`) tetap berlaku apa adanya.
+- **Form pendaftaran hanya menawarkan `openai_compatible`** (keputusan user, 2026-09-21).
+  Alasan: user mau operator memasukkan base URL dan kredensial miliknya sendiri, jadi daftar
+  model datang dari endpoint mereka, bukan dari tabel harga kita.
+  - **Konsekuensi yang dicatat, bukan didiamkan:** gate US-AD67 AC1/AC2 (`unknown provider`,
+    `unknown model` → 400) jadi **tidak bisa dipicu dari UI** — form tidak lagi mengirim
+    provider bawaan maupun model dari katalog. Gate-nya tetap hidup di API dan tetap diuji
+    (`cmd/api/agents_model_gate_test.go`); yang hilang hanya jalur UI-nya.
+  - `PROVIDER_CHOICES` (4 nilai) **tetap** dipakai layar detail, supaya agent lama yang
+    membawa `openai`/`anthropic`/`deepseek` masih menampilkan nilainya. Yang menyempit hanya
+    daftar untuk **membuat**, bukan untuk **menampilkan**.
+  - Refusal katalog di klien (US-AD96 AC1) **dicabut dari form ini**: dengan alur BYO tidak ada
+    katalog untuk dibandingkan, dan nama model BYO memang tidak ada di tabel kita — menolaknya
+    akan membuat setiap pendaftaran BYO gagal. `validateCatalogModel` tetap diekspor untuk
+    layar detail. Server tetap menegakkan aturannya, jadi ini perubahan UX, bukan lubang.
+- **Daftar model BYO diambil dari `POST /api/v1/provider/models`** — probe **stateless**
+  (body `{base_url, api_key}` mentah, tidak menulis DB). Endpoint kredensial yang ada tidak bisa
+  dipakai di sini karena keduanya butuh agent yang sudah tersimpan.
+  - Dipanggil dari klien sebagai **mutation, bukan query**: RTK Query meng-cache hasil query, dan
+    hasil yang ter-cache berarti API key tertinggal di store setelah form ditutup.
 - **SSRF guard wajib**: `https` only, tolak IP private/loopback/link-local
   (termasuk `169.254.169.254`), jangan ikut redirect ke alamat private.
+  - **Dikecualikan (keputusan user, 2026-09-21)**: `localhost` dan `127.0.0.1` **string persis**
+    boleh, dan boleh lewat `http`. Alasannya: provider AI milik user sering jalan di mesin
+    mereka sendiri (Ollama/LM Studio/9Router) tanpa TLS. Alias loopback
+    (`2130706433`, `0x7f000001`, `0177.0.0.1`, `[::1]`, `[::ffff:127.0.0.1]`) **tetap ditolak**,
+    begitu juga seluruh RFC1918 dan link-local. Ini **mengalahkan US-AD106 AC3** yang berbunyi
+    "loopback ditolak" — konflik dicatat, bukan didiamkan.
+  - Redirect **tetap ketat**: `ValidateURL` (dipakai jalur redirect) tidak dilonggarkan sama
+    sekali. Kalau ikut dilonggarkan, redirect dari host publik ke localhost jadi SSRF lagi.
+    Yang dilonggarkan hanya `ValidateOperatorBaseURL`, dan hanya untuk `base_url` yang
+    dioper oleh operator.
+  - `base_url` **divalidasi saat ditulis** (create dan update), bukan hanya di endpoint
+    `/validate`; sebelumnya string apa pun bisa tersimpan.
+  - **Jalur tulis tidak boleh me-resolve DNS** — ini memperbaiki bug yang gw bikin sendiri.
+    Versi pertama guard jalur tulis memanggil `ValidateOperatorBaseURL`, yang me-resolve host
+    untuk membuktikan host itu bukan loopback. Efeknya `POST /agents` jadi operasi ber-DNS:
+    mendaftarkan agent untuk host yang sedang mati, di balik VPN, atau belum di-deploy
+    **ditolak** — padahal itu keadaan normal saat operator masih mengisi form. Body yang sama
+    juga bisa sukses/gagal tergantung jawaban resolver detik itu.
+    - Yang dipakai jalur tulis: `ValidateAddressOnly` (teks + IP literal, nol DNS) plus
+      `IsLocalProviderHost` sebagai pre-check, sehingga allowlist dan validator tidak bisa
+      berbeda pendapat soal host mana yang boleh, tapi nol lookup untuk keduanya.
+    - Yang **hilang**: hostname yang *resolve* ke alamat terblokir (DNS rebinding,
+      `evil.example.com → 127.0.0.1`). Ini tetap ketangkap oleh `ValidateURL` di setiap jalur
+      yang benar-benar **konek** — yaitu tempat yang memang penting. Nama bukan alamat sampai
+      ada yang mendialnya.
+    - Konsekuensinya: jalur tulis memutuskan soal **alamat**, bukan soal **hidup/mati**.
+      Hidup/mati adalah urusan `POST /agents/{id}/validate`, yang ditekan operator secara sadar.
+    - Dikunci oleh `TestSavingAnAgentDoesNotResolveDNS` (mutation-tested: mengembalikan
+      resolusi ke jalur tulis → CAUGHT).
 - Katalog model BYO diisi dari `GET {base_url}/models` (hanya **nama** model — endpoint itu
   tidak mengembalikan harga), lalu di-resolve lewat tingkat C di atas.
 
-### G. Skill library — org-scoped, agent TIDAK boleh menulis
+### H. Skill library — org-scoped, agent TIDAK boleh menulis
 
 - Skill adalah **data**, bukan konstanta: tabel `agent_skills` berisi `body_md` (markdown).
 - Cakupan **per org**. Default disediakan sistem (seed), user boleh menambah/mengubah miliknya.
@@ -322,6 +370,90 @@ Dua alternatif ditolak:
 `IS NOT NULL` atas BYTEA bersifat immutable, jadi kolom ini sah sebagai `STORED`.
 
 ---
+### J. Provider registry — kredensial per ruang kerja (US-AD109)
+
+**Menggantikan §6A.F sepenuhnya.** §6A.F menaruh kredensial di agent
+(`agents.base_url` + `agents.provider_api_key_enc`); bagian ini memindahkannya ke
+entitas `providers`. Alasan: 47 agent di DB dev memakai `openai_compatible` dan 15
+di antaranya menyimpan key yang sama persis di 15 baris terpisah. Mengganti satu
+kunci berarti mengulanginya 15 kali. Yang benar: kredensial disimpan **sekali per
+ruang kerja**, dirujuk banyak agent.
+
+- **Tabel `providers`**: `name`, `protocol`, `base_url`, `api_key_enc`,
+  `models_json`, `models_fetched_at`, `last_verified_at`, `is_default`. DDL di
+  `ARCHITECTURE.md` §3.
+- **`protocol` adalah enum tiga nilai sejak awal**: `openai_compatible`,
+  `anthropic`, `google`. Implementasi probe + tarik model baru untuk
+  `openai_compatible`. Dua sisanya sengaja ada di schema supaya menambahnya nanti
+  adalah **penambahan kode**, bukan **migrasi data**. Ini keputusan sadar: menulis
+  tiga integrasi sekaligus berarti 3× kode probe, 3× parsing daftar model, dan 3×
+  permukaan test, sementara nol baris kode Anthropic/Google native sudah ada.
+- **`agents.provider` berubah arti.** Dulu "provider" sekaligus nama vendor di
+  tabel harga. Sekarang dia **protokol/dialect**, dan nilainya **diturunkan dari
+  `providers.protocol`**, bukan diketik user. `pricing.Providers()` (18 nama dari
+  `table_gen.go`) tetap jadi sumber validasi `model`, bukan `provider`.
+- **Blast radius kecil, sudah diukur**: `agents.provider` dibaca di 4 tempat saja —
+  `validateName`, cek `base_url`, `ValidateProvider`, gate model — sisanya
+  row-mapping. Yang berubah **arti gate-nya**, bukan strukturnya.
+- **Constraint `agents_base_url_chk` dihapus.** Bunyinya
+  `(provider = 'openai_compatible') = (base_url IS NOT NULL)` — dia mengunci
+  `base_url` ke satu jenis provider. Begitu base URL pindah ke provider, constraint
+  itu tidak punya arti lagi, dan dia menghalangi provider non-BYO punya base URL
+  (mis. `openai` yang diarahkan ke proxy).
+- **`agents.base_url` ditinggalkan**, tidak dihapus sebelum fase 5 hijau. Kolomnya
+  tetap ada selama backfill dan selama form agent masih membacanya.
+
+#### Uji kredensial: `GET /models` TIDAK cukup
+
+Ini koreksi atas asumsi pertama, dan ketahuan dari **tes**, bukan dari teori:
+
+| | `GET /v1/models` | `POST /v1/chat/completions` |
+|---|---|---|
+| OpenAI, tanpa key | **401** | — |
+| 9Router (lokal), tanpa key | **200** | — |
+| 9Router (lokal), key ngaco | **200** | **401** |
+
+Ada provider yang **tidak memeriksa autentikasi di endpoint model** tapi
+memeriksanya di inference. Jadi `/models` hanya membuktikan **nyala/tidak**, bukan
+**kunci benar/tidak** — kredensial salah akan lolos.
+
+- **`GET {base_url}/models`** → **discovery** saja. Isi dropdown model.
+- **`POST {base_url}/chat/completions`** dengan `max_tokens: 1` → **satu-satunya**
+  bukti kredensial valid. Ini juga cara yang dipakai orang untuk memeriksa key
+  OpenAI: panggilan minimal, lihat lolos/tidak. Biaya ~1 token.
+- **UI hanya boleh menampilkan "terverifikasi" kalau probe inference lolos.**
+  `/models` sukses sendirian bukan bukti apa pun.
+- **Catatan:** `chat/completions` **belum ada sama sekali** di kode
+  (`grep chat/completions` → nol). Runtime belum pernah memanggil LLM. Jadi
+  "cek saat agent mau jalan" (pilihan di bawah) **belum ada mekanismenya** — itu
+  bagian milestone runtime, bukan pekerjaan provider registry.
+
+#### Aturan yang mengikat
+
+| Pertanyaan | Keputusan |
+|---|---|
+| Edit provider (ganti key/base URL) | **Berlaku ke seluruh agent** yang memakainya. Agent tidak menyimpan salinan. |
+| Provider masih dipakai agent, boleh dihapus? | **Tidak.** `409`, sebut agent mana yang memakai. |
+| Siapa yang boleh bikin/edit | **`owner`/`admin` saja.** Kunci dibagi se-org — ini soal keamanan. |
+| Daftar model | **Di-cache**, refresh otomatis bila hasil tarik > **24 jam**, plus tombol manual. |
+| Form nambah agent | **Cuma pilih provider + model.** `base_url`/key/probe pindah ke halaman Provider. |
+| Probe kredensial dijalankan kapan | **Hanya saat tombol "Uji" ditekan**, plus **sekali otomatis** saat provider baru disimpan. Tidak ada probe rutin — hemat kuota. |
+| Provider default | **Satu per ruang kerja.** Form agent memilihnya bila ada. Default dihapus → jadi kosong, bukan galat. |
+| Agent ganti provider | **Boleh.** Pilihan model **dikosongkan**, karena model provider lama belum tentu ada di provider baru. |
+| Provider kosong/tanpa template bawaan | **Kosong total.** Tidak ada template OpenAI/Anthropic siap pakai; user mengisi base URL + key sendiri dan menguji di halaman itu. |
+| Provider lintas project | **Org-scoped.** Agent tetap project-scoped. |
+| Kapan "agent rusak" ketahuan | **Saat agent mau jalan.** Nol biaya, ketahuan telat. Mekanismenya belum ada (lihat catatan di atas). |
+
+#### Yang batal dari keputusan sebelumnya
+
+- **Form register BYO-only (keputusan 2026-09-21) batal.** Waktu itu provider-nya
+  satu opsi hardcoded (`CREATE_PROVIDER_CHOICES = ['openai_compatible']`). Sekarang
+  provider datang dari daftar milik user, jadi dropdown-nya adalah daftar provider
+  org.
+- **Guard US-AD67 AC1/AC2 hidup lagi dalam bentuk baru.** `validateCatalogModel`
+  yang dibuang dari form kembali sebagai: model harus ada di `models_json` provider
+  yang dipilih.
+
 
 ## 7. ANGKA (single source of truth — jangan diulang beda di dokumen lain)
 

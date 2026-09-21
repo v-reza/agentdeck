@@ -869,6 +869,19 @@ Sebagai pengguna, saya ingin menghubungkan agent ke penyedia LLM saya sendiri le
 - [ ] AC4 (keamanan) Redirect dari base URL ke alamat private tidak diikuti.
 - [ ] AC5 Kredensial BYO mengikuti aturan US-AD96 AC2/AC4: tulis-saja, ter-mask, hanya `owner`/`admin`.
 
+**US-AD109** — Provider registry: daftar kredensial sekali pakai `Must` · `M2`
+Sebagai operator, saya ingin mendaftarkan provider LLM beserta kredensialnya sekali per ruang kerja, sehingga saya tidak menyalin base URL dan API key berulang kali untuk setiap agent.
+- [ ] AC1 Provider punya nama, protokol, base URL, kredensial terenkripsi, dan daftar model hasil tarik. Protokol adalah enum: `openai_compatible`, `anthropic`, `google`.
+- [ ] AC2 (keamanan) Kredensial provider mengikuti aturan US-AD96 AC2/AC4: tulis-saja, ter-mask, tidak pernah dikembalikan endpoint mana pun.
+- [ ] AC3 Uji kredensial memakai **panggilan inference minimal** (`max_tokens: 1`), bukan hanya `GET {base_url}/models`. Indikator "terverifikasi" hanya muncul setelah panggilan itu lolos, karena ada provider yang tidak memeriksa autentikasi di endpoint model.
+- [ ] AC4 (keamanan) Base URL melewati guard SSRF yang sama dengan US-AD106 AC3. `localhost` dan `127.0.0.1` string persis diizinkan (DECISIONS §6A.F).
+- [ ] AC5 (jalur gagal) Menghapus provider yang masih dipakai agent ditolak `409` dan menyebut agent mana yang memakai.
+- [ ] AC6 Mengubah provider berlaku untuk seluruh agent yang memakainya; agent tidak menyimpan salinan base URL atau kredensial.
+- [ ] AC7 Daftar model disegarkan otomatis bila hasil tarik terakhir lebih dari 24 jam, dan dapat disegarkan manual.
+- [ ] AC8 (permission) Hanya `owner`/`admin` dapat membuat atau mengubah provider; `member`/`viewer` membaca tanpa kredensial.
+- [ ] AC9 Satu provider default per ruang kerja; form pendaftaran agent memilih provider default bila ada. Bila provider default dihapus, default menjadi kosong — bukan galat.
+- [ ] AC10 (jalur gagal) Mengganti provider pada agent mengosongkan pilihan model, karena model provider lama belum tentu ada di provider baru.
+
 **US-AD107** — Skill library per ruang kerja `Should` · `M2`
 Sebagai pengguna, saya ingin menyimpan, melihat, dan mengubah skill milik ruang kerja saya dalam bentuk markdown, sehingga saya bisa menyesuaikan cara kerja agent tanpa mengubah kode.
 - [ ] AC1 Skill disimpan per org dan dirujuk agent lewat slug; agent hanya boleh memakai skill, tidak pernah membuat atau mengubahnya.
@@ -1105,6 +1118,7 @@ Sebagai integrator, saya ingin memahami bentuk payload event dan step sebelum me
 | US-AD94, US-AD97 | Seksi 6 Kontrak HTTP API (steps, cost ledger) · Seksi 9 Cost Ledger & Budget Guardrail | M2 |
 | US-AD95 | Seksi 6 Kontrak HTTP API (audit-log) · Seksi 3.17 `audit_log` | M5 |
 | US-AD96, US-AD106, US-AD107, US-AD108 | Seksi 6 Kontrak HTTP API (agents, agent-catalog, agent-skills, provider-key) · Seksi 9.1 Model Harga · Seksi 12 Workspace & Eksekusi Agent · DECISIONS §6A | M2 |
+| US-AD109 | Seksi 3 (ARCHITECTURE.md) — Skema Database (`providers`) · Seksi 6 Kontrak HTTP API (providers) · Seksi 16 Keamanan · DECISIONS §6A.J | M2 |
 | US-AD99..105 | Seksi 17 Struktur Folder (Frontend, halaman statis & dokumentasi) | M6 |
 
 ---
