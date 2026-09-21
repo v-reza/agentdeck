@@ -1,6 +1,6 @@
-# 26-agent-form — Formulir agent
+# 47-providers — Provider LLM
 
-Route: `/agents/new` · Shell: Blueprint C + cost rail
+Route: `/settings/providers` · Shell: Blueprint C + cost rail
 
 ## PROMPT
 
@@ -318,38 +318,55 @@ JANGAN mengarang hal yang tidak diminta:
 
 Layar ini adalah wujud visual dari acceptance criteria berikut. Setiap butir di bawah harus kelihatan di layar. JANGAN mengarang kebutuhan yang tidak tertulis di sini.
 
-### `US-AD96` — Formulir agent (buat dan ubah) (Must, M2)
+### `US-AD109` — Provider registry: daftar kredensial sekali pakai (Must, M2)
 
-- **AC1** Formulir memuat pilihan `provider` dan `model` yang valid dari `GET /api/v1/agent-catalog`; kombinasi di luar daftar harga ditolak sebelum dikirim.
-- **AC2** Kolom kredensial bersifat tulis-saja: setelah tersimpan, nilai ditampilkan ter-mask (`sk-...XXXX`) dan tidak pernah dikembalikan utuh oleh API.
-- **AC4** (permission) Kolom kredensial hanya tampil untuk `owner`/`admin`; `member` dan `viewer` melihat formulir tanpa bagian kredensial.
-- **AC5** Terdapat tombol "Uji kredensial" yang menampilkan hasil berhasil/gagal secara inline. Uji kredensial dapat dijalankan **sebelum** agent tersimpan (agent baru belum punya id), sehingga endpoint menerima kredensial di body, bukan hanya `POST /agents/{id}/validate`.
-- **AC6** Semua label field muat dalam satu baris di dalam modal (tidak ada label yang turun ke baris berikutnya), sesuai design `26-agent-form`.
-- **AC7** Field `tools` berupa pilihan tertutup dari 9 tool primitif (DECISIONS §6A.H); nilai di luar daftar ditolak 400.
-- **AC8** Field `skills` menampilkan skill library org, bukan teks bebas.
+- **AC1** Provider punya nama, protokol, base URL, kredensial terenkripsi, dan daftar model hasil tarik. Protokol adalah enum: `openai_compatible`, `anthropic`, `google`.
+- **AC3** Uji kredensial memakai **panggilan inference minimal** (`max_tokens: 1`), bukan hanya `GET {base_url}/models`. Indikator "terverifikasi" hanya muncul setelah panggilan itu lolos, karena ada provider yang tidak memeriksa autentikasi di endpoint model.
+- **AC7** Daftar model disegarkan otomatis bila hasil tarik terakhir lebih dari 24 jam, dan dapat disegarkan manual.
+- **AC9** Satu provider default per ruang kerja; form pendaftaran agent memilih provider default bila ada. Bila provider default dihapus, default menjadi kosong — bukan galat.
 
-### `US-AD67` — Menentukan model dan provider per agent (Must, M1)
+## Spec halaman (WAJIB diikuti, ini sumber kebenaran isi halaman)
 
-- **AC1** Field `provider` dan `model` wajib diisi; kombinasi tidak dikenal di daftar harga `internal/pricing` ditolak 400.
-- **AC2** Kombinasi `provider`+`model` yang tidak ada di tabel harga Go ditolak 400 saat pembuatan agent.
+Sumber kebenaran isi pane konten. Struktur di bawah WAJIB; Stitch cenderung
+mengarang form detail kalau cuma diberi AC.
 
-### `US-AD106` — Provider BYO (bring your own) (Must, M2)
+## Pane konten = DAFTAR provider, bukan form detail
 
-- **AC2** Daftar model diambil dari `GET {base_url}/models` milik pengguna dan ditampilkan sebagai pilihan.
-- **AC3** (keamanan) Base URL yang menunjuk ke alamat private, loopback, atau link-local (termasuk `169.254.169.254`) ditolak; hanya `https` yang diterima.
+Urutan dari atas ke bawah:
 
-### `US-AD108` — Estimasi biaya: label dan sumber harga (Must, M2)
+1. **Header pane**: judul `Provider LLM` + tombol utama `Tambah provider`.
+2. **Tabel provider.** Header tabel 32px, tiap baris 28px. Kolom kiri→kanan:
+   - **Nama** — teks tebal; baris kedua kecil berisi slug.
+   - **Protokol** — badge teks, salah satu: `openai_compatible`, `anthropic`, `google`.
+   - **Base URL** — monospace, boleh terpotong dengan elipsis.
+   - **Kredensial** — HANYA masker `••••••••` + label kecil "terenkripsi".
+     JANGAN tampilkan nilai kredensial dalam bentuk apa pun, di mana pun.
+   - **Model** — jumlah model hasil tarik, mis. `12 model`.
+   - **Verifikasi** — badge teks: `Terverifikasi` (tint aksen) atau `Belum diuji`
+     (netral). `Terverifikasi` hanya untuk baris yang uji kredensialnya lolos.
+   - **Sinkronisasi model** — teks relatif, mis. `2 jam lalu`. Bila hasil tarik
+     terakhir lebih dari 24 jam, tulis `26 jam lalu (kedaluwarsa)` dengan warna
+     peringatan.
+   - **Default** — badge `Default` pada SATU baris saja di seluruh tabel.
+   - **Aksi baris** — dua ikon kecil: `Uji` dan `Tarik model`.
+3. **Drawer kanan 420px** — detail provider yang sedang dipilih: nama, protokol,
+   base URL, kredensial (tetap termasker), daftar model hasil tarik, dan tombol
+   uji kredensial. Drawer ini menampilkan SATU provider, bukan menggantikan tabel.
 
-- **AC2** Baris ledger mencatat `price_source` (`manual`/`catalog`/`pattern`/`unpriced`) dan `pricing_model` (entri/pattern yang benar-benar dipakai).
-- **AC5** Perhitungan memakai 5 komponen (input-miss, cached, output, reasoning, cache_creation); `reasoning` tidak pernah disamakan dengan `output` secara diam-diam.
+## Jangan
+
+- Jangan jadikan form detail sebagai isi utama pane konten — tabelnya yang utama.
+- Jangan tampilkan nilai kredensial asli di mana pun.
+- Jangan tambah kartu ringkasan, statistik armada, panel aturan, atau badge
+  kepatuhan yang tidak diminta.
 
 ## State yang diminta
 
 Bangun HANYA state `default` sekarang. JANGAN membangun state lain di frame ini.
 
-State lain dikirim sebagai permintaan TERPISAH nanti dengan shell identik, hanya isi pane yang berubah: `no-credential`, `error`.
+State lain dikirim sebagai permintaan TERPISAH nanti dengan shell identik, hanya isi pane yang berubah: `empty`.
 
 
 ## Instruksi layar
 
-Buat layar **Formulir agent** pada route `/agents/new`. Blueprint C + cost rail. JANGAN membuat state switcher, tab varian, tombol demo, toggle "default/empty/loading/error", atau fungsi `switchState()` dalam bentuk apa pun. Layar ini hanya menampilkan satu state. Semua butir di bagian 'Kebutuhan dari user story' wajib terlihat. JANGAN menambah elemen, section, kartu, atau angka yang tidak diminta.
+Buat layar **Provider LLM** pada route `/settings/providers`. Blueprint C + cost rail. JANGAN membuat state switcher, tab varian, tombol demo, toggle "default/empty/loading/error", atau fungsi `switchState()` dalam bentuk apa pun. Layar ini hanya menampilkan satu state. Semua butir di bagian 'Kebutuhan dari user story' wajib terlihat. JANGAN menambah elemen, section, kartu, atau angka yang tidak diminta.

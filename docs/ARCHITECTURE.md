@@ -2762,7 +2762,7 @@ frontend/
 │   │   │   ├── approvals/ApprovalInbox.tsx    # diff payload + 1-klik keputusan
 │   │   │   ├── agents/{AgentRegistry,AgentDetail}.tsx
 │   │   │   ├── finops/{CostOverview,LedgerExplorer}.tsx
-│   │   │   └── settings/{Members,ApiKeys,Webhooks}.tsx
+│   │   │   └── settings/{Members,ApiKeys,Webhooks,Providers}.tsx
 │   ├── store/                                 # Redux Toolkit
 │   │   ├── index.ts                           # configureStore + listenerMiddleware
 │   │   ├── hooks.ts                           # typed useAppDispatch/useAppSelector
@@ -2770,6 +2770,7 @@ frontend/
 │   │   │   ├── base.ts                        # createApi + fetchBaseQuery (401 refresh)
 │   │   │   ├── boards.ts                      # tag: Board, Task, Run, Event, Approval
 │   │   │   ├── agents.ts                      # tag: Agent, ProviderKey
+│   │   │   ├── providers.ts                   # tag: Provider (US-AD109)
 │   │   │   ├── finops.ts                      # tag: Ledger, CostSummary
 │   │   │   └── stream.ts                      # onCacheEntryAdded → SSE patch cache
 │   │   ├── slices/{uiSlice,langSlice,sessionSlice}.ts

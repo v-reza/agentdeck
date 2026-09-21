@@ -53,6 +53,7 @@ export const TAG_TYPES = [
   'Run',
   'Step',
   'Agent',
+  'Provider',
   'Approval',
   'Ledger',
   'CostSummary',

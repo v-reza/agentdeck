@@ -63,6 +63,7 @@ const WorkspaceSettings = lazy(() =>
 )
 const ApiKeys = lazy(() => import('@/routes/dashboard/settings/ApiKeys').then((m) => ({ default: m.ApiKeys })))
 const Webhooks = lazy(() => import('@/routes/dashboard/settings/Webhooks').then((m) => ({ default: m.Webhooks })))
+const Providers = lazy(() => import('@/routes/dashboard/settings/Providers').then((m) => ({ default: m.Providers })))
 
 /** The dashboard route set, mounted under both `/app` and `/app/:orgID`. */
 function dashboardRoutes() {
@@ -86,6 +87,9 @@ function dashboardRoutes() {
       <Route path="settings/members" element={<Members />} />
       <Route path="settings/api-keys" element={<ApiKeys />} />
       <Route path="settings/webhooks" element={<Webhooks />} />
+      {/* US-AD109: the credential registry. Settings-scoped, not a rail slot —
+          the rail's six slots are pinned by the design's shell geometry. */}
+      <Route path="settings/providers" element={<Providers />} />
     </>
   )
 }

@@ -38,7 +38,12 @@ VISUAL_HINT = re.compile(
     r"kolom|tabel|baris|meter|grafik|ikon|warna|label|placeholder|tooltip|modal|form|"
     r"font|monospace|skeleton|empty state|toast|header|top bar|rail|sidebar|checkbox|"
     r"field|input|dropdown|select|tautan|link|dialog|konfirmasi|pratinjau|preview|"
-    r"menampilkan|daftar|list|filter|tab|toggle|switch|avatar|banner|pita|stepper)\b",
+    r"menampilkan|daftar|list|filter|tab|toggle|switch|avatar|banner|pita|stepper|"
+    # "indikator" menandai keadaan yang HARUS terlihat (mis. badge "terverifikasi"
+    # di US-AD109 AC3) tapi kalimatnya sering tidak menyebut kata benda UI sama
+    # sekali. Menambah "status" akan menarik 13 AC perilaku server; "indikator"
+    # hanya mengenai 1 AC, dan itu memang butuh wujud visual.
+    r"indikator)\b",
     re.I,
 )
 
@@ -92,6 +97,10 @@ def shared_block(name):
 # berikut token v1-nya sendiri — terbukti pada 05-landing.
 SPEC_EXTRA = {
     "05-landing": "landing/prompt-landing.md",
+    # Layar yang AC-nya tidak cukup menentukan bentuk isi: Stitch mengarang
+    # struktur sendiri (form detail padahal yang diminta daftar). Spec menulis
+    # struktur pane konten secara eksplisit.
+    "47-providers": "spec/47-providers.md",
 }
 
 

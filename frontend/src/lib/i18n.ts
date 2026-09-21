@@ -119,6 +119,58 @@ export interface Dictionary {
   'role.viewer': string
   // Shown when the roster could not be read.
   'members.loadFailed': string
+  // Settings → Providers (US-AD109). The per-workspace credential registry.
+  'providers.title': string
+  'providers.subtitle': string
+  'providers.count': string
+  'providers.add': string
+  'providers.colName': string
+  'providers.colProtocol': string
+  'providers.colBaseUrl': string
+  'providers.colCredential': string
+  'providers.colModels': string
+  'providers.colVerified': string
+  'providers.colSync': string
+  'providers.colDefault': string
+  'providers.colActions': string
+  'providers.encrypted': string
+  'providers.verified': string
+  'providers.unverified': string
+  'providers.default': string
+  'providers.stale': string
+  'providers.neverFetched': string
+  'providers.test': string
+  'providers.refresh': string
+  'providers.empty': string
+  'providers.emptyHint': string
+  'providers.loadFailed': string
+  // Create/edit dialog. The credential is write-only (AC2): on edit the field
+  // starts empty and leaving it empty keeps the stored key.
+  'providers.form.create': string
+  'providers.form.edit': string
+  'providers.form.name': string
+  'providers.form.protocol': string
+  'providers.form.baseUrl': string
+  'providers.form.apiKey': string
+  'providers.form.apiKeyHint': string
+  'providers.form.apiKeyOptional': string
+  'providers.form.keepKey': string
+  'providers.form.isDefault': string
+  'providers.form.submit': string
+  'providers.form.pending': string
+  'providers.form.failed': string
+  // Delete dialog and the 409 that names the blocking agents (AC5).
+  'providers.delete.title': string
+  'providers.delete.body': string
+  'providers.delete.submit': string
+  'providers.delete.failed': string
+  'providers.inUse.title': string
+  'providers.inUse.body': string
+  // Verify (AC3) and manual model refresh (AC7) outcomes.
+  'providers.verifyOk': string
+  'providers.verifyFailed': string
+  'providers.modelsOk': string
+  'providers.modelsFailed': string
   // Workspace settings (US-AD77).
   'workspace.title': string
   'workspace.subtitle': string
@@ -497,6 +549,54 @@ const en: Dictionary = {
   'role.member': 'Member',
   'role.viewer': 'Viewer',
   'members.loadFailed': 'The roster could not be loaded',
+  // Settings → Providers (US-AD109).
+  'providers.title': 'LLM providers',
+  'providers.subtitle': 'Credentials registered once per workspace',
+  'providers.count': '{0} providers',
+  'providers.add': 'Add provider',
+  'providers.colName': 'Name',
+  'providers.colProtocol': 'Protocol',
+  'providers.colBaseUrl': 'Base URL',
+  'providers.colCredential': 'Credential',
+  'providers.colModels': 'Models',
+  'providers.colVerified': 'Verification',
+  'providers.colSync': 'Model sync',
+  'providers.colDefault': 'Default',
+  'providers.colActions': 'Actions',
+  'providers.encrypted': 'encrypted',
+  'providers.verified': 'Verified',
+  'providers.unverified': 'Not tested',
+  'providers.default': 'Default',
+  'providers.stale': '{0} (stale)',
+  'providers.neverFetched': 'never fetched',
+  'providers.test': 'Test',
+  'providers.refresh': 'Fetch models',
+  'providers.empty': 'No providers yet',
+  'providers.emptyHint': 'Register one to stop pasting a base URL and key into every agent.',
+  'providers.loadFailed': 'The provider list could not be loaded',
+  'providers.form.create': 'Add provider',
+  'providers.form.edit': 'Edit provider',
+  'providers.form.name': 'Provider name',
+  'providers.form.protocol': 'Protocol',
+  'providers.form.baseUrl': 'Base URL',
+  'providers.form.apiKey': 'API key',
+  'providers.form.apiKeyHint': 'Stored encrypted. It is never shown again after saving.',
+  'providers.form.apiKeyOptional': 'Optional — a local endpoint that checks nothing needs no key.',
+  'providers.form.keepKey': 'Leave empty to keep the stored credential.',
+  'providers.form.isDefault': 'Make this the workspace default',
+  'providers.form.submit': 'Save provider',
+  'providers.form.pending': 'Saving…',
+  'providers.form.failed': 'The provider could not be saved',
+  'providers.delete.title': 'Delete provider',
+  'providers.delete.body': 'Agents using this provider lose their endpoint. This cannot be undone.',
+  'providers.delete.submit': 'Delete',
+  'providers.delete.failed': 'The provider could not be deleted',
+  'providers.inUse.title': 'This provider is still in use',
+  'providers.inUse.body': '{0} agents still point at it. Repoint them first: {1}',
+  'providers.verifyOk': 'Credential verified',
+  'providers.verifyFailed': 'The credential test failed',
+  'providers.modelsOk': 'Model list refreshed',
+  'providers.modelsFailed': 'The model list could not be fetched',
   'workspace.title': 'Workspace settings',
   'workspace.subtitle': 'Organization settings',
   'workspace.badge': 'Settings',
@@ -884,6 +984,54 @@ const id: Dictionary = {
   'role.member': 'Anggota',
   'role.viewer': 'Pengamat',
   'members.loadFailed': 'Daftar anggota gagal dimuat',
+  // Settings → Providers (US-AD109).
+  'providers.title': 'Provider LLM',
+  'providers.subtitle': 'Kredensial didaftarkan sekali per ruang kerja',
+  'providers.count': '{0} provider',
+  'providers.add': 'Tambah provider',
+  'providers.colName': 'Nama',
+  'providers.colProtocol': 'Protokol',
+  'providers.colBaseUrl': 'Base URL',
+  'providers.colCredential': 'Kredensial',
+  'providers.colModels': 'Model',
+  'providers.colVerified': 'Verifikasi',
+  'providers.colSync': 'Sinkronisasi model',
+  'providers.colDefault': 'Default',
+  'providers.colActions': 'Aksi',
+  'providers.encrypted': 'terenkripsi',
+  'providers.verified': 'Terverifikasi',
+  'providers.unverified': 'Belum diuji',
+  'providers.default': 'Default',
+  'providers.stale': '{0} (kedaluwarsa)',
+  'providers.neverFetched': 'belum pernah ditarik',
+  'providers.test': 'Uji',
+  'providers.refresh': 'Tarik model',
+  'providers.empty': 'Belum ada provider',
+  'providers.emptyHint': 'Daftarkan satu supaya tidak menyalin base URL dan key ke tiap agent.',
+  'providers.loadFailed': 'Daftar provider gagal dimuat',
+  'providers.form.create': 'Tambah provider',
+  'providers.form.edit': 'Ubah provider',
+  'providers.form.name': 'Nama provider',
+  'providers.form.protocol': 'Protokol',
+  'providers.form.baseUrl': 'Base URL',
+  'providers.form.apiKey': 'API key',
+  'providers.form.apiKeyHint': 'Disimpan terenkripsi. Tidak pernah ditampilkan lagi setelah disimpan.',
+  'providers.form.apiKeyOptional': 'Opsional — endpoint lokal yang tidak memeriksa apa pun tidak butuh key.',
+  'providers.form.keepKey': 'Kosongkan untuk mempertahankan kredensial yang tersimpan.',
+  'providers.form.isDefault': 'Jadikan default ruang kerja',
+  'providers.form.submit': 'Simpan provider',
+  'providers.form.pending': 'Menyimpan…',
+  'providers.form.failed': 'Provider gagal disimpan',
+  'providers.delete.title': 'Hapus provider',
+  'providers.delete.body': 'Agent yang memakai provider ini kehilangan endpoint-nya. Tidak bisa dibatalkan.',
+  'providers.delete.submit': 'Hapus',
+  'providers.delete.failed': 'Provider gagal dihapus',
+  'providers.inUse.title': 'Provider ini masih dipakai',
+  'providers.inUse.body': '{0} agent masih menunjuk ke sini. Pindahkan dulu: {1}',
+  'providers.verifyOk': 'Kredensial terverifikasi',
+  'providers.verifyFailed': 'Uji kredensial gagal',
+  'providers.modelsOk': 'Daftar model diperbarui',
+  'providers.modelsFailed': 'Daftar model gagal ditarik',
   'workspace.title': 'Pengaturan ruang kerja',
   'workspace.subtitle': 'Pengaturan organisasi',
   'workspace.badge': 'Pengaturan',

@@ -1,6 +1,6 @@
-# 26-agent-form — Formulir agent
+# 26b-agent-skills — Skill library agent
 
-Route: `/agents/new` · Shell: Blueprint C + cost rail
+Route: `(panel)` · Shell: belum ada mockup — menyusul
 
 ## PROMPT
 
@@ -318,38 +318,18 @@ JANGAN mengarang hal yang tidak diminta:
 
 Layar ini adalah wujud visual dari acceptance criteria berikut. Setiap butir di bawah harus kelihatan di layar. JANGAN mengarang kebutuhan yang tidak tertulis di sini.
 
-### `US-AD96` — Formulir agent (buat dan ubah) (Must, M2)
+### `US-AD107` — Skill library per ruang kerja (Should, M2)
 
-- **AC1** Formulir memuat pilihan `provider` dan `model` yang valid dari `GET /api/v1/agent-catalog`; kombinasi di luar daftar harga ditolak sebelum dikirim.
-- **AC2** Kolom kredensial bersifat tulis-saja: setelah tersimpan, nilai ditampilkan ter-mask (`sk-...XXXX`) dan tidak pernah dikembalikan utuh oleh API.
-- **AC4** (permission) Kolom kredensial hanya tampil untuk `owner`/`admin`; `member` dan `viewer` melihat formulir tanpa bagian kredensial.
-- **AC5** Terdapat tombol "Uji kredensial" yang menampilkan hasil berhasil/gagal secara inline. Uji kredensial dapat dijalankan **sebelum** agent tersimpan (agent baru belum punya id), sehingga endpoint menerima kredensial di body, bukan hanya `POST /agents/{id}/validate`.
-- **AC6** Semua label field muat dalam satu baris di dalam modal (tidak ada label yang turun ke baris berikutnya), sesuai design `26-agent-form`.
-- **AC7** Field `tools` berupa pilihan tertutup dari 9 tool primitif (DECISIONS §6A.H); nilai di luar daftar ditolak 400.
-- **AC8** Field `skills` menampilkan skill library org, bukan teks bebas.
+- Layar ini hanya menampilkan ringkasan; tidak ada AC berimplikasi visual.
 
-### `US-AD67` — Menentukan model dan provider per agent (Must, M1)
-
-- **AC1** Field `provider` dan `model` wajib diisi; kombinasi tidak dikenal di daftar harga `internal/pricing` ditolak 400.
-- **AC2** Kombinasi `provider`+`model` yang tidak ada di tabel harga Go ditolak 400 saat pembuatan agent.
-
-### `US-AD106` — Provider BYO (bring your own) (Must, M2)
-
-- **AC2** Daftar model diambil dari `GET {base_url}/models` milik pengguna dan ditampilkan sebagai pilihan.
-- **AC3** (keamanan) Base URL yang menunjuk ke alamat private, loopback, atau link-local (termasuk `169.254.169.254`) ditolak; hanya `https` yang diterima.
-
-### `US-AD108` — Estimasi biaya: label dan sumber harga (Must, M2)
-
-- **AC2** Baris ledger mencatat `price_source` (`manual`/`catalog`/`pattern`/`unpriced`) dan `pricing_model` (entri/pattern yang benar-benar dipakai).
-- **AC5** Perhitungan memakai 5 komponen (input-miss, cached, output, reasoning, cache_creation); `reasoning` tidak pernah disamakan dengan `output` secara diam-diam.
 
 ## State yang diminta
 
 Bangun HANYA state `default` sekarang. JANGAN membangun state lain di frame ini.
 
-State lain dikirim sebagai permintaan TERPISAH nanti dengan shell identik, hanya isi pane yang berubah: `no-credential`, `error`.
+State lain dikirim sebagai permintaan TERPISAH nanti dengan shell identik, hanya isi pane yang berubah: `empty`, `editor`.
 
 
 ## Instruksi layar
 
-Buat layar **Formulir agent** pada route `/agents/new`. Blueprint C + cost rail. JANGAN membuat state switcher, tab varian, tombol demo, toggle "default/empty/loading/error", atau fungsi `switchState()` dalam bentuk apa pun. Layar ini hanya menampilkan satu state. Semua butir di bagian 'Kebutuhan dari user story' wajib terlihat. JANGAN menambah elemen, section, kartu, atau angka yang tidak diminta.
+Buat layar **Skill library agent** pada route `(panel)`. belum ada mockup — menyusul. JANGAN membuat state switcher, tab varian, tombol demo, toggle "default/empty/loading/error", atau fungsi `switchState()` dalam bentuk apa pun. Layar ini hanya menampilkan satu state. Semua butir di bagian 'Kebutuhan dari user story' wajib terlihat. JANGAN menambah elemen, section, kartu, atau angka yang tidak diminta.

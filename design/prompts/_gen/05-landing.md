@@ -164,7 +164,7 @@ kiri teks (max 460px), kanan visual kecil.
    Body: "One Go binary, one Postgres. No Redis, no Kafka, no queue service,
    no Kubernetes. Idles under 80 MB and fits in a $6 VPS."
    Visual: baris mono terminal: `./agentdeck --config agentdeck.yaml` lalu
-   satu baris output `listening on :8080 · 23 tables · 109 routes`.
+   satu baris output `listening on :8080 · 26 tables · 123 routes`.
 
 ### 5. Cara kerjanya (3 langkah, sejajar horizontal)
 Judul: "Three commands to a running fleet."
@@ -187,7 +187,7 @@ pakai palet v2, bukan warna default Tailwind.
   `rgba(255,255,255,0.55)` = `agentdeck — fleet: production-west`.
 - Isi mono 13px, 5 baris, warna dari palet (JANGAN warna Tailwind default):
   1. `$ ./agentdeck --config agentdeck.yaml` — `#e8ecea` (text di atas gelap)
-  2. `listening on :8080 · 23 tables · 109 routes` — `#8fa8a4` (redup)
+  2. `listening on :8080 · 26 tables · 123 routes` — `#8fa8a4` (redup)
   3. `[ok] postgres pool 8/8 · migrations up to date` — `#5eead4` (hijau-teal)
   4. `[warn] budget 88% of $300 — approval gate armed` — `#fcd34d` (kuning)
   5. `▌` kursor blok, `#0d7a70`

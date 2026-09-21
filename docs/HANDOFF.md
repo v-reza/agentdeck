@@ -15,7 +15,7 @@ Konsepnya disetujui 2026-09-21. Tujuh fase, detail di `docs/CONCEPT-PROVIDER-REG
 | 1 | Migrasi `0010`: tabel `providers`, `agents.provider_id`, backfill | **SELESAI** |
 | 2 | Backend CRUD provider + RBAC (5 endpoint) | **SELESAI** |
 | 3 | Probe protocol-aware (openai_compatible dulu) | **SELESAI** |
-| 4 | Halaman Provider (nav baru) | belum |
+| 4 | Halaman Provider | **SELESAI** |
 | 5 | Form agent: provider jadi dropdown | belum |
 | 6 | Buang `agents.base_url` + constraint `agents_base_url_chk` | belum |
 
@@ -23,6 +23,12 @@ Fase 2 dikerjakan sebagai **5 endpoint, bukan 7**; fase 3 melengkapi dua sisanya
 `POST /providers/{id}/verify` (AC3) menembak `POST {base_url}/chat/completions` dengan
 `max_tokens: 1` — bukan `GET /models`, karena ada gateway yang balas `200` di `/models`
 tanpa kredensial. `POST /providers/{id}/models` (AC7) menarik ulang daftar model.
+
+**Fase 4 tidak pakai nav baru**, walau tabel di atas semula menulis begitu. Rail punya
+6 slot tetap yang dipatok angka di `shell.md`; menambah slot ke-7 berarti mengubah shell
+dan meregenerasi 51 layar yang sudah match — biaya besar untuk nol manfaat produk.
+Kredensial juga settings-scoped, sama seperti API key dan webhook. Jadi route-nya
+`/settings/providers`.
 
 **AC7 sudah lengkap.** Refresh otomatis >24 jam jalan lewat `ModelRefresher`
 (`internal/providerreg/refresher.go`), tick 15 menit, batch 25 provider per pass.
@@ -249,9 +255,9 @@ pernah ditulis di file mana pun (repo ini publik).
 ## Mulai dari mana (buat session baru)
 
 1. Baca `.hermes.md` (auto-load) → `docs/DECISIONS.md` §6A.J → file ini.
-2. **Kalau nggak ada instruksi lain: fase 4** — halaman Provider (nav baru).
-   Fase 1 (`0010`) + fase 2 (CRUD provider, 5 endpoint) + fase 3 (probe + refresh
-   otomatis, 2 endpoint) **selesai**. Tujuh fase di tabel atas.
+2. **Kalau nggak ada instruksi lain: fase 5** — form agent pakai dropdown provider.
+   Fase 1 (`0010`) + fase 2 (CRUD, 5 endpoint) + fase 3 (probe + refresh otomatis,
+   2 endpoint) + fase 4 (halaman `/settings/providers`) **selesai**.
 3. **Yang paling murah + paling kerasa kalau mau cepat**: warna status. 10 baris
    `index.css` — lihat `docs/DESIGN-INVENTORY.md` §2.
 4. Yang **jangan** dikerjain dulu: buang `agents.base_url` (fase 6) sebelum form agent

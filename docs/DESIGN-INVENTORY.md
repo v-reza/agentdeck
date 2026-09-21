@@ -1,9 +1,9 @@
 # Design inventory — design vs implementasi
 
-Dihitung dari **parse 50 file design** (`design/stitch-output/v2/*.html`) dan
-**91 file impl** (`frontend/src/**/*.tsx|ts`), bukan dari ingatan.
+Dihitung dari **parse 51 file design** (`design/stitch-output/v2/*.html`) dan
+**93 file impl** (`frontend/src/**/*.tsx|ts`), bukan dari ingatan.
 
-Cakupan: **50 layar design** → 36 punya impl, **14 nol impl**.
+Cakupan: **51 layar design** → 37 punya impl, **14 nol impl**.
 
 Cara pakai: lu centang yang salah, gw kerjain. Dokumen ini daftar kerja.
 
@@ -44,6 +44,7 @@ Layar paling parah (design svg → impl svg):
 | 25-agent-registry | 13 | 0 |
 | 29-cost-overview | 12 | 0 |
 | 18-kanban | 11 | 0 |
+| 47-providers | 0 | 0 |
 
 ---
 
@@ -133,7 +134,7 @@ nggak butuh backend baru — itu bisa dikerjain sekarang.
 
 ---
 
-## 6. Per layar (36 yang ada impl)
+## 6. Per layar (37 yang ada impl)
 
 Format: `design/impl`. `0/0` = dua-duanya nggak punya, bukan masalah.
 
@@ -161,6 +162,7 @@ Format: `design/impl`. `0/0` = dua-duanya nggak punya, bukan masalah.
 | 38-members | 0/0 | 0/0 | 1/0 | 2/0 | 3/0 | 3/0 | 1/0 |
 | 39-api-keys | 20/0 | 0/0 | 1/0 | 2/0 | 2/0 | 8/0 | 1/0 |
 | 40-webhooks | 15/0 | 0/0 | 1/0 | 2/0 | 2/0 | 12/0 | 2/0 |
+| 47-providers | 0/0 | 0/0 | 1/1 | 21/0 | 2/0 | 0/0 | 0/0 |
 | 43/44/45 state | 19/0 | 25/0 | 2/0 | 2/0 | 0/3 | 0/0 | 5/0 |
 
 Sisanya (01–04, 07–09c) nol selisih — layar publik & auth memang sudah cocok.

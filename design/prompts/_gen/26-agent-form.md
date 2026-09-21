@@ -35,15 +35,28 @@ Layar ini adalah wujud visual dari acceptance criteria berikut. Setiap butir di 
 
 ### `US-AD96` — Formulir agent (buat dan ubah) (Must, M2)
 
-- **AC1** Formulir memuat pilihan `provider` dan `model` yang valid; kombinasi di luar daftar harga ditolak sebelum dikirim.
+- **AC1** Formulir memuat pilihan `provider` dan `model` yang valid dari `GET /api/v1/agent-catalog`; kombinasi di luar daftar harga ditolak sebelum dikirim.
 - **AC2** Kolom kredensial bersifat tulis-saja: setelah tersimpan, nilai ditampilkan ter-mask (`sk-...XXXX`) dan tidak pernah dikembalikan utuh oleh API.
 - **AC4** (permission) Kolom kredensial hanya tampil untuk `owner`/`admin`; `member` dan `viewer` melihat formulir tanpa bagian kredensial.
-- **AC5** Terdapat tombol "Uji kredensial" yang memanggil `POST /api/v1/agents/{id}/validate` dan menampilkan hasil berhasil/gagal secara inline.
+- **AC5** Terdapat tombol "Uji kredensial" yang menampilkan hasil berhasil/gagal secara inline. Uji kredensial dapat dijalankan **sebelum** agent tersimpan (agent baru belum punya id), sehingga endpoint menerima kredensial di body, bukan hanya `POST /agents/{id}/validate`.
+- **AC6** Semua label field muat dalam satu baris di dalam modal (tidak ada label yang turun ke baris berikutnya), sesuai design `26-agent-form`.
+- **AC7** Field `tools` berupa pilihan tertutup dari 9 tool primitif (DECISIONS §6A.H); nilai di luar daftar ditolak 400.
+- **AC8** Field `skills` menampilkan skill library org, bukan teks bebas.
 
 ### `US-AD67` — Menentukan model dan provider per agent (Must, M1)
 
 - **AC1** Field `provider` dan `model` wajib diisi; kombinasi tidak dikenal di daftar harga `internal/pricing` ditolak 400.
 - **AC2** Kombinasi `provider`+`model` yang tidak ada di tabel harga Go ditolak 400 saat pembuatan agent.
+
+### `US-AD106` — Provider BYO (bring your own) (Must, M2)
+
+- **AC2** Daftar model diambil dari `GET {base_url}/models` milik pengguna dan ditampilkan sebagai pilihan.
+- **AC3** (keamanan) Base URL yang menunjuk ke alamat private, loopback, atau link-local (termasuk `169.254.169.254`) ditolak; hanya `https` yang diterima.
+
+### `US-AD108` — Estimasi biaya: label dan sumber harga (Must, M2)
+
+- **AC2** Baris ledger mencatat `price_source` (`manual`/`catalog`/`pattern`/`unpriced`) dan `pricing_model` (entri/pattern yang benar-benar dipakai).
+- **AC5** Perhitungan memakai 5 komponen (input-miss, cached, output, reasoning, cache_creation); `reasoning` tidak pernah disamakan dengan `output` secara diam-diam.
 
 ## State yang diminta
 

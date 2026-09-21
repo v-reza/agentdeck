@@ -142,6 +142,13 @@ SCREENS = {
     "42-dashboard": ("Dashboard", "/dashboard", ["US-AD76"], ["default", "empty"],
                      "Blueprint A + cost rail"),
 
+    # Registry provider LLM per ruang kerja (US-AD109). SENGAJA tidak di rail:
+    # rail punya 6 slot tetap yang dipatok angka di shell.md, dan menambah slot
+    # ke-7 berarti mengubah shell = regen 51 layar yang sudah match. Kredensial
+    # juga settings-scoped, sama seperti API key dan webhook.
+    "47-providers": ("Provider LLM", "/settings/providers", ["US-AD109"],
+                     ["default", "empty"], "Blueprint C + cost rail"),
+
     # ---- state lintas layar ----
     "43-state-loading": ("State: loading (skeleton)", "(varian)", ["US-AD63"], ["default"],
                          "sub-shell Blueprint B: skeleton di shell board"),

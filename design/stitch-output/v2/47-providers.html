@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AgentDeck — Provider LLM (/settings/providers)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            teal: {
+              accent: "#0d7a70",
+              hover: "#0a6159",
+              tint: "#eef7f5",
+              border: "#7dd6ca"
+            },
+            ink: {
+              primary: "#0e1110",
+              secondary: "#4d5553",
+              muted: "#6b7370"
+            },
+            surface: {
+              rail: "#e8ecea",
+              sidebar: "#f6f7f6",
+              page: "#f6f7f6",
+              well: "#eef1f0",
+              panel: "#ffffff",
+              hover: "#f1f3f4"
+            }
+          },
+          fontFamily: {
+            sans: ["Geist", "Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 16px;
+      line-height: 1;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #bdc9c6;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #8b9996;
+    }
+  </style>
+</head>
+<body class="bg-[#f6f7f6] text-[#0e1110] font-sans antialiased overflow-hidden h-screen w-screen flex select-none text-[13px]">
+
+  <!-- RAIL KIRI (44px, #e8ecea, ikon saja tanpa label) -->
+  <aside class="w-[44px] shrink-0 bg-[#e8ecea] border-r border-[rgba(12,26,22,0.12)] flex flex-col items-center justify-between py-3 z-20">
+    <div class="flex flex-col items-center gap-3">
+      <!-- AD Badge -->
+      <div class="w-7 h-7 rounded-[6px] bg-[#0d7a70] flex items-center justify-center text-white font-bold text-[11px] font-mono tracking-tight shadow-sm" title="AgentDeck Core">
+        AD
+      </div>
+      <div class="w-6 h-[1px] bg-[rgba(12,26,22,0.12)]"></div>
+      
+      <!-- Nav icons -->
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dfe4e2] hover:text-[#0e1110] transition-colors" title="Workspace Dashboard">
+        <span class="material-symbols-outlined">dashboard</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dfe4e2] hover:text-[#0e1110] transition-colors" title="Semua Board">
+        <span class="material-symbols-outlined">view_kanban</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dfe4e2] hover:text-[#0e1110] transition-colors" title="Agent Registry">
+        <span class="material-symbols-outlined">smart_toy</span>
+      </button>
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dfe4e2] hover:text-[#0e1110] transition-colors" title="Antrean Approval">
+        <span class="material-symbols-outlined">verified_user</span>
+      </button>
+      <!-- Active Settings Icon -->
+      <button class="w-8 h-8 rounded-[6px] bg-[#d9e3df] text-[#0d7a70] flex items-center justify-center font-bold" title="Pengaturan & Integrasi (Aktif)">
+        <span class="material-symbols-outlined filled text-[17px]">tune</span>
+      </button>
+    </div>
+
+    <div class="flex flex-col items-center gap-3">
+      <button class="w-8 h-8 rounded-[6px] flex items-center justify-center text-[#4d5553] hover:bg-[#dfe4e2] hover:text-[#0e1110] transition-colors" title="Setelan Global">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+      <!-- Avatar user (26px) -->
+      <div class="relative cursor-pointer" title="Reza (Owner) • ws_8f12a">
+        <div class="w-[26px] h-[26px] rounded-full bg-[#0e1110] text-white text-[10px] font-bold flex items-center justify-center">
+          RZ
+        </div>
+        <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-[#0d7a70] border-2 border-[#e8ecea] rounded-full"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR (224px, #f6f7f6) -->
+  <nav class="w-[224px] shrink-0 bg-[#f6f7f6] border-r border-[rgba(12,26,22,0.12)] flex flex-col justify-between overflow-y-auto text-[12px] z-10">
+    <div>
+      <!-- Workspace Header -->
+      <div class="px-3.5 py-3 border-b border-[rgba(12,26,22,0.07)]">
+        <div class="text-[10px] font-mono uppercase tracking-wider text-[#6b7370] font-semibold">Workspace</div>
+        <div class="flex items-center justify-between mt-1">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="w-2 h-2 rounded-full bg-[#0d7a70]"></span>
+            <span class="font-semibold text-[#0e1110] truncate text-[12px]">core-platform</span>
+          </div>
+          <span class="text-[9px] font-mono px-1 py-0.5 rounded bg-[#e8ecea] text-[#4d5553] font-medium">B2C SOLO</span>
+        </div>
+      </div>
+
+      <!-- Navigation Hierarchy -->
+      <div class="p-2 space-y-4">
+        <!-- GROUP 1: PENGATURAN AKUN & TIM -->
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-[#6b7370]">Pengaturan Akun &amp; Tim</span>
+          <ul class="mt-1 space-y-0.5">
+            <li>
+              <a href="/settings/profile" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edf1ef] transition-colors">
+                <span class="material-symbols-outlined text-[15px] text-[#6b7370]">person</span>
+                <span class="truncate">Profil Saya</span>
+              </a>
+            </li>
+            <li>
+              <a href="/settings/security" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edf1ef] transition-colors">
+                <span class="material-symbols-outlined text-[15px] text-[#6b7370]">security</span>
+                <span class="truncate">Keamanan &amp; Sesi</span>
+              </a>
+            </li>
+            <li>
+              <a href="/settings/workspace" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edf1ef] transition-colors">
+                <span class="material-symbols-outlined text-[15px] text-[#6b7370]">domain</span>
+                <span class="truncate">Ruang Kerja</span>
+              </a>
+            </li>
+            <li>
+              <a href="/settings/members" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edf1ef] transition-colors">
+                <span class="material-symbols-outlined text-[15px] text-[#6b7370]">group</span>
+                <span class="truncate">Anggota &amp; Role</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- GROUP 2: INTEGRASI & KREDENSIAL -->
+        <div>
+          <span class="px-2 text-[10px] font-bold uppercase tracking-wider text-[#6b7370]">Integrasi &amp; Kredensial</span>
+          <ul class="mt-1 space-y-0.5">
+            <!-- Active item: Provider LLM -->
+            <li>
+              <a href="/settings/providers" class="flex items-center justify-between px-2 py-1.5 rounded-[6px] bg-[#eef7f5] text-[#0d7a70] font-semibold border-l-2 border-[#0d7a70]">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined filled text-[15px] text-[#0d7a70]">hub</span>
+                  <span class="truncate">Provider LLM</span>
+                </div>
+                <span class="text-[9px] font-mono px-1 py-0.2 rounded bg-[#d9e3df] text-[#0d7a70] font-bold">3</span>
+              </a>
+            </li>
+            <li>
+              <a href="/settings/api-keys" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edf1ef] transition-colors">
+                <span class="material-symbols-outlined text-[15px] text-[#6b7370]">key</span>
+                <span class="truncate">API Keys (Host)</span>
+              </a>
+            </li>
+            <li>
+              <a href="/settings/webhooks" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edf1ef] transition-colors">
+                <span class="material-symbols-outlined text-[15px] text-[#6b7370]">webhook</span>
+                <span class="truncate">Webhooks</span>
+              </a>
+            </li>
+            <li>
+              <a href="/settings/audit" class="flex items-center gap-2 px-2 py-1.5 rounded-[6px] text-[#4d5553] hover:bg-[#edf1ef] transition-colors">
+                <span class="material-symbols-outlined text-[15px] text-[#6b7370]">history_toggle_off</span>
+                <span class="truncate">Audit Log</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daemon Status Bottom Sidebar -->
+    <div class="p-2 border-t border-[rgba(12,26,22,0.07)] bg-[#f0f2f1]">
+      <div class="flex items-center justify-between px-2 py-1 rounded-[6px] bg-[#e8ecea] text-[11px] font-mono text-[#4d5553]">
+        <span class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#0d7a70] animate-pulse"></span>
+          <span>daemon :8080</span>
+        </span>
+        <span class="text-[10px] text-[#6b7370]">v2.4</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- PUSAT: TOPBAR + MAIN CONTENT (DAFTAR PROVIDER) (Flex Grow) -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#f6f7f6]">
+    <!-- TOPBAR (52px, #ffffff, HANYA membentang di atas pane konten) -->
+    <header class="h-[52px] shrink-0 bg-[#ffffff] border-b border-[rgba(12,26,22,0.12)] px-5 flex items-center justify-between gap-4 z-10">
+      <!-- Breadcrumbs -->
+      <div class="flex items-center gap-2 text-[12px] min-w-0">
+        <span class="text-[#6b7370] hover:text-[#0e1110] cursor-pointer">Pengaturan</span>
+        <span class="text-[#6b7370] text-[10px]">/</span>
+        <span class="text-[#6b7370] hover:text-[#0e1110] cursor-pointer">Integrasi &amp; Kredensial</span>
+        <span class="text-[#6b7370] text-[10px]">/</span>
+        <span class="font-semibold text-[#0e1110] truncate">Provider LLM</span>
+        <span class="font-mono text-[10px] text-[#0d7a70] bg-[#eef7f5] px-1.5 py-0.5 rounded-[4px] border border-[rgba(13,122,112,0.2)]">/settings/providers</span>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="flex items-center gap-2.5 shrink-0">
+        <button class="h-8 px-2.5 text-[12px] font-medium text-[#4d5553] hover:bg-[#f1f3f4] rounded-[6px] border border-[rgba(12,26,22,0.12)] flex items-center gap-1.5 transition-colors">
+          <span class="material-symbols-outlined text-[15px]">sync</span>
+          <span>Segarkan Semua Model</span>
+        </button>
+        <button class="h-8 px-3 text-[12px] font-semibold text-white bg-[#0d7a70] hover:bg-[#0a6159] rounded-[6px] flex items-center gap-1.5 shadow-sm transition-colors">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>Tambah Provider</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- PANE KONTEN (Scrollable, DAFTAR PROVIDER) -->
+    <main class="flex-1 overflow-y-auto p-5 space-y-4">
+      
+      <!-- 1. Header Pane: Judul + Tombol Utama -->
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-lg font-bold text-[#0e1110] tracking-tight">Provider LLM</h1>
+          <p class="text-[12px] text-[#4d5553] mt-0.5">
+            Kelola kredensial runtime model LLM mandiri, verifikasi status endpoint, dan sinkronisasi katalog model per ruang kerja.
+          </p>
+        </div>
+        <button class="h-8 px-3 text-[12px] font-semibold text-white bg-[#0d7a70] hover:bg-[#0a6159] rounded-[6px] flex items-center gap-1.5 shadow-sm transition-colors">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          <span>Tambah Provider</span>
+        </button>
+      </div>
+
+      <!-- 2. Tabel Provider (Header 32px, Baris 28px) -->
+      <div class="bg-[#ffffff] border border-[rgba(12,26,22,0.12)] rounded-[10px] overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="h-[32px] bg-[#f6f7f6] border-b border-[rgba(12,26,22,0.12)] text-[11px] font-mono text-[#6b7370] uppercase tracking-wider">
+                <th class="py-1 px-3.5 font-semibold">Nama</th>
+                <th class="py-1 px-3 font-semibold">Protokol</th>
+                <th class="py-1 px-3 font-semibold">Base URL</th>
+                <th class="py-1 px-3 font-semibold">Kredensial</th>
+                <th class="py-1 px-2.5 font-semibold">Model</th>
+                <th class="py-1 px-2.5 font-semibold">Verifikasi</th>
+                <th class="py-1 px-3 font-semibold">Sinkronisasi Model</th>
+                <th class="py-1 px-2.5 font-semibold text-center">Default</th>
+                <th class="py-1 px-3.5 text-right font-semibold">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[rgba(12,26,22,0.07)] text-[12px]">
+              <!-- BARIS 1: OpenAI Compatible (Selected / Active in Drawer) -->
+              <tr class="h-[28px] bg-[#eef7f5]/70 hover:bg-[#eef7f5] transition-colors cursor-pointer border-l-2 border-[#0d7a70]">
+                <!-- Nama: teks tebal + baris kedua kecil slug -->
+                <td class="py-0.5 px-3.5">
+                  <div class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                    <div>
+                      <span class="font-semibold text-[#0e1110] leading-none">OpenAI Production</span>
+                      <span class="block text-[10px] font-mono text-[#6b7370] leading-tight">prv_openai_core</span>
+                    </div>
+                  </div>
+                </td>
+                <!-- Protokol enum -->
+                <td class="py-0.5 px-3">
+                  <span class="font-mono text-[10px] px-1.5 py-0.5 rounded-[4px] bg-[#d9e3df] text-[#0d7a70] font-semibold">
+                    openai_compatible
+                  </span>
+                </td>
+                <!-- Base URL (monospace, truncate) -->
+                <td class="py-0.5 px-3 font-mono text-[11px] text-[#4d5553] max-w-[150px] truncate" title="https://api.openai.com/v1">
+                  https://api.openai.com/v1
+                </td>
+                <!-- Kredensial: HANYA masker + label kecil terenkripsi -->
+                <td class="py-0.5 px-3 font-mono text-[11px] text-[#4d5553]">
+                  <span class="tracking-widest text-[#6b7370]">••••••••••••</span>
+                  <span class="text-[9px] font-sans px-1 py-0.2 rounded bg-[#e8ecea] text-[#4d5553] ml-1 font-medium">terenkripsi</span>
+                </td>
+                <!-- Model -->
+                <td class="py-0.5 px-2.5 font-mono text-[11px] font-medium text-[#0e1110]">
+                  12 model
+                </td>
+                <!-- Verifikasi: Terverifikasi (tint aksen) -->
+                <td class="py-0.5 px-2.5">
+                  <span class="inline-flex items-center gap-1 font-sans text-[10px] font-semibold text-[#0d7a70] bg-[#eef7f5] border border-[rgba(13,122,112,0.3)] px-1.5 py-0.5 rounded-[4px]">
+                    <span class="material-symbols-outlined text-[11px] filled">check_circle</span>
+                    Terverifikasi
+                  </span>
+                </td>
+                <!-- Sinkronisasi model: teks relatif -->
+                <td class="py-0.5 px-3 text-[11px] text-[#4d5553]">
+                  2 jam lalu
+                </td>
+                <!-- Default badge (SATU baris saja) -->
+                <td class="py-0.5 px-2.5 text-center">
+                  <span class="font-mono text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-[4px] bg-[#0d7a70] text-white">
+                    Default
+                  </span>
+                </td>
+                <!-- Aksi baris: Uji dan Tarik model -->
+                <td class="py-0.5 px-3.5 text-right">
+                  <div class="inline-flex items-center gap-1">
+                    <button class="p-1 rounded hover:bg-[#dfe4e2] text-[#4d5553] hover:text-[#0d7a70]" title="Uji Kredensial via Minimal Inference">
+                      <span class="material-symbols-outlined text-[14px]">bolt</span>
+                    </button>
+                    <button class="p-1 rounded hover:bg-[#dfe4e2] text-[#4d5553] hover:text-[#0d7a70]" title="Tarik Model">
+                      <span class="material-symbols-outlined text-[14px]">sync</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- BARIS 2: Anthropic Dedicated -->
+              <tr class="h-[28px] hover:bg-[#f6f7f6] transition-colors cursor-pointer">
+                <!-- Nama -->
+                <td class="py-0.5 px-3.5">
+                  <div class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                    <div>
+                      <span class="font-semibold text-[#0e1110] leading-none">Anthropic Ops</span>
+                      <span class="block text-[10px] font-mono text-[#6b7370] leading-tight">prv_anthropic_ops</span>
+                    </div>
+                  </div>
+                </td>
+                <!-- Protokol enum -->
+                <td class="py-0.5 px-3">
+                  <span class="font-mono text-[10px] px-1.5 py-0.5 rounded-[4px] bg-[#e8ecea] text-[#4d5553] font-medium">
+                    anthropic
+                  </span>
+                </td>
+                <!-- Base URL -->
+                <td class="py-0.5 px-3 font-mono text-[11px] text-[#4d5553] max-w-[150px] truncate" title="https://api.anthropic.com/v1">
+                  https://api.anthropic.com/v1
+                </td>
+                <!-- Kredensial -->
+                <td class="py-0.5 px-3 font-mono text-[11px] text-[#4d5553]">
+                  <span class="tracking-widest text-[#6b7370]">••••••••••••</span>
+                  <span class="text-[9px] font-sans px-1 py-0.2 rounded bg-[#e8ecea] text-[#4d5553] ml-1 font-medium">terenkripsi</span>
+                </td>
+                <!-- Model -->
+                <td class="py-0.5 px-2.5 font-mono text-[11px] font-medium text-[#0e1110]">
+                  5 model
+                </td>
+                <!-- Verifikasi -->
+                <td class="py-0.5 px-2.5">
+                  <span class="inline-flex items-center gap-1 font-sans text-[10px] font-semibold text-[#0d7a70] bg-[#eef7f5] border border-[rgba(13,122,112,0.3)] px-1.5 py-0.5 rounded-[4px]">
+                    <span class="material-symbols-outlined text-[11px] filled">check_circle</span>
+                    Terverifikasi
+                  </span>
+                </td>
+                <!-- Sinkronisasi model: > 24 jam (kedaluwarsa) dengan warna peringatan -->
+                <td class="py-0.5 px-3 text-[11px] text-[#d97706] font-medium">
+                  26 jam lalu (kedaluwarsa)
+                </td>
+                <!-- Default -->
+                <td class="py-0.5 px-2.5 text-center text-[#6b7370] font-mono text-[10px]">
+                  —
+                </td>
+                <!-- Aksi baris -->
+                <td class="py-0.5 px-3.5 text-right">
+                  <div class="inline-flex items-center gap-1">
+                    <button class="p-1 rounded hover:bg-[#dfe4e2] text-[#4d5553] hover:text-[#0d7a70]" title="Uji Kredensial via Minimal Inference">
+                      <span class="material-symbols-outlined text-[14px]">bolt</span>
+                    </button>
+                    <button class="p-1 rounded hover:bg-[#dfe4e2] text-[#4d5553] hover:text-[#0d7a70]" title="Tarik Model">
+                      <span class="material-symbols-outlined text-[14px]">sync</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- BARIS 3: Google Vertex / Gemini -->
+              <tr class="h-[28px] hover:bg-[#f6f7f6] transition-colors cursor-pointer">
+                <!-- Nama -->
+                <td class="py-0.5 px-3.5">
+                  <div class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#6b7370]"></span>
+                    <div>
+                      <span class="font-semibold text-[#0e1110] leading-none">Google AI Studio</span>
+                      <span class="block text-[10px] font-mono text-[#6b7370] leading-tight">prv_google_gemini</span>
+                    </div>
+                  </div>
+                </td>
+                <!-- Protokol enum -->
+                <td class="py-0.5 px-3">
+                  <span class="font-mono text-[10px] px-1.5 py-0.5 rounded-[4px] bg-[#e8ecea] text-[#4d5553] font-medium">
+                    google
+                  </span>
+                </td>
+                <!-- Base URL -->
+                <td class="py-0.5 px-3 font-mono text-[11px] text-[#4d5553] max-w-[150px] truncate" title="https://generativelanguage.googleapis.com/v1beta">
+                  https://generativelanguage.googleapis.com/...
+                </td>
+                <!-- Kredensial -->
+                <td class="py-0.5 px-3 font-mono text-[11px] text-[#4d5553]">
+                  <span class="tracking-widest text-[#6b7370]">••••••••••••</span>
+                  <span class="text-[9px] font-sans px-1 py-0.2 rounded bg-[#e8ecea] text-[#4d5553] ml-1 font-medium">terenkripsi</span>
+                </td>
+                <!-- Model -->
+                <td class="py-0.5 px-2.5 font-mono text-[11px] font-medium text-[#0e1110]">
+                  4 model
+                </td>
+                <!-- Verifikasi: Belum diuji (netral) -->
+                <td class="py-0.5 px-2.5">
+                  <span class="inline-flex items-center gap-1 font-sans text-[10px] font-medium text-[#6b7370] bg-[#f0f2f1] border border-[rgba(12,26,22,0.1)] px-1.5 py-0.5 rounded-[4px]">
+                    <span class="material-symbols-outlined text-[11px]">help_outline</span>
+                    Belum diuji
+                  </span>
+                </td>
+                <!-- Sinkronisasi model: teks relatif -->
+                <td class="py-0.5 px-3 text-[11px] text-[#4d5553]">
+                  18 jam lalu
+                </td>
+                <!-- Default -->
+                <td class="py-0.5 px-2.5 text-center text-[#6b7370] font-mono text-[10px]">
+                  —
+                </td>
+                <!-- Aksi baris -->
+                <td class="py-0.5 px-3.5 text-right">
+                  <div class="inline-flex items-center gap-1">
+                    <button class="p-1 rounded hover:bg-[#dfe4e2] text-[#4d5553] hover:text-[#0d7a70]" title="Uji Kredensial via Minimal Inference">
+                      <span class="material-symbols-outlined text-[14px]">bolt</span>
+                    </button>
+                    <button class="p-1 rounded hover:bg-[#dfe4e2] text-[#4d5553] hover:text-[#0d7a70]" title="Tarik Model">
+                      <span class="material-symbols-outlined text-[14px]">sync</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Footer Tabel: Total hitungan baris & catatan kepatuhan -->
+        <div class="px-3.5 py-2 bg-[#f6f7f6] border-t border-[rgba(12,26,22,0.07)] flex items-center justify-between text-[11px] text-[#6b7370]">
+          <span>Menampilkan 3 dari 3 provider terdaftar</span>
+          <span class="font-mono text-[10px]">Pemberian tanda verifikasi membutuhkan uji inference minimal (AC3)</span>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- DRAWER KANAN (420px DI ANTARA konten dan cost rail) -->
+  <aside class="w-[420px] shrink-0 bg-[#ffffff] border-l border-[rgba(12,26,22,0.12)] flex flex-col justify-between overflow-y-auto z-15 shadow-sm text-[12px]">
+    <div>
+      <!-- Header Drawer -->
+      <div class="h-[52px] shrink-0 px-4 border-b border-[rgba(12,26,22,0.12)] flex items-center justify-between bg-[#ffffff]">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="material-symbols-outlined text-[#0d7a70]">tune</span>
+          <div>
+            <h2 class="font-bold text-[13px] text-[#0e1110] leading-none">Detail Provider</h2>
+            <span class="text-[10px] font-mono text-[#6b7370]">prv_openai_core • openai_compatible</span>
+          </div>
+        </div>
+        <button class="w-6 h-6 rounded flex items-center justify-center text-[#6b7370] hover:bg-[#f1f3f4]" title="Tutup Drawer">
+          <span class="material-symbols-outlined text-[16px]">close</span>
+        </button>
+      </div>
+
+      <!-- Isi Drawer: Detail SATU Provider -->
+      <div class="p-4 space-y-4">
+        <!-- Default Status Banner -->
+        <div class="p-2.5 rounded-[6px] bg-[#eef7f5] border border-[rgba(13,122,112,0.3)] flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[#0d7a70] text-[16px] filled">star</span>
+            <div>
+              <div class="font-semibold text-[#0d7a70] text-[11px]">Provider Default Workspace</div>
+              <div class="text-[10px] text-[#4d5553]">Dipakai otomatis saat mendaftarkan worker armada baru</div>
+            </div>
+          </div>
+          <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#0d7a70] text-white uppercase">Default</span>
+        </div>
+
+        <!-- Detail Form Readonly/Edit Fields -->
+        <div class="space-y-3">
+          <!-- Nama -->
+          <div>
+            <label class="block text-[11px] font-bold text-[#6b7370] uppercase font-mono mb-1">Nama Provider</label>
+            <div class="h-8 px-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] flex items-center text-[#0e1110] font-medium">
+              OpenAI Production
+            </div>
+          </div>
+
+          <!-- Protokol (Enum) -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-bold text-[#6b7370] uppercase font-mono mb-1">Protokol (Enum)</label>
+              <div class="h-8 px-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] flex items-center font-mono text-[11px] text-[#0d7a70] font-semibold">
+                openai_compatible
+              </div>
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-[#6b7370] uppercase font-mono mb-1">Slug Identifier</label>
+              <div class="h-8 px-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] flex items-center font-mono text-[11px] text-[#6b7370]">
+                prv_openai_core
+              </div>
+            </div>
+          </div>
+
+          <!-- Base URL -->
+          <div>
+            <label class="block text-[11px] font-bold text-[#6b7370] uppercase font-mono mb-1">Base URL</label>
+            <div class="h-8 px-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] flex items-center font-mono text-[11px] text-[#0e1110]">
+              https://api.openai.com/v1
+            </div>
+          </div>
+
+          <!-- Kredensial (Tetap Termasker) -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-[11px] font-bold text-[#6b7370] uppercase font-mono">Kredensial Terenkripsi</label>
+              <span class="text-[9px] font-mono text-[#0d7a70] bg-[#eef7f5] px-1.5 py-0.2 rounded border border-[rgba(13,122,112,0.2)]">AES-256-GCM</span>
+            </div>
+            <div class="h-8 px-2.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] flex items-center justify-between font-mono text-[11px] text-[#6b7370]">
+              <span class="tracking-widest">••••••••••••••••••••••••••••••••••••••••</span>
+              <span class="text-[10px] font-sans text-[#4d5553] font-medium">Tersimpan</span>
+            </div>
+            <p class="text-[10px] text-[#6b7370] mt-1">
+              Kunci mentah tidak pernah diekspos kembali ke peramban demi keamanan.
+            </p>
+          </div>
+
+          <!-- Bagian Uji Kredensial (Minimal Inference AC3) -->
+          <div class="p-3 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.12)] space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-[11px] uppercase font-mono text-[#0e1110] flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[#0d7a70] text-[15px]">verified</span>
+                Uji Autentikasi (AC3)
+              </span>
+              <button class="h-7 px-2.5 rounded-[4px] bg-[#0d7a70] hover:bg-[#0a6159] text-white font-medium text-[11px] flex items-center gap-1 transition-colors shadow-sm">
+                <span class="material-symbols-outlined text-[13px]">bolt</span>
+                <span>Uji Sekarang</span>
+              </button>
+            </div>
+            <div class="text-[11px] text-[#4d5553] space-y-1">
+              <div class="flex items-center justify-between">
+                <span>Metode Verifikasi:</span>
+                <span class="font-mono text-[10px] text-[#0e1110]">Inference minimal (max_tokens: 1)</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Hasil Uji Terakhir:</span>
+                <span class="font-mono text-[10px] text-[#0d7a70] font-bold">200 OK • Token: 1 in / 1 out</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Waktu Pengujian:</span>
+                <span class="font-mono text-[10px] text-[#6b7370]">18 Sep 2026, 14:15 WIB</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Daftar Model Hasil Tarik (AC1 & AC7) -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-[11px] font-bold text-[#6b7370] uppercase font-mono">Daftar Model Hasil Tarik</label>
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] text-[#6b7370]">2 jam lalu</span>
+                <button class="p-0.5 rounded hover:bg-[#f1f3f4] text-[#0d7a70]" title="Tarik Model Sekarang">
+                  <span class="material-symbols-outlined text-[14px]">sync</span>
+                </button>
+              </div>
+            </div>
+            <!-- List Model -->
+            <div class="border border-[rgba(12,26,22,0.12)] rounded-[6px] overflow-hidden divide-y divide-[rgba(12,26,22,0.07)] bg-[#ffffff]">
+              <div class="px-2.5 py-1.5 flex items-center justify-between hover:bg-[#f6f7f6]">
+                <div class="flex items-center gap-1.5 font-mono text-[11px] text-[#0e1110]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                  <span class="font-semibold">gpt-4o</span>
+                </div>
+                <span class="text-[10px] font-mono text-[#6b7370]">128k ctx</span>
+              </div>
+              <div class="px-2.5 py-1.5 flex items-center justify-between hover:bg-[#f6f7f6]">
+                <div class="flex items-center gap-1.5 font-mono text-[11px] text-[#0e1110]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                  <span class="font-semibold">gpt-4o-mini</span>
+                </div>
+                <span class="text-[10px] font-mono text-[#6b7370]">128k ctx</span>
+              </div>
+              <div class="px-2.5 py-1.5 flex items-center justify-between hover:bg-[#f6f7f6]">
+                <div class="flex items-center gap-1.5 font-mono text-[11px] text-[#0e1110]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                  <span class="font-semibold">o1-preview</span>
+                </div>
+                <span class="text-[10px] font-mono px-1 py-0.2 rounded bg-[#e8ecea] text-[#4d5553]">reasoning</span>
+              </div>
+              <div class="px-2.5 py-1.5 flex items-center justify-between hover:bg-[#f6f7f6]">
+                <div class="flex items-center gap-1.5 font-mono text-[11px] text-[#0e1110]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                  <span class="font-semibold">o1-mini</span>
+                </div>
+                <span class="text-[10px] font-mono px-1 py-0.2 rounded bg-[#e8ecea] text-[#4d5553]">reasoning</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drawer Footer Actions -->
+    <div class="p-4 border-t border-[rgba(12,26,22,0.12)] bg-[#ffffff] flex items-center justify-between">
+      <button class="text-[11px] text-[#dc2626] hover:underline font-medium">
+        Hapus Provider
+      </button>
+      <div class="flex items-center gap-2">
+        <button class="h-8 px-3 rounded-[6px] border border-[rgba(12,26,22,0.12)] text-[#4d5553] hover:bg-[#f1f3f4] text-[12px] font-medium">
+          Batal
+        </button>
+        <button class="h-8 px-3 rounded-[6px] bg-[#0d7a70] hover:bg-[#0a6159] text-white text-[12px] font-semibold shadow-sm">
+          Simpan Perubahan
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- COST RAIL KANAN (264px, #eef1f0, Blueprint C isi tetap: TODAY, 7-DAY, TOP SPENDERS, RUNNING NOW) -->
+  <aside class="w-[264px] shrink-0 bg-[#eef1f0] border-l border-[rgba(12,26,22,0.12)] flex flex-col justify-between p-3.5 text-[12px] z-20">
+    <div class="space-y-4">
+      <!-- HEADER COST RAIL -->
+      <div class="flex items-center justify-between border-b border-[rgba(12,26,22,0.07)] pb-2">
+        <div class="flex items-center gap-1.5 font-bold text-[#0e1110] text-[11px] font-mono uppercase tracking-wider">
+          <span class="material-symbols-outlined text-[15px] text-[#0d7a70]">monitoring</span>
+          <span>Cost Ledger</span>
+        </div>
+        <span class="text-[9px] font-mono font-bold bg-[#d9e3df] text-[#0d7a70] px-1.5 py-0.5 rounded">REALTIME</span>
+      </div>
+
+      <!-- TODAY METER (Biaya + meter pagu 6px) -->
+      <div class="bg-[#ffffff] p-3 rounded-[10px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[11px] text-[#6b7370] font-mono">
+          <span class="font-bold text-[#0e1110] uppercase">Today</span>
+          <span>Cap $20.00</span>
+        </div>
+        <div class="mt-1 flex items-baseline justify-between">
+          <div class="text-xl font-bold font-mono text-[#0e1110] tracking-tight">$4.82</div>
+          <div class="text-[11px] font-mono text-[#6b7370]">Sisa: <span class="font-semibold text-[#0d7a70]">$15.18</span></div>
+        </div>
+        <!-- Budget meter (6px) -->
+        <div class="w-full bg-[#edeeed] h-[6px] rounded-full mt-2.5 overflow-hidden">
+          <div class="bg-[#0d7a70] h-full rounded-full" style="width: 24.1%;"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] font-mono text-[#6b7370] mt-1.5">
+          <span>24.1% terpakai</span>
+          <span>Pagu aman</span>
+        </div>
+      </div>
+
+      <!-- 7-DAY SPARKLINE BAR (Sep 12 - Sep 18) -->
+      <div class="bg-[#ffffff] p-3 rounded-[10px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] mb-2">
+          <span class="font-bold text-[#0e1110] uppercase">7-Day</span>
+          <span>Sep 12 – Sep 18</span>
+        </div>
+        <div class="h-14 flex items-end justify-between gap-1 pt-1 px-0.5">
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 45%;" title="Sep 12: $3.10"></div>
+            <span class="text-[8px] font-mono text-[#6b7370]">12</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 60%;" title="Sep 13: $4.20"></div>
+            <span class="text-[8px] font-mono text-[#6b7370]">13</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 30%;" title="Sep 14: $2.05"></div>
+            <span class="text-[8px] font-mono text-[#6b7370]">14</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 75%;" title="Sep 15: $5.40"></div>
+            <span class="text-[8px] font-mono text-[#6b7370]">15</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 50%;" title="Sep 16: $3.50"></div>
+            <span class="text-[8px] font-mono text-[#6b7370]">16</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#bdc9c6] rounded-t" style="height: 85%;" title="Sep 17: $6.12"></div>
+            <span class="text-[8px] font-mono text-[#6b7370]">17</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full bg-[#0d7a70] rounded-t" style="height: 68%;" title="Sep 18: $4.82"></div>
+            <span class="text-[8px] font-mono font-bold text-[#0d7a70]">18</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP SPENDERS (3 baris) -->
+      <div class="bg-[#ffffff] p-3 rounded-[10px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="text-[10px] font-mono text-[#6b7370] uppercase font-bold mb-2">Top Spenders</div>
+        <div class="space-y-2">
+          <!-- 1 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-backend</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$1.84</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-[#0d7a70] h-full" style="width: 38%;"></div>
+            </div>
+          </div>
+          <!-- 2 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-data</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$1.42</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-[#0d7a70]/80 h-full" style="width: 29%;"></div>
+            </div>
+          </div>
+          <!-- 3 -->
+          <div>
+            <div class="flex items-center justify-between text-[11px]">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70]"></span>
+                <span class="font-mono text-[#0e1110] truncate">agent-docs</span>
+              </div>
+              <span class="font-mono font-bold text-[#0e1110]">$0.91</span>
+            </div>
+            <div class="w-full bg-[#edeeed] h-1 rounded-full overflow-hidden mt-1">
+              <div class="bg-[#0d7a70]/60 h-full" style="width: 19%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RUNNING NOW -->
+      <div class="bg-[#ffffff] p-3 rounded-[10px] border border-[rgba(12,26,22,0.07)] shadow-sm">
+        <div class="flex items-center justify-between text-[11px] font-mono text-[#6b7370] mb-2">
+          <span class="font-bold text-[#0e1110] uppercase">Running Now</span>
+          <span class="flex items-center gap-1 text-[#0d7a70] font-bold">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#0d7a70] animate-pulse"></span>
+            2 Active
+          </span>
+        </div>
+        <div class="space-y-1.5 text-[11px] font-mono">
+          <div class="p-1.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="font-bold text-[#0e1110]">agent-backend</span>
+            <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+          </div>
+          <div class="p-1.5 rounded-[6px] bg-[#f6f7f6] border border-[rgba(12,26,22,0.07)] flex items-center justify-between">
+            <span class="font-bold text-[#0e1110]">agent-docs</span>
+            <span class="text-[9px] px-1 py-0.2 bg-emerald-50 text-emerald-700 rounded font-semibold">RUNNING</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COST RAIL FOOTER -->
+    <div class="pt-2 border-t border-[rgba(12,26,22,0.07)] text-[10px] font-mono text-[#6b7370] flex items-center justify-between">
+      <span>AgentDeck Core</span>
+      <span class="text-[#0d7a70] font-semibold">µUSD Ledger</span>
+    </div>
+  </aside>
+
+</body>
+</html>

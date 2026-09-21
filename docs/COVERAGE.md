@@ -6,11 +6,11 @@ Dihasilkan otomatis oleh `screens.py`. Jangan diedit tangan.
 
 | Item | Jumlah |
 |---|---|
-| Story | 108 |
-| Story dengan layar | 83 |
+| Story | 109 |
+| Story dengan layar | 84 |
 | Story backend-only (alasan tertulis) | 25 |
-| Layar | 51 |
-| Frame state yang wajib digenerate | 106 |
+| Layar | 52 |
+| Frame state yang wajib digenerate | 108 |
 
 ## A. Story → Layar
 
@@ -124,6 +124,7 @@ Dihasilkan otomatis oleh `screens.py`. Jangan diedit tangan.
 | `US-AD106` | Must | M2 | Provider BYO (bring your own) | `26-agent-form` |
 | `US-AD107` | Should | M2 | Skill library per ruang kerja | `26b-agent-skills` |
 | `US-AD108` | Must | M2 | Estimasi biaya: label dan sumber harga | `26-agent-form` |
+| `US-AD109` | Must | M2 | Provider registry: daftar kredensial sekali pakai | `47-providers` |
 
 ## B. Layar → Story
 
@@ -180,6 +181,7 @@ Dihasilkan otomatis oleh `screens.py`. Jangan diedit tangan.
 | `44-state-empty` | State: empty | `(varian)` | `US-AD64` | default |
 | `45-state-error` | State: error | `(varian)` | `US-AD65` | default |
 | `46-mobile-board` | Board mobile | `/m/boards/:id` | `US-AD60` | default |
+| `47-providers` | Provider LLM | `/settings/providers` | `US-AD109` | default, empty |
 
 ## C. Story backend-only (tanpa layar, dengan alasan)
 
