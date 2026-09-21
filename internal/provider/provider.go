@@ -61,22 +61,32 @@ func mustCIDR(s string) *net.IPNet {
 }
 
 // localHostAllowlist is the set of hosts an operator may point a BYO provider
-// at even though they are loopback.
+// at even though they are not publicly routable.
 //
 // The PRD's US-AD106 AC3 rejects loopback outright. That rule was written for a
 // hosted deployment, where the only loopback that exists is ours; it breaks the
 // self-hosted case the product is actually for, where the operator's own
 // inference server (Ollama, LM Studio, a local gateway) runs on the same
 // machine and has no other address. The operator's latest decision is that
-// these two hosts are allowed, and only these two.
+// these three hosts are allowed, and only these three.
+//
+// `host.docker.internal` is the third because without it the container
+// deployment has no usable address at all: an endpoint on the operator's
+// machine is reachable from inside a container only through that name, and the
+// guard refuses plain `http` for every host not on this list. Measured —
+// `localhost` and `127.0.0.1` both answer "connection refused" from inside the
+// api container while the same gateway answers 200 on this name. A deployment
+// that does not use Docker cannot resolve it, so the allowance is inert there.
 //
 // Matching is on the literal host string, never on the parsed address. That is
 // what keeps the relaxation narrow: `2130706433`, `0x7f000001`, `0177.0.0.1`
 // and `[::1]` all mean loopback but are not on this list, so they stay refused.
-// An operator who means loopback writes `localhost` or `127.0.0.1`.
+// Every RFC1918 address stays refused too. An operator who means loopback writes
+// `localhost` or `127.0.0.1`.
 var localHostAllowlist = map[string]bool{
-	"localhost": true,
-	"127.0.0.1": true,
+	"localhost":            true,
+	"127.0.0.1":            true,
+	"host.docker.internal": true,
 }
 
 // IsLocalProviderHost reports whether host is one of the allowed loopback names.
@@ -470,22 +480,20 @@ func classifyStatus(code int) error {
 	}
 }
 
-// localhostHint explains the one mistake a loopback base URL invites, and it is
-// attached only to a *dial* failure against a loopback host — never to a
+// localhostHint explains the one mistake a non-routable base URL invites, and it
+// is attached only to a *dial* failure against one of those hosts — never to a
 // validation error, and never as a rejection.
 //
 // The failure it describes is real and confusing: a container's `localhost` is
 // the container, not the host, so an endpoint the operator can reach from their
 // own shell is unreachable from AgentDeck. Measured on the deployment this was
 // written for — from inside the api container, `localhost:20128` gives
-// "connection refused" while the same gateway answers 200 from the host shell.
+// "connection refused" while the same gateway answers 200 on
+// `host.docker.internal:20128`.
 //
-// It deliberately does NOT name a replacement host. The obvious candidate,
-// `host.docker.internal`, is refused by the SSRF guard: plain `http` is allowed
-// only for `localhost` and `127.0.0.1` (DECISIONS 6A.F), so naming it would send
-// the operator to an address the product rejects. What actually works depends on
-// the deployment — a public https endpoint, or running the api where loopback
-// names the machine the endpoint is on — and only the operator knows which.
+// The replacement it names is the same string the allowlist accepts, so the hint
+// cannot send the operator to an address the guard would refuse. That is checked
+// by a test rather than by memory.
 //
 // It is a hint rather than a validation rule on purpose. Whether loopback works
 // depends on how AgentDeck is deployed, and the process cannot know that
@@ -493,8 +501,8 @@ func classifyStatus(code int) error {
 // runtime condition, and would reject a perfectly valid address in the
 // non-container deployment the product also supports. The address is legal; the
 // operator just may not know which machine it names.
-const localhostHint = " (loopback address: inside a container, localhost is the container itself, " +
-	"not the machine running your endpoint — point this at an address AgentDeck can actually reach)"
+const localhostHint = " (this address is not reachable from AgentDeck: inside a container, " +
+	"localhost is the container itself — if the endpoint runs on the host, use host.docker.internal)"
 
 // withLocalhostHint appends the container hint when err is a dial failure
 // against a loopback address. Split out so both the model fetch and the

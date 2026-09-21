@@ -595,7 +595,7 @@ const en: Dictionary = {
   'providers.form.protocol': 'Protocol',
   'providers.form.baseUrl': 'Base URL',
   'providers.form.baseUrlHint':
-    'If AgentDeck runs in a container, localhost means the container itself, not the machine running your endpoint.',
+    'If AgentDeck runs in a container, use host.docker.internal to reach an endpoint on your machine — localhost means the container itself.',
   'providers.form.apiKey': 'API key',
   'providers.form.apiKeyHint': 'Stored encrypted. It is never shown again after saving.',
   'providers.form.apiKeyOptional': 'Optional — a local endpoint that checks nothing needs no key.',
@@ -1037,7 +1037,7 @@ const id: Dictionary = {
   'providers.form.protocol': 'Protokol',
   'providers.form.baseUrl': 'Base URL',
   'providers.form.baseUrlHint':
-    'Kalau AgentDeck jalan di dalam container, localhost berarti container itu sendiri, bukan mesin yang menjalankan endpoint Anda.',
+    'Kalau AgentDeck jalan di dalam container, pakai host.docker.internal untuk menjangkau endpoint di mesin Anda — localhost berarti container itu sendiri.',
   'providers.form.apiKey': 'API key',
   'providers.form.apiKeyHint': 'Disimpan terenkripsi. Tidak pernah ditampilkan lagi setelah disimpan.',
   'providers.form.apiKeyOptional': 'Opsional — endpoint lokal yang tidak memeriksa apa pun tidak butuh key.',

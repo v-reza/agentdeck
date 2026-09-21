@@ -153,14 +153,51 @@ func TestProbeInferenceExplainsALoopbackDialFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("ProbeInference reported success against a closed server")
 	}
-	if !strings.Contains(err.Error(), "loopback address") {
+	if !strings.Contains(err.Error(), "host.docker.internal") {
 		t.Fatalf("loopback dial failure did not explain the container case: %v", err)
 	}
-	// The hint must not name a host the guard would refuse. `http` outside the
-	// two loopback spellings is rejected (DECISIONS 6A.F), so suggesting
-	// host.docker.internal would send the operator to a dead end.
-	if strings.Contains(err.Error(), "host.docker.internal") {
-		t.Fatalf("the hint names a host the SSRF guard rejects: %v", err)
+	// The hint must name a host the guard actually accepts. This is the
+	// assertion that keeps the advice honest: an earlier version of this hint
+	// pointed at host.docker.internal while the allowlist refused it, which
+	// would have sent the operator to a dead end.
+	if _, err := ValidateOperatorBaseURL(context.Background(), "http://host.docker.internal:20128/v1"); err != nil {
+		t.Fatalf("the hint names a host the guard refuses: %v", err)
+	}
+}
+
+// TestHostDockerInternalIsAllowedOnlyAsAnExactString pins the width of the
+// allowance. The Docker host name is the one address that reaches the machine
+// running AgentDeck from inside a container, so it has to be usable — but the
+// relaxation must stay a single literal string, not a range: an operator who
+// types a LAN address is asking AgentDeck to reach into their private network,
+// and that stays refused.
+func TestHostDockerInternalIsAllowedOnlyAsAnExactString(t *testing.T) {
+	allowed := []string{
+		"http://localhost:20128/v1",
+		"http://127.0.0.1:20128/v1",
+		"http://host.docker.internal:20128/v1",
+	}
+	for _, raw := range allowed {
+		if _, err := ValidateOperatorBaseURL(context.Background(), raw); err != nil {
+			t.Errorf("ValidateOperatorBaseURL(%q) = %v, want it allowed", raw, err)
+		}
+	}
+
+	refused := []string{
+		// A LAN address is not the Docker host; it is the operator's private
+		// network, which the guard exists to protect.
+		"http://192.168.1.50:20128/v1",
+		"http://10.0.0.5:20128/v1",
+		// Not the exact string, even though it looks adjacent.
+		"http://host.docker.internal.evil.com/v1",
+		"http://host-docker-internal:20128/v1",
+		// Plain http stays refused for a public host.
+		"http://api.example.com/v1",
+	}
+	for _, raw := range refused {
+		if _, err := ValidateOperatorBaseURL(context.Background(), raw); err == nil {
+			t.Errorf("ValidateOperatorBaseURL(%q) was allowed, want it refused", raw)
+		}
 	}
 }
 

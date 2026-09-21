@@ -308,6 +308,15 @@ per-org berbeda antar tenant. Tanpa dua kolom ini, baris lama tidak bisa dibukti
     (`2130706433`, `0x7f000001`, `0177.0.0.1`, `[::1]`, `[::ffff:127.0.0.1]`) **tetap ditolak**,
     begitu juga seluruh RFC1918 dan link-local. Ini **mengalahkan US-AD106 AC3** yang berbunyi
     "loopback ditolak" — konflik dicatat, bukan didiamkan.
+  - **`host.docker.internal` ditambahkan ke daftar yang sama (keputusan user, 2026-09-21)**,
+    juga sebagai **string persis** dan juga boleh `http`. Alasan: tanpa itu deployment
+    container **tidak punya alamat yang bisa dipakai sama sekali**. Endpoint yang jalan di
+    mesin operator cuma terjangkau dari dalam container lewat nama itu, sementara guard
+    menolak `http` untuk semua host di luar daftar. Terukur: dari dalam container
+    `agentdeck-api`, `localhost:20128` dan `127.0.0.1:20128` dua-duanya "connection refused",
+    sementara nama ini balas `200`. Ini bukan pelonggaran: satu string literal, menunjuk host
+    Docker, bukan rentang; RFC1918 tetap ditolak, dan `host.docker.internal.evil.com` juga
+    (dicocokkan persis). Deployment non-Docker tidak bisa me-resolve-nya, jadi izin ini diam.
   - Redirect **tetap ketat**: `ValidateURL` (dipakai jalur redirect) tidak dilonggarkan sama
     sekali. Kalau ikut dilonggarkan, redirect dari host publik ke localhost jadi SSRF lagi.
     Yang dilonggarkan hanya `ValidateOperatorBaseURL`, dan hanya untuk `base_url` yang
