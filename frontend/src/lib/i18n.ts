@@ -119,6 +119,15 @@ export interface Dictionary {
   'role.viewer': string
   // Shown when the roster could not be read.
   'members.loadFailed': string
+  // Sidebar settings groups (design 47-providers / 38-members). These links are
+  // the only route into /settings/*; the rail's gear only reaches workspace.
+  'sidebar.nav': string
+  'sidebar.accountGroup': string
+  'sidebar.integrationsGroup': string
+  // API keys and webhooks tabs. Both screens are placeholders until their
+  // endpoints land, but the sidebar names them, so the copy must exist.
+  'apiKeys.title': string
+  'webhooks.title': string
   // Settings → Providers (US-AD109). The per-workspace credential registry.
   'providers.title': string
   'providers.subtitle': string
@@ -549,6 +558,11 @@ const en: Dictionary = {
   'role.member': 'Member',
   'role.viewer': 'Viewer',
   'members.loadFailed': 'The roster could not be loaded',
+  'sidebar.nav': 'Navigation',
+  'sidebar.accountGroup': 'Account & team',
+  'sidebar.integrationsGroup': 'Integrations & credentials',
+  'apiKeys.title': 'API keys',
+  'webhooks.title': 'Webhooks',
   // Settings → Providers (US-AD109).
   'providers.title': 'LLM providers',
   'providers.subtitle': 'Credentials registered once per workspace',
@@ -984,6 +998,11 @@ const id: Dictionary = {
   'role.member': 'Anggota',
   'role.viewer': 'Pengamat',
   'members.loadFailed': 'Daftar anggota gagal dimuat',
+  'sidebar.nav': 'Navigasi Utama',
+  'sidebar.accountGroup': 'Pengaturan Akun & Tim',
+  'sidebar.integrationsGroup': 'Integrasi & Kredensial',
+  'apiKeys.title': 'API Keys',
+  'webhooks.title': 'Webhooks',
   // Settings → Providers (US-AD109).
   'providers.title': 'Provider LLM',
   'providers.subtitle': 'Kredensial didaftarkan sekali per ruang kerja',

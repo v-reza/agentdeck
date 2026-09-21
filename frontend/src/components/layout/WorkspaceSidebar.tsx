@@ -1,4 +1,4 @@
-import { Lock } from 'lucide-react'
+import { Cable, KeyRound, Lock, UserRound, Users, Webhook } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { useProjects } from '@/hooks/use-projects'
@@ -6,6 +6,8 @@ import { useDirectoryTotals } from '@/hooks/use-directory-totals'
 import { useProjectBoards } from '@/hooks/use-directory'
 import { useAppSelector } from '@/store/hooks'
 import { plural } from '@/lib/formatters'
+import { useT } from '@/hooks/use-t'
+import { useListProvidersQuery } from '@/store/api/providers'
 import { activeRole } from '@/store/slices/sessionSlice'
 import type { Project } from '@/lib/domain'
 
@@ -27,6 +29,7 @@ import type { Project } from '@/lib/domain'
  * renders a dash, never a confident zero.
  */
 export function WorkspaceSidebar() {
+  const t = useT()
   const { projects } = useProjects()
   const activeOrgID = useAppSelector((state) => state.session.activeOrgID)
   const workspace = useAppSelector((state) => state.session.workspaces.find((w) => w.id === state.session.activeOrgID))
@@ -63,12 +66,25 @@ export function WorkspaceSidebar() {
 
         <nav className="flex flex-col gap-1">
           <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-[var(--color-tertiary)]">
-            Navigation
+            {t['sidebar.nav']}
           </div>
-          <SidebarLink to={`/app/${activeOrgID}/boards`} label="All Boards" count={boardTotal} />
-          <SidebarLink to={`/app/${activeOrgID}/projects`} label="All Projects" count={projects.length} />
-          <SidebarLink to={`/app/${activeOrgID}/approvals`} label="Approvals" />
+          <SidebarLink to={`/app/${activeOrgID}/boards`} label={t['nav.boards']} count={boardTotal} />
+          <SidebarLink to={`/app/${activeOrgID}/projects`} label={t['nav.projects']} count={projects.length} />
+          <SidebarLink to={`/app/${activeOrgID}/approvals`} label={t['nav.approvals']} />
         </nav>
+
+        {/*
+          The settings groups the design puts in this sidebar (47-providers,
+          38-members). They are the ONLY navigation that reaches the settings
+          routes: the rail's gear lands on `settings/workspace` and nothing else
+          links to members, providers, api-keys or webhooks — seven routes with
+          no way in.
+
+          "Keamanan & Sesi" is deliberately absent. 16-security has a mockup but
+          no route yet, and a link that 404s is worse than an item that is not
+          there yet.
+        */}
+        <SettingsNav orgID={activeOrgID} />
 
         <div className="flex min-h-0 flex-col gap-1">
           <div className="mb-1 flex items-center justify-between">
@@ -108,6 +124,81 @@ export function WorkspaceSidebar() {
         ) : null}
       </div>
     </nav>
+  )
+}
+
+/**
+ * The two settings groups the design renders in this sidebar. Split out so the
+ * main component stays readable and so the "only navigation that reaches
+ * settings" rule above has one home.
+ *
+ * `useListProvidersQuery` reads the same cache the Providers page fills, so the
+ * count costs no extra request; the rail never displays a count it has not been
+ * given, so an unresolved list shows no badge rather than a confident zero.
+ */
+function SettingsNav({ orgID }: { orgID: string }) {
+  const t = useT()
+  const { data: providers } = useListProvidersQuery()
+
+  return (
+    <>
+      <div className="flex flex-col gap-1">
+        <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-[var(--color-tertiary)]">
+          {t['sidebar.accountGroup']}
+        </div>
+        <SettingsLink to={`/app/${orgID}/settings/profile`} icon={<UserRound size={15} />} label={t['profile.title']} />
+        <SettingsLink to={`/app/${orgID}/settings/workspace`} icon={<Lock size={15} />} label={t['workspace.title']} />
+        <SettingsLink to={`/app/${orgID}/settings/members`} icon={<Users size={15} />} label={t['members.title']} />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-[var(--color-tertiary)]">
+          {t['sidebar.integrationsGroup']}
+        </div>
+        <SettingsLink
+          to={`/app/${orgID}/settings/providers`}
+          icon={<Cable size={15} />}
+          label={t['providers.title']}
+          count={providers?.length}
+        />
+        <SettingsLink to={`/app/${orgID}/settings/api-keys`} icon={<KeyRound size={15} />} label={t['apiKeys.title']} />
+        <SettingsLink to={`/app/${orgID}/settings/webhooks`} icon={<Webhook size={15} />} label={t['webhooks.title']} />
+      </div>
+    </>
+  )
+}
+
+function SettingsLink({
+  to,
+  icon,
+  label,
+  count,
+}: {
+  to: string
+  icon: React.ReactNode
+  label: string
+  count?: number
+}) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cn(
+          'flex items-center justify-between rounded-[6px] px-2 py-1.5 text-[12px] transition-colors',
+          isActive
+            ? 'bg-[var(--color-accent-tint)] font-semibold text-[var(--color-accent)]'
+            : 'text-[var(--color-secondary)] hover:bg-[rgba(12,26,22,0.04)] hover:text-[var(--color-primary)]',
+        )
+      }
+    >
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="shrink-0 text-[var(--color-tertiary)]">{icon}</span>
+        <span className="truncate">{label}</span>
+      </span>
+      {count === undefined ? null : (
+        <span className="font-mono text-[10px] tabular-nums text-[var(--color-tertiary)]">{count}</span>
+      )}
+    </NavLink>
   )
 }
 

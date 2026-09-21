@@ -69,6 +69,61 @@ async function seedWorkspaceWithProvider(page: Page): Promise<string> {
   return result.orgID
 }
 
+test.describe('providers — reachable from the shell', () => {
+  /**
+   * The bug this exists to catch: the screen was built, routed and styled, and
+   * nothing linked to it. The rail's gear reaches `settings/workspace` and the
+   * sidebar rendered no settings navigation at all, so seven settings routes
+   * (members, providers, api-keys, webhooks, profile, workspace) had no way in.
+   *
+   * Every other test in this file navigates straight to the URL, which is
+   * exactly why none of them noticed. This one starts at the rail and clicks,
+   * the way an operator arrives.
+   */
+  test('the rail and sidebar reach the registry without a typed URL', async ({ page }) => {
+    const orgID = await seedWorkspaceWithProvider(page)
+
+    // Start where the operator starts: the gear in the rail.
+    await page.goto(`/app/${orgID}/boards`)
+    await page.getByRole('link', { name: 'Settings' }).click()
+    await expect(page).toHaveURL(new RegExp(`/app/${ULID.source}/settings/`))
+
+    // The sidebar is the only navigation into the settings routes.
+    const link = page.getByRole('link', { name: /provider llm/i })
+    await expect(link).toBeVisible({ timeout: 15_000 })
+    await link.click()
+
+    await expect(page).toHaveURL(new RegExp(`/app/${ULID.source}/settings/providers$`))
+    await expect(page.getByRole('cell', { name: /local ollama/i }).first()).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('every settings link in the sidebar resolves to a real screen', async ({ page }) => {
+    const orgID = await seedWorkspaceWithProvider(page)
+    await page.goto(`/app/${orgID}/settings/providers`)
+
+    // The shell mounts asynchronously — the sidebar is not in the first paint.
+    // Counting before it appears reads 0 and looks like a missing nav; wait for
+    // one link first, then count.
+    await expect(page.getByRole('link', { name: /provider llm/i })).toBeVisible({ timeout: 15_000 })
+
+    // A link that 404s is worse than an item that is not rendered, so this
+    // walks the sidebar's settings links and proves each one lands somewhere.
+    const hrefs = await page
+      .locator('nav a[href*="/settings/"]')
+      .evaluateAll((nodes) => nodes.map((n) => (n as HTMLAnchorElement).getAttribute('href') ?? ''))
+    expect(hrefs.length, 'the sidebar must render the settings groups').toBeGreaterThan(3)
+
+    for (const href of hrefs) {
+      const response = await page.request.get(href)
+      // SPA fallback serves index.html for a client route, so a real check is
+      // that the screen renders rather than that the status is 200.
+      expect(response.status(), href).toBeLessThan(400)
+      await page.goto(href)
+      await expect(page.getByRole('main').or(page.locator('header')).first(), href).toBeVisible({ timeout: 15_000 })
+    }
+  })
+})
+
 test.describe('providers — design match and US-AD109', () => {
   let orgID: string
 
