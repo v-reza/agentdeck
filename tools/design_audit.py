@@ -178,12 +178,22 @@ def scan_impl(files):
         # count was reading prose as markup.
         stripped = jsx
         selects = [(i, ln.strip()[:70]) for i, ln in enumerate(stripped.splitlines(), 1) if "<select" in ln]
+        loading = [
+            (i, ln.strip()[:70])
+            for i, ln in enumerate(stripped.splitlines(), 1)
+            if re.search(r"""["'>](Loading|Memuat)[….\s]""", ln)
+        ]
         out[rel] = {
             "svg": len(re.findall(r"<svg", text)),
             "select": len(selects),
             "select_at": selects,
             "skeleton": len(re.findall(r"<Skeleton", text)),
-            "loading_text": len(re.findall(r"Loading", jsx)),
+            # Bare "Loading" was too blunt: it counted the i18n *key* names
+            # (`state.loading`), so a screen that rendered no text at all still
+            # scored. What matters is a literal loading string reaching the DOM —
+            # a quoted value, or the ellipsis form the screens actually used.
+            "loading_at": loading,
+            "loading_text": len(loading),
             "lucide": len(re.findall(r"from 'lucide-react'", text)),
             "line_through": len(re.findall(r"line-through", text)),
             "opacity": len(re.findall(r"opacity-\d+", text)),
@@ -269,6 +279,7 @@ def build(screens, design, impl, mapped, unmapped):
     total_impl_skel = sum(i["skeleton"] for i in impl.values())
     ligature_files = [s for s, d in design.items() if d["ligature"]]
     select_files = [(r, i["select"], i["select_at"]) for r, i in impl.items() if i["select"]]
+    loading_text = [(r, i["loading_text"], i["loading_at"]) for r, i in impl.items() if i["loading_text"]]
 
     add("## 1. Ringkasan")
     add("")
@@ -418,7 +429,7 @@ def build(screens, design, impl, mapped, unmapped):
         add(f"- `{rel}`")
     add("")
 
-    return "\n".join(lines) + "\n", jargon, select_files, dead, diff
+    return "\n".join(lines) + "\n", jargon, select_files, dead, diff, loading_text
 
 
 def github_exempt_active():
@@ -447,7 +458,7 @@ def main():
     mapped, unmapped = assign_screens(files, screens, route_map())
 
     exempt_ok, exempt_why = github_exempt_active()
-    report, jargon, select_files, dead, diff = build(screens, design, impl, mapped, unmapped)
+    report, jargon, select_files, dead, diff, loading_text = build(screens, design, impl, mapped, unmapped)
     with open(OUT, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(report)
 
@@ -470,6 +481,14 @@ def main():
         print(f"           {rel}: {n} (baris {', '.join(str(i) for i, _ in at)})")
     print(f"WARNA    : {diff} token status beda dari DECISIONS §8")
     print(f"SPACING  : {len(dead)} token dideklarasikan tapi nol dipakai")
+    # A screen whose loading state is a line of text is a screen the design
+    # already solved (43-state-loading draws it as grey blocks). Reported, not
+    # failed: the remaining hits are button labels mid-flight ("Memuat…" on a
+    # submit), which are not the state this rule is about.
+    if loading_text:
+        print(f"LOADING  : {len(loading_text)} file masih merender teks loading")
+        for rel, n, at in loading_text[:6]:
+            print(f"           {rel}: {n} (baris {', '.join(str(i) for i, _ in at)})")
 
     if check:
         if not exempt_ok:

@@ -12,6 +12,7 @@ import { useMeQuery, useUpdateMeMutation, type ProfilePatchBody } from '@/store/
 import { useAppSelector } from '@/store/hooks'
 import type { Dictionary } from '@/lib/i18n'
 import type { Lang } from '@/lib/domain'
+import { SkeletonText } from '@/components/ui/skeleton'
 
 /**
  * Screen 15-profile — the operator's own account (US-AD89).
@@ -105,7 +106,9 @@ export function Profile() {
         </Panel>
 
         {isLoading ? (
-          <Panel className="p-4 font-mono text-[12px] text-[var(--color-tertiary)]">{t['state.loading']}</Panel>
+          <Panel className="p-4">
+            <SkeletonText lines={3} />
+          </Panel>
         ) : isError || !data ? (
           <Panel className="p-4 font-mono text-[12px] text-[var(--color-danger)]">{t['state.error']}</Panel>
         ) : (

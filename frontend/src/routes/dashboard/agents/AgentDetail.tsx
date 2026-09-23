@@ -29,6 +29,7 @@ import { AssignmentSection } from './AgentAssignment'
 import { AgentHero, ArchiveButton, LifecycleCard, SaveButton, StatusPill, agentState } from './AgentDetailParts'
 import type { AgentState } from './AgentDetailParts'
 import { AgentProviderKeyPanel } from '@/components/agents/AgentProviderKeyPanel'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 const FORM_ID = 'agent-detail-form'
 const ARCHIVE_ERROR_ID = 'agent-archive-error'
@@ -182,7 +183,7 @@ export function AgentDetail() {
             <EmptyState title={t['agents.detail.notFound']} hint={t['agents.detail.tasksEmpty']} />
           ) : !agent ? (
             <Panel className="p-3">
-              <p className="font-mono text-[12px] text-[var(--color-tertiary)]">{t['agents.detail.loading']}</p>
+              <SkeletonRows rows={4} columns={3} />
             </Panel>
           ) : (
             <>

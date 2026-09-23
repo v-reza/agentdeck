@@ -7,6 +7,7 @@ import { openTask } from '@/store/slices/uiSlice'
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { Column } from '@/components/kanban/Column'
 import { COLUMN_ORDER, isTaskStatus } from '@/lib/domain'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 /**
  * Screen 18-kanban — drag a card between columns.
@@ -49,7 +50,7 @@ export function KanbanBoard() {
       <WorkspaceTopbar title={board?.name ?? 'Board'} subtitle={board?.slug} />
       <div className="flex min-h-0 flex-1 gap-2.5 overflow-x-auto p-4">
         {isLoading ? (
-          <p className="font-mono text-[12px] text-[var(--color-tertiary)]">Loading…</p>
+          <SkeletonRows rows={5} columns={4} />
         ) : (
           <DndContext sensors={sensors} onDragEnd={onDragEnd}>
             {COLUMN_ORDER.map((columnKey) => (

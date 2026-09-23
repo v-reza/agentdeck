@@ -6,6 +6,7 @@ import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { EmptyState, Panel, StatTile } from '@/components/ui/card'
 import { budgetPercent, formatEstimatedMicroUSD, formatTokens, formatRelative } from '@/lib/formatters'
 import type { Board } from '@/lib/domain'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 /**
  * Screens 33/34 — cost overview and ledger explorer.
@@ -129,7 +130,7 @@ function BoardCost({ boardID }: { boardID: string; orgID: string }) {
           Ledger
         </div>
         {isLoading ? (
-          <p className="p-3 font-mono text-[12px] text-[var(--color-tertiary)]">Loading…</p>
+          <SkeletonRows rows={4} columns={4} />
         ) : (ledger ?? []).length === 0 ? (
           <p className="p-3 text-[12px] text-[var(--color-tertiary)]">No ledger entries yet.</p>
         ) : (

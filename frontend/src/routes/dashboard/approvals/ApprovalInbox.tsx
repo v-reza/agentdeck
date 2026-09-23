@@ -4,6 +4,7 @@ import { EmptyState, Panel } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { formatRelative, shortID } from '@/lib/formatters'
 import type { Approval } from '@/lib/domain'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 /**
  * Screen: approvals inbox (ARCHITECTURE 8, US-AD gate decisions).
@@ -28,7 +29,7 @@ export function ApprovalInbox() {
       />
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-4">
         {isLoading ? (
-          <p className="font-mono text-[12px] text-[var(--color-tertiary)]">Loading…</p>
+          <SkeletonRows rows={4} columns={3} />
         ) : pending.length === 0 ? (
           <EmptyState title="Nothing waiting on you" hint="Approvals appear here when a run pauses for a decision." />
         ) : (

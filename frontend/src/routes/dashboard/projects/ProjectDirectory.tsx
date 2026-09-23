@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/card'
 import { formatEstimatedMicroUSD, formatRelative, plural } from '@/lib/formatters'
 import { cn } from '@/lib/cn'
 import type { Board, Project } from '@/lib/domain'
+import { SkeletonRows, SkeletonText } from '@/components/ui/skeleton'
 
 /**
  * The grouped project directory (design source 11-project-list "MAIN PROJECTS &
@@ -39,7 +40,15 @@ export function ProjectDirectory() {
 
   const { data, isLoading, error } = useListProjectsQuery()
 
-  if (isLoading) return <DirectoryNote text="Loading projects…" />
+  // Same reasoning as the skeleton in `Layout`: the table is what has not
+  // arrived, so the placeholder is table-shaped.
+  if (isLoading) {
+    return (
+      <div className="p-4">
+        <SkeletonRows rows={6} columns={6} />
+      </div>
+    )
+  }
   if (error) return <EmptyState title="Could not load projects" hint="The API rejected the request." />
 
   const projects = data ?? []
@@ -225,7 +234,7 @@ function ProjectGroup({
         <tr className="h-[28px]">
           <td />
           <td className="px-3 pl-8 font-mono text-[11px] text-[var(--color-tertiary)]" colSpan={6}>
-            {isUnresolved ? 'Loading boards…' : 'No boards in this project yet.'}
+            {isUnresolved ? <SkeletonText lines={1} /> : 'No boards in this project yet.'}
           </td>
         </tr>
       ) : (
@@ -341,10 +350,6 @@ function BoardRow({ board, project, orgID }: { board: Board; project: Project; o
       </td>
     </tr>
   )
-}
-
-function DirectoryNote({ text }: { text: string }) {
-  return <p className="p-4 font-mono text-[12px] text-[var(--color-tertiary)]">{text}</p>
 }
 
 /** Case-insensitive match on project name/slug; a matching project keeps all its boards. */

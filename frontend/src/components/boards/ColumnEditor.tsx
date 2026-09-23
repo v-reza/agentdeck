@@ -8,6 +8,7 @@ import { useGetBoardQuery, useListTasksQuery, useUpdateBoardColumnsMutation } fr
 import { useActionForm } from '@/hooks/use-action-form'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
+import { SkeletonRows } from '@/components/ui/skeleton'
 import { columnForStatus } from '@/lib/domain'
 import type { Column, Task } from '@/lib/domain'
 
@@ -48,6 +49,43 @@ export function ColumnEditor({ boardID, onClose }: { boardID: string; onClose: (
     setDraft(board.columns)
     setSeeded(true)
   }, [board, seeded])
+
+  // Until the layout arrives, `draft` is [] and the server's copy is unknown —
+  // so the editor is a placeholder, not an editor.
+  //
+  // This is load-bearing, not cosmetic. `dirty` compares `draft` against
+  // `board?.columns ?? []`, so with `board` undefined the two are both empty,
+  // `dirty` reads false, and the "add a column" form is still live: one click
+  // makes `draft` non-empty, `dirty` flips true, and the save button offers to
+  // write a ONE-column layout over the board's five. The e2e caught it as an
+  // intermittent "persisted length 1, expected 6" — intermittent because it
+  // depends on whether the board query resolved before the click.
+  if (!board) {
+    return (
+      <aside className="flex w-[420px] min-w-[420px] flex-col border-l border-[var(--color-border-standard)] bg-[var(--color-surface-panel)]">
+        <header className="flex h-[46px] shrink-0 items-center justify-between border-b border-[var(--color-border-standard)] px-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-[6px] bg-[var(--color-accent-tint)] text-[var(--color-accent)]">
+              <ColumnsGlyph />
+            </span>
+            <h2 className="text-[13px] font-bold text-[var(--color-primary)]">Editor Kolom Board</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            title="Tutup panel"
+            aria-label="Tutup panel"
+            className="flex h-7 w-7 items-center justify-center rounded-[4px] text-[var(--color-tertiary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-primary)]"
+          >
+            <X size={18} />
+          </button>
+        </header>
+        <div className="p-4">
+          <SkeletonRows rows={5} columns={3} />
+        </div>
+      </aside>
+    )
+  }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 

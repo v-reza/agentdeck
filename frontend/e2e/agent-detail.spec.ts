@@ -198,8 +198,13 @@ test.describe('agent detail (28-agent-detail)', () => {
     await page.reload()
     const section = page.getByTestId('agent-assignment')
     await expect(section).toBeVisible()
-    // The row names the task the API was just told about.
-    await expect(section.getByTestId('assignment-row').filter({ hasText: title })).toBeVisible()
+    // The row names the task the API was just told about. The explicit timeout is
+    // the same 15s the other write-then-read assertions in this file use: under a
+    // full-suite run the reload plus the assignment query can outlast the 5s
+    // default, which reads as a missing row rather than a slow one.
+    await expect(section.getByTestId('assignment-row').filter({ hasText: title })).toBeVisible({
+      timeout: 15_000,
+    })
   })
 
   /**

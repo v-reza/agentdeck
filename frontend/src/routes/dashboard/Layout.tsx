@@ -4,6 +4,7 @@ import { AppShell } from '@/components/layout/AppShell'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useMeQuery } from '@/store/api/session'
 import { setActiveOrg, setSession } from '@/store/slices/sessionSlice'
+import { SkeletonText } from '@/components/ui/skeleton'
 
 /**
  * ARCHITECTURE 18.2: `routes/dashboard/Layout.tsx` — "sidebar, org picker,
@@ -49,20 +50,22 @@ export function DashboardLayout() {
     navigate(`/app/${activeOrgID}${rest || '/projects'}`, { replace: true })
   }, [data, orgID, activeOrgID, location.pathname, navigate])
 
-  if (isLoading) return <CenteredNote text="Loading workspace…" />
+  // The shell itself is what has not arrived, so the placeholder is the shell's
+  // own shape — a centred card — rather than a line of text where the app goes.
+  if (isLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[var(--color-surface-page)]">
+        <div className="w-[320px] rounded-[10px] border border-[var(--color-border-subtle)] bg-[var(--color-surface-panel)] p-4">
+          <SkeletonText lines={3} />
+        </div>
+      </main>
+    )
+  }
   if (error) return <Navigate to="/login" replace />
 
   return (
     <AppShell>
       <Outlet />
     </AppShell>
-  )
-}
-
-function CenteredNote({ text }: { text: string }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--color-surface-page)]">
-      <p className="font-mono text-[12px] text-[var(--color-tertiary)]">{text}</p>
-    </main>
   )
 }

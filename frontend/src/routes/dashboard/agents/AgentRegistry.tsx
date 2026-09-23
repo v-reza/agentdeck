@@ -19,6 +19,7 @@ import { CreateAgentForm } from './CreateAgentForm'
 import { AgentSpecCards } from './AgentSpecCards'
 import { StatusFilter, type StatusFilterValue } from './StatusFilter'
 import type { Agent } from '@/lib/domain'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 /**
  * Screen 25-agent-registry — the agents configured for a project.
@@ -137,7 +138,7 @@ export function AgentRegistry() {
           </p>
         ) : null}
         {isLoading ? (
-          <p className="font-mono text-[12px] text-[var(--color-tertiary)]">Loading…</p>
+          <SkeletonRows rows={6} columns={6} />
         ) : (projects ?? []).length === 0 ? (
           <EmptyState title={t['agents.noProjects']} hint={t['agents.noProjectsHint']} />
         ) : list.length === 0 ? (

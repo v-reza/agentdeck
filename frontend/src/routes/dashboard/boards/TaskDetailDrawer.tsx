@@ -7,6 +7,7 @@ import { Field, Input, Textarea } from '@/components/ui/input'
 import { useAppDispatch } from '@/store/hooks'
 import { closeTask } from '@/store/slices/uiSlice'
 import { formatEstimatedMicroUSD, formatTokens, shortID } from '@/lib/formatters'
+import { SkeletonText } from '@/components/ui/skeleton'
 
 /**
  * Screen 20-task-drawer — the task, its dependency edges, and its append-only
@@ -105,7 +106,7 @@ export function TaskDetailDrawer({ taskID }: { taskID: string }) {
             This task could not be loaded. Close the drawer and try again.
           </p>
         ) : (
-          <p className="font-mono text-[12px] text-[var(--color-tertiary)]">Loading…</p>
+          <SkeletonText lines={4} />
         )}
       </div>
     </aside>

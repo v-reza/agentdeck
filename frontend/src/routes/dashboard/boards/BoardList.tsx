@@ -10,6 +10,7 @@ import { useT } from '@/hooks/use-t'
 import { setBoardSort, type BoardSortKey, type BoardTaskStats } from '@/store/slices/directorySlice'
 import { plural } from '@/lib/formatters'
 import type { Board } from '@/lib/domain'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 /**
  * Screen 10-board-list — every board in the workspace as one dense table
@@ -35,7 +36,7 @@ export function BoardList() {
     return (
       <>
         <WorkspaceTopbar title="Boards" path="/boards" />
-        <div className="p-4 font-mono text-[12px] text-[var(--color-tertiary)]">Loading…</div>
+        <SkeletonRows rows={4} columns={4} />
       </>
     )
   }

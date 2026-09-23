@@ -3,12 +3,13 @@ import { BadgeCheck, Check, Info, Pencil, ShieldCheck, Smile } from 'lucide-reac
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
-import { Panel, EmptyState } from '@/components/ui/card'
+import { Panel } from '@/components/ui/card'
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { useT } from '@/hooks/use-t'
 import { useActionForm } from '@/hooks/use-action-form'
 import { useAppSelector } from '@/store/hooks'
 import { useUpdateOrgMutation } from '@/store/api/session'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 /**
  * Workspace settings (37-workspace-settings, US-AD03/US-AD77).
@@ -40,7 +41,7 @@ export function WorkspaceSettings() {
       <>
         <WorkspaceTopbar title={t['workspace.title']} path="/settings/workspace" />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
-          <EmptyState title={t['state.loading']} />
+          <SkeletonRows rows={3} columns={2} />
         </div>
       </>
     )

@@ -3,6 +3,7 @@ import { useGetProjectQuery, useListBoardsQuery } from '@/store/api/boards'
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { EmptyState, Panel } from '@/components/ui/card'
 import { formatEstimatedMicroUSD, formatRelative } from '@/lib/formatters'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 /**
  * One project and its boards (screen 10-board-list). Boards are the unit that
@@ -19,7 +20,7 @@ export function ProjectDetail() {
       <WorkspaceTopbar title={project?.name ?? 'Project'} subtitle={project?.slug} />
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         {isLoading ? (
-          <p className="font-mono text-[12px] text-[var(--color-tertiary)]">Loading…</p>
+          <SkeletonRows rows={3} columns={3} />
         ) : (boards ?? []).length === 0 ? (
           <EmptyState title="No boards in this project" hint="A board holds the tasks and the daily budget cap." />
         ) : (

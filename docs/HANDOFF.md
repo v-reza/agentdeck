@@ -259,10 +259,10 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
    | 1 | **Warna status beda 10/10** | `#16a34a` (done) | `#15803d` | 10 baris `index.css` |
    | 2 | Icon Lucide | 319 `<svg>` | 3 | 1 dependency, 319 titik |
    | 3 | Grafik batang / sparkline | 119 `<rect>` | 3 | ikut nomor 2 |
-   | 4 | Skeleton loading | 323 blok | **0** | per layar |
+   | 4 | Skeleton loading | 323 blok | ~~**0**~~ 20 komponen di 17 layar | SELESAI |
    | 5 | State archived | 6 `line-through` | 0 | per layar |
    | 6 | Token `--spacing-*` mati | 6 token | **0 dipakai** | hapus atau pakai |
-   | 7 | `<select>` bawaan | — | **4 file, 7 titik** | per titik, Combobox |
+   | 7 | `<select>` bawaan | — | ~~**4 file, 7 titik**~~ **0** | SELESAI (fase D) |
 
    **Akar masalahnya**: nol gate yang ngecek `index.css` terhadap `DESIGN.md`.
    `verify_suite.py` cuma `designmd lint` DESIGN.md sendiri. Persis pola §18 —
@@ -271,9 +271,15 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
 2. **Layar agent registry belum nemu "titik enaknya".** Satu hari lebih ngotak-atik
    implementasi, tapi pertanyaan "informasi apa yang harus ada di layar ini" belum
    dijawab. **Perlu sesi khusus nggak ngoding.**
-3. `<select>` bawaan masih hidup di **4 file** (`AgentDetailForm` 3 titik —
-   runtime/reasoning/retry, `members-actions` 2, `WorkspaceTopbar` 1,
-   `CreateBoardForm` 1). Dihitung `tools/design_audit.py`. Ini kerjaan fase D.
+3. ~~`<select>` bawaan masih hidup di 4 file~~ **Selesai (fase D, commit
+   `4af38e1`)**: nol `<select>` bawaan, semuanya lewat `Combobox`.
+   Skeleton loading juga selesai (fase E): komponen `Skeleton`/`SkeletonRows`/
+   `SkeletonText` di `components/ui/skeleton.tsx`, dipakai 17 layar. Bentuknya
+   ikut DESIGN.md (`skeleton` token: `surface-sunken`, radius 4px) — mockup 43
+   memakai `#e8ecea` + `rounded-[4px]` yang memang token itu. Mockup TIDAK
+   berdenyut (`animate-pulse` nol di file itu), jadi skeleton ini juga tidak.
+   Sisa fase: F (warna status 10/10, state archived, icon Lucide, jargon, token
+   spacing mati).
 4. **Kolom Provider sekarang menampilkan NAMA provider, bukan protokol.** Bug yang
    dilaporkan: agent di provider `9router` tampil sebagai `openai_compatible`,
    karena `agents.provider` itu protokol yang diturunkan server (US-AD109 AC6).

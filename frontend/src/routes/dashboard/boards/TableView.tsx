@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/card'
 import { TASK_STATUSES, statusColorVar } from '@/lib/domain'
 import { formatEstimatedMicroUSD, formatTokens, shortID } from '@/lib/formatters'
 import { cn } from '@/lib/cn'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 /**
  * Screen 19-table-view — the same tasks as the kanban, dense (32px rows), with
@@ -66,7 +67,7 @@ export function TableView() {
         </div>
 
         {isLoading ? (
-          <p className="font-mono text-[12px] text-[var(--color-tertiary)]">Loading…</p>
+          <SkeletonRows rows={6} columns={5} />
         ) : tasks.length === 0 ? (
           <EmptyState title="No tasks match" hint="Clear a filter or add a task to this board." />
         ) : (

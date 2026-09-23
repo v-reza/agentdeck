@@ -4,6 +4,7 @@ import { interpolate } from '@/lib/format'
 import { formatEstimatedMicroUSD, plural, shortID } from '@/lib/formatters'
 import { statusColorVar, type TaskStatus } from '@/lib/domain'
 import type { AgentAssignment } from '@/store/api/agents'
+import { SkeletonRows } from '@/components/ui/skeleton'
 
 /**
  * The assignment section of screen 28-agent-detail, which the screen was missing
@@ -62,7 +63,7 @@ export function AssignmentSection({
           </div>
 
           {loading && !data ? (
-            <p className="font-mono text-[11px] text-[var(--color-tertiary)]">{t['agents.detail.loading']}</p>
+            <SkeletonRows rows={3} columns={4} />
           ) : picker.length === 0 ? (
             <p className="text-[11px] leading-snug text-[var(--color-tertiary)]">{t['agents.detail.pickerEmpty']}</p>
           ) : (

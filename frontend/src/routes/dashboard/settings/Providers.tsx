@@ -9,6 +9,7 @@ import { useAppSelector } from '@/store/hooks'
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { Button } from '@/components/ui/button'
 import { EmptyState, Panel } from '@/components/ui/card'
+import { SkeletonRows } from '@/components/ui/skeleton'
 import {
   DeleteProviderDialog,
   ProviderFormDialog,
@@ -93,7 +94,7 @@ export function Providers() {
           </div>
 
           {isLoading ? (
-            <p className="px-3.5 py-6 font-mono text-[12px] text-[var(--color-tertiary)]">{t['state.loading']}</p>
+            <SkeletonRows rows={4} columns={4} />
           ) : isError ? (
             <div className="p-3.5">
               <EmptyState title={t['providers.loadFailed']} />
