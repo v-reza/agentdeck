@@ -4,6 +4,7 @@ import {
   useArchiveAgentMutation,
   useGetAgentCatalogQuery,
   useGetAgentQuery,
+  useGetAgentTasksQuery,
   useListAgentSkillsQuery,
   useUpdateAgentMutation,
   type ArchiveAgentArgs,
@@ -24,6 +25,7 @@ import {
   formValue,
   type AgentFormValues,
 } from './AgentDetailForm'
+import { AssignmentSection } from './AgentAssignment'
 import { AgentHero, ArchiveButton, LifecycleCard, SaveButton, StatusPill, agentState } from './AgentDetailParts'
 import type { AgentState } from './AgentDetailParts'
 import { AgentProviderKeyPanel } from '@/components/agents/AgentProviderKeyPanel'
@@ -74,6 +76,9 @@ export function AgentDetail() {
   const { data: catalog, isLoading: catalogLoading } = useGetAgentCatalogQuery()
   const { data: skills } = useListAgentSkillsQuery()
   const { data: providers = [] } = useListProvidersQuery()
+  // The assignment section (US-AD73 AC1/AC2) reads its own endpoint: the tasks
+  // this agent holds, and the picker its board's create-task modal would offer.
+  const { data: assignment, isLoading: assignmentLoading } = useGetAgentTasksQuery(id, { skip: !id })
   // Same resolution as the registry: `agent.provider` is the protocol, the
   // column and the hero ask which provider the operator registered.
   const providerName = new Map(providers.map((entry) => [entry.id, entry.name]))
@@ -211,6 +216,8 @@ export function AgentDetail() {
                 </div>
 
                 <RuntimeSection agent={agent} skills={skills} values={values} />
+
+                <AssignmentSection agentID={id} data={assignment} loading={assignmentLoading} />
               </form>
             </>
           )}

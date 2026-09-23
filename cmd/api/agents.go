@@ -272,6 +272,11 @@ func registerAgentRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, pr
 	// US-AD96 asks for.
 	agentRoute("PATCH /api/v1/agents/{id}", http.HandlerFunc(boardAPI.updateAgent), auth.Member)
 	agentRoute("GET /api/v1/agent-catalog", http.HandlerFunc(boardAPI.agentCatalog), auth.Viewer)
+	// GET /api/v1/agents/{id}/tasks — the assignment section of screen
+	// 28-agent-detail (US-AD73 AC1/AC2). Viewer is the floor: it is a read of
+	// rows the caller can already see on the board, and the archive control that
+	// acts on them is gated separately at owner/admin.
+	agentRoute("GET /api/v1/agents/{id}/tasks", http.HandlerFunc(boardAPI.agentTasks), auth.Viewer)
 }
 
 // PATCH /api/v1/agents/{id} — full update plus archive/unarchive (US-AD96,
@@ -399,6 +404,85 @@ func mergeAgent(current board.Agent, req agentUpdateRequest) board.Agent {
 		current.ProviderID = strings.TrimSpace(req.ProviderID)
 	}
 	return current
+}
+
+// GET /api/v1/agents/{id}/tasks — the assignment section of screen
+// 28-agent-detail (US-AD73 AC1/AC2).
+//
+// One response carries the three facts the section states together: the tasks the
+// agent holds (running first), the picker as this board's create-task modal would
+// render it, and how many archived agents that picker hid. Splitting them across
+// three calls would let the section render a "hidden" count beside a list that was
+// fetched at a different moment.
+//
+// `task_count` is derived here rather than by the client so the "N TASK RUNNING"
+// chip and the rows below it come from one snapshot.
+func (a boardAPI) agentTasks(w http.ResponseWriter, r *http.Request) {
+	orgCtx, err := a.boardContext(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	view, err := a.svc.AgentAssignment(r.Context(), orgCtx.workspace.ID, r.PathValue("id"))
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+
+	tasks := make([]assignedTaskResponse, 0, len(view.Tasks))
+	running := 0
+	for _, task := range view.Tasks {
+		if task.Status == board.StatusRunning {
+			running++
+		}
+		tasks = append(tasks, assignedTaskResponse{
+			ID:         task.ID,
+			BoardID:    task.BoardID,
+			Title:      task.Title,
+			Status:     string(task.Status),
+			CostMicros: task.CostMicros,
+			CreatedAt:  task.CreatedAt.Format(time.RFC3339Nano),
+			// Estimate mirrors the catalog: every cost figure in the UI is
+			// marked as an estimate, never as a bill (US-AD108 AC1).
+			Estimate: true,
+		})
+	}
+
+	picker := make([]assignableAgentResponse, 0, len(view.Picker))
+	for _, option := range view.Picker {
+		picker = append(picker, assignableAgentResponse(option))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"board_id":        view.BoardID,
+		"tasks":           tasks,
+		"running_count":   running,
+		"picker":          picker,
+		"hidden_agents":   view.HiddenAgents,
+		"picker_filtered": "active_only",
+	})
+}
+
+// assignedTaskResponse is one assignment row. It carries the raw micro-USD
+// integer; the UI formats it through the same estimate formatter as the ledger.
+type assignedTaskResponse struct {
+	ID         string `json:"id"`
+	BoardID    string `json:"board_id"`
+	Title      string `json:"title"`
+	Status     string `json:"status"`
+	CostMicros int64  `json:"cost_micros"`
+	CreatedAt  string `json:"created_at"`
+	Estimate   bool   `json:"estimate"`
+}
+
+// assignableAgentResponse is one picker option. `has_provider_key` is what the
+// picker marks: an agent without a credential can be assigned but not claimed,
+// which is the state US-AD73 AC2 is about.
+type assignableAgentResponse struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	HasProviderKey bool   `json:"has_provider_key"`
 }
 
 func writeAgent(w http.ResponseWriter, agent board.Agent) {

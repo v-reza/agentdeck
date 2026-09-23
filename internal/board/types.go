@@ -176,6 +176,27 @@ type Agent struct {
 	HasProviderKey bool
 }
 
+// AssignedTask is one row of the assignment table on the agent detail screen
+// (US-AD73 AC1). It is deliberately narrow: the screen needs to name the task,
+// say where it stands, and show what it has spent — not the whole Task struct,
+// which the board screens own.
+type AssignedTask struct {
+	ID         string
+	BoardID    string
+	Title      string
+	Status     TaskStatus
+	CostMicros int64
+	CreatedAt  time.Time
+}
+
+// AssignableAgent is one option of the assign picker (US-AD73 AC2). HasProviderKey
+// is carried because the picker marks the rows that are not ready to claim yet.
+type AssignableAgent struct {
+	ID             string
+	Name           string
+	HasProviderKey bool
+}
+
 // RetryPolicy mirrors the agents.retry_policy CHECK (DECISIONS §4).
 func AcceptableRetryPolicy(s string) bool {
 	switch s {
@@ -247,6 +268,18 @@ type Repository interface {
 	// strand that run without its retry and limit source, so the count is
 	// checked before the write.
 	CountAgentRunningTasks(ctx context.Context, id, orgID string) (int, error)
+	// ListAssignedTasks returns the tasks an agent holds, running first
+	// (US-AD73 AC1: the detail screen states that archiving does not cut a
+	// running task off, and that is only meaningful beside the rows it is
+	// about). Archived tasks are excluded, like ListBoardTasks.
+	ListAssignedTasks(ctx context.Context, orgID, agentID string) ([]AssignedTask, error)
+	// ListAssignableAgentsForBoard is the real assign picker for one board:
+	// active agents of the board's project (US-AD73 AC2). It is what the detail
+	// screen previews, so the preview cannot drift from the picker itself.
+	ListAssignableAgentsForBoard(ctx context.Context, orgID, boardID string) ([]AssignableAgent, error)
+	// CountArchivedAgents is how the picker reports what it hid instead of
+	// omitting rows silently.
+	CountArchivedAgents(ctx context.Context, orgID string) (int, error)
 
 	// ---- provider credentials (US-AD86) ----------------------------------
 	//

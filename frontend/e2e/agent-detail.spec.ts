@@ -169,6 +169,78 @@ test.describe('agent detail (28-agent-detail)', () => {
     expect(body).toMatch(/estimate|estimasi/i)
   })
 
+  /**
+   * The assignment section, which the screen did not have at all until now
+   * (US-AD73 AC1/AC2). The mock draws it as its third card; the implementation
+   * went straight from the lifecycle card to the runtime card.
+   *
+   * This is the assertion that the section reports real rows rather than the
+   * mock's hardcoded ones: a task is created through the API, assigned to the
+   * agent, and then looked for by its own title.
+   */
+  test('the assignment section lists the tasks this agent holds', async ({ page }) => {
+    const { agentID, projectID } = await openDetail(page, orgID)
+
+    // One board to hold the task, then a task assigned to this agent.
+    const board = await api<{ id: string }>(page, orgID, 'POST', `/projects/${projectID}/boards`, {
+      name: `Assignment Board ${Date.now()}`,
+      slug: `assignment-${Date.now()}`,
+    })
+    expect(board.status, board.text).toBe(201)
+    const title = `assigned-job-${Date.now()}`
+    const task = await api<{ id: string }>(page, orgID, 'POST', `/boards/${board.data.id}/tasks`, { title })
+    expect(task.status, task.text).toBe(201)
+    // Assignment is its own endpoint (POST /tasks/{id}/assign), not a field on
+    // create — the create path does not read assignee_agent_id at all.
+    const assigned = await api(page, orgID, 'POST', `/tasks/${task.data.id}/assign`, { agent_id: agentID })
+    expect(assigned.status, assigned.text).toBe(200)
+
+    await page.reload()
+    const section = page.getByTestId('agent-assignment')
+    await expect(section).toBeVisible()
+    // The row names the task the API was just told about.
+    await expect(section.getByTestId('assignment-row').filter({ hasText: title })).toBeVisible()
+  })
+
+  /**
+   * AC2's visible half: the picker offers this agent (it is active) and states
+   * how many archived agents it left out. An archived agent must not be an
+   * option — that is the rule, not the count.
+   */
+  test('the picker lists the active agent and reports what it hid', async ({ page }) => {
+    const { agentID, projectID } = await openDetail(page, orgID)
+
+    const board = await api<{ id: string }>(page, orgID, 'POST', `/projects/${projectID}/boards`, {
+      name: `Picker Board ${Date.now()}`,
+      slug: `picker-${Date.now()}`,
+    })
+    expect(board.status, board.text).toBe(201)
+    const title = `picker-job-${Date.now()}`
+    const task = await api<{ id: string }>(page, orgID, 'POST', `/boards/${board.data.id}/tasks`, { title })
+    expect(task.status, task.text).toBe(201)
+    const assigned = await api(page, orgID, 'POST', `/tasks/${task.data.id}/assign`, { agent_id: agentID })
+    expect(assigned.status, assigned.text).toBe(200)
+
+    // A second agent in the same project, then archived: it must vanish from the
+    // picker while the count of hidden rows goes up.
+    const retired = await api<{ id: string }>(page, orgID, 'POST', `/projects/${projectID}/agents`, {
+      ...AGENT,
+      name: `agent-retired-${Date.now()}`,
+    })
+    expect(retired.status, retired.text).toBe(201)
+    const archived = await api(page, orgID, 'PATCH', `/agents/${retired.data.id}`, { archived: true })
+    expect(archived.status, archived.text).toBe(200)
+
+    await page.reload()
+    const section = page.getByTestId('agent-assignment')
+    await expect(section).toBeVisible()
+
+    const picker = section.getByTestId('assignment-picker')
+    await expect(picker.getByText('agent-detail-e2e')).toBeVisible()
+    await expect(picker).not.toContainText('agent-retired-')
+    await expect(section.getByTestId('assignment-hidden')).toContainText(/1/)
+  })
+
   test('archiving the agent answers 204 and the page re-renders as archived', async ({ page }) => {
     await openDetail(page, orgID)
 

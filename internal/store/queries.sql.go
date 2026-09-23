@@ -152,10 +152,6 @@ type ClaimReadyTasksParams struct {
 	CurrentRunID *string
 }
 
-// Dispatcher claim (ARCHITECTURE 4b): one atomic statement. SKIP LOCKED lets
-// concurrent dispatchers claim disjoint batches instead of serialising on the
-// board row, and the status='ready' predicate means a second claimer sees an
-// empty set rather than a duplicate claim.
 func (q *Queries) ClaimReadyTasks(ctx context.Context, arg ClaimReadyTasksParams) ([]Task, error) {
 	rows, err := q.db.Query(ctx, claimReadyTasks,
 		arg.OrgID,
@@ -280,6 +276,21 @@ type CountAgentRunningTasksParams struct {
 // because the run it is executing would lose its retry/limit source mid-flight.
 func (q *Queries) CountAgentRunningTasks(ctx context.Context, arg CountAgentRunningTasksParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countAgentRunningTasks, arg.AssigneeAgentID, arg.OrgID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countArchivedAgents = `-- name: CountArchivedAgents :one
+SELECT count(*) FROM agents
+WHERE org_id = $1 AND archived_at IS NOT NULL
+`
+
+// The assign picker hides archived agents (US-AD73 AC2). The count is what lets
+// the board say "N hidden" instead of silently omitting rows — the design's own
+// `✕ 1 agent diarsip disembunyikan` line.
+func (q *Queries) CountArchivedAgents(ctx context.Context, orgID string) (int64, error) {
+	row := q.db.QueryRow(ctx, countArchivedAgents, orgID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -1723,6 +1734,106 @@ func (q *Queries) ListAssignableAgents(ctx context.Context, orgID string) ([]Lis
 			&i.CreatedAt,
 			&i.HasProviderKey,
 			&i.ProviderID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAssignableAgentsForBoard = `-- name: ListAssignableAgentsForBoard :many
+SELECT a.id, a.name, a.has_provider_key
+FROM agents a
+JOIN boards b ON b.project_id = a.project_id AND b.org_id = a.org_id
+WHERE a.org_id = $1 AND b.id = $2 AND a.archived_at IS NULL
+ORDER BY a.name
+`
+
+type ListAssignableAgentsForBoardParams struct {
+	OrgID string
+	ID    string
+}
+
+type ListAssignableAgentsForBoardRow struct {
+	ID             string
+	Name           string
+	HasProviderKey *bool
+}
+
+// The real assign picker for a board: every active agent of the board's own
+// project, ordered the way the picker shows them. It is the source of the
+// preview's "Filter Active Only" claim, so the section proves AC2 against the
+// same rows the task-create modal would offer.
+func (q *Queries) ListAssignableAgentsForBoard(ctx context.Context, arg ListAssignableAgentsForBoardParams) ([]ListAssignableAgentsForBoardRow, error) {
+	rows, err := q.db.Query(ctx, listAssignableAgentsForBoard, arg.OrgID, arg.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAssignableAgentsForBoardRow
+	for rows.Next() {
+		var i ListAssignableAgentsForBoardRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.HasProviderKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAssignedTasks = `-- name: ListAssignedTasks :many
+SELECT id, board_id, title, status, cost_micros, created_at
+FROM tasks
+WHERE org_id = $1 AND assignee_agent_id = $2 AND status != 'archived'
+ORDER BY (status = 'running') DESC, created_at DESC
+`
+
+type ListAssignedTasksParams struct {
+	OrgID           string
+	AssigneeAgentID *string
+}
+
+type ListAssignedTasksRow struct {
+	ID         string
+	BoardID    string
+	Title      string
+	Status     string
+	CostMicros int64
+	CreatedAt  pgtype.Timestamptz
+}
+
+// Dispatcher claim (ARCHITECTURE 4b): one atomic statement. SKIP LOCKED lets
+// concurrent dispatchers claim disjoint batches instead of serialising on the
+// board row, and the status='ready' predicate means a second claimer sees an
+// empty set rather than a duplicate claim.
+// Screen 28-agent-detail draws the "simulasi penugasan" section: which tasks this
+// agent holds, and the guarantee that archiving it does not cut a running one
+// off (US-AD73 AC1). Archived tasks are excluded (they are gone from the board,
+// like ListBoardTasks), and the order puts live work first so the running row is
+// the one an operator sees without scrolling.
+func (q *Queries) ListAssignedTasks(ctx context.Context, arg ListAssignedTasksParams) ([]ListAssignedTasksRow, error) {
+	rows, err := q.db.Query(ctx, listAssignedTasks, arg.OrgID, arg.AssigneeAgentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAssignedTasksRow
+	for rows.Next() {
+		var i ListAssignedTasksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BoardID,
+			&i.Title,
+			&i.Status,
+			&i.CostMicros,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"testing"
 
 	"agentdeck/internal/board"
@@ -492,6 +493,60 @@ func (r *fakeBoardRepo) CountAgentRunningTasks(_ context.Context, id, orgID stri
 	n := 0
 	for _, task := range r.tasks {
 		if task.OrgID == orgID && task.AssigneeAgentID == id && task.Status == board.StatusRunning {
+			n++
+		}
+	}
+	return n, nil
+}
+
+// ---- assignment section (US-AD73 AC1/AC2) -----------------------------------
+
+// ListAssignedTasks mirrors the statement: archived tasks are excluded, and
+// running rows sort first — the order the detail screen relies on to show the
+// live row without scrolling.
+func (r *fakeBoardRepo) ListAssignedTasks(_ context.Context, orgID, agentID string) ([]board.AssignedTask, error) {
+	out := []board.AssignedTask{}
+	for _, task := range r.tasks {
+		if task.OrgID != orgID || task.AssigneeAgentID != agentID || task.Status == board.StatusArchived {
+			continue
+		}
+		out = append(out, board.AssignedTask{
+			ID: task.ID, BoardID: task.BoardID, Title: task.Title,
+			Status: task.Status, CostMicros: task.CostMicros, CreatedAt: task.CreatedAt,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		ri, rj := out[i].Status == board.StatusRunning, out[j].Status == board.StatusRunning
+		if ri != rj {
+			return ri
+		}
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+	return out, nil
+}
+
+// ListAssignableAgentsForBoard mirrors the join: active agents of the board's own
+// project. The archived exclusion is the whole point (AC2), so the fake applies
+// it rather than returning every agent.
+func (r *fakeBoardRepo) ListAssignableAgentsForBoard(_ context.Context, orgID, boardID string) ([]board.AssignableAgent, error) {
+	b, ok := r.boards[boardID]
+	if !ok || b.OrgID != orgID {
+		return nil, board.ErrNotFound
+	}
+	out := []board.AssignableAgent{}
+	for _, a := range r.agents {
+		if a.OrgID == orgID && a.ProjectID == b.ProjectID && a.ArchivedAt == nil {
+			out = append(out, board.AssignableAgent{ID: a.ID, Name: a.Name, HasProviderKey: a.HasProviderKey})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
+}
+
+func (r *fakeBoardRepo) CountArchivedAgents(_ context.Context, orgID string) (int, error) {
+	n := 0
+	for _, a := range r.agents {
+		if a.OrgID == orgID && a.ArchivedAt != nil {
 			n++
 		}
 	}

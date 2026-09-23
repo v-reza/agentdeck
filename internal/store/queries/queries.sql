@@ -580,6 +580,35 @@ WHERE id = $1 AND org_id = $2;
 -- concurrent dispatchers claim disjoint batches instead of serialising on the
 -- board row, and the status='ready' predicate means a second claimer sees an
 -- empty set rather than a duplicate claim.
+-- name: ListAssignedTasks :many
+-- Screen 28-agent-detail draws the "simulasi penugasan" section: which tasks this
+-- agent holds, and the guarantee that archiving it does not cut a running one
+-- off (US-AD73 AC1). Archived tasks are excluded (they are gone from the board,
+-- like ListBoardTasks), and the order puts live work first so the running row is
+-- the one an operator sees without scrolling.
+SELECT id, board_id, title, status, cost_micros, created_at
+FROM tasks
+WHERE org_id = $1 AND assignee_agent_id = $2 AND status != 'archived'
+ORDER BY (status = 'running') DESC, created_at DESC;
+
+-- name: CountArchivedAgents :one
+-- The assign picker hides archived agents (US-AD73 AC2). The count is what lets
+-- the board say "N hidden" instead of silently omitting rows — the design's own
+-- `✕ 1 agent diarsip disembunyikan` line.
+SELECT count(*) FROM agents
+WHERE org_id = $1 AND archived_at IS NOT NULL;
+
+-- name: ListAssignableAgentsForBoard :many
+-- The real assign picker for a board: every active agent of the board's own
+-- project, ordered the way the picker shows them. It is the source of the
+-- preview's "Filter Active Only" claim, so the section proves AC2 against the
+-- same rows the task-create modal would offer.
+SELECT a.id, a.name, a.has_provider_key
+FROM agents a
+JOIN boards b ON b.project_id = a.project_id AND b.org_id = a.org_id
+WHERE a.org_id = $1 AND b.id = $2 AND a.archived_at IS NULL
+ORDER BY a.name;
+
 -- name: ClaimReadyTasks :many
 WITH claimed AS (
     SELECT t.id

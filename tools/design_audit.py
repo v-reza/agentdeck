@@ -68,8 +68,14 @@ def read(path):
 
 
 def strip_comments(text):
-    """Buang komentar JS/JSX supaya jargon di komentar tidak dihitung bocor."""
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    """Buang komentar JS/JSX supaya jargon di komentar tidak dihitung bocor.
+
+    Blok komentar diganti newline sebanyak baris yang dia tempati, bukan
+    dihapus: nomor baris yang dilaporkan scanner (`select_at`, lokasi jargon)
+    harus tetap menunjuk baris aslinya di file, bukan baris setelah komentar
+    mengkerut.
+    """
+    text = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.S)
     return re.sub(r"^[ \t]*//.*$", "", text, flags=re.M)
 
 
@@ -166,11 +172,12 @@ def scan_impl(files):
         rel = os.path.relpath(path, SRC).replace("\\", "/")
         text = read(path)
         jsx = strip_comments(text)
-        selects = [
-            (i, ln.strip()[:70])
-            for i, ln in enumerate(text.splitlines(), 1)
-            if "<select" in ln and not ln.strip().startswith(("*", "//"))
-        ]
+        # Scan the comment-stripped source, not the raw text: files here discuss
+        # `<select>` in their docblocks, and a line-prefix check missed those
+        # because only the first line of a block comment starts with `*`. The
+        # count was reading prose as markup.
+        stripped = jsx
+        selects = [(i, ln.strip()[:70]) for i, ln in enumerate(stripped.splitlines(), 1) if "<select" in ln]
         out[rel] = {
             "svg": len(re.findall(r"<svg", text)),
             "select": len(selects),

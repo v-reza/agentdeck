@@ -427,6 +427,58 @@ func (s *Service) ListAgents(ctx context.Context, orgID, projectID string) ([]Ag
 	return s.repo.ListAgents(ctx, orgID, projectID)
 }
 
+// AssignmentView is the agent detail screen's assignment section: which tasks the
+// agent holds, and the picker as it would appear for one of its boards.
+//
+// It is one call rather than three because the section is meaningless unless the
+// three agree: the count of hidden agents is only honest beside the list they were
+// hidden from, and the enforce flag is only meaningful beside the running rows.
+type AssignmentView struct {
+	Tasks []AssignedTask
+	// Picker is the active agents of BoardID's project. Empty when no board is
+	// given, because the picker belongs to a board and there is nothing to
+	// preview without one.
+	Picker []AssignableAgent
+	// HiddenAgents is how many archived agents the picker left out (AC2). The
+	// section states it instead of quietly omitting rows.
+	HiddenAgents int
+	// BoardID is the board the picker was resolved for, empty when the agent
+	// holds no task yet.
+	BoardID string
+}
+
+// AgentAssignment resolves the assignment section for one agent (US-AD73 AC1/AC2).
+//
+// The board the picker is previewed for is the one holding the agent's most recent
+// task — an agent belongs to a project, not a board, so there is no board to read
+// off the agent itself. An agent with no tasks therefore gets an empty picker: the
+// section has nothing to preview, which is the honest answer rather than picking an
+// arbitrary board and showing a list that board's create-task modal would not show.
+func (s *Service) AgentAssignment(ctx context.Context, orgID, agentID string) (AssignmentView, error) {
+	if _, err := s.repo.GetAgent(ctx, agentID, orgID); err != nil {
+		return AssignmentView{}, err
+	}
+	tasks, err := s.repo.ListAssignedTasks(ctx, orgID, agentID)
+	if err != nil {
+		return AssignmentView{}, err
+	}
+	view := AssignmentView{Tasks: tasks}
+	if len(tasks) > 0 {
+		view.BoardID = tasks[0].BoardID
+		picker, err := s.repo.ListAssignableAgentsForBoard(ctx, orgID, view.BoardID)
+		if err != nil {
+			return AssignmentView{}, err
+		}
+		view.Picker = picker
+	}
+	hidden, err := s.repo.CountArchivedAgents(ctx, orgID)
+	if err != nil {
+		return AssignmentView{}, err
+	}
+	view.HiddenAgents = hidden
+	return view, nil
+}
+
 // DeleteAgent removes an agent, refusing while it still holds a running task
 // (AC4). The check and the delete are not one transaction: a task could be
 // claimed between them. That race is acceptable here because the tasks_agent_fk

@@ -77,6 +77,34 @@ export interface AgentCatalog {
   models: CatalogModel[]
 }
 
+export interface AgentAssignment {
+  /** The board the picker was resolved for. Empty when the agent holds no task. */
+  board_id: string
+  tasks: AssignedTask[]
+  /** Derived server-side so the chip and the rows are one snapshot. */
+  running_count: number
+  /** What the picker left out (US-AD73 AC2). Stated, never dropped silently. */
+  hidden_agents: number
+  picker: AssignableAgent[]
+}
+
+export interface AssignedTask {
+  id: string
+  board_id: string
+  title: string
+  status: string
+  /** Integer micro-USD, like the ledger: the UI formats it, nothing rounds it. */
+  cost_micros: number
+  created_at: string
+  estimate: boolean
+}
+
+export interface AssignableAgent {
+  id: string
+  name: string
+  has_provider_key: boolean
+}
+
 export interface AgentSkill {
   id: string
   org_id: string
@@ -253,6 +281,20 @@ export const agentsApi = baseApi.injectEndpoints({
       query: (id) => ({ url: `agents/${id}`, method: 'DELETE' }),
       invalidatesTags: (_r, _e, id) => [{ type: 'Agent' as const, id }, 'Agent'],
     }),
+
+    /**
+     * The assignment section of screen 28-agent-detail (US-AD73 AC1/AC2): the
+     * tasks this agent holds, the picker its board's create-task modal would
+     * offer, and how many archived agents that picker left out.
+     *
+     * One query, not three: the section states all three together, and a count of
+     * hidden rows rendered beside a list fetched at another moment is exactly the
+     * kind of claim this screen exists to make honestly.
+     */
+    getAgentTasks: build.query<AgentAssignment, string>({
+      query: (id) => `agents/${id}/tasks`,
+      providesTags: (_r, _e, id) => [{ type: 'Agent' as const, id: `${id}-TASKS` }],
+    }),
   }),
 })
 
@@ -269,4 +311,5 @@ export const {
   useValidateAgentMutation,
   useDeleteAgentMutation,
   useProbeProviderModelsMutation,
+  useGetAgentTasksQuery,
 } = agentsApi

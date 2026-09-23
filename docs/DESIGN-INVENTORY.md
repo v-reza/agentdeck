@@ -2,7 +2,7 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (135 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (136 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
@@ -13,7 +13,7 @@ scriptnya kalau ada yang berubah.
 | blok skeleton (abu berukuran) | 323 | 0 |
 | `<select>` bawaan HTML | 13 | 7 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 18 |
+| file memakai `lucide-react` | 0 | 19 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -180,7 +180,7 @@ section-nya tetap), `impl` artinya impl yang menambahkannya sendiri.
 | 26-agent-form | `/agents/new` | `router.tsx`, `ProviderKeyFields.tsx`, `Layout.tsx`, `AgentDetail.tsx`, `CreateAgentFields.tsx`, `CreateAgentForm.tsx`, `ApprovalInbox.tsx`, `CostOverview.tsx`, `ApiKeys.tsx`, `Webhooks.tsx`, `ChangelogPage.tsx`, `CommunityPage.tsx`, `DocsPage.tsx`, `FeaturesPage.tsx`, `GitHubPage.tsx`, `LandingPage.tsx`, `NotFoundPage.tsx`, `PricingPage.tsx`, `SupportPage.tsx`, `agents.ts`, `boards.ts`, `finops.ts`, `providers.ts`, `session.ts`, `index.ts`, `index.ts` | 21/0 | 0 | 0 |
 | 26b-agent-skills | `(panel)` | `router.tsx`, `Layout.tsx`, `AgentDetail.tsx`, `ApprovalInbox.tsx`, `CostOverview.tsx`, `ApiKeys.tsx`, `Webhooks.tsx`, `ChangelogPage.tsx`, `CommunityPage.tsx`, `DocsPage.tsx`, `FeaturesPage.tsx`, `GitHubPage.tsx`, `LandingPage.tsx`, `NotFoundPage.tsx`, `PricingPage.tsx`, `SupportPage.tsx`, `agents.ts`, `boards.ts`, `finops.ts`, `providers.ts`, `session.ts`, `index.ts`, `index.ts` | —/0 | 0 | 0 |
 | 27-agent-provider-key | `(panel)` | `router.tsx`, `AgentProviderKeyPanel.tsx`, `ProviderKeyFields.tsx`, `Layout.tsx`, `AgentDetail.tsx`, `ApprovalInbox.tsx`, `CostOverview.tsx`, `ApiKeys.tsx`, `Webhooks.tsx`, `ChangelogPage.tsx`, `CommunityPage.tsx`, `DocsPage.tsx`, `FeaturesPage.tsx`, `GitHubPage.tsx`, `LandingPage.tsx`, `NotFoundPage.tsx`, `PricingPage.tsx`, `SupportPage.tsx`, `agents.ts`, `boards.ts`, `finops.ts`, `providers.ts`, `session.ts`, `index.ts`, `index.ts` | 19/0 | 0 | 0 |
-| 28-agent-detail | `/agents/:id` | `router.tsx`, `Layout.tsx`, `AgentDetail.tsx`, `AgentDetailForm.tsx`, `AgentDetailOptions.ts`, `AgentDetailParts.tsx`, `AgentPricingCard.tsx`, `ApprovalInbox.tsx`, `CostOverview.tsx`, `ApiKeys.tsx`, `Webhooks.tsx`, `ChangelogPage.tsx`, `CommunityPage.tsx`, `DocsPage.tsx`, `FeaturesPage.tsx`, `GitHubPage.tsx`, `LandingPage.tsx`, `NotFoundPage.tsx`, `PricingPage.tsx`, `SupportPage.tsx`, `agents.ts`, `boards.ts`, `finops.ts`, `providers.ts`, `session.ts`, `index.ts`, `index.ts` | 16/1 | 3 | 0 |
+| 28-agent-detail | `/agents/:id` | `router.tsx`, `Layout.tsx`, `AgentAssignment.tsx`, `AgentDetail.tsx`, `AgentDetailForm.tsx`, `AgentDetailOptions.ts`, `AgentDetailParts.tsx`, `AgentPricingCard.tsx`, `ApprovalInbox.tsx`, `CostOverview.tsx`, `ApiKeys.tsx`, `Webhooks.tsx`, `ChangelogPage.tsx`, `CommunityPage.tsx`, `DocsPage.tsx`, `FeaturesPage.tsx`, `GitHubPage.tsx`, `LandingPage.tsx`, `NotFoundPage.tsx`, `PricingPage.tsx`, `SupportPage.tsx`, `agents.ts`, `boards.ts`, `finops.ts`, `providers.ts`, `session.ts`, `index.ts`, `index.ts` | 16/1 | 3 | 0 |
 | 29-cost-overview | `/cost` | `router.tsx`, `Layout.tsx`, `AgentDetail.tsx`, `ApprovalInbox.tsx`, `CostOverview.tsx`, `ApiKeys.tsx`, `Webhooks.tsx`, `ChangelogPage.tsx`, `CommunityPage.tsx`, `DocsPage.tsx`, `FeaturesPage.tsx`, `GitHubPage.tsx`, `LandingPage.tsx`, `NotFoundPage.tsx`, `PricingPage.tsx`, `SupportPage.tsx`, `agents.ts`, `boards.ts`, `finops.ts`, `providers.ts`, `session.ts`, `index.ts`, `index.ts` | 12/0 | 0 | 0 |
 | 30-ledger-explorer | `/cost/ledger` | `router.tsx`, `Layout.tsx`, `AgentDetail.tsx`, `ApprovalInbox.tsx`, `CostOverview.tsx`, `ApiKeys.tsx`, `Webhooks.tsx`, `ChangelogPage.tsx`, `CommunityPage.tsx`, `DocsPage.tsx`, `FeaturesPage.tsx`, `GitHubPage.tsx`, `LandingPage.tsx`, `NotFoundPage.tsx`, `PricingPage.tsx`, `SupportPage.tsx`, `agents.ts`, `boards.ts`, `finops.ts`, `providers.ts`, `session.ts`, `index.ts`, `index.ts` | 0/0 | 0 | 0 |
 | 31-cost-export | `(modal)` | `router.tsx`, `Layout.tsx`, `AgentDetail.tsx`, `ApprovalInbox.tsx`, `CostOverview.tsx`, `ApiKeys.tsx`, `Webhooks.tsx`, `ChangelogPage.tsx`, `CommunityPage.tsx`, `DocsPage.tsx`, `FeaturesPage.tsx`, `GitHubPage.tsx`, `LandingPage.tsx`, `NotFoundPage.tsx`, `PricingPage.tsx`, `SupportPage.tsx`, `agents.ts`, `boards.ts`, `finops.ts`, `providers.ts`, `session.ts`, `index.ts`, `index.ts` | 0/0 | 0 | 0 |

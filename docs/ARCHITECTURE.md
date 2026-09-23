@@ -1616,7 +1616,7 @@ Transisi `outcome` di `runs` (hanya diisi saat `status='ended'`): `succeeded`, `
 
 ---
 
-### 6.2 Tabel Endpoint Lengkap (123 Endpoint)
+### 6.2 Tabel Endpoint Lengkap (124 Endpoint)
 
 > **Kolom `Status`** mencerminkan **kode**, bukan niat: ✅ = route terdaftar di
 > `cmd/api`, ⬜ = belum. Tanda ini diperiksa `tools/verify_suite.py` dua arah —
@@ -1700,7 +1700,7 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 | `GET` | `/api/v1/boards/{id}/columns` | Session/Key | Viewer | Ya | ✅ | Get array `columns_json` |
 | `PATCH` | `/api/v1/boards/{id}/columns` | Session/Key | Member | Ya | ✅ | Update urutan/label kolom di `columns_json` |
 
-#### 6.2.7 Agents (15 Endpoint)
+#### 6.2.7 Agents (16 Endpoint)
 > Provider registry punya section sendiri: §6.2.8 (US-AD109).
 
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
@@ -1719,6 +1719,7 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 | `POST` | `/api/v1/agent-skills` | Session | Admin | Tidak | ✅ | Buat skill baru (`body_md`); agent TIDAK boleh memanggil ini |
 | `PATCH` | `/api/v1/agent-skills/{id}` | Session | Admin | Tidak | ✅ | Ubah skill; `version` naik, baris lama tidak diubah surut |
 | `DELETE` | `/api/v1/agent-skills/{id}` | Session | Admin | Ya | ✅ | Hapus skill milik org. Skill bawaan (`is_system`) ditolak dengan 409, bukan dihapus diam-diam |
+| `GET` | `/api/v1/agents/{id}/tasks` | Session/Key | Viewer | Ya | ✅ | Seksi penugasan screen 28-agent-detail (US-AD73 AC1/AC2): task yang dipegang agent (running lebih dulu) + picker assign board itu (agent aktif saja) + jumlah agent terarsip yang disembunyikan picker. Satu panggilan: `running_count` dan `hidden_agents` harus satu snapshot dengan baris yang ditampilkannya |
 | `GET` | `/api/v1/agent-skills/{id}/agents` | Session/Key | Viewer | Ya | ✅ | "Dipakai oleh": daftar agent aktif yang mereferensikan slug skill ini (agent terarsip dikecualikan). Mengisi panel kanan editor skill §7.1 |
 
 #### 6.2.8 Providers (7 Endpoint)
@@ -1889,7 +1890,7 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | 6.2.19 | Audit, Search & System | 0 | 6 | 6 |
 | | **Total** | **62** | **61** | **123** |
 
-*Total endpoint terdefinisi: 123 endpoint.*
+*Total endpoint terdefinisi: 124 endpoint.*
 
 ## 7. Realtime (SSE)
 
@@ -2574,7 +2575,7 @@ Sistem pengujian AgentDeck dibangun untuk menjamin kebenaran state machine, keta
                      ┌───────────────────────┐
                      │   Load Tests (k6)     │  Target konkurensi dan volume (N4: 50 agen running, N5: 100.000 run/bulan, N6: 1.000.000 event/bulan)
                      ├───────────────────────┤
-                     │  API Contract Tests   │  123 Endpoint coverage
+                     │  API Contract Tests   │  124 Endpoint coverage
                      ├───────────────────────┤
                      │ Integration (Pg test) │  Testcontainers Postgres 16
                      ├───────────────────────┤

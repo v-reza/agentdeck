@@ -639,6 +639,54 @@ func (r *pgxRepository) CountAgentRunningTasks(ctx context.Context, id, orgID st
 	return int(n), nil
 }
 
+// ListAssignedTasks is US-AD73 AC1's evidence: the rows the detail screen shows
+// beside the promise that archiving will not cut a running one off. `cost_micros`
+// travels as the raw integer — the UI formats it through the same estimate
+// formatter as every other figure, and a float here would be a second rounding
+// of a number the ledger keeps exact (DECISIONS 6A.D).
+func (r *pgxRepository) ListAssignedTasks(ctx context.Context, orgID, agentID string) ([]AssignedTask, error) {
+	rows, err := r.q.ListAssignedTasks(ctx, store.ListAssignedTasksParams{OrgID: orgID, AssigneeAgentID: nullString(agentID)})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]AssignedTask, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, AssignedTask{
+			ID:         row.ID,
+			BoardID:    row.BoardID,
+			Title:      row.Title,
+			Status:     TaskStatus(row.Status),
+			CostMicros: row.CostMicros,
+			CreatedAt:  row.CreatedAt.Time,
+		})
+	}
+	return out, nil
+}
+
+// ListAssignableAgentsForBoard reads the picker the create-task modal would offer.
+// It is the same predicate the store's ListAssignableAgents uses (archived
+// excluded), scoped to one board's project, so the detail screen previews the real
+// list rather than a second implementation of it.
+func (r *pgxRepository) ListAssignableAgentsForBoard(ctx context.Context, orgID, boardID string) ([]AssignableAgent, error) {
+	rows, err := r.q.ListAssignableAgentsForBoard(ctx, store.ListAssignableAgentsForBoardParams{OrgID: orgID, ID: boardID})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]AssignableAgent, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, AssignableAgent{ID: row.ID, Name: row.Name, HasProviderKey: row.HasProviderKey != nil && *row.HasProviderKey})
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) CountArchivedAgents(ctx context.Context, orgID string) (int, error) {
+	n, err := r.q.CountArchivedAgents(ctx, orgID)
+	if err != nil {
+		return 0, err
+	}
+	return int(n), nil
+}
+
 // UpdateAgent writes every mutable column at once (US-AD96, US-AD106). Postgres
 // is the arbiter of the name uniqueness it owns: agents_project_name_key, mapped
 // to ErrAgentNameTaken -> 409, exactly as on create. The provider

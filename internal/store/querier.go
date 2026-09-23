@@ -13,10 +13,6 @@ type Querier interface {
 	// retry/limit source) but disappear from every assign dropdown.
 	ArchiveAgent(ctx context.Context, arg ArchiveAgentParams) (ArchiveAgentRow, error)
 	AssignTask(ctx context.Context, arg AssignTaskParams) (Task, error)
-	// Dispatcher claim (ARCHITECTURE 4b): one atomic statement. SKIP LOCKED lets
-	// concurrent dispatchers claim disjoint batches instead of serialising on the
-	// board row, and the status='ready' predicate means a second claimer sees an
-	// empty set rather than a duplicate claim.
 	ClaimReadyTasks(ctx context.Context, arg ClaimReadyTasksParams) ([]Task, error)
 	ClaimShadowUser(ctx context.Context, arg ClaimShadowUserParams) error
 	// Rotation and revocation are the same statement with a NULL ciphertext.
@@ -31,6 +27,10 @@ type Querier interface {
 	// Guards US-AD20 AC4: an agent holding a task in `running` may not be deleted,
 	// because the run it is executing would lose its retry/limit source mid-flight.
 	CountAgentRunningTasks(ctx context.Context, arg CountAgentRunningTasksParams) (int64, error)
+	// The assign picker hides archived agents (US-AD73 AC2). The count is what lets
+	// the board say "N hidden" instead of silently omitting rows — the design's own
+	// `✕ 1 agent diarsip disembunyikan` line.
+	CountArchivedAgents(ctx context.Context, orgID string) (int64, error)
 	CountBoardsInProject(ctx context.Context, arg CountBoardsInProjectParams) (int32, error)
 	// Guards the last-owner rule: an org must never be left without an owner.
 	CountOrgOwners(ctx context.Context, orgID string) (int32, error)
@@ -162,6 +162,21 @@ type Querier interface {
 	// deliberate counterpart to ListAgents, which returns archived rows so the
 	// registry can unarchive them.
 	ListAssignableAgents(ctx context.Context, orgID string) ([]ListAssignableAgentsRow, error)
+	// The real assign picker for a board: every active agent of the board's own
+	// project, ordered the way the picker shows them. It is the source of the
+	// preview's "Filter Active Only" claim, so the section proves AC2 against the
+	// same rows the task-create modal would offer.
+	ListAssignableAgentsForBoard(ctx context.Context, arg ListAssignableAgentsForBoardParams) ([]ListAssignableAgentsForBoardRow, error)
+	// Dispatcher claim (ARCHITECTURE 4b): one atomic statement. SKIP LOCKED lets
+	// concurrent dispatchers claim disjoint batches instead of serialising on the
+	// board row, and the status='ready' predicate means a second claimer sees an
+	// empty set rather than a duplicate claim.
+	// Screen 28-agent-detail draws the "simulasi penugasan" section: which tasks this
+	// agent holds, and the guarantee that archiving it does not cut a running one
+	// off (US-AD73 AC1). Archived tasks are excluded (they are gone from the board,
+	// like ListBoardTasks), and the order puts live work first so the running row is
+	// the one an operator sees without scrolling.
+	ListAssignedTasks(ctx context.Context, arg ListAssignedTasksParams) ([]ListAssignedTasksRow, error)
 	// SSE resume: events newer than the client's Last-Event-ID for one board.
 	ListBoardEventsAfter(ctx context.Context, arg ListBoardEventsAfterParams) ([]Event, error)
 	ListBoardTasks(ctx context.Context, arg ListBoardTasksParams) ([]Task, error)

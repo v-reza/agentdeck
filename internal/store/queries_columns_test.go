@@ -123,6 +123,42 @@ func setColumns(t *testing.T, block string) []string {
 	return cols
 }
 
+// TestListAssignedTasksExcludesArchivedAndScopesByOrg is the SQL-level guard for
+// the assignment section of screen 28-agent-detail.
+//
+// The handler test uses a fake repository, and a fake cannot enforce the WHERE
+// clause — it re-implements it, so a statement that stopped filtering would keep
+// passing there. These are the three clauses the section's two rules rest on:
+//
+//	org_id      — the read is tenant-scoped, or one workspace reads another's tasks.
+//	assignee    — the rows belong to the agent in the path.
+//	archived    — an archived task is not "work this agent holds" (AC1 is about
+//	              RUNNING work surviving archiving, so the exclusion is what keeps
+//	              the list honest about what is still live).
+func TestListAssignedTasksExcludesArchivedAndScopesByOrg(t *testing.T) {
+	raw, err := os.ReadFile("queries/queries.sql")
+	if err != nil {
+		t.Fatalf("read queries.sql: %v", err)
+	}
+	block := queryBlock(t, string(raw), "ListAssignedTasks")
+	compact := strings.Join(strings.Fields(block), " ")
+
+	for _, clause := range []string{
+		"org_id = $1",
+		"assignee_agent_id = $2",
+		"status != 'archived'",
+	} {
+		if !strings.Contains(compact, clause) {
+			t.Errorf("ListAssignedTasks lost %q; the assignment section would report %s",
+				clause, map[string]string{
+					"org_id = $1":            "another tenant's tasks",
+					"assignee_agent_id = $2": "another agent's tasks",
+					"status != 'archived'":   "tasks that are no longer live as current work",
+				}[clause])
+		}
+	}
+}
+
 // Ensure the file is actually the one we think: a moved queries.sql would make
 // the test vacuous rather than failing, and a vacuous guard is worse than none.
 func TestQueriesFileIsTheOneWeParse(t *testing.T) {
@@ -131,7 +167,11 @@ func TestQueriesFileIsTheOneWeParse(t *testing.T) {
 		t.Fatalf("read queries.sql: %v", err)
 	}
 	sql := string(raw)
-	for _, want := range []string{"-- name: CreateAgent :one", "-- name: UpdateAgent :one"} {
+	for _, want := range []string{
+		"-- name: CreateAgent :one",
+		"-- name: UpdateAgent :one",
+		"-- name: ListAssignedTasks :many",
+	} {
 		if !strings.Contains(sql, want) {
 			t.Errorf("queries.sql no longer contains %q", want)
 		}

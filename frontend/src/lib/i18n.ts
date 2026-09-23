@@ -400,8 +400,28 @@ export interface Dictionary {
   'agents.detail.attempts': string
   'agents.detail.tools': string
   'agents.detail.skills': string
+  'agents.detail.assignmentBoard': string
+  'agents.detail.pickerFilter': string
+  'agents.detail.pickerFilterActive': string
+  'agents.detail.pickerReady': string
+  'agents.detail.pickerNeedsKey': string
+  'agents.detail.taskColId': string
+  'agents.detail.taskColTitle': string
+  'agents.detail.taskColStatus': string
+  'agents.detail.taskColCost': string
+  'agents.detail.assignmentTitle': string
+  'agents.detail.assignmentLead': string
+  'agents.detail.assignmentTasksTitle': string
+  'agents.detail.assignmentTasksHint': string
+  'agents.detail.assignmentEmpty': string
+  'agents.detail.assignmentRunning': string
+  'agents.detail.assignmentFooter': string
   'agents.detail.tasksTitle': string
   'agents.detail.tasksEmpty': string
+  'agents.detail.pickerHint': string
+  'agents.detail.pickerEmpty': string
+  'agents.detail.pickerHidden': string
+  'agents.detail.agent': string
   'agents.detail.save': string
   'agents.detail.saving': string
   'agents.detail.saved': string
@@ -834,8 +854,28 @@ const en: Dictionary = {
   'agents.detail.attempts': 'Max attempts',
   'agents.detail.tools': 'Allowed tools',
   'agents.detail.skills': 'Skills',
+  'agents.detail.taskColId': 'Task ID',
+  'agents.detail.pickerFilter': 'Filter Active Only',
+  'agents.detail.pickerFilterActive': 'ACTIVE',
+  'agents.detail.pickerReady': 'READY',
+  'agents.detail.pickerNeedsKey': 'NO KEY',
+  'agents.detail.taskColTitle': 'Task',
+  'agents.detail.taskColStatus': 'Status',
+  'agents.detail.taskColCost': 'Cost',
+  'agents.detail.assignmentTitle': 'Assignment & running work',
+  'agents.detail.assignmentLead': 'Assignment rules for this agent.',
+  'agents.detail.assignmentBoard': 'Board: {0}',
+  'agents.detail.assignmentRunning': '{0} TASK RUNNING',
+  'agents.detail.assignmentTasksTitle': 'Tasks this agent holds',
+  'agents.detail.assignmentTasksHint': 'A running task is never cut off by archiving — it finishes normally.',
+  'agents.detail.assignmentEmpty': 'No task has been assigned to this agent yet.',
+  'agents.detail.assignmentFooter': 'Archiving hides the agent from the picker. Work already running still finishes.',
   'agents.detail.tasksTitle': 'Tasks assigned to this agent',
   'agents.detail.tasksEmpty': 'Task history is shown on each board.',
+  'agents.detail.pickerHint': 'Only agents that are not archived appear here.',
+  'agents.detail.pickerEmpty': 'No board to preview — this agent holds no task yet.',
+  'agents.detail.pickerHidden': '{0} archived, hidden from the picker',
+  'agents.detail.agent': 'agent',
   'agents.detail.save': 'Save changes',
   'agents.detail.saving': 'Saving…',
   'agents.detail.saved': 'Changes saved.',
@@ -1270,8 +1310,29 @@ const id: Dictionary = {
   'agents.detail.attempts': 'Maks percobaan',
   'agents.detail.tools': 'Tools yang diizinkan',
   'agents.detail.skills': 'Skill',
+  'agents.detail.taskColId': 'Task ID',
+  'agents.detail.assignmentTitle': 'Penugasan & pekerjaan berjalan',
+  'agents.detail.assignmentLead': 'Aturan penugasan agent ini.',
+  'agents.detail.assignmentBoard': 'Board: {0}',
+  'agents.detail.assignmentRunning': '{0} TASK RUNNING',
+  'agents.detail.assignmentTasksTitle': 'Task yang dipegang agent ini',
+  'agents.detail.assignmentTasksHint': 'Task yang sedang jalan tidak pernah diputus oleh arsip — dia tuntas normal.',
+  'agents.detail.assignmentEmpty': 'Belum ada task yang ditugaskan ke agent ini.',
+  'agents.detail.assignmentFooter':
+    'Mengarsipkan menyembunyikan agent dari picker di kiri. Pekerjaan yang sudah jalan tetap tuntas.',
+  'agents.detail.pickerHint': 'Cuma agent yang tidak diarsip yang muncul di sini.',
+  'agents.detail.pickerEmpty': 'Belum ada board buat dipratinjau — agent ini belum pegang task.',
+  'agents.detail.pickerFilter': 'Filter Active Only',
+  'agents.detail.pickerFilterActive': 'ACTIVE',
+  'agents.detail.pickerReady': 'READY',
+  'agents.detail.pickerNeedsKey': 'TANPA KEY',
+  'agents.detail.taskColTitle': 'Task',
+  'agents.detail.taskColStatus': 'Status',
+  'agents.detail.taskColCost': 'Biaya',
+  'agents.detail.pickerHidden': '{0} diarsip, disembunyikan dari picker',
   'agents.detail.tasksTitle': 'Task yang ditugaskan ke agent ini',
   'agents.detail.tasksEmpty': 'Riwayat task tersedia di masing-masing board.',
+  'agents.detail.agent': 'agent',
   'agents.detail.save': 'Simpan perubahan',
   'agents.detail.saving': 'Menyimpan…',
   'agents.detail.saved': 'Perubahan tersimpan.',
