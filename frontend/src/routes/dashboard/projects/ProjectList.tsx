@@ -31,7 +31,7 @@ export function ProjectList() {
           <span className="font-semibold text-[var(--color-primary)]">
             {projects.length === 0 ? 'this workspace' : `${projects.length} projects`}
           </span>{' '}
-          — nothing crosses the tenant boundary (US-AD91 AC4).
+          — setiap project dan board di dalamnya milik ruang kerja ini saja.
         </div>
 
         <ProjectSummary projects={projects} />

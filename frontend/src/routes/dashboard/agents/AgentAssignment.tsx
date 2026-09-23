@@ -156,7 +156,7 @@ export function AssignmentSection({
                   <col className="w-[84px]" />
                 </colgroup>
                 <thead>
-                  <tr className="h-[32px] border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-page)] font-mono text-[10.5px] uppercase text-[var(--color-tertiary)]">
+                  <tr className="h-[var(--spacing-row)] border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-page)] font-mono text-[10.5px] uppercase text-[var(--color-tertiary)]">
                     <th className="px-2.5 font-medium">{t['agents.detail.taskColId']}</th>
                     <th className="px-2.5 font-medium">{t['agents.detail.taskColTitle']}</th>
                     <th className="px-2.5 font-medium">{t['agents.detail.taskColStatus']}</th>

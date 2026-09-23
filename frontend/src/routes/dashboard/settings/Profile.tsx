@@ -25,12 +25,13 @@ import { SkeletonText } from '@/components/ui/skeleton'
  * rather than literal:
  *
  *  1. The mock's header carries three review annotations, not product copy:
- *     "State: default" and "Blueprint C (Drawer 420px Aktif)" are dropped, and
- *     the badge is the bare story id rather than "US-AD89 (AC1, AC2, AC5)
- *     COMPLIANT" — the AC list is in the PRD, and a screen that claims its own
- *     compliance is not evidence of it. The `US-AD89` badge and the `Must • M0`
- *     chip ARE cloned: they are the design's own spec strip, and the e2e asserts
- *     their accent tint and radius.
+ *     "State: default", "Blueprint C (Drawer 420px Aktif)", and a "US-AD89
+ *     (AC1, AC2, AC5) COMPLIANT" badge. All three are dropped — the AC list is
+ *     in the PRD, and a screen that claims its own compliance is not evidence of
+ *     it. The badge and the chip are KEPT as shapes, because the design's own
+ *     header has two, and the e2e asserts their accent tint and radius; only the
+ *     text changes, from spec codes to what the pair actually tells the reader:
+ *     the account is verified and self-managed.
  *  2. The mock's `<h1>` is the screen title ("Profil Akun Mandiri"), but
  *     `WorkspaceTopbar` already renders that title for every settings screen, so
  *     the panel's `<h1>` carries the section name instead. Rendering both would
@@ -87,13 +88,13 @@ export function Profile() {
               className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-accent)]/30 bg-[var(--color-accent-tint)] px-2.5 py-0.5 font-mono text-[11px] font-bold text-[var(--color-accent)]"
             >
               <BadgeCheck size={14} />
-              US-AD89
+              {t['profile.verified']}
             </span>
             <span
               data-testid="profile-milestone-chip"
               className="rounded-[4px] bg-[var(--color-surface-page)] px-2 py-0.5 font-mono text-[11px] text-[var(--color-tertiary)]"
             >
-              Must • M0
+              {t['profile.selfManaged']}
             </span>
           </div>
           <h1

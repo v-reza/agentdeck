@@ -21,7 +21,7 @@ export function CostRail() {
   return (
     <aside
       aria-label="Cost and usage"
-      className="z-20 flex w-[264px] min-w-[264px] flex-col justify-between border-l border-[var(--color-border-subtle)] bg-[var(--color-surface-well)] p-4"
+      className="z-20 flex w-[var(--spacing-costrail)] min-w-[var(--spacing-costrail)] flex-col justify-between border-l border-[var(--color-border-subtle)] bg-[var(--color-surface-well)] p-4"
     >
       <div className="flex flex-col gap-6">
         <section>

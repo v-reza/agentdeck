@@ -235,6 +235,8 @@ export interface Dictionary {
   'profile.savePending': string
   'profile.reset': string
   'profile.saved': string
+  'profile.verified': string
+  'profile.selfManaged': string
   'profile.saveFailed': string
   'profile.workspacesTitle': string
   'profile.workspacesHint': string
@@ -687,6 +689,8 @@ const en: Dictionary = {
   'profile.savePending': 'Saving…',
   'profile.reset': 'Reset',
   'profile.saved': 'Profile updated',
+  'profile.verified': 'Verified',
+  'profile.selfManaged': 'Self-managed account',
   'profile.saveFailed': 'The profile was not changed',
   'profile.workspacesTitle': 'Workspace memberships',
   'profile.workspacesHint': 'Every workspace this account belongs to, with the role it holds there.',
@@ -1143,6 +1147,8 @@ const id: Dictionary = {
   'profile.savePending': 'Menyimpan…',
   'profile.reset': 'Reset',
   'profile.saved': 'Profil diperbarui',
+  'profile.verified': 'Terverifikasi',
+  'profile.selfManaged': 'Akun mandiri',
   'profile.saveFailed': 'Profil tidak berubah',
   'profile.workspacesTitle': 'Keanggotaan ruang kerja',
   'profile.workspacesHint': 'Semua ruang kerja yang diikuti akun ini, beserta role-nya.',

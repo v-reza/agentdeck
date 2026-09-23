@@ -103,16 +103,16 @@ Sumber beku: `DECISIONS.md` §8 paragraf "Status color".
 
 ## 6. Token spacing
 
-Dideklarasikan: 6. Nol dipakai: 6.
+Dideklarasikan: 6. Nol dipakai: 0.
 
 | token | nilai | dipakai |
 |---|---|---|
-| `--spacing-costrail` | 264px | 0 |
-| `--spacing-rail` | 44px | 0 |
-| `--spacing-row` | 32px | 0 |
-| `--spacing-row-dense` | 28px | 0 |
-| `--spacing-sidebar` | 224px | 0 |
-| `--spacing-topbar` | 52px | 0 |
+| `--spacing-costrail` | 264px | 2 |
+| `--spacing-rail` | 44px | 2 |
+| `--spacing-row` | 32px | 3 |
+| `--spacing-row-dense` | 28px | 4 |
+| `--spacing-sidebar` | 224px | 2 |
+| `--spacing-topbar` | 52px | 4 |
 
 ## 7. State archived
 
@@ -127,18 +127,7 @@ Kontrak: `US-AD`, `AC`, `M0`-`M6` dilarang masuk UI yang dirender.
 Komentar kode boleh. Yang di bawah ini **bukan** komentar — dihitung
 setelah semua komentar JS dan JSX dibuang.
 
-Kolom `asal` memisahkan dua pekerjaan yang beda: `mockup` artinya
-design-nya sendiri yang membawa jargon itu (perilaku repo: label dibuang,
-section-nya tetap), `impl` artinya impl yang menambahkannya sendiri.
-
-| file | jargon | asal |
-|---|---|---|
-| `routes/dashboard/projects/ProjectDirectory.tsx` | AC2, M2, US-AD91 | mockup |
-| `routes/dashboard/projects/ProjectList.tsx` | AC4, US-AD91 | mockup |
-| `routes/dashboard/projects/ProjectSummary.tsx` | M2 | mockup |
-| `routes/dashboard/settings/Profile.tsx` | M0, US-AD89 | mockup |
-| `routes/public/ChangelogPage.tsx` | M0, M6 | impl |
-| `routes/public/DocsPage.tsx` | US-AD103, US-AD104, US-AD105 | impl |
+Nol.
 
 ## 9. Per layar
 

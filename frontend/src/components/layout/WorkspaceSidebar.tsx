@@ -42,7 +42,7 @@ export function WorkspaceSidebar() {
   return (
     <nav
       aria-label="Workspace"
-      className="z-20 flex h-screen w-[224px] min-w-[224px] flex-col justify-between border-r border-[var(--color-border-subtle)] bg-[var(--color-surface-page)] p-3.5"
+      className="z-20 flex h-screen w-[var(--spacing-sidebar)] min-w-[var(--spacing-sidebar)] flex-col justify-between border-r border-[var(--color-border-subtle)] bg-[var(--color-surface-page)] p-3.5"
     >
       <div className="flex min-h-0 flex-col gap-5">
         <div>

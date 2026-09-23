@@ -169,7 +169,7 @@ export function AgentRegistry() {
                   {canDelete ? <col className="w-[66px]" /> : null}
                 </colgroup>
                 <thead>
-                  <tr className="h-[32px] border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-sunken)] text-[11px] font-semibold uppercase tracking-wider text-[var(--color-tertiary)]">
+                  <tr className="h-[var(--spacing-row)] border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-sunken)] text-[11px] font-semibold uppercase tracking-wider text-[var(--color-tertiary)]">
                     <th className="px-2">{t['agents.col.agent']}</th>
                     <th className="px-2">{t['agents.col.provider']}</th>
                     <th className="px-2">{t['agents.col.model']}</th>
@@ -360,8 +360,8 @@ function AgentRow({
       data-archived={archived ? 'true' : undefined}
       className={
         archived
-          ? 'h-[28px] border-l-2 border-l-[var(--color-status-cancelled)] bg-[var(--color-surface-page)] opacity-75 transition-opacity hover:opacity-100'
-          : 'h-[28px] border-l-2 border-l-transparent transition-colors hover:bg-[var(--color-surface-sunken)]'
+          ? 'h-[var(--spacing-row-dense)] border-l-2 border-l-[var(--color-status-cancelled)] bg-[var(--color-surface-page)] opacity-75 transition-opacity hover:opacity-100'
+          : 'h-[var(--spacing-row-dense)] border-l-2 border-l-transparent transition-colors hover:bg-[var(--color-surface-sunken)]'
       }
     >
       <td className="px-2 py-2">

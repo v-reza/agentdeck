@@ -26,7 +26,7 @@ export function IconRail({ daemonConnected }: IconRailProps) {
   return (
     <nav
       aria-label="Primary"
-      className="z-30 flex h-screen w-[44px] min-w-[44px] flex-col items-center border-r border-[var(--color-border-subtle)] bg-[var(--color-surface-sunken)] py-2.5"
+      className="z-30 flex h-screen w-[var(--spacing-rail)] min-w-[var(--spacing-rail)] flex-col items-center border-r border-[var(--color-border-subtle)] bg-[var(--color-surface-sunken)] py-2.5"
     >
       <div className="mb-5 flex h-7 w-7 items-center justify-center rounded-[6px] bg-[var(--color-accent)] font-mono text-[11px] font-bold tracking-[-0.05em] text-[var(--color-on-accent)]">
         AD

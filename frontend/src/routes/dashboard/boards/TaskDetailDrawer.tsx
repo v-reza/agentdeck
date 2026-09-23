@@ -38,7 +38,7 @@ export function TaskDetailDrawer({ taskID }: { taskID: string }) {
       aria-label="Task Detail Drawer"
       className="z-[25] flex h-full w-[420px] min-w-[420px] shrink-0 flex-col border-l border-[var(--color-border-subtle)] bg-[var(--color-surface-panel)] shadow-[-4px_0_16px_rgba(0,0,0,0.05)]"
     >
-      <header className="flex h-[52px] min-h-[52px] items-center justify-between border-b border-[var(--color-border-subtle)] px-4">
+      <header className="flex h-[var(--spacing-topbar)] min-h-[var(--spacing-topbar)] items-center justify-between border-b border-[var(--color-border-subtle)] px-4">
         <div className="min-w-0">
           <div className="truncate text-[13px] font-semibold text-[var(--color-primary)]">{task?.title ?? 'Task'}</div>
           <div className="font-mono text-[10px] text-[var(--color-tertiary)]">{shortID(taskID)}</div>

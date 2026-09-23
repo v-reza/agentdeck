@@ -44,7 +44,7 @@ export function WorkspaceTopbar({ title, path, subtitle, right }: WorkspaceTopba
   }
 
   return (
-    <header className="flex h-[52px] min-h-[52px] items-center justify-between border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-panel)] px-4">
+    <header className="flex h-[var(--spacing-topbar)] min-h-[var(--spacing-topbar)] items-center justify-between border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-panel)] px-4">
       <div className="flex min-w-0 items-center gap-3">
         {path ? (
           <span className="rounded-[4px] bg-[var(--color-surface-sunken)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-secondary)]">

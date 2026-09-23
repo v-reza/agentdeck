@@ -17,7 +17,6 @@ function DocsPage() {
       <DocsLayout active={kind}>
         <DocHeader
           section="API reference"
-          id="US-AD104"
           title="REST API reference"
           description="The official HTTP API for AgentDeck Core. All routes use /api/v1 and Bearer token authentication."
         />
@@ -58,7 +57,6 @@ function DocsPage() {
       <DocsLayout active={kind}>
         <DocHeader
           section="API reference"
-          id="US-AD105"
           title="Run telemetry schema"
           description="Server-Sent Events and immutable step payloads for run monitoring. Costs are integer micro-USD, never floating point."
         />
@@ -98,7 +96,6 @@ function DocsPage() {
     <DocsLayout active={isQuickstart ? '/docs/quickstart' : kind}>
       <DocHeader
         section={isQuickstart ? 'Getting started' : 'Documentation'}
-        id={isQuickstart ? 'US-AD103' : 'DRAFT'}
         title={title}
         description={
           isQuickstart

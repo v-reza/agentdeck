@@ -40,7 +40,7 @@ export function ProjectSummary({ projects }: { projects: Project[] }) {
         label="Combined Cost Today"
         value="—"
         tone="accent"
-        hint="Per-board spend lands with the M2 cost endpoints"
+        hint="Rincian biaya per board menyusul di halaman biaya"
       />
     </div>
   )

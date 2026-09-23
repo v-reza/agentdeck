@@ -111,7 +111,7 @@ export function ProjectDirectory() {
       ) : (
         <table className="w-full border-collapse text-left">
           <thead>
-            <tr className="h-[32px] border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-page)] font-mono text-[11px] uppercase tracking-wider text-[var(--color-tertiary)]">
+            <tr className="h-[var(--spacing-row)] border-b border-[var(--color-border-subtle)] bg-[var(--color-surface-page)] font-mono text-[11px] uppercase tracking-wider text-[var(--color-tertiary)]">
               <th className="w-7 px-3 text-center">
                 <span className="sr-only">Select</span>
               </th>
@@ -155,7 +155,7 @@ function SortHeader({ label, sortKey, align }: { label: string; sortKey: Directo
     <button
       type="button"
       onClick={() => dispatch(setDirectorySort(sortKey))}
-      title={`Sort by ${label} (US-AD91 AC2)`}
+      title={`Urutkan berdasarkan ${label}`}
       className={cn(
         'inline-flex items-center gap-1 uppercase transition-colors hover:text-[var(--color-primary)]',
         align === 'right' && 'flex-row-reverse',
@@ -231,7 +231,7 @@ function ProjectGroup({
       </tr>
 
       {collapsed ? null : boards.length === 0 ? (
-        <tr className="h-[28px]">
+        <tr className="h-[var(--spacing-row-dense)]">
           <td />
           <td className="px-3 pl-8 font-mono text-[11px] text-[var(--color-tertiary)]" colSpan={6}>
             {isUnresolved ? <SkeletonText lines={1} /> : 'No boards in this project yet.'}
@@ -293,7 +293,7 @@ function BoardRow({ board, project, orgID }: { board: Board; project: Project; o
   const { tasks, running, isUnresolved } = useBoardTasks(board.id)
 
   return (
-    <tr className="h-[28px] transition-colors hover:bg-[var(--color-surface-page)]">
+    <tr className="h-[var(--spacing-row-dense)] transition-colors hover:bg-[var(--color-surface-page)]">
       <td className="px-3 text-center">
         <input
           type="checkbox"
@@ -336,7 +336,7 @@ function BoardRow({ board, project, orgID }: { board: Board; project: Project; o
       <td className="px-3 text-right font-mono text-[11px] tabular-nums">
         {/* GET /boards/{id}/budget is M2; until it exists the cell says so
             instead of printing $0.00, which would read as "free". */}
-        <span className="text-[var(--color-tertiary)]" title="Per-board spend arrives with the M2 cost endpoints">
+        <span className="text-[var(--color-tertiary)]" title="Rincian biaya per board belum tersedia">
           —
         </span>
       </td>

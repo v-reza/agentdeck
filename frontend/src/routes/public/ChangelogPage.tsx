@@ -68,7 +68,7 @@ function ChangelogPage() {
             gates, reliability, and governance.
           </p>
           <Link to="/github" className="text-link">
-            See the M0–M6 roadmap →
+            Lihat rencana rilis →
           </Link>
         </div>
       </div>
