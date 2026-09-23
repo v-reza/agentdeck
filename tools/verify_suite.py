@@ -112,6 +112,60 @@ CANON = ["overview", "brand & style", "colors", "typography", "layout",
          "do's and don'ts"]
 
 
+def check_status_palette(text, fm):
+    """Tiga sumber harus sepakat soal 10 warna status task.
+
+    Ini kelas bug yang sudah terjadi sekali dan tidak ketahuan gate mana pun:
+    `DECISIONS.md` §8 (yang dibekukan) dan `docs/DESIGN.md` sama-sama
+    mendefinisikan palet status, dan nilainya berbeda 10 dari 10. `index.css`
+    mengikuti DESIGN.md, jadi aplikasinya memakai warna yang tidak pernah
+    diputuskan — sementara mockup dan DECISIONS memakai yang lain.
+
+    Tidak ada gate yang bisa melihatnya: `designmd lint` cuma memeriksa DESIGN.md
+    terhadap dirinya sendiri, dan `design_audit.py` membandingkan DESIGN.md
+    dengan `index.css` — dua-duanya konsisten, dua-duanya salah.
+
+    Jadi ketiganya diikat di sini. Yang beku adalah DECISIONS §8; DESIGN.md dan
+    `index.css` wajib mengikutinya.
+    """
+    dec = read("DECISIONS.md") or ""
+    i = dec.find("Status color:")
+    if i < 0:
+        say("FAIL", "STATUS PALETTE: DECISIONS.md tidak punya paragraf 'Status color'")
+        return
+    rest = dec[i:]
+    lines = [rest.split("\n", 1)[0]]
+    for line in rest.split("\n")[1:]:
+        if line.startswith("- ") or not line.strip():
+            break
+        lines.append(line)
+    frozen = {
+        k: v.lower()
+        for k, v in re.findall(r"`([a-z_]+)`\s+[a-z ]+`(#[0-9a-fA-F]{6})`", " ".join(lines))
+    }
+    if len(frozen) != 10:
+        say("FAIL", f"STATUS PALETTE: DECISIONS §8 cuma terbaca {len(frozen)} dari 10 status")
+        return
+
+    design = {
+        k.replace("-", "_").lower(): v.lower()
+        for k, v in re.findall(r'(?m)^\s{2}status-([a-z-]+):\s*"(#[0-9a-fA-F]{6})"', fm)
+    }
+    css = {
+        k.replace("-", "_").lower(): v.strip().lower()
+        for k, v in re.findall(
+            r"--color-status-([a-z_-]+):\s*([^;]+);", read("frontend/src/index.css") or ""
+        )
+    }
+
+    for label, table in (("DESIGN.md", design), ("index.css", css)):
+        bad = sorted(f"{k} {table.get(k, '—')} != #{v}" for k, v in frozen.items() if table.get(k) != v)
+        if bad:
+            say("FAIL", f"STATUS PALETTE: {label} melenceng dari DECISIONS §8 -> {', '.join(bad[:4])}")
+        else:
+            say("ok", f"STATUS PALETTE: {label} == DECISIONS §8 (10/10)")
+
+
 def check_design():
     text = read("DESIGN.md")
     if text is None:
@@ -154,6 +208,8 @@ def check_design():
     dupes = sorted({h for h in heads if heads.count(h) > 1})
     if dupes:
         say("FAIL", f"DESIGN: heading duplikat -> {', '.join(dupes)}")
+
+    check_status_palette(text, fm)
 
     # designmd lint CLI via shell
     npx_cmd = "npx.cmd" if sys.platform == "win32" else "npx"

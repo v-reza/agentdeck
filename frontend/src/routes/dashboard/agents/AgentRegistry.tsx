@@ -341,9 +341,29 @@ function AgentRow({
 }) {
   const t = useT()
   const tools = agent.tools ?? []
+  const archived = Boolean(agent.archived_at)
 
   return (
-    <tr className="h-[28px] transition-colors hover:bg-[var(--color-surface-sunken)]">
+    // The archived row from `25-agent-registry.html`, which the implementation
+    // had dropped entirely. Four affordances, not one — the mock marks the row
+    // with all of them at once, and any one alone is easy to miss:
+    //
+    //   line-through + muted text  the name reads as retired
+    //   sunken row background      the row recedes out of the active list
+    //   left accent border         a marker that survives a colour-blind read
+    //   opacity 75, 100 on hover   present but de-emphasised, still inspectable
+    //
+    // `border-l-2` is applied with `border-transparent` on the active row so the
+    // two states occupy the same box: without it every archived row would shift
+    // its own contents 2px right of the rows around it.
+    <tr
+      data-archived={archived ? 'true' : undefined}
+      className={
+        archived
+          ? 'h-[28px] border-l-2 border-l-[var(--color-status-cancelled)] bg-[var(--color-surface-page)] opacity-75 transition-opacity hover:opacity-100'
+          : 'h-[28px] border-l-2 border-l-transparent transition-colors hover:bg-[var(--color-surface-sunken)]'
+      }
+    >
       <td className="px-2 py-2">
         <div className="flex items-center gap-2">
           <div className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-surface-sunken)] font-mono text-[10px] font-bold text-[var(--color-accent)]">
@@ -352,7 +372,11 @@ function AgentRow({
           <div>
             <Link
               to={agent.id}
-              className="text-[13px] font-semibold leading-none text-[var(--color-primary)] hover:text-[var(--color-accent)]"
+              className={
+                archived
+                  ? 'text-[13px] font-semibold leading-none text-[var(--color-secondary)] line-through hover:text-[var(--color-accent)]'
+                  : 'text-[13px] font-semibold leading-none text-[var(--color-primary)] hover:text-[var(--color-accent)]'
+              }
             >
               {agent.name}
             </Link>

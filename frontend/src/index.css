@@ -43,17 +43,23 @@
   --color-danger: #b91c1c;
   --color-info: #1d4ed8;
 
-  /* --- the 10 task statuses: the primary visual palette --- */
-  --color-status-backlog: #5c6b7a;
-  --color-status-ready: #1d4ed8;
-  --color-status-running: #b45309;
-  --color-status-awaiting-approval: #6d28d9;
-  --color-status-blocked: #c2410c;
-  --color-status-review: #0e7490;
-  --color-status-done: #15803d;
-  --color-status-failed: #b91c1c;
-  --color-status-cancelled: #8a9490;
-  --color-status-archived: #c3cac7;
+  /* --- the 10 task statuses: the primary visual palette ---
+     Values mirror DECISIONS §8 "Status color" (the frozen source) and
+     docs/DESIGN.md. They were 10/10 different until the design audit caught it:
+     DESIGN.md had drifted away from DECISIONS and the mockups, and this file had
+     followed DESIGN.md. The mockups are the tie-breaker that settled it — the
+     DECISIONS palette appears 63-140 times across 14-21 mockups, the DESIGN.md
+     one almost nowhere. tools/verify_suite.py now fails if the two disagree. */
+  --color-status-backlog: #64748b;
+  --color-status-ready: #2563eb;
+  --color-status-running: #d97706;
+  --color-status-awaiting-approval: #7c3aed;
+  --color-status-blocked: #ea580c;
+  --color-status-review: #0891b2;
+  --color-status-done: #16a34a;
+  --color-status-failed: #dc2626;
+  --color-status-cancelled: #94a3b8;
+  --color-status-archived: #cbd5e1;
 
   /* --- metrics: colour as a number, not decoration --- */
   --color-token-in: #1d4ed8;

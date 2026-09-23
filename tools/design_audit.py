@@ -235,14 +235,28 @@ def status_palette():
     joined = " ".join(lines)
     # `archived` slate muda `#cbd5e1` — deskriptornya dua kata, jadi `\w+`
     # tunggal melewatkannya dan paletnya cuma ketemu 9 dari 10.
-    return {k: v.lower() for k, v in re.findall(r"`([a-z_]+)`\s+[a-z ]+`(#[0-9a-fA-F]{6})`", joined)}
+    # `[a-z ]+` itu rakus dan bisa melahap beberapa entri sekaligus, jadi
+    # kecocokan belakangan menimpa yang awal dan nilai yang dilaporkan bukan
+    # nilai di dokumen. Batasi ke deskriptor maksimal tiga kata.
+    return {
+        k: v.lower()
+        for k, v in re.findall(r"`([a-z_]+)`\s+[a-z]+(?:\s+[a-z]+){0,2}\s+`(#[0-9a-fA-F]{6})`", joined)
+    }
 
 
 def css_status_tokens():
+    """Token status dari index.css.
+
+    Nama token memakai tanda hubung (`--color-status-awaiting-approval`) sementara
+    DECISIONS menulisnya dengan garis bawah (`awaiting_approval`), jadi kelas
+    karakternya harus memuat keduanya lalu dinormalkan — tanpa itu
+    `awaiting_approval` tidak pernah ketemu dan dilaporkan "beda" padahal nilainya
+    sama.
+    """
     text = read(INDEX_CSS)
     return {
-        k.lower(): v.strip().lower()
-        for k, v in re.findall(r"--color-status-([a-z_]+):\s*([^;]+);", text)
+        k.replace("-", "_").lower(): v.strip().lower()
+        for k, v in re.findall(r"--color-status-([a-z_-]+):\s*([^;]+);", text)
     }
 
 
@@ -352,7 +366,7 @@ def build(screens, design, impl, mapped, unmapped):
         ok = got == hexa
         same += ok
         diff += not ok
-        add(f"| {name} | `#{hexa}` | `{got}` | {'sama' if ok else 'BEDA'} |")
+        add(f"| {name} | `{hexa}` | `{got}` | {'sama' if ok else 'BEDA'} |")
     add("")
     add(f"**{same} sama, {diff} beda.**")
     add("")

@@ -88,18 +88,18 @@ Sumber beku: `DECISIONS.md` §8 paragraf "Status color".
 
 | status | beku (DECISIONS §8) | impl (`index.css`) | |
 |---|---|---|---|
-| archived | `##cbd5e1` | `#c3cac7` | BEDA |
-| awaiting_approval | `##7c3aed` | `—` | BEDA |
-| backlog | `##64748b` | `#5c6b7a` | BEDA |
-| blocked | `##ea580c` | `#c2410c` | BEDA |
-| cancelled | `##94a3b8` | `#8a9490` | BEDA |
-| done | `##16a34a` | `#15803d` | BEDA |
-| failed | `##dc2626` | `#b91c1c` | BEDA |
-| ready | `##2563eb` | `#1d4ed8` | BEDA |
-| review | `##0891b2` | `#0e7490` | BEDA |
-| running | `##d97706` | `#b45309` | BEDA |
+| archived | `#cbd5e1` | `#cbd5e1` | sama |
+| awaiting_approval | `#7c3aed` | `#7c3aed` | sama |
+| backlog | `#64748b` | `#64748b` | sama |
+| blocked | `#ea580c` | `#ea580c` | sama |
+| cancelled | `#94a3b8` | `#94a3b8` | sama |
+| done | `#16a34a` | `#16a34a` | sama |
+| failed | `#dc2626` | `#dc2626` | sama |
+| ready | `#2563eb` | `#2563eb` | sama |
+| review | `#0891b2` | `#0891b2` | sama |
+| running | `#d97706` | `#d97706` | sama |
 
-**0 sama, 10 beda.**
+**10 sama, 0 beda.**
 
 ## 6. Token spacing
 
@@ -118,8 +118,8 @@ Dideklarasikan: 6. Nol dipakai: 6.
 
 | penanda | design | impl |
 |---|---|---|
-| `line-through` | 6 | 0 |
-| `opacity-*` | 37 | 12 |
+| `line-through` | 6 | 2 |
+| `opacity-*` | 37 | 14 |
 
 ## 8. Jargon yang bocor ke UI yang dirender
 

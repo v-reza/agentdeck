@@ -590,6 +590,43 @@ test.describe('agent registry (US-AD20)', () => {
     await filter.click()
     await page.getByRole('option', { name: 'DIARSIP' }).click()
     await expect(row2).toBeVisible()
+
+    // The archived ROW styling from `25-agent-registry.html`, which the
+    // implementation had dropped: the mock marks a retired row four ways at
+    // once, and a test that only checked the badge would have passed while all
+    // four were missing. Each is asserted on computed style, not on a class
+    // name, so a refactor that keeps the appearance keeps the test green.
+    const retired = await row2.evaluate((el) => {
+      const s = getComputedStyle(el)
+      const name = el.querySelector('a')
+      return {
+        decoration: name ? getComputedStyle(name).textDecorationLine : '',
+        background: s.backgroundColor,
+        borderLeftWidth: s.borderLeftWidth,
+        opacity: Number(s.opacity),
+      }
+    })
+    expect(retired.decoration, 'the retired name is struck through').toContain('line-through')
+    expect(retired.borderLeftWidth, 'the row carries a left marker').toBe('2px')
+    expect(retired.opacity, 'the row is de-emphasised').toBeCloseTo(0.75, 2)
+    // The active rows must NOT look retired, or the four markers mean nothing.
+    // This second agent is the control: same table, same columns, not archived.
+    await api(page, orgID, 'POST', `/projects/${projectID}/agents`, agentPayload({ name: 'agent-still-active' }))
+    await page.reload()
+    const live = await page.getByRole('row', { name: /agent-still-active/ }).evaluate((el) => {
+      const s = getComputedStyle(el)
+      const name = el.querySelector('a')
+      return {
+        decoration: name ? getComputedStyle(name).textDecorationLine : '',
+        opacity: Number(s.opacity),
+        borderLeftColor: s.borderLeftColor,
+      }
+    })
+    expect(live.decoration, 'an active name is not struck through').not.toContain('line-through')
+    expect(live.opacity, 'an active row is fully opaque').toBeCloseTo(1, 2)
+    // Transparent, not absent: the marker's box is reserved on both states so
+    // the archived row does not shift 2px out of line with its neighbours.
+    expect(live.borderLeftColor).toMatch(/rgba\(0, 0, 0, 0\)|transparent/)
   })
 
   test('the two guidance cards render under the table', async ({ page }) => {
