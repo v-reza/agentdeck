@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { chooseOption, optionValues } from './combobox'
 
 /** Screen 37-workspace-settings — US-AD03, US-AD77, and US-AD93. */
 const API = '/api/v1'
@@ -60,11 +61,15 @@ test.describe('workspace settings and active context', () => {
     expect(created.status, created.body).toBe(201)
 
     await page.goto(`/app/${orgID}/settings/workspace`)
+    // The switcher is the shared `Combobox` (a button + listbox), not a native
+    // `<select>`, so it is driven through the repo's own helper rather than
+    // `selectOption`. `optionValues` is what proves both workspaces are offered:
+    // a closed combobox has no `option` elements to count.
     const picker = page.getByRole('combobox', { name: 'Pindah ruang kerja' })
     await expect(picker).toBeVisible()
-    await expect(picker.locator('option')).toHaveCount(2)
+    expect(await optionValues(page, 'Pindah ruang kerja')).toContain('Second Fleet')
 
-    await picker.selectOption({ label: 'Second Fleet' })
+    await chooseOption(page, 'Pindah ruang kerja', 'Second Fleet')
     await expect(page).toHaveURL(/\/app\/[^/]+\/settings\/workspace$/)
     await expect(page.getByRole('main').getByText('Second Fleet', { exact: true })).toBeVisible()
     await expect(page.getByRole('main').getByRole('button', { name: 'Ganti nama ruang kerja' })).toBeVisible()

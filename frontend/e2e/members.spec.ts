@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { chooseOption, optionValues } from './combobox'
 
 /**
  * Screen 38-members — the workspace roster (US-AD04 AC1/AC2/AC3).
@@ -79,7 +80,11 @@ test.describe('members — design match and US-AD04', () => {
     await page.getByRole('button', { name: /undang anggota/i }).click()
     await expect(dialog).toBeVisible()
     await dialog.locator('input[name="email"]').fill(`viewer-${Date.now()}@example.com`)
-    await dialog.locator('select[name="role"]').selectOption('viewer')
+    // The role picker is the shared `Combobox`, so it is driven by its label
+    // through the repo's helper — there is no `<option>` to `selectOption`.
+    // The label is the dictionary's, not the enum: the app runs Indonesian here
+    // (as `workspace-settings.spec.ts` does), so `viewer` renders as "Pengamat".
+    await chooseOption(dialog, /role|peran/i, 'Pengamat')
     await dialog.locator('button[type="submit"]').click()
     await expect(dialog).toHaveCount(0, { timeout: 15_000 })
 
@@ -142,8 +147,10 @@ test.describe('members — design match and US-AD04', () => {
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
 
-    // `owner` is granted with the workspace and can never be handed out here
-    await expect(dialog.locator('select[name="role"] option[value="owner"]')).toHaveCount(0)
+    // `owner` is granted with the workspace and can never be handed out here.
+    // A closed combobox has no `<option>` elements, so the rule is asserted on
+    // the list it actually offers.
+    expect(await optionValues(dialog, /role|peran/i)).not.toContain('Pemilik')
 
     // the design's own "Full owner" label sits on the owner's row instead of a
     // control that the server would answer with 403

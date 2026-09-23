@@ -25,7 +25,7 @@ const CHIPS: Record<Role, string> = {
 }
 
 /** `role.owner` → "Pemilik"/"Owner". Typed, so a missing label is a compile error. */
-const LABEL: Record<Role, keyof Dictionary> = {
+export const ROLE_LABEL: Record<Role, keyof Dictionary> = {
   owner: 'role.owner',
   admin: 'role.admin',
   member: 'role.member',
@@ -43,7 +43,7 @@ export function RoleBadge({ role, className }: { role: Role; className?: string 
         className,
       )}
     >
-      {t[LABEL[role]]}
+      {t[ROLE_LABEL[role]]}
     </span>
   )
 }

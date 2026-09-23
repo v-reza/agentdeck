@@ -5,6 +5,7 @@ import { baseApi } from '@/store/api/base'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useT } from '@/hooks/use-t'
 import { LangToggle } from './LangToggle'
+import { Combobox } from '@/components/ui/combobox'
 
 /**
  * The 52px topbar (DESIGN.md `shell-topbar`, design source 11-project-list
@@ -61,21 +62,21 @@ export function WorkspaceTopbar({ title, path, subtitle, right }: WorkspaceTopba
       <div className="flex shrink-0 items-center gap-2">
         {right}
         {canSwitch ? (
-          <label className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wide text-[var(--color-tertiary)]">
-            <span className="sr-only">{t['workspace.switcher']}</span>
-            <select
-              aria-label={t['workspace.switcher']}
-              className="max-w-[180px] rounded-[4px] border border-[var(--color-border-subtle)] bg-[var(--color-surface-panel)] px-1.5 py-1 font-mono text-[10px] normal-case tracking-normal text-[var(--color-secondary)] outline-none focus:border-[var(--color-accent)]"
-              value={activeOrgID ?? ''}
-              onChange={(event) => switchWorkspace(event.target.value)}
-            >
-              {workspaces.map((workspace) => (
-                <option key={workspace.id} value={workspace.id}>
-                  {workspace.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          // The repo has one dropdown component, and this is it. It used to be a
+          // native `<select>` with its own border, radius and 10px type — the
+          // only control in the shell that did not come from the design system,
+          // sitting in the same bar as buttons that do.
+          //
+          // The width cap moves to the root so the trigger does not stretch to
+          // the bar's full width; the popup is `w-full min-w-max`, so it can
+          // still be wider than the trigger when a workspace name is long.
+          <Combobox
+            className="w-[168px]"
+            label={t['workspace.switcher']}
+            value={activeOrgID ?? ''}
+            onChange={switchWorkspace}
+            options={workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name }))}
+          />
         ) : null}
         <LangToggle />
       </div>

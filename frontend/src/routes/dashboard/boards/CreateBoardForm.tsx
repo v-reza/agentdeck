@@ -7,6 +7,7 @@ import { useT } from '@/hooks/use-t'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
+import { Combobox } from '@/components/ui/combobox'
 import { slugify } from '@/routes/dashboard/projects/CreateProjectForm'
 
 /**
@@ -44,6 +45,10 @@ export function CreateBoardForm({
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
+  // Controlled picker: `Combobox` holds its value in state, so the project
+  // default that used to be a native `defaultValue` lives here instead. The
+  // reset below keeps it pointing at the first project after a successful create.
+  const [projectID, setProjectID] = useState(projects[0]?.id ?? '')
   // Once the operator edits the slug, the name stops driving it. Without this a
   // second keystroke in `name` would overwrite a deliberate slug.
   const slugEdited = useRef(false)
@@ -61,6 +66,7 @@ export function CreateBoardForm({
       setOpen(false)
       setName('')
       setSlug('')
+      setProjectID(projects[0]?.id ?? '')
       slugEdited.current = false
     },
   )
@@ -85,18 +91,13 @@ export function CreateBoardForm({
       <Modal open={open} onClose={close} title={t['boards.create.title']} description={t['boards.create.description']}>
         <form action={formAction} id="create-board-form" className="flex flex-col gap-3.5">
           <Field label={t['boards.create.project']}>
-            <select
+            <Combobox
               name="projectID"
-              required
-              defaultValue={projects[0].id}
-              className="h-8 w-full rounded-[6px] border border-[var(--color-border-subtle)] bg-[var(--color-surface-panel)] px-2.5 text-[12px] text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+              label={t['boards.create.project']}
+              value={projectID}
+              onChange={setProjectID}
+              options={projects.map((project) => ({ value: project.id, label: project.name }))}
+            />
           </Field>
 
           <Field label={t['field.name']}>

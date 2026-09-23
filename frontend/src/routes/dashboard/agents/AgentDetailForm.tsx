@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Agent } from '@/lib/domain'
 import type { AgentCatalog, AgentSkill, CatalogModel } from '@/store/api/agents'
 import type { Provider } from '@/store/api/providers'
@@ -219,6 +220,15 @@ export function RuntimeSection({
   const reasoning = [...new Set(['low', 'medium', 'high', values.reasoning_effort])]
   const policies = [...new Set(['never', 'transient_only', 'always', values.retry_policy])]
   const library = skills ?? []
+  // These three lists used to be native `<select>`s: uncontrolled, and read out
+  // of FormData on submit. `Combobox` is controlled, so the value now lives in
+  // state and reaches the form through the hidden input the component renders.
+  // The `name`/`form`/`id` trio is what keeps the topbar's
+  // `form="agent-detail-form"` save button working — the input sits in the
+  // combobox's own subtree, not inside the `<form>` element.
+  const [runtime, setRuntime] = useState(String(values.max_runtime_seconds))
+  const [reasoningEffort, setReasoningEffort] = useState(values.reasoning_effort)
+  const [retryPolicy, setRetryPolicy] = useState(values.retry_policy)
   const known = new Set(library.map((skill) => skill.slug))
   // A slug the agent carries but the library no longer has is still shown: it is
   // what the row stores, and hiding it would make the screen disagree with the
@@ -235,22 +245,22 @@ export function RuntimeSection({
       <div key={agent.id} className="grid grid-cols-3 gap-3">
         <ControlBox label={t['agents.detail.runtime']} htmlFor="agent-runtime">
           <div className="flex items-center gap-1.5">
-            <select
+            <Combobox
               id="agent-runtime"
               name="max_runtime_seconds"
               form="agent-detail-form"
-              defaultValue={values.max_runtime_seconds}
-              className="h-8 w-full rounded-[6px] border border-[var(--color-border-standard)] bg-[var(--color-surface-page)] px-2.5 font-mono text-[12px] text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-            >
-              {[...new Set([...RUNTIME_PRESETS, values.max_runtime_seconds])]
+              label={t['agents.detail.runtime']}
+              value={runtime}
+              onChange={setRuntime}
+              options={[...new Set([...RUNTIME_PRESETS, values.max_runtime_seconds])]
                 .sort((a, b) => a - b)
-                .map((seconds) => (
-                  <option key={seconds} value={seconds}>
-                    {runtimeLabel(seconds)}{' '}
-                    {interpolate(t['agents.detail.minutes'], [String(Math.round(seconds / 60))])}
-                  </option>
-                ))}
-            </select>
+                .map((seconds) => ({
+                  value: String(seconds),
+                  label: `${runtimeLabel(seconds)} ${interpolate(t['agents.detail.minutes'], [
+                    String(Math.round(seconds / 60)),
+                  ])}`,
+                }))}
+            />
           </div>
         </ControlBox>
 
@@ -269,37 +279,29 @@ export function RuntimeSection({
         </ControlBox>
 
         <ControlBox label={t['agents.detail.reasoning']} htmlFor="agent-reasoning">
-          <select
+          <Combobox
             id="agent-reasoning"
             name="reasoning_effort"
             form="agent-detail-form"
-            defaultValue={values.reasoning_effort}
-            className="h-8 w-full rounded-[6px] border border-[var(--color-border-standard)] bg-[var(--color-surface-page)] px-2.5 font-mono text-[12px] text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-          >
-            {reasoning.map((effort) => (
-              <option key={effort} value={effort}>
-                {effort}
-              </option>
-            ))}
-          </select>
+            label={t['agents.detail.reasoning']}
+            value={reasoningEffort}
+            onChange={setReasoningEffort}
+            options={reasoning.map((effort) => ({ value: effort, label: effort }))}
+          />
         </ControlBox>
       </div>
 
       <div className="mt-3 grid grid-cols-4 gap-3">
         <ControlBox label={t['agents.detail.retry']} htmlFor="agent-retry">
-          <select
+          <Combobox
             id="agent-retry"
             name="retry_policy"
             form="agent-detail-form"
-            defaultValue={values.retry_policy}
-            className="h-8 w-full rounded-[6px] border border-[var(--color-border-standard)] bg-[var(--color-surface-page)] px-2.5 font-mono text-[12px] text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-          >
-            {policies.map((policy) => (
-              <option key={policy} value={policy}>
-                {policy}
-              </option>
-            ))}
-          </select>
+            label={t['agents.detail.retry']}
+            value={retryPolicy}
+            onChange={setRetryPolicy}
+            options={policies.map((policy) => ({ value: policy, label: policy }))}
+          />
         </ControlBox>
 
         <ControlBox label={t['agents.detail.gatePolicy']} htmlFor="agent-gate">

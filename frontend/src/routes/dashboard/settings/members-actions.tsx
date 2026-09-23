@@ -8,6 +8,8 @@ import type { Role } from '@/lib/domain'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
+import { Combobox } from '@/components/ui/combobox'
+import { ROLE_LABEL } from '@/components/ui/role-badge'
 
 type Member = NonNullable<ReturnType<typeof useListMembersQuery>['data']>[number]
 
@@ -16,9 +18,11 @@ type Member = NonNullable<ReturnType<typeof useListMembersQuery>['data']>[number
  *
  * The design has no dialog for either: `38-members.html` mocks an unconverted
  * toolbar button and a bare "Ubah Role" text link per row. Placement is
- * therefore a UX decision made with the design system's own parts — a real
- * `<select>` for the role, which is accessible by default, and a field stack
- * matching the create dialog on the project directory.
+ * therefore a UX decision made with the design system's own parts — a field
+ * stack matching the create dialog on the project directory. The role picker is
+ * the shared `Combobox`, not a native `<select>`: the repo has exactly one
+ * dropdown component, and a form built from the browser's own control next to
+ * one built from `Combobox` reads as two different products.
  *
  * The role choices stop at `admin`. `owner` is never assignable: the server
  * rejects it on both POST and PATCH because ownership is granted with the
@@ -28,13 +32,14 @@ type Member = NonNullable<ReturnType<typeof useListMembersQuery>['data']>[number
  */
 const ASSIGNABLE: Role[] = ['admin', 'member', 'viewer']
 
-const SELECT_CLASS =
-  'h-9 w-full rounded-[6px] border border-[var(--color-border-subtle)] bg-[var(--color-surface-panel)] px-2.5 text-[13px] text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none'
-
 /** The invite dialog, triggered from the roster header. Renders nothing below admin (AC2). */
 export function MembersToolbar({ orgName, canManage }: { orgName?: string; canManage: boolean }) {
   const t = useT()
   const [open, setOpen] = useState(false)
+  // `Combobox` is controlled, so the invite's default lives in state instead of
+  // a native `defaultValue`. The modal unmounts its children when closed
+  // (`Modal` returns null), so reopening starts from this initial value again.
+  const [inviteRole, setInviteRole] = useState<string>('member')
   const [addMember] = useAddMemberMutation()
   // The tenant comes from the session slice, never a route param: the server
   // resolves the org from X-Org-ID (ARCHITECTURE 11.1 step 5).
@@ -74,13 +79,13 @@ export function MembersToolbar({ orgName, canManage }: { orgName?: string; canMa
             <Input name="email" type="email" required placeholder="nama@perusahaan.com" className="h-9 text-[13px]" />
           </Field>
           <Field label={t['members.colRole']} hint={t['members.role.ownerHint']}>
-            <select name="role" defaultValue="member" className={SELECT_CLASS}>
-              {ASSIGNABLE.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
+            <Combobox
+              name="role"
+              label={t['members.colRole']}
+              value={inviteRole}
+              onChange={setInviteRole}
+              options={ASSIGNABLE.map((role) => ({ value: role, label: t[ROLE_LABEL[role]] }))}
+            />
           </Field>
 
           {state.error ? <p className="text-[12px] text-[var(--color-danger)]">{state.error}</p> : null}
@@ -121,6 +126,10 @@ export function MemberRowActions({
   const t = useT()
   const [open, setOpen] = useState(false)
   const [updateRole] = useUpdateMemberRoleMutation()
+  // Same reason as the invite dialog: a controlled picker keeps its default in
+  // state. `Modal` unmounts its children when closed, so this re-seeds from the
+  // member's current role on every open.
+  const [roleDraft, setRoleDraft] = useState<string>(member.role)
 
   const [state, formAction, isPending] = useActionForm(
     updateRole,
@@ -168,13 +177,13 @@ export function MemberRowActions({
         <form action={formAction} id={`role-form-${member.user_id}`} className="flex flex-col gap-3.5">
           <input type="hidden" name="user_id" value={member.user_id} />
           <Field label={t['members.colRole']} hint={t['members.role.ownerHint']}>
-            <select name="role" defaultValue={member.role} className={SELECT_CLASS}>
-              {ASSIGNABLE.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
+            <Combobox
+              name="role"
+              label={t['members.colRole']}
+              value={roleDraft}
+              onChange={setRoleDraft}
+              options={ASSIGNABLE.map((role) => ({ value: role, label: t[ROLE_LABEL[role]] }))}
+            />
           </Field>
 
           {state.error ? <p className="text-[12px] text-[var(--color-danger)]">{state.error}</p> : null}

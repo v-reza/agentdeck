@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { optionValues } from './combobox'
 
 /**
  * Screen 10-board-list — creating a board (US-AD09) and the empty state that
@@ -117,10 +118,12 @@ test.describe('board list — create board (US-AD09)', () => {
       .click()
 
     const dialog = page.getByRole('dialog')
-    // The project selector must already offer the seeded project.
-    const projectSelect = dialog.getByLabel('Project')
+    // The project selector must already offer the seeded project. It is the
+    // shared `Combobox` (a button + listbox), so the offered values come from
+    // its listbox rather than from `<option>` elements.
+    const projectSelect = dialog.getByRole('combobox', { name: 'Project' })
     await expect(projectSelect).toBeVisible()
-    await expect(projectSelect.locator('option')).toHaveCount(1)
+    expect(await optionValues(dialog, 'Project')).toHaveLength(1)
 
     await dialog.getByLabel('Nama').fill('E2E Sprint')
     await page.getByRole('button', { name: /^Buat$/ }).click()
