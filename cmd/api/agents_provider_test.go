@@ -69,7 +69,7 @@ func newPhase5Fixture(t *testing.T) phase5Fixture {
 
 	mux := http.NewServeMux()
 	registerBoardRoutes(mux, scenario.api, board.NewService(repo), svc)
-	registerAgentRoutes(mux, scenario.api, board.NewService(repo), svc)
+	registerAgentRoutes(mux, scenario.api, board.NewService(repo), svc, nil)
 
 	f := columnFixture{mux: mux, repo: repo, scenario: scenario, boardA: "board-a", boardB: "board-b"}
 	return phase5Fixture{updateFixture: updateFixture{columnFixture: f, projectID: "proj-a"}, providers: providers}
@@ -376,7 +376,7 @@ func TestAgentRoutesWithoutARegistryStillAnswer(t *testing.T) {
 
 	mux := http.NewServeMux()
 	registerBoardRoutes(mux, scenario.api, board.NewService(repo), nil)
-	registerAgentRoutes(mux, scenario.api, board.NewService(repo), nil)
+	registerAgentRoutes(mux, scenario.api, board.NewService(repo), nil, nil)
 
 	body := `{"name":"agent-nil-registry","model":"m","provider_id":"prov-a"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/proj-a/agents", bytes.NewBufferString(body))

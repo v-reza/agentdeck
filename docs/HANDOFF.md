@@ -290,15 +290,18 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
    sampai), `noProvider` (agent nggak punya provider), `unpriced` (model memang
    nggak ada di tabel). Sebelumnya tiga-tiganya satu kalimat.
 4. Pesan backend 409/403 masih Inggris, UI default Indonesia.
-4b. **Harga model BYO = nol, dan tidak ada tempat mengisinya.** Terukur: `my-own-llama-70b`
-   (nama nyata di DB dev) resolve ke `unpriced`, `in=0 out=0`. Nol pattern catch-all, jadi
-   tingkat 4 adalah keadaan **normal** untuk model BYO, bukan pengecualian. Mekanisme yang
-   seharusnya menutupnya — tingkat 1, tabel `agent_model_prices` (override harga per-model
-   milik org) — **belum ada sama sekali**: nol migrasi, nol query, nol endpoint, dan
-   `pricing.Resolve(m, nil)` dipanggil dengan `nil` di dua tempat. Akibatnya agent BYO
-   tercatat **gratis** di ledger, dan gate biaya US-AD32 tidak akan pernah menyala untuknya.
-   Belum merugikan hari ini karena runtime LLM belum ada (nol penulis `ledger_entries`),
-   tapi **wajib ada sebelum executor M4 jalan**. Detail + angka di DECISIONS §6A.C.1.
+4b. ~~**Harga model BYO = nol, dan tidak ada tempat mengisinya.**~~ **SELESAI** — tingkat 1
+   ada sejak migrasi `0012` + `internal/modelprice` + tiga endpoint `GET`/`PUT`/`DELETE
+   /api/v1/model-prices` (baca Viewer, tulis Admin). `GET /agent-catalog` sekarang mengisi
+   parameter `override` yang dulu selalu `nil`, dan mengoreksi dirinya sendiri: model yang
+   punya override dilaporkan `price_source: manual` dengan harga override itu — bukan harga
+   katalog — plus model yang cuma punya override **muncul** di daftar padahal tabel bersama
+   tidak mengenalnya. Terukur lewat API nyata: `my-own-llama-70b` → `in=$0.50 out=$1.50`/1M.
+   **Yang masih terbuka:** penulis `ledger_entries`. Runtime LLM belum ada, jadi mekanismenya
+   siap tapi belum ada yang memakainya — dan gate biaya US-AD32 tetap tidak akan menyala untuk
+   agent BYO sampai executor M4 menulis baris ledger. UI pengisian harga **belum ada** dan
+   nol mockup menggambarkannya; tiga endpointnya sengaja tidak dikarang ke layar.
+   Detail + angka di DECISIONS §6A.C.1.
 4c. **Rujukan silang `§6A.G` / `§6A.H` sempat salah tunjuk.** Skill library dulu `§6A.G`;
    saat §6A.J ditambahkan, judulnya ikut berubah jadi `§6A.H` dan `§6A.G` hilang, sementara
    `ARCHITECTURE.md` + `cmd/api/agent_skills.go` masih menunjuk `§6A.G`. Sudah dibalikin ke

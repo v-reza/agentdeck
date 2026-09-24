@@ -269,18 +269,20 @@ DB dev**, bukan disimpulkan dari isi tabel:
 |---|---|
 | "pattern generic" ada | **Tidak ada.** 51 pattern semuanya spesifik vendor (`grok-*`, `minimax-*`, `*-codex-mini`). Nol catch-all. `my-own-llama-70b` → `unpriced`, `in=0 out=0`. |
 | tingkat 4 itu pengecualian | **Tingkat 4 adalah keadaan normal untuk model BYO.** Nama model dari endpoint operator tidak akan pernah cocok pattern vendor kita, jadi `cost_micros = 0` — dan itu berarti ledger mencatat **nol biaya**, bukan "tidak diketahui". |
-| tingkat 1 siap dipakai | **Belum ada sama sekali.** Tabel `agent_model_prices` tidak ada di DDL, tidak ada di migrasi, tidak ada query, tidak ada endpoint. Nol referensi di seluruh repo selain tabel di atas. `Resolve` menerima `override *ModelPrice`, tapi **tidak ada satu pun pemanggil** yang mengisinya (`pricing.Resolve(m, nil)` di dua tempat). |
+| tingkat 1 siap dipakai | **Sudah ada, sejak migrasi 0012.** ~~Tabel `agent_model_prices` tidak ada di DDL, tidak ada di migrasi, tidak ada query, tidak ada endpoint. Nol referensi di seluruh repo selain tabel di atas. `Resolve` menerima `override *ModelPrice`, tapi tidak ada satu pun pemanggil yang mengisinya (`pricing.Resolve(m, nil)` di dua tempat).~~ Sekarang: tabelnya ada (§3.14b), query `UpsertModelPrice`/`ListModelPrices`/`DeleteModelPrice`, tiga endpoint (`GET`/`PUT`/`DELETE /api/v1/model-prices`), dan `GET /agent-catalog` mengisi parameter `override` itu dari tabel. Terukur lewat API nyata: `my-own-llama-70b` → `price_source: manual`, `in=$0.50 out=$1.50` per 1M, dan model itu **muncul di catalog** setelah di-override padahal sebelumnya tidak ada sama sekali. |
+| "model BYO otomatis berharga nol" | **Berhenti berlaku begitu operator mengisi harganya.** Tanpa override, jawabannya tetap `unpriced` dan `cost_micros = 0` — jadi kesimpulan di bawah masih benar sebagai *keadaan default*, bukan lagi sebagai satu-satunya kemungkinan. |
 
 **Kenapa ini penting dan bukan sekadar rapi-rapi dokumen:** tingkat 1 adalah satu-satunya
-mekanisme yang membuat operator BYO bisa memberi harga pada modelnya sendiri. Selama tabel
-itu belum ada, model BYO dihargai **nol**, dan nol di `ledger_entries` tidak bisa dibedakan
-dari "gratis" — padahal §6A.A bilang setiap angka biaya adalah ESTIMATE. Gate biaya (US-AD32)
-juga tidak akan pernah menyala untuk agent BYO, karena apa pun yang dia pakai berbiaya nol.
+mekanisme yang membuat operator BYO bisa memberi harga pada modelnya sendiri. ~~Selama tabel
+itu belum ada~~ Sampai migrasi 0012 tabel itu belum ada, dan selama itu model BYO dihargai
+**nol**, dan nol di `ledger_entries` tidak bisa dibedakan dari "gratis" — padahal §6A.A bilang
+setiap angka biaya adalah ESTIMATE. Gate biaya (US-AD32) juga tidak akan pernah menyala untuk
+agent BYO, karena apa pun yang dia pakai berbiaya nol.
 
-Ini **belum menimbulkan kerugian nyata hari ini** karena runtime LLM belum ada: nol penulis
-`ledger_entries`, dan `chat/completions` cuma dipakai probe kredensial. Tapi begitu executor
-(M4) jalan, setiap agent BYO akan tercatat gratis tanpa ketahuan. Jadi tabel tingkat 1 harus
-ada **sebelum atau bersamaan** dengan executor, bukan sesudah.
+Tabelnya sudah ada sekarang, jadi **yang tersisa bukan lagi tabelnya, tapi penulis ledger-nya**:
+runtime LLM belum ada, jadi nol baris `ledger_entries` yang ditulis, dan `chat/completions`
+cuma dipakai probe kredensial. Mekanismenya siap sebelum executor (M4) seperti yang diminta;
+yang belum ada adalah pemakainya.
 
 **Yang mengikat dari sini:** `models_json` menyimpan **daftar nama model saja**, bukan harga —
 sudah dicek: `["my-own-llama-70b"]`. Endpoint model operator tidak mengembalikan harga. Jadi

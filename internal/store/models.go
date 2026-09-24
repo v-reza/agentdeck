@@ -30,6 +30,20 @@ type Agent struct {
 	ProviderID        *string
 }
 
+type AgentModelPrice struct {
+	ID                    string
+	OrgID                 string
+	Model                 string
+	InputMicrosPer1m      int64
+	OutputMicrosPer1m     int64
+	CachedMicrosPer1m     int64
+	ReasoningMicrosPer1m  int64
+	CacheWriteMicrosPer1m int64
+	CreatedBy             *string
+	CreatedAt             pgtype.Timestamptz
+	UpdatedAt             pgtype.Timestamptz
+}
+
 type AgentSkill struct {
 	ID        string
 	OrgID     string

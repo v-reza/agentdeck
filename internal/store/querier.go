@@ -98,6 +98,7 @@ type Querier interface {
 	DeleteBoard(ctx context.Context, arg DeleteBoardParams) error
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteMembership(ctx context.Context, arg DeleteMembershipParams) error
+	DeleteModelPrice(ctx context.Context, arg DeleteModelPriceParams) (int64, error)
 	DeleteProject(ctx context.Context, arg DeleteProjectParams) error
 	DeleteProvider(ctx context.Context, arg DeleteProviderParams) error
 	DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error
@@ -116,6 +117,7 @@ type Querier interface {
 	// what". Every org-scoped handler resolves its tenant through this query, so
 	// there is no second code path that could forget the org_id scope.
 	GetMembership(ctx context.Context, arg GetMembershipParams) (Membership, error)
+	GetModelPrice(ctx context.Context, arg GetModelPriceParams) (AgentModelPrice, error)
 	GetOrgByID(ctx context.Context, id string) (Org, error)
 	GetPasswordReset(ctx context.Context, tokenHash string) (PasswordReset, error)
 	// The registration-kind org where THIS user is the owner: that is the only
@@ -189,6 +191,7 @@ type Querier interface {
 	ListBoardTasks(ctx context.Context, arg ListBoardTasksParams) ([]Task, error)
 	ListBoards(ctx context.Context, arg ListBoardsParams) ([]Board, error)
 	ListMembers(ctx context.Context, orgID string) ([]ListMembersRow, error)
+	ListModelPrices(ctx context.Context, orgID string) ([]AgentModelPrice, error)
 	// The org roster a user belongs to, with their role in each. Scoping is
 	// by membership, not by the caller's guess of an org id, so this cannot
 	// leak a tenant the user is not part of (tenant isolation, ARCHITECTURE 17).
@@ -274,6 +277,12 @@ type Querier interface {
 	// spelling drifts between sqlc releases and breaks the caller. `sqlc.arg` names
 	// the parameter and `::text` pins the type, so the generated field is stable.
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error)
+	// ---------------------------------------------------------------- harga manual --
+	// Tingkat 1 resolusi harga (DECISIONS 6A.C). Baris di sini MENANG atas tabel
+	// katalog exact maupun pattern: itu yang membuat `price_source` bernilai
+	// 'manual' di ledger. Nama model disimpan apa adanya, sama seperti yang
+	// dicocokkan `pricing.Resolve`.
+	UpsertModelPrice(ctx context.Context, arg UpsertModelPriceParams) (AgentModelPrice, error)
 }
 
 var _ Querier = (*Queries)(nil)

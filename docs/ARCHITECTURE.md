@@ -744,6 +744,58 @@ CREATE INDEX approvals_pending_idx ON approvals (org_id, decision, created_at DE
 CREATE INDEX approvals_task_idx ON approvals (task_id, created_at DESC);
 ```
 
+### 3.14b `agent_model_prices` — override harga per model milik org
+
+Tingkat 1 dari resolusi harga 4 tingkat (DECISIONS §6A.C). Tanpa tabel ini,
+setiap model yang tidak ada di tabel katalog maupun pattern jatuh ke tingkat 4
+`unpriced` dengan `cost_micros = 0` — dan nol di `ledger_entries` tidak bisa
+dibedakan dari "gratis". Nama model BYO **selalu** jatuh ke sana, jadi operator
+BYO wajib punya tempat mengisi harganya.
+
+```sql
+CREATE TABLE IF NOT EXISTS agent_model_prices (
+    id                    TEXT        NOT NULL,
+    org_id                TEXT        NOT NULL,
+    model                 TEXT        NOT NULL,   -- nama model APA ADANYA, mis. 'my-own-llama-70b'
+    input_micros_per_1m   BIGINT      NOT NULL DEFAULT 0,
+    output_micros_per_1m  BIGINT      NOT NULL DEFAULT 0,
+    cached_micros_per_1m  BIGINT      NOT NULL DEFAULT -1,  -- -1 = field absen -> jatuh ke input
+    reasoning_micros_per_1m BIGINT    NOT NULL DEFAULT -1,  -- -1 = field absen -> jatuh ke output
+    cache_write_micros_per_1m BIGINT  NOT NULL DEFAULT -1,  -- -1 = field absen -> jatuh ke input
+    created_by            TEXT,                   -- user id; NULL tidak terjadi (selalu ada aktor)
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT agent_model_prices_pk         PRIMARY KEY (id),
+    CONSTRAINT agent_model_prices_id_ulid_chk CHECK (char_length(id) = 26),
+    CONSTRAINT agent_model_prices_model_chk  CHECK (btrim(model) <> ''),
+    CONSTRAINT agent_model_prices_in_chk     CHECK (input_micros_per_1m  >= 0),
+    CONSTRAINT agent_model_prices_out_chk    CHECK (output_micros_per_1m >= 0),
+    CONSTRAINT agent_model_prices_cached_chk CHECK (cached_micros_per_1m  >= -1),
+    CONSTRAINT agent_model_prices_reason_chk CHECK (reasoning_micros_per_1m >= -1),
+    CONSTRAINT agent_model_prices_cw_chk     CHECK (cache_write_micros_per_1m >= -1),
+    CONSTRAINT agent_model_prices_org_fk     FOREIGN KEY (org_id) REFERENCES orgs(id) ON DELETE CASCADE
+);
+
+-- Satu harga per model per ruang kerja: dua baris untuk nama yang sama berarti
+-- `Resolve` bergantung pada urutan baris, dan itu bukan harga yang bisa diaudit.
+CREATE UNIQUE INDEX IF NOT EXISTS agent_model_prices_org_model_key
+    ON agent_model_prices (org_id, model);
+
+-- Melayani: GET /api/v1/model-prices (daftar seluruh override ruang kerja).
+CREATE INDEX IF NOT EXISTS agent_model_prices_org_idx ON agent_model_prices (org_id);
+```
+
+**Kenapa `-1` dan bukan `NULL` untuk tiga field terakhir.** `NULL` berarti
+"tidak diisi" dan `0` berarti "gratis", dan DDL ini butuh arti ketiga: "field ini
+tidak ada di sumber, jadi pakai fallback". `pricing.missing` sudah memakai `-1`
+untuk maksud yang sama (DECISIONS §6A.D), dan CHECK `>= -1` adalah yang menjaga
+sentinel itu keluar dari nilai yang sah.
+
+**Kenapa `model` tanpa normalisasi.** `Resolve` mencocokkan exact dulu, lalu
+tanpa prefix provider. Menyimpan nama sudah-terbentuk di sini akan membuat baris
+override tidak pernah kena untuk model yang punya prefix di katalog — jadi
+namanya disimpan apa adanya, seperti yang diketik operator.
+
 ### 3.14 `ledger_entries` — cost ledger per-step
 
 ```sql
@@ -1616,7 +1668,7 @@ Transisi `outcome` di `runs` (hanya diisi saat `status='ended'`): `succeeded`, `
 
 ---
 
-### 6.2 Tabel Endpoint Lengkap (124 Endpoint)
+### 6.2 Tabel Endpoint Lengkap (127 Endpoint)
 
 > **Kolom `Status`** mencerminkan **kode**, bukan niat: ✅ = route terdaftar di
 > `cmd/api`, ⬜ = belum. Tanda ini diperiksa `tools/verify_suite.py` dua arah —
@@ -1817,7 +1869,7 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | `POST` | `/api/v1/approvals/{id}/reject` | Session/Key | Member | Ya | ⬜ | Tolak proposal `{reason}` → task jadi `blocked` |
 | `POST` | `/api/v1/tasks/{id}/approvals` | Internal/Key | Worker | Ya | ⬜ | Worker meminta approval gate baru |
 
-#### 6.2.15 Cost Ledger & Budget (5 Endpoint)
+#### 6.2.15 Cost Ledger & Budget (8 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
 | `GET` | `/api/v1/boards/{id}/budget` | Session/Key | Viewer | Ya | ⬜ | Realtime usage vs cap harian board (N16: $20/hari, N18: alert 80%) |
@@ -1825,6 +1877,9 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | `GET` | `/api/v1/boards/{id}/ledger` | Session/Key | Viewer | Ya | ⬜ | Laporan rincian pemakaian token & mikro-USD |
 | `GET` | `/api/v1/runs/{id}/ledger` | Session/Key | Viewer | Ya | ⬜ | Ledger entry terperinci per LLM call di suatu run |
 | `GET` | `/api/v1/orgs/{id}/cost-summary` | Session/Key | Admin | Ya | ⬜ | Total pengeluaran per model & board 30 hari |
+| `GET` | `/api/v1/model-prices` | Session/Key | Viewer | Ya | ✅ | Harga manual per model milik ruang kerja (tingkat 1 §6A.C) |
+| `PUT` | `/api/v1/model-prices/{model}` | Session/Key | Admin | Ya | ✅ | Set/ubah harga manual satu model (micro-USD per 1M token) |
+| `DELETE` | `/api/v1/model-prices/{model}` | Session/Key | Admin | Ya | ✅ | Hapus harga manual; model kembali ke katalog/pattern |
 
 #### 6.2.16 Artifacts (5 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
@@ -1875,7 +1930,7 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | 6.2.4 | Orgs & Memberships | 8 | 1 | 9 |
 | 6.2.5 | Projects | 5 | 0 | 5 |
 | 6.2.6 | Boards | 7 | 0 | 7 |
-| 6.2.7 | Agents | 15 | 0 | 15 |
+| 6.2.7 | Agents | 16 | 0 | 16 |
 | 6.2.8 | Providers | 7 | 0 | 7 |
 | 6.2.9 | Tasks | 7 | 4 | 11 |
 | 6.2.10 | Task Links / Dependencies | 4 | 0 | 4 |
@@ -1883,14 +1938,14 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | 6.2.12 | Steps | 0 | 3 | 3 |
 | 6.2.13 | Events & Realtime SSE | 0 | 4 | 4 |
 | 6.2.14 | Approvals | 0 | 5 | 5 |
-| 6.2.15 | Cost Ledger & Budget | 0 | 5 | 5 |
+| 6.2.15 | Cost Ledger & Budget | 3 | 5 | 8 |
 | 6.2.16 | Artifacts | 0 | 5 | 5 |
 | 6.2.17 | Comments | 0 | 4 | 4 |
 | 6.2.18 | Webhooks & Deliveries | 0 | 7 | 7 |
 | 6.2.19 | Audit, Search & System | 0 | 6 | 6 |
-| | **Total** | **62** | **61** | **123** |
+| | **Total** | **66** | **61** | **127** |
 
-*Total endpoint terdefinisi: 124 endpoint.*
+*Total endpoint terdefinisi: 127 endpoint.*
 
 ## 7. Realtime (SSE)
 
@@ -2576,7 +2631,7 @@ Sistem pengujian AgentDeck dibangun untuk menjamin kebenaran state machine, keta
                      ┌───────────────────────┐
                      │   Load Tests (k6)     │  Target konkurensi dan volume (N4: 50 agen running, N5: 100.000 run/bulan, N6: 1.000.000 event/bulan)
                      ├───────────────────────┤
-                     │  API Contract Tests   │  124 Endpoint coverage
+                     │  API Contract Tests   │  127 Endpoint coverage
                      ├───────────────────────┤
                      │ Integration (Pg test) │  Testcontainers Postgres 16
                      ├───────────────────────┤
@@ -2663,7 +2718,10 @@ agentdeck/
 │   ├── crypto/                  # AES-256-GCM untuk kredensial provider
 │   ├── migrate/                 # Migrasi database (embed.FS)
 │   │   ├── migrate.go           # Runner
-│   │   └── 0001.up.sql … 0010.up.sql   # Satu file per langkah
+│   │   └── 0001.up.sql … 0012.up.sql   # Satu file per langkah
+│   ├── modelprice/              # Harga manual per model (tingkat 1 §6A.C)
+│   │   ├── types.go             # Domain, validasi, kontrak Repo, Service
+│   │   └── pgx.go               # Implementasi Postgres
 │   ├── notify/                  # Email undangan & notifikasi
 │   ├── pricing/                 # Engine akuntansi biaya
 │   │   ├── pricing.go           # Resolusi harga 4 tingkat (§9.1)

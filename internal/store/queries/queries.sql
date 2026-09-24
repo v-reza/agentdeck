@@ -696,3 +696,44 @@ FROM events
 WHERE board_id = $1 AND org_id = $2 AND id > $3
 ORDER BY id
 LIMIT $4;
+
+-- ---------------------------------------------------------------- harga manual --
+-- Tingkat 1 resolusi harga (DECISIONS 6A.C). Baris di sini MENANG atas tabel
+-- katalog exact maupun pattern: itu yang membuat `price_source` bernilai
+-- 'manual' di ledger. Nama model disimpan apa adanya, sama seperti yang
+-- dicocokkan `pricing.Resolve`.
+
+-- name: UpsertModelPrice :one
+INSERT INTO agent_model_prices (
+    id, org_id, model, input_micros_per_1m, output_micros_per_1m,
+    cached_micros_per_1m, reasoning_micros_per_1m, cache_write_micros_per_1m, created_by
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+ON CONFLICT (org_id, model) DO UPDATE SET
+    input_micros_per_1m       = EXCLUDED.input_micros_per_1m,
+    output_micros_per_1m      = EXCLUDED.output_micros_per_1m,
+    cached_micros_per_1m      = EXCLUDED.cached_micros_per_1m,
+    reasoning_micros_per_1m   = EXCLUDED.reasoning_micros_per_1m,
+    cache_write_micros_per_1m = EXCLUDED.cache_write_micros_per_1m,
+    updated_at                = now()
+RETURNING id, org_id, model, input_micros_per_1m, output_micros_per_1m,
+          cached_micros_per_1m, reasoning_micros_per_1m, cache_write_micros_per_1m,
+          created_by, created_at, updated_at;
+
+-- name: GetModelPrice :one
+SELECT id, org_id, model, input_micros_per_1m, output_micros_per_1m,
+       cached_micros_per_1m, reasoning_micros_per_1m, cache_write_micros_per_1m,
+       created_by, created_at, updated_at
+FROM agent_model_prices
+WHERE org_id = $1 AND model = $2;
+
+-- name: ListModelPrices :many
+SELECT id, org_id, model, input_micros_per_1m, output_micros_per_1m,
+       cached_micros_per_1m, reasoning_micros_per_1m, cache_write_micros_per_1m,
+       created_by, created_at, updated_at
+FROM agent_model_prices
+WHERE org_id = $1
+ORDER BY model;
+
+-- name: DeleteModelPrice :execrows
+DELETE FROM agent_model_prices WHERE org_id = $1 AND model = $2;

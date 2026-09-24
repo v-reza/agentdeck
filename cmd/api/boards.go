@@ -8,6 +8,7 @@ import (
 
 	"agentdeck/internal/auth"
 	"agentdeck/internal/board"
+	"agentdeck/internal/modelprice"
 	"agentdeck/internal/providerreg"
 )
 
@@ -24,6 +25,13 @@ type boardAPI struct {
 	// so the RBAC tests, which mount these routes without a registry, still
 	// exercise the role gates.
 	providers *providerreg.Service
+	// modelPrices is tier 1 of the price resolution (DECISIONS 6A.C): the
+	// workspace's manual overrides. The catalog handler reads it so the rate it
+	// reports is the rate that will actually be billed — without it the endpoint
+	// would quote the table price for a model whose real cost is an override.
+	// Optional for the same reason as providers: the RBAC tests mount the routes
+	// without one and still have to exercise the gates.
+	modelPrices *modelprice.Service
 }
 
 // writeBoardError maps a domain error to its stable HTTP code so the same

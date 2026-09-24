@@ -16,6 +16,7 @@ import (
 	"agentdeck/internal/board"
 	"agentdeck/internal/config"
 	"agentdeck/internal/migrate"
+	"agentdeck/internal/modelprice"
 	"agentdeck/internal/notify"
 	"agentdeck/internal/providerreg"
 	"agentdeck/internal/skill"
@@ -335,10 +336,16 @@ func main() {
 	// registerAgentSkillRoutes). Wiring them here is the one line that makes
 	// them reachable — they were written but unmounted, which left every
 	// agent-catalog, PATCH /agents/{id} and /agent-skills request a 404.
-	registerAgentRoutes(mux, api, boardService, providerSvc)
+	// Tingkat 1 resolusi harga (DECISIONS 6A.C): harga manual per model milik
+	// ruang kerja. Dibangun di sini dan dipakai dua tempat — rutenya sendiri, dan
+	// `GET /agent-catalog`, yang harus melaporkan harga yang BENAR-BENAR akan
+	// ditagih, bukan harga katalog yang sudah ditimpa.
+	modelPriceSvc := modelprice.NewService(modelprice.NewPgxRepository(pool))
+	registerAgentRoutes(mux, api, boardService, providerSvc, modelPriceSvc)
 	registerAgentCredentialRoutes(mux, api, boardService, providerSvc)
 	registerAgentSkillRoutes(mux, api, skill.NewService(skill.NewPgxRepository(pool)))
 	registerProviderRoutes(mux, api, providerSvc)
+	registerModelPriceRoutes(mux, api, modelPriceSvc)
 
 	// AC7's automatic half: refresh model lists older than 24 hours without
 	// anyone pressing the button. It runs as nobody — no role required, no HTTP

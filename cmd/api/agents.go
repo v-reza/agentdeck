@@ -11,6 +11,7 @@ import (
 
 	"agentdeck/internal/auth"
 	"agentdeck/internal/board"
+	"agentdeck/internal/modelprice"
 	"agentdeck/internal/pricing"
 	"agentdeck/internal/providerreg"
 )
@@ -259,8 +260,11 @@ func (a boardAPI) deleteAgent(w http.ResponseWriter, r *http.Request) {
 //	GET    /api/v1/agents/{id}   Viewer   (registered in registerBoardRoutes)
 //	PATCH  /api/v1/agents/{id}   Member   (here; archive raises it to Admin)
 //	GET    /api/v1/agent-catalog Viewer   (here)
-func registerAgentRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, providers *providerreg.Service) {
-	boardAPI := boardAPI{svc: svc, providers: providers}
+func registerAgentRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, providers *providerreg.Service, modelPrices *modelprice.Service) {
+	// modelPrices is tier 1 of the price resolution and is read by agentCatalog
+	// (DECISIONS 6A.C). Passed in rather than looked up so the RBAC tests, which
+	// mount these routes with no database, still exercise every role gate.
+	boardAPI := boardAPI{svc: svc, providers: providers, modelPrices: modelPrices}
 	agentRoute := func(pattern string, handler http.Handler, minimum auth.Role) {
 		mux.Handle(pattern, api.orgHeaderContextMiddleware(api.requireRole(handler, minimum)))
 	}
@@ -623,10 +627,35 @@ const catalogDisclaimer = "Angka ini estimasi dari tabel harga internal AgentDec
 // pattern, and a probe of the unpriced tier. Nothing is invented for a model the
 // table does not know — an unknown name is reported with price_source
 // "unpriced" and zero rates, which is US-AD108 AC3.
+//
+// Tier 1 (the workspace's manual overrides, DECISIONS 6A.C) is applied before the
+// report is built, and it changes the answer in two ways that both matter:
+//
+//   - an overridden model reports `price_source: manual` with the override's
+//     rates, so the figure on screen is the one the ledger will actually record.
+//     Without this the screen would quote the catalog price for a model whose
+//     real cost is something else — the same "green build, wrong number" class of
+//     bug as a screen that reads a dead column;
+//   - a model that has an override but no catalog entry appears in the list at
+//     all, marked `manual`. It has a price, so omitting it would tell an operator
+//     their priced BYO model is unpriced.
 func (a boardAPI) agentCatalog(w http.ResponseWriter, r *http.Request) {
-	out := make([]catalogModel, 0, len(pricing.Catalog())+len(pricing.Patterns()))
+	overrides := a.workspaceOverrides(r)
+
+	out := make([]catalogModel, 0, len(pricing.Catalog())+len(pricing.Patterns())+len(overrides))
+	listed := make(map[string]bool, len(pricing.Catalog()))
 	for _, m := range pricing.Catalog() {
-		out = append(out, catalogEntry(m, pricing.Resolve(m, nil)))
+		listed[m] = true
+		out = append(out, catalogEntry(m, pricing.Resolve(m, overrides[m])))
+	}
+	// An override for a model the shared table already prices has now been
+	// applied above. One for a model it does not price is the BYO case this
+	// table exists for, so it is appended rather than dropped.
+	for model, override := range overrides {
+		if listed[model] {
+			continue
+		}
+		out = append(out, catalogEntry(model, pricing.Resolve(model, override)))
 	}
 	for _, p := range pricing.Patterns() {
 		// A pattern is not a model: it is the rule that prices models absent
@@ -647,6 +676,34 @@ func (a boardAPI) agentCatalog(w http.ResponseWriter, r *http.Request) {
 		"price_version": pricing.PriceVersion,
 		"models":        out,
 	})
+}
+
+// workspaceOverrides loads tier 1 for the caller's workspace, keyed by model name
+// so the catalog loop can look them up by the same string `pricing.Resolve`
+// matches on.
+//
+// A read failure is not fatal to the catalog: it falls back to an empty map, which
+// makes the endpoint report table prices. That is the pre-existing behaviour and
+// it is still a correct answer — degraded, not wrong. Failing the whole request
+// would take the model list down for a cost-display problem, and the agent form
+// reads that list to populate its picker.
+func (a boardAPI) workspaceOverrides(r *http.Request) map[string]*pricing.ModelPrice {
+	if a.modelPrices == nil {
+		return nil
+	}
+	orgCtx, err := currentOrgContext(r)
+	if err != nil {
+		return nil
+	}
+	rows, err := a.modelPrices.List(r.Context(), orgCtx.workspace.ID)
+	if err != nil {
+		return nil
+	}
+	out := make(map[string]*pricing.ModelPrice, len(rows))
+	for i := range rows {
+		out[rows[i].Model] = rows[i].AsPricingOverridePtr()
+	}
+	return out
 }
 
 func catalogEntry(name string, res pricing.Resolution) catalogModel {

@@ -958,6 +958,23 @@ func (q *Queries) DeleteMembership(ctx context.Context, arg DeleteMembershipPara
 	return err
 }
 
+const deleteModelPrice = `-- name: DeleteModelPrice :execrows
+DELETE FROM agent_model_prices WHERE org_id = $1 AND model = $2
+`
+
+type DeleteModelPriceParams struct {
+	OrgID string
+	Model string
+}
+
+func (q *Queries) DeleteModelPrice(ctx context.Context, arg DeleteModelPriceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteModelPrice, arg.OrgID, arg.Model)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteProject = `-- name: DeleteProject :exec
 DELETE FROM projects
 WHERE id = $1 AND org_id = $2
@@ -1182,6 +1199,38 @@ func (q *Queries) GetMembership(ctx context.Context, arg GetMembershipParams) (M
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getModelPrice = `-- name: GetModelPrice :one
+SELECT id, org_id, model, input_micros_per_1m, output_micros_per_1m,
+       cached_micros_per_1m, reasoning_micros_per_1m, cache_write_micros_per_1m,
+       created_by, created_at, updated_at
+FROM agent_model_prices
+WHERE org_id = $1 AND model = $2
+`
+
+type GetModelPriceParams struct {
+	OrgID string
+	Model string
+}
+
+func (q *Queries) GetModelPrice(ctx context.Context, arg GetModelPriceParams) (AgentModelPrice, error) {
+	row := q.db.QueryRow(ctx, getModelPrice, arg.OrgID, arg.Model)
+	var i AgentModelPrice
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Model,
+		&i.InputMicrosPer1m,
+		&i.OutputMicrosPer1m,
+		&i.CachedMicrosPer1m,
+		&i.ReasoningMicrosPer1m,
+		&i.CacheWriteMicrosPer1m,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -2040,6 +2089,47 @@ func (q *Queries) ListMembers(ctx context.Context, orgID string) ([]ListMembersR
 			&i.Name,
 			&i.Role,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listModelPrices = `-- name: ListModelPrices :many
+SELECT id, org_id, model, input_micros_per_1m, output_micros_per_1m,
+       cached_micros_per_1m, reasoning_micros_per_1m, cache_write_micros_per_1m,
+       created_by, created_at, updated_at
+FROM agent_model_prices
+WHERE org_id = $1
+ORDER BY model
+`
+
+func (q *Queries) ListModelPrices(ctx context.Context, orgID string) ([]AgentModelPrice, error) {
+	rows, err := q.db.Query(ctx, listModelPrices, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AgentModelPrice
+	for rows.Next() {
+		var i AgentModelPrice
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.Model,
+			&i.InputMicrosPer1m,
+			&i.OutputMicrosPer1m,
+			&i.CachedMicrosPer1m,
+			&i.ReasoningMicrosPer1m,
+			&i.CacheWriteMicrosPer1m,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -2967,6 +3057,71 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.IsShadow,
 		&i.DeletedAt,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const upsertModelPrice = `-- name: UpsertModelPrice :one
+
+INSERT INTO agent_model_prices (
+    id, org_id, model, input_micros_per_1m, output_micros_per_1m,
+    cached_micros_per_1m, reasoning_micros_per_1m, cache_write_micros_per_1m, created_by
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+ON CONFLICT (org_id, model) DO UPDATE SET
+    input_micros_per_1m       = EXCLUDED.input_micros_per_1m,
+    output_micros_per_1m      = EXCLUDED.output_micros_per_1m,
+    cached_micros_per_1m      = EXCLUDED.cached_micros_per_1m,
+    reasoning_micros_per_1m   = EXCLUDED.reasoning_micros_per_1m,
+    cache_write_micros_per_1m = EXCLUDED.cache_write_micros_per_1m,
+    updated_at                = now()
+RETURNING id, org_id, model, input_micros_per_1m, output_micros_per_1m,
+          cached_micros_per_1m, reasoning_micros_per_1m, cache_write_micros_per_1m,
+          created_by, created_at, updated_at
+`
+
+type UpsertModelPriceParams struct {
+	ID                    string
+	OrgID                 string
+	Model                 string
+	InputMicrosPer1m      int64
+	OutputMicrosPer1m     int64
+	CachedMicrosPer1m     int64
+	ReasoningMicrosPer1m  int64
+	CacheWriteMicrosPer1m int64
+	CreatedBy             *string
+}
+
+// ---------------------------------------------------------------- harga manual --
+// Tingkat 1 resolusi harga (DECISIONS 6A.C). Baris di sini MENANG atas tabel
+// katalog exact maupun pattern: itu yang membuat `price_source` bernilai
+// 'manual' di ledger. Nama model disimpan apa adanya, sama seperti yang
+// dicocokkan `pricing.Resolve`.
+func (q *Queries) UpsertModelPrice(ctx context.Context, arg UpsertModelPriceParams) (AgentModelPrice, error) {
+	row := q.db.QueryRow(ctx, upsertModelPrice,
+		arg.ID,
+		arg.OrgID,
+		arg.Model,
+		arg.InputMicrosPer1m,
+		arg.OutputMicrosPer1m,
+		arg.CachedMicrosPer1m,
+		arg.ReasoningMicrosPer1m,
+		arg.CacheWriteMicrosPer1m,
+		arg.CreatedBy,
+	)
+	var i AgentModelPrice
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Model,
+		&i.InputMicrosPer1m,
+		&i.OutputMicrosPer1m,
+		&i.CachedMicrosPer1m,
+		&i.ReasoningMicrosPer1m,
+		&i.CacheWriteMicrosPer1m,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
