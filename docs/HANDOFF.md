@@ -290,6 +290,19 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
    sampai), `noProvider` (agent nggak punya provider), `unpriced` (model memang
    nggak ada di tabel). Sebelumnya tiga-tiganya satu kalimat.
 4. Pesan backend 409/403 masih Inggris, UI default Indonesia.
+4b. **Harga model BYO = nol, dan tidak ada tempat mengisinya.** Terukur: `my-own-llama-70b`
+   (nama nyata di DB dev) resolve ke `unpriced`, `in=0 out=0`. Nol pattern catch-all, jadi
+   tingkat 4 adalah keadaan **normal** untuk model BYO, bukan pengecualian. Mekanisme yang
+   seharusnya menutupnya — tingkat 1, tabel `agent_model_prices` (override harga per-model
+   milik org) — **belum ada sama sekali**: nol migrasi, nol query, nol endpoint, dan
+   `pricing.Resolve(m, nil)` dipanggil dengan `nil` di dua tempat. Akibatnya agent BYO
+   tercatat **gratis** di ledger, dan gate biaya US-AD32 tidak akan pernah menyala untuknya.
+   Belum merugikan hari ini karena runtime LLM belum ada (nol penulis `ledger_entries`),
+   tapi **wajib ada sebelum executor M4 jalan**. Detail + angka di DECISIONS §6A.C.1.
+4c. **Rujukan silang `§6A.G` / `§6A.H` sempat salah tunjuk.** Skill library dulu `§6A.G`;
+   saat §6A.J ditambahkan, judulnya ikut berubah jadi `§6A.H` dan `§6A.G` hilang, sementara
+   `ARCHITECTURE.md` + `cmd/api/agent_skills.go` masih menunjuk `§6A.G`. Sudah dibalikin ke
+   G, dan `tools/verify_suite.py` sekarang memeriksa penomoran 6A. (label kembar / hilang).
 5. Belum ada `LICENSE`/`NOTICE`/`THIRD_PARTY`. Konflik lisensi di design
    (`09b-github.html` Apache-2.0 vs `05-landing.html` MIT).
 6. ~~Audit `livez`/`metrics` + tabel tanpa DDL~~ **SELESAI** — lihat

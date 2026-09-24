@@ -28,8 +28,12 @@ const FORM_ID = 'create-agent-form'
  * one contract and stay in one file.
  *
  * Four things are wired to the real API and none of them is hardcoded:
- *  - provider and model come from `GET /agent-catalog` (US-AD96 AC1), offered
- *    as datalists and refused by `validateCatalogModel` before the request;
+ *  - provider and model come from the workspace provider registry (US-AD109),
+ *    and the model choice is that provider's own `models_json` (AC7). The old
+ *    sentence here claimed the pair was "refused by `validateCatalogModel`
+ *    before the request" — it was not, nothing called that function. The list
+ *    is closed at the source instead, which is why the claim never had to be
+ *    true for the refusal to hold;
  *  - `tools` is the closed set of nine primitives (AC7) and `skills` is the org
  *    library from `GET /agent-skills` (AC8);
  *  - the credential block is owner/admin only (AC4) and optional (AC3/AC5): an

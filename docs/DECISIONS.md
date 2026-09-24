@@ -260,6 +260,32 @@ Di Claude selisihnya besar: `claude-opus-4.6` output 25 vs reasoning 37.5.
 User boleh menimpa per model lewat tingkat 1. Tingkat 4 (`unpriced`) hanya terjadi bila
 nama model tidak cocok pattern mana pun — `cost_micros = 0`, ledger menandai `unpriced`.
 
+#### C.1 Tiga koreksi terukur atas tabel di atas
+
+Diukur 2026-09-24 dengan menjalankan `pricing.Resolve` ke nama model yang **nyata ada di
+DB dev**, bukan disimpulkan dari isi tabel:
+
+| Klaim | Yang terukur |
+|---|---|
+| "pattern generic" ada | **Tidak ada.** 51 pattern semuanya spesifik vendor (`grok-*`, `minimax-*`, `*-codex-mini`). Nol catch-all. `my-own-llama-70b` → `unpriced`, `in=0 out=0`. |
+| tingkat 4 itu pengecualian | **Tingkat 4 adalah keadaan normal untuk model BYO.** Nama model dari endpoint operator tidak akan pernah cocok pattern vendor kita, jadi `cost_micros = 0` — dan itu berarti ledger mencatat **nol biaya**, bukan "tidak diketahui". |
+| tingkat 1 siap dipakai | **Belum ada sama sekali.** Tabel `agent_model_prices` tidak ada di DDL, tidak ada di migrasi, tidak ada query, tidak ada endpoint. Nol referensi di seluruh repo selain tabel di atas. `Resolve` menerima `override *ModelPrice`, tapi **tidak ada satu pun pemanggil** yang mengisinya (`pricing.Resolve(m, nil)` di dua tempat). |
+
+**Kenapa ini penting dan bukan sekadar rapi-rapi dokumen:** tingkat 1 adalah satu-satunya
+mekanisme yang membuat operator BYO bisa memberi harga pada modelnya sendiri. Selama tabel
+itu belum ada, model BYO dihargai **nol**, dan nol di `ledger_entries` tidak bisa dibedakan
+dari "gratis" — padahal §6A.A bilang setiap angka biaya adalah ESTIMATE. Gate biaya (US-AD32)
+juga tidak akan pernah menyala untuk agent BYO, karena apa pun yang dia pakai berbiaya nol.
+
+Ini **belum menimbulkan kerugian nyata hari ini** karena runtime LLM belum ada: nol penulis
+`ledger_entries`, dan `chat/completions` cuma dipakai probe kredensial. Tapi begitu executor
+(M4) jalan, setiap agent BYO akan tercatat gratis tanpa ketahuan. Jadi tabel tingkat 1 harus
+ada **sebelum atau bersamaan** dengan executor, bukan sesudah.
+
+**Yang mengikat dari sini:** `models_json` menyimpan **daftar nama model saja**, bukan harga —
+sudah dicek: `["my-own-llama-70b"]`. Endpoint model operator tidak mengembalikan harga. Jadi
+operator BYO **wajib** punya tempat mengisi harga manual, dan tempat itu tingkat 1.
+
 ### D. Satuan & pembulatan
 
 - Tabel harga asal **USD per 1 juta token (float)**. Disimpan sebagai **micro-USD per 1.000.000 token**
@@ -278,9 +304,22 @@ per-org berbeda antar tenant. Tanpa dua kolom ini, baris lama tidak bisa dibukti
 
 ### F. Provider BYO = provider terpisah
 
+> **PENGGANTI: §6A.J.** Section ini menyimpan kredensial di **agent**
+> (`agents.base_url` + `agents.provider_api_key_enc`). §6A.J memindahkannya ke
+> entitas `providers` sekali per ruang kerja dan **menggantikan section ini
+> sepenuhnya**. Yang di bawah sudah tidak berlaku: `agents.base_url` sudah
+> dihapus (migrasi `0011`), form pendaftaran tidak lagi BYO-only, dan kolom
+> `provider` sekarang berisi protokol turunan, bukan nama vendor. Section ini
+> ditinggalkan utuh cuma sebagai jejak keputusan; **jangan** dipakai sebagai
+> sumber kebenaran.
+
 - `provider = 'openai_compatible'` + kolom `agents.base_url`.
-- Kolom `provider` yang ada **TIDAK diganti** — US-AD67 (validasi `provider`+`model` ke tabel harga)
-  dan US-AD68 (`price_version`) tetap berlaku apa adanya.
+- ~~Kolom `provider` yang ada **TIDAK diganti**~~ — **sudah tidak benar.** §6A.J mengubah
+  artinya: `agents.provider` sekarang **protokol/dialect** yang diturunkan dari
+  `providers.protocol`, bukan nama vendor. `ValidateProvider` masih membaca
+  `pricing.Providers()` (18 nama vendor dari tabel harga) di `internal/board/service.go`,
+  tapi nilai yang melewatinya sudah berupa protokol dari registry — jadi aturan dan datanya
+  diukur dengan kacamata berbeda. US-AD68 (`price_version`) tetap berlaku apa adanya.
 - **Form pendaftaran hanya menawarkan `openai_compatible`** (keputusan user, 2026-09-21).
   Alasan: user mau operator memasukkan base URL dan kredensial miliknya sendiri, jadi daftar
   model datang dari endpoint mereka, bukan dari tabel harga kita.
@@ -343,7 +382,7 @@ per-org berbeda antar tenant. Tanpa dua kolom ini, baris lama tidak bisa dibukti
 - Katalog model BYO diisi dari `GET {base_url}/models` (hanya **nama** model — endpoint itu
   tidak mengembalikan harga), lalu di-resolve lewat tingkat C di atas.
 
-### H. Skill library — org-scoped, agent TIDAK boleh menulis
+### G. Skill library — org-scoped, agent TIDAK boleh menulis
 
 - Skill adalah **data**, bukan konstanta: tabel `agent_skills` berisi `body_md` (markdown).
 - Cakupan **per org**. Default disediakan sistem (seed), user boleh menambah/mengubah miliknya.

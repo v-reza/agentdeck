@@ -27,7 +27,9 @@ import { type FieldErrors } from '@/lib/field-error'
  * place to edit it would be a second source of truth for it.
  */
 
-/** The catalog tiers a user may pick by name. A pattern is a rule, not a model. */
+/**
+ * The catalog tiers a user may pick by name. A pattern is a rule, not a model.
+ */
 export function exactModels(catalog: AgentCatalog | undefined): string[] {
   return (catalog?.models ?? [])
     .filter((model) => model.price_source === 'catalog' || model.price_source === 'manual')
@@ -35,9 +37,21 @@ export function exactModels(catalog: AgentCatalog | undefined): string[] {
 }
 
 /**
- * US-AD96 AC1: a combination outside the price table is refused before it is
- * sent. A BYO provider is exempt — its models come from the operator's own
- * `/models`, which this client cannot enumerate without a stored base URL.
+ * US-AD96 AC1, the client-side refusal of a model the catalog cannot price.
+ *
+ * §6A.F says this "stays exported for the detail screen", and it was exported —
+ * but nothing ever called it, so the refusal it describes never happened. The
+ * guard is real today through a different route: both the register form and the
+ * detail form build their model list from the selected provider's own
+ * `models_json` (AC7), so an unpriceable name cannot be chosen in the first
+ * place. Wiring this in as well would refuse a BYO model the operator's own
+ * endpoint advertised, which is the one case the AC exempts.
+ *
+ * Kept, not deleted, because §6A.F names it as the detail screen's guard: the
+ * decision is that this rule lives here. What it must NOT do is read as an
+ * active gate — the docblock above the old call site claimed a refusal that was
+ * not happening. If the dropdown is ever replaced by a free-text field, this is
+ * the function that field must call.
  */
 export function validateCatalogModel(
   provider: string,

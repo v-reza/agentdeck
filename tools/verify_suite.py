@@ -230,6 +230,68 @@ def check_supersessions():
     else:
         say("ok", f"SUPERSEDE: {len(refs)} AC yang ditimpa menunjuk keputusannya")
 
+    check_superseded_sections(dec)
+
+
+def check_superseded_sections(dec):
+    """Keputusan yang sudah digantikan harus mengatakannya di tempatnya sendiri.
+
+    `check_supersessions` di atas cuma melihat frasa "mengalahkan US-AD<n>", dan
+    di seluruh DECISIONS cuma ada satu. Bentuk penggantian yang lain tidak
+    kelihatan gate mana pun, dan itu bukan hipotesis:
+
+      §6A.F  kredensial per-agent. Digantikan §6A.J, tapi §6A.F sendiri tidak
+             mengatakannya. Pembaca yang berhenti di §6A.F — dan komentar
+             `has_provider_key` di kode menunjuk ke sana — masih membaca aturan
+             yang sudah mati, dan implementasinya memang masih memakainya
+             (ketahuan sebagai agent ber-label "butuh kredensial" padahal
+             provider-nya punya key).
+
+    Aturannya: section yang sudah tidak berlaku wajib membawa penunjuk eksplisit
+    ke penggantinya. Yang diperiksa adalah isi section itu sendiri, bukan ada
+    tidaknya catatan di tempat lain — section-nya yang dibaca orang.
+
+    Sekalian: penomoran section 6A. diperiksa karena sudah pernah rusak tanpa
+    ketahuan. Saat gate ini ditulis, dokumennya punya **dua** section berlabel
+    "H" dan **tidak punya** "G", jadi rujukan "§6A.G" atau "§6A.H" tidak bisa
+    dijawab pembaca.
+    """
+    stale = {
+        # section: penggantinya
+        "F. Provider BYO = provider terpisah": "§6A.J",
+    }
+    bad = []
+    for title, successor in stale.items():
+        m = re.search(rf"(?ms)^### {re.escape(title)}\s*$.*?(?=^### |\Z)", dec)
+        if not m:
+            # Judulnya berubah: lebih baik berisik daripada diam-diam berhenti
+            # memeriksa. Kalau section-nya memang dihapus, hapus entri ini juga.
+            bad.append(f"{title!r} (judul tidak ditemukan — gate-nya jadi vacuous)")
+            continue
+        if successor not in m.group(0):
+            bad.append(f"{title!r} (tidak menyebut {successor})")
+
+    # Penomoran 6A.: A..J berurutan, tanpa label kembar.
+    letters = re.findall(r"(?m)^### ([A-Z])\. ", dec)
+    seen, dupes, order = set(), [], []
+    for letter in letters:
+        if letter in seen:
+            dupes.append(letter)
+        seen.add(letter)
+        order.append(letter)
+    if dupes:
+        bad.append(f"label section kembar -> {', '.join(sorted(set(dupes)))}")
+    if order:
+        expected = [chr(c) for c in range(ord("A"), ord("A") + len(set(order)))]
+        missing = sorted(set(expected) - seen)
+        if missing:
+            bad.append(f"label section hilang -> {', '.join(missing)}")
+
+    if bad:
+        say("FAIL", f"SUPERSEDE: {len(bad)} cacat struktur DECISIONS -> {'; '.join(bad)}")
+    else:
+        say("ok", f"SUPERSEDE: {len(stale)} section mati menunjuk penggantinya, penomoran 6A. utuh")
+
 
 def check_design():
     text = read("DESIGN.md")
