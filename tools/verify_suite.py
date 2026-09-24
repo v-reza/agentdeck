@@ -233,6 +233,42 @@ def check_supersessions():
     check_superseded_sections(dec)
 
 
+def _sections(dec):
+    """`[(letter, title, start, end)]` untuk tiap `### X. Judul`, urut dokumen."""
+    out = []
+    for m in re.finditer(r"(?m)^### ([A-Z])\. ([^\n]*)$", dec):
+        out.append([m.group(1), m.group(2), m.start(), None])
+    for i in range(len(out) - 1):
+        out[i][3] = out[i + 1][2]
+    if out:
+        out[-1][3] = len(dec)
+    return [(letter, title, start, end) for letter, title, start, end in out]
+
+
+def _leading_banner(block):
+    """Huruf pengganti dari banner di AWAL section, atau None.
+
+    Cuma blockquote yang mengawali section yang dihitung. Ini bukan detail
+    kosmetik: versi pertama gate ini memakai `successor in block`, dan itu
+    **lolos mutasi** — hapus banner-nya, dan blok yang sama masih menyebut
+    `§6A.J` di baris koreksi 10 baris di bawahnya, jadi gate-nya tetap hijau.
+    Substring di seluruh blok tidak bisa membedakan "section ini membawa
+    penunjuk di kepalanya" dari "nama penggantinya kebetulan muncul di prosa".
+    """
+    lines = block.splitlines()[1:]  # buang baris judul
+    for line in lines:
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith(">"):
+            m = re.search(r"PENGGANTI:\s*§6A\.([A-Z])", s)
+            if m:
+                return m.group(1)
+            continue
+        break  # baris pertama yang bukan blockquote mengakhiri banner
+    return None
+
+
 def check_superseded_sections(dec):
     """Keputusan yang sudah digantikan harus mengatakannya di tempatnya sendiri.
 
@@ -247,32 +283,56 @@ def check_superseded_sections(dec):
              (ketahuan sebagai agent ber-label "butuh kredensial" padahal
              provider-nya punya key).
 
-    Aturannya: section yang sudah tidak berlaku wajib membawa penunjuk eksplisit
-    ke penggantinya. Yang diperiksa adalah isi section itu sendiri, bukan ada
-    tidaknya catatan di tempat lain — section-nya yang dibaca orang.
+    Daftar `stale` di bawah sekarang cuma lantai, bukan sumbernya. Sumbernya
+    adalah **deklarasi di dokumen itu sendiri**: section yang bilang
+    "Menggantikan §6A.X sepenuhnya" mewajibkan X memasang banner. Jadi
+    penggantian baru ketangkep tanpa ada yang perlu ingat mendaftarkannya di
+    sini — itu inti "biar nggak keulang".
 
     Sekalian: penomoran section 6A. diperiksa karena sudah pernah rusak tanpa
     ketahuan. Saat gate ini ditulis, dokumennya punya **dua** section berlabel
     "H" dan **tidak punya** "G", jadi rujukan "§6A.G" atau "§6A.H" tidak bisa
     dijawab pembaca.
     """
-    stale = {
-        # section: penggantinya
-        "F. Provider BYO = provider terpisah": "§6A.J",
-    }
+    sections = _sections(dec)
+    by_letter = {letter: (title, dec[start:end]) for letter, title, start, end in sections}
+
+    # Penggantian yang dideklarasikan dokumen sendiri, plus lantai manual untuk
+    # kasus yang tidak ditulis dengan frasa itu.
+    #
+    # Satu kalimat bisa menggantikan lebih dari satu section ("Menggantikan
+    # §6A.F dan §6A.I sepenuhnya"), jadi yang dibaca adalah kalimatnya, bukan
+    # cuma rujukan pertama sesudah kata "Menggantikan". Versi yang cuma membaca
+    # rujukan pertama **lolos mutasi** itu.
+    declared = {}
+    for letter, _title, start, end in sections:
+        for sentence in re.finditer(r"Menggantikan[^\n]*", dec[start:end]):
+            head = sentence.group(0)
+            # Batas kalimatnya `**` atau `. `, BUKAN `.`: rujukan section
+            # sendiri mengandung titik (`§6A.F`), jadi `split(".")` memotong
+            # tepat di tengah rujukan pertama dan tidak ada huruf yang terbaca.
+            for stop in ("**", ". "):
+                cut = head.find(stop)
+                if cut >= 0:
+                    head = head[:cut]
+                    break
+            for ref in re.findall(r"§6A\.([A-Z])", head):
+                declared.setdefault(ref, letter)
+    declared.setdefault("F", "J")
+
     bad = []
-    for title, successor in stale.items():
-        m = re.search(rf"(?ms)^### {re.escape(title)}\s*$.*?(?=^### |\Z)", dec)
-        if not m:
-            # Judulnya berubah: lebih baik berisik daripada diam-diam berhenti
-            # memeriksa. Kalau section-nya memang dihapus, hapus entri ini juga.
-            bad.append(f"{title!r} (judul tidak ditemukan — gate-nya jadi vacuous)")
+    for superseded, successor in sorted(declared.items()):
+        if superseded not in by_letter:
+            bad.append(f"§6A.{superseded} (disebut digantikan, section-nya tidak ada)")
             continue
-        if successor not in m.group(0):
-            bad.append(f"{title!r} (tidak menyebut {successor})")
+        banner = _leading_banner(by_letter[superseded][1])
+        if banner is None:
+            bad.append(f"§6A.{superseded} (tidak ada banner PENGGANTI di awal section)")
+        elif banner != successor:
+            bad.append(f"§6A.{superseded} (banner menunjuk §6A.{banner}, deklarasinya §6A.{successor})")
 
     # Penomoran 6A.: A..J berurutan, tanpa label kembar.
-    letters = re.findall(r"(?m)^### ([A-Z])\. ", dec)
+    letters = [letter for letter, _t, _s, _e in sections]
     seen, dupes, order = set(), [], []
     for letter in letters:
         if letter in seen:
@@ -290,7 +350,11 @@ def check_superseded_sections(dec):
     if bad:
         say("FAIL", f"SUPERSEDE: {len(bad)} cacat struktur DECISIONS -> {'; '.join(bad)}")
     else:
-        say("ok", f"SUPERSEDE: {len(stale)} section mati menunjuk penggantinya, penomoran 6A. utuh")
+        say(
+            "ok",
+            f"SUPERSEDE: {len(declared)} section mati membawa banner penggantinya, "
+            f"penomoran 6A. utuh",
+        )
 
 
 def check_design():
