@@ -75,6 +75,34 @@ test.describe('project directory — design match', () => {
     await expect(cta.locator('svg')).toHaveCount(1)
   })
 
+  test('the board table sorts through an icon, and says so to assistive tech', async ({ page }) => {
+    // 10-board-list draws the sort affordance as a chevron icon on the header;
+    // the implementation had a text glyph (`↕`/`↑`/`↓`) instead. A text glyph is
+    // a different thing to a screen reader: `aria-sort` carries the direction, so
+    // the icon is decorative and the glyph was being read aloud as punctuation.
+    await page.goto(`/app/${orgID}/boards`)
+    const header = page.getByRole('columnheader', { name: /Board Name/i })
+    await expect(header).toBeVisible({ timeout: 15_000 })
+
+    // The icon, not a glyph: exactly one svg, and no arrow characters in the text.
+    await expect(header.locator('svg')).toHaveCount(1)
+    await expect(header).not.toContainText('↕')
+
+    // Sorting is a real interaction, and the state is announced on the <th>.
+    await header.getByRole('button').click()
+    await expect(header).toHaveAttribute('aria-sort', 'ascending')
+    await header.getByRole('button').click()
+    await expect(header).toHaveAttribute('aria-sort', 'descending')
+  })
+
+  test('the isolation banner carries the design shield icon', async ({ page }) => {
+    // The banner is the one place the screen states the tenant boundary; the
+    // design marks it with a shield, and the implementation had bare text.
+    await page.goto(`/app/${orgID}/boards`)
+    const banner = page.getByText(/showing boards scoped strictly/i).locator('..')
+    await expect(banner.locator('svg').first()).toBeVisible({ timeout: 15_000 })
+  })
+
   test('clicking New project opens a modal, not an inline form', async ({ page }) => {
     // nothing inline before the click
     await expect(page.getByRole('dialog')).toHaveCount(0)

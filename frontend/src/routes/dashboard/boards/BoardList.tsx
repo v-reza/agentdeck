@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
+import { ChevronDown, ChevronUp, ChevronsUpDown, ShieldCheck } from 'lucide-react'
 import { useListProjectsQuery } from '@/store/api/boards'
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { EmptyState } from '@/components/ui/card'
@@ -89,10 +90,13 @@ function IsolationBanner() {
           (internal/auth workspaceSlugFrom), so it can be a 40-character token
           with no space in it. Without these a flex item refuses to shrink below
           its content width and the slug pushes the banner past its container. */}
-      <span className="min-w-0">
-        Showing boards scoped strictly to current workspace{' '}
-        <strong className="font-mono break-all text-[var(--color-primary)]">{workspace?.slug ?? '—'}</strong>.
-        Cross-workspace access restricted.
+      <span className="flex min-w-0 items-center gap-1.5">
+        <ShieldCheck size={14} className="shrink-0 text-[var(--color-accent)]" />
+        <span className="min-w-0">
+          Showing boards scoped strictly to current workspace{' '}
+          <strong className="font-mono break-all text-[var(--color-primary)]">{workspace?.slug ?? '—'}</strong>.
+          Cross-workspace access restricted.
+        </span>
       </span>
       <SortChip />
     </div>
@@ -315,15 +319,21 @@ function SortHeader({ label, sortKey, align }: { label: string; sortKey: BoardSo
   const dispatch = useAppDispatch()
   const sort = useAppSelector((s) => s.directory.boardSort)
   const active = sort.key === sortKey
-  const glyph = !active ? '↕' : sort.direction === 'asc' ? '↑' : '↓'
+  const Glyph = !active ? ChevronsUpDown : sort.direction === 'asc' ? ChevronUp : ChevronDown
 
   return (
-    <th className={['px-3 py-0 font-medium', align === 'right' ? 'text-right' : ''].join(' ')}>
+    // `aria-sort` belongs on the column header, not on the button inside it.
+    // It was on the button, where the attribute is unsupported and therefore
+    // ignored — so the sort direction was never announced at all. It is also
+    // the header, not the button, that carries `role="columnheader"`.
+    <th
+      className={['px-3 py-0 font-medium', align === 'right' ? 'text-right' : ''].join(' ')}
+      aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
       <button
         type="button"
         onClick={() => dispatch(setBoardSort(sortKey))}
         aria-label={`Sort by ${label}`}
-        aria-sort={active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
         className={[
           'inline-flex items-center gap-1 hover:text-[var(--color-primary)]',
           align === 'right' ? 'justify-end' : '',
@@ -331,9 +341,9 @@ function SortHeader({ label, sortKey, align }: { label: string; sortKey: BoardSo
         ].join(' ')}
       >
         <span>{label}</span>
-        <span aria-hidden="true" className="text-[10px]">
-          {glyph}
-        </span>
+        {/* The design draws the sort affordance as an icon, not as a text glyph.
+            Decorative: the direction is already on the header above. */}
+        <Glyph size={12} aria-hidden="true" className="shrink-0" />
       </button>
     </th>
   )
