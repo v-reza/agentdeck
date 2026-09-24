@@ -104,7 +104,14 @@ def scan_design():
         sid = name[: -len(".html")]
         html = read(os.path.join(DESIGN_DIR, name))
         fills = re.findall(r'class="([^"]*)"', html)
-        svg = len(re.findall(r"<svg", html))
+        # Icon di dalam <main> saja. Mockup merender shell penuh (sidebar,
+        # cost rail, topbar) di setiap file, jadi angka mentah "23 svg" di
+        # 35-approval-inbox sebagian besar adalah chrome yang di produk hidup
+        # di komponen bersama — membandingkannya dengan isi satu route itu
+        # apel-vs-jeruk. Isi halamannya sendiri yang bisa dibandingkan.
+        main_html = re.search(r"<main[\s>].*?</main>", html, re.S)
+        page_html = main_html.group(0) if main_html else html
+        svg = len(re.findall(r"<svg", page_html))
         ligature = len(re.findall(r"material-symbols-outlined", html))
         out[sid] = {
             "svg": svg,
@@ -140,11 +147,38 @@ def impl_files():
     return sorted(files)
 
 
+def normalize_route(path):
+    """Bentuk route yang bisa dibandingkan antara mockup dan router.
+
+    `screens.py` menulis `/boards/:id`, router menulis `/boards/:boardID`;
+    keduanya menunjuk halaman yang sama. Segmen dinamis disamakan jadi `:x`
+    supaya perbandingannya soal struktur, bukan soal nama variabelnya.
+    """
+    path = path.split("?")[0].strip("/").lower()
+    if path in ("(overlay)", "(drawer)", "(modal)", ""):
+        return path
+    return "/".join(":x" if seg.startswith(":") else seg for seg in path.split("/"))
+
+
 def assign_screens(files, screens, routes):
-    """file -> set(screen-id). Urutan: docblock, lalu route, lalu kosong."""
-    by_component = {}
-    for sid, (_title, route, *_rest) in screens.items():
-        by_component.setdefault(route, set()).add(sid)
+    """file -> set(screen-id). Urutan: docblock, lalu komponen pemilik route.
+
+    Versi lama punya bug yang merusak seluruh laporan: kalau docblock tidak
+    menyebut id, ia menugaskan file ke SETIAP layar yang nama komponennya
+    muncul di `router.tsx`. Karena router menyebut hampir semua komponen,
+    `router.tsx` dan `Layout.tsx` jadi milik 25-30 layar sekaligus, dan tabel
+    per-layar melaporkan file yang sama untuk semua baris. Akibatnya kolom
+    "icon impl" nol di mana-mana: `AgentDetail.tsx` dihitung milik 28 layar,
+    jadi tidak ada satu pun layar yang benar-benar memiliki file yang memakai
+    icon.
+
+    Sekarang komponen pemilik ditentukan dari `<Route element={<X />}>` yang
+    route-nya cocok dengan route layar. Cocok, atau tidak dipetakan sama sekali.
+    """
+    # route ternormalisasi -> komponen yang merender route itu
+    by_route = {}
+    for route, comp in routes.items():
+        by_route.setdefault(normalize_route(route), set()).add(comp)
 
     mapped = {}
     unmapped = []
@@ -154,16 +188,34 @@ def assign_screens(files, screens, routes):
         ids = set(re.findall(r"\b(\d{2}[a-c]?-[a-z0-9-]+)\b", head))
         ids = {i for i in ids if i in screens}
         if not ids:
-            # /app/:orgID/projects -> projects, dari nama komponen di router.
             comp = os.path.basename(path).split(".")[0]
-            for route, comps in by_component.items():
-                if comp in re.findall(r"\w+", read(ROUTER)):
-                    ids |= comps if comp in read(ROUTER) else set()
+            for sid, entry in screens.items():
+                route = entry[1]
+                if comp in by_route.get(normalize_route(route), ()):
+                    ids.add(sid)
         if ids:
             mapped[rel] = ids
         else:
             unmapped.append(rel)
     return mapped, unmapped
+
+
+LUCIDE_IMPORT = re.compile(r"import\s*\{([^}]*)\}\s*from\s*'lucide-react'")
+
+
+def count_icons(text, jsx):
+    """Elemen icon yang dirender: komponen Lucide + `<svg>` inline.
+
+    Dihitung dari source yang sudah dibuang komentarnya, supaya docblock yang
+    membahas `<svg>` tidak ikut terhitung sebagai markup.
+    """
+    n = len(re.findall(r"<svg", jsx))
+    for match in LUCIDE_IMPORT.finditer(jsx):
+        for name in match.group(1).split(","):
+            name = name.strip().removeprefix("type ").strip()
+            if name:
+                n += len(re.findall(r"<" + re.escape(name) + r"\b", jsx))
+    return n
 
 
 def scan_impl(files):
@@ -184,7 +236,12 @@ def scan_impl(files):
             if re.search(r"""["'>](Loading|Memuat)[….\s]""", ln)
         ]
         out[rel] = {
-            "svg": len(re.findall(r"<svg", text)),
+            # `<svg>` saja menyesatkan: implementasi memakai komponen Lucide
+            # (`<X size={18} />`), bukan SVG inline, jadi ia melaporkan "3 icon"
+            # untuk aplikasi yang merender ratusan. Yang dihitung di sini adalah
+            # elemen icon yang benar-benar dirender — komponen Lucide DAN `<svg>`
+            # mentah — supaya bisa dibandingkan dengan 319 `<svg>` di mockup.
+            "svg": count_icons(text, jsx),
             "select": len(selects),
             "select_at": selects,
             "skeleton": len(re.findall(r"<Skeleton", text)),
