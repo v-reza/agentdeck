@@ -159,6 +159,49 @@ func TestListAssignedTasksExcludesArchivedAndScopesByOrg(t *testing.T) {
 	}
 }
 
+// TestListAssignableAgentsForBoardReadsTheProviderKey is the SQL-level guard for
+// the assign picker's readiness flag.
+//
+// DECISIONS 6A.J moved credentials to `providers` ("sekali per ruang kerja,
+// dirujuk banyak agent") and says it replaces §6A.F entirely; US-AD109 AC6 puts
+// the same rule in the PRD — the agent keeps no copy. So the picker must not
+// answer `has_provider_key` from `agents.has_provider_key` alone: that column is
+// generated from the agent's own ciphertext and now answers a question nobody
+// asks. An agent on a provider that holds a working key would be offered as
+// unready.
+//
+// The join is what makes the rule true, and a fake repository cannot enforce a
+// join — it re-implements it, so this is the only place the SQL is checked.
+func TestListAssignableAgentsForBoardReadsTheProviderKey(t *testing.T) {
+	raw, err := os.ReadFile("queries/queries.sql")
+	if err != nil {
+		t.Fatalf("read queries.sql: %v", err)
+	}
+	block := queryBlock(t, string(raw), "ListAssignableAgentsForBoard")
+	compact := strings.Join(strings.Fields(block), " ")
+
+	for _, clause := range []string{
+		// The provider side of the rule.
+		"LEFT JOIN providers p ON p.id = a.provider_id",
+		"p.api_key_enc IS NOT NULL",
+		// The no-provider fallback, which is the only case the agent's own
+		// column still decides: nothing else can hold a credential for it.
+		"WHEN a.provider_id IS NULL THEN a.has_provider_key",
+		// Tenant scope on the join, not just on the agent.
+		"p.org_id = a.org_id",
+	} {
+		if !strings.Contains(compact, clause) {
+			t.Errorf("ListAssignableAgentsForBoard lost %q; the picker would report readiness from the agent's own column again (DECISIONS 6A.J)", clause)
+		}
+	}
+
+	// A LEFT JOIN that got tightened to an inner join would silently drop every
+	// agent with no provider — the opposite failure, and just as wrong.
+	if strings.Contains(compact, "JOIN providers p") && !strings.Contains(compact, "LEFT JOIN providers p") {
+		t.Error("ListAssignableAgentsForBoard uses an inner join on providers; agents without a provider row would disappear from the picker")
+	}
+}
+
 // Ensure the file is actually the one we think: a moved queries.sql would make
 // the test vacuous rather than failing, and a vacuous guard is worse than none.
 func TestQueriesFileIsTheOneWeParse(t *testing.T) {

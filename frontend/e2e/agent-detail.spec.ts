@@ -29,7 +29,7 @@ async function signUp(page: Page, name = 'E2E Detail Operator'): Promise<string>
 async function api<T>(
   page: Page,
   orgID: string,
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
 ): Promise<{ status: number; data: T; text: string }> {
@@ -132,6 +132,102 @@ test.describe('agent detail (28-agent-detail)', () => {
     // The label itself must be present, so the assertion above cannot pass by
     // rendering nothing at all.
     expect(body).toMatch(/NEEDS CREDENTIAL|BUTUH KREDENSIAL/i)
+  })
+
+  /**
+   * US-AD109 AC6 / DECISIONS 6A.J: the credential that makes an agent ready is
+   * its PROVIDER's, and the agent keeps no copy of its own.
+   *
+   * The screen used to answer this from `agent.has_provider_key` — the §6A.F
+   * rule that 6A.J says it replaces. That column is generated from
+   * `agents.provider_api_key_enc`, so once credentials moved to `providers` it
+   * answered "did this agent keep its own copy", which is no longer the
+   * question. An agent on a provider that holds a working key was labelled
+   * "needs credential".
+   *
+   * Three states, because the two-source rule has three outcomes: provider with
+   * a key (ready), provider without one (needs), and no provider at all (needs —
+   * nothing else can hold a credential for that agent).
+   */
+  test('readiness follows the provider key, not the agent own column', async ({ page }) => {
+    const withKey = await seedProvider(page, orgID, 'detail-with-key')
+    const withoutKey = await seedProvider(page, orgID, 'detail-no-key')
+
+    // The credential goes on the PROVIDER, through the real endpoint. This is
+    // the write that must be enough to make the agent ready.
+    const filled = await api(page, orgID, 'PATCH', `/providers/${withKey.id}`, {
+      api_key: 'sk-detail-abcdefghijklmnop',
+    })
+    expect(filled.status, filled.text).toBe(200)
+
+    const providerWithKey = await api<{ id: string; has_key: boolean }[]>(page, orgID, 'GET', `/providers`)
+    const byID = new Map(providerWithKey.data.map((entry) => [entry.id, entry.has_key]))
+    expect(byID.get(withKey.id), 'the PATCH must set has_key on the provider').toBe(true)
+    expect(byID.get(withoutKey.id), 'a provider without a PATCH has no key').toBe(false)
+
+    const projects = await api<{ id: string }[]>(page, orgID, 'GET', '/projects')
+    const projectID = projects.data[0].id
+    const make = async (name: string, providerID?: string) => {
+      const created = await api<{ id: string }>(page, orgID, 'POST', `/projects/${projectID}/agents`, {
+        ...AGENT,
+        name,
+        ...(providerID ? { provider_id: providerID } : {}),
+      })
+      expect(created.status, created.text).toBe(201)
+      return created.data.id
+    }
+
+    const readyID = await make('agent-on-keyed-provider', withKey.id)
+    const needsID = await make('agent-on-keyless-provider', withoutKey.id)
+    const orphanID = await make('agent-with-no-provider')
+
+    const state = async (agentID: string) => {
+      await page.goto(`/app/${orgID}/agents/${agentID}`)
+      const pill = page.getByTestId('agent-status-pill')
+      await expect(pill).toBeVisible({ timeout: 15_000 })
+      return (await pill.innerText()).replace(/\s+/g, ' ')
+    }
+
+    // The provider holds the key: ready, even though the agent's own generated
+    // column is false. This is the assertion the old rule failed.
+    expect(await state(readyID), 'a key on the provider makes its agents ready').toMatch(/READY|ACTIVE|SIAP/i)
+    expect(await state(readyID)).not.toMatch(/NEEDS PROVIDER CREDENTIAL|BUTUH KREDENSIAL/i)
+
+    expect(await state(needsID), 'a keyless provider leaves the agent unready').toMatch(
+      /NEEDS PROVIDER CREDENTIAL|BUTUH KREDENSIAL/i,
+    )
+    expect(await state(orphanID), 'no provider at all cannot be ready').toMatch(
+      /NEEDS PROVIDER CREDENTIAL|BUTUH KREDENSIAL/i,
+    )
+  })
+
+  /** The same rule on the registry: counts, the filter, and the row badge. */
+  test('the registry counts and filters by the provider key', async ({ page }) => {
+    const withKey = await seedProvider(page, orgID, 'registry-with-key')
+    await api(page, orgID, 'PATCH', `/providers/${withKey.id}`, { api_key: 'sk-registry-abcdefghijkl' })
+
+    const projects = await api<{ id: string }[]>(page, orgID, 'GET', '/projects')
+    const projectID = projects.data[0].id
+    const created = await api<{ id: string }>(page, orgID, 'POST', `/projects/${projectID}/agents`, {
+      ...AGENT,
+      name: 'agent-registry-ready',
+      provider_id: withKey.id,
+    })
+    expect(created.status, created.text).toBe(201)
+
+    await page.goto(`/app/${orgID}/agents`)
+    const row = page.getByRole('row', { name: /agent-registry-ready/ })
+    await expect(row).toBeVisible({ timeout: 15_000 })
+
+    // The row's own status cell must not claim it needs a credential.
+    await expect(row).not.toContainText(/NEEDS CREDENTIAL/i)
+
+    // And the READY filter must keep it, which is the count the status card
+    // reads. Before the fix the agent fell into the needsKey bucket instead.
+    const filter = page.getByLabel(/filter berdasarkan status fleet/i)
+    await filter.click()
+    await page.getByRole('option', { name: 'SIAP' }).click()
+    await expect(row).toBeVisible()
   })
 
   /** The same jargon rule the registry page enforces, applied to this screen. */

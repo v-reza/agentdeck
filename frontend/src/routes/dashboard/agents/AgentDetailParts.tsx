@@ -31,10 +31,35 @@ const CARD =
 
 export type AgentState = 'ready' | 'needsKey' | 'archived'
 
-/** Archived wins over credential state: a retired agent is not "ready". */
-export function agentState(agent: Agent): AgentState {
+/**
+ * Whether an agent can take work right now, and if not, why.
+ *
+ * The credential that counts is the PROVIDER's, not the agent's own.
+ * `DECISIONS.md` §6A.J moved credentials out of the agent ("kredensial disimpan
+ * sekali per ruang kerja, dirujuk banyak agent") and it says it replaces §6A.F
+ * entirely; US-AD109 AC6 is the same rule in the PRD — "agent tidak menyimpan
+ * salinan base URL atau kredensial".
+ *
+ * Reading `agent.has_provider_key` here was the old §6A.F rule. That column is
+ * generated from `agents.provider_api_key_enc IS NOT NULL`, so after the move it
+ * answers "did this agent happen to keep its own copy" — which is no longer the
+ * question. An agent pointing at a provider that holds a key was labelled
+ * "needs credential" and counted in that bucket on the registry.
+ *
+ * `hasProviderKey` is the provider's `has_key` (`GET /providers`), resolved by
+ * the caller because both screens already hold that list.
+ *
+ * The one case where the agent's own column still decides: an agent with NO
+ * provider row at all. `providers` is the only thing that can hold a credential
+ * now, so such an agent genuinely cannot authenticate — and its legacy column is
+ * the only honest signal left for it. This is an `&&`, not a fallback: it makes
+ * "ready" strictly harder to reach, so no agent is ever reported ready on the
+ * strength of a credential that does not exist.
+ */
+export function agentState(agent: Agent, hasProviderKey: boolean): AgentState {
   if (agent.archived_at) return 'archived'
-  return agent.has_provider_key ? 'ready' : 'needsKey'
+  const ready = agent.provider_id ? hasProviderKey : agent.has_provider_key
+  return ready ? 'ready' : 'needsKey'
 }
 
 const STATE_TONE: Record<AgentState, string> = {
@@ -62,9 +87,9 @@ const STATE_TINT: Record<AgentState, string> = {
  * still not "ready to assign", and saying otherwise would contradict the button
  * sitting next to it.
  */
-export function StatusPill({ agent }: { agent: Agent }) {
+export function StatusPill({ agent, hasProviderKey }: { agent: Agent; hasProviderKey: boolean }) {
   const t = useT()
-  const state = agentState(agent)
+  const state = agentState(agent, hasProviderKey)
   const label =
     state === 'archived'
       ? t['agents.detail.statusArchived']
@@ -144,9 +169,17 @@ export function SaveButton({ formID, isPending }: { formID: string; isPending: b
 }
 
 /** HEADER BANNER: monogram, name, status badge, and the two real counters. */
-export function AgentHero({ agent, providerName }: { agent: Agent; providerName?: string }) {
+export function AgentHero({
+  agent,
+  providerName,
+  hasProviderKey,
+}: {
+  agent: Agent
+  providerName?: string
+  hasProviderKey: boolean
+}) {
   const t = useT()
-  const state = agentState(agent)
+  const state = agentState(agent, hasProviderKey)
   const badge =
     state === 'archived'
       ? t['agents.status.archived']
@@ -214,17 +247,19 @@ function Counter({ label, value, accent }: { label: string; value: string; accen
  */
 export function LifecycleCard({
   agent,
+  hasProviderKey,
   canArchive,
   error,
   errorID,
 }: {
   agent: Agent
+  hasProviderKey: boolean
   canArchive: boolean
   error: string | null
   errorID: string
 }) {
   const t = useT()
-  const state = agentState(agent)
+  const state = agentState(agent, hasProviderKey)
   const archived = state === 'archived'
   const stateLabel = archived
     ? t['agents.detail.statusArchived']

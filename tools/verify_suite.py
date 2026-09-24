@@ -166,6 +166,71 @@ def check_status_palette(text, fm):
             say("ok", f"STATUS PALETTE: {label} == DECISIONS §8 (10/10)")
 
 
+def check_supersessions():
+    """Keputusan yang menimpa sebuah AC harus kelihatan di AC itu sendiri.
+
+    Ini kelas bug yang sudah dua kali kejadian di repo ini, dan tidak ada gate
+    yang bisa melihatnya:
+
+      1. DECISIONS §6A.J memindahkan kredensial ke `providers` dan bilang
+         "menggantikan §6A.F sepenuhnya". Implementasinya masih membaca
+         `agents.has_provider_key` — aturan lama — lalu melabeli agent yang
+         provider-nya punya key sebagai "butuh kredensial".
+      2. DECISIONS §6A.F mengizinkan `localhost`/`127.0.0.1` sebagai string
+         persis dan bilang "ini mengalahkan US-AD106 AC3". Teks AC3 di PRD
+         masih berbunyi "loopback ditolak", jadi spec dan keputusan saling
+         bertentangan di atas kertas, dan pembaca berikutnya mengikuti yang mana
+         saja yang dia baca duluan.
+
+    Aturannya: setiap kali DECISIONS bilang "mengalahkan US-AD<n> AC<m>", teks
+    AC itu di PRD wajib menyebut penimpanya. Bukan sekadar "ada catatan di
+    suatu tempat" — AC-nya yang harus membawa penunjuknya, karena itu bagian
+    yang dibaca orang saat mengecek kepatuhan.
+    """
+    dec = read("DECISIONS.md") or ""
+    prd = read("00-PRD.md") or ""
+    if not dec or not prd:
+        say("FAIL", "SUPERSEDE: DECISIONS.md atau 00-PRD.md tidak terbaca")
+        return
+
+    refs = re.findall(r"mengalahkan US-AD(\d+)(?: AC(\d+))?", dec)
+    if not refs:
+        say("warn", "SUPERSEDE: nol override 'mengalahkan US-AD' di DECISIONS (kalau ini berubah, gate-nya jadi vacuous)")
+        return
+
+    # Satu story bisa punya beberapa AC; ambil blok AC-nya saja supaya cakupannya
+    # tidak melar ke seluruh dokumen.
+    def story_block(n):
+        m = re.search(rf"(?ms)^\*\*US-AD{n}\*\*.*?(?=^\*\*US-AD\d+\*\*|\Z)", prd)
+        return m.group(0) if m else ""
+
+    bad = []
+    for story, ac in refs:
+        block = story_block(story)
+        if not block:
+            bad.append(f"US-AD{story} (tidak ada di PRD)")
+            continue
+        if ac:
+            line = ""
+            for candidate in block.splitlines():
+                if candidate.startswith(f"- [ ] AC{ac} "):
+                    line = candidate
+                    break
+            if not line:
+                bad.append(f"US-AD{story} AC{ac} (tidak ada)")
+                continue
+            target, found = f"US-AD{story} AC{ac}", line
+        else:
+            target, found = f"US-AD{story}", block
+        if "DECISIONS" not in found:
+            bad.append(f"{target} (AC-nya tidak menyebut DECISIONS)")
+
+    if bad:
+        say("FAIL", f"SUPERSEDE: AC yang ditimpa tidak menunjuk penimpanya -> {', '.join(bad)}")
+    else:
+        say("ok", f"SUPERSEDE: {len(refs)} AC yang ditimpa menunjuk keputusannya")
+
+
 def check_design():
     text = read("DESIGN.md")
     if text is None:
@@ -733,6 +798,8 @@ def check_pricing():
 def main():
     print(f"== AgentDeck suite gate  ({ROOT})\n")
     check_prd()
+    print()
+    check_supersessions()
     print()
     check_design()
     print()

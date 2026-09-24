@@ -2555,6 +2555,7 @@ flyctl deploy --image registry.fly.io/agentdeck@sha256:<previous_hash>
 - [ ] **Pencegahan SSRF (Webhook & Tool Executor)**:
   - Validasi ketat terhadap target URL webhook: skema wajib `https://`.
   - Resolusi DNS IP target diverifikasi sebelum koneksi dibuka: IP privat (RFC 1918: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16`), dan metadata Cloud provider (`169.254.169.254`) **DIBLOKIR**.
+    - **Pengecualian yang disengaja** (DECISIONS §6A.F, keputusan user 2026-09-21): `localhost`, `127.0.0.1`, dan `host.docker.internal` sebagai **string persis** diizinkan, boleh lewat `http`. Alasannya: provider AI operator sering jalan di mesin mereka sendiri (Ollama, LM Studio, 9Router) tanpa TLS. Alias loopback (`2130706433`, `0x7f000001`, `0177.0.0.1`, `[::1]`, `[::ffff:127.0.0.1]`) tetap ditolak, begitu juga seluruh RFC1918 dan link-local. Ini **mengalahkan US-AD106 AC3** yang berbunyi "loopback ditolak".
 - [ ] **Rate Limiting**:
   - In-memory token bucket per IP dan API Key (reliabilitas uptime N25: 99.5% / bulan). Mencegah brute force login dan serangan DoS terhadap endpoint mahal (seperti LLM proxy).
 - [ ] **Audit Trail**:

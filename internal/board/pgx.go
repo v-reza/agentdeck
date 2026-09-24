@@ -674,7 +674,7 @@ func (r *pgxRepository) ListAssignableAgentsForBoard(ctx context.Context, orgID,
 	}
 	out := make([]AssignableAgent, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, AssignableAgent{ID: row.ID, Name: row.Name, HasProviderKey: row.HasProviderKey != nil && *row.HasProviderKey})
+		out = append(out, AssignableAgent{ID: row.ID, Name: row.Name, HasProviderKey: row.HasProviderKey})
 	}
 	return out, nil
 }

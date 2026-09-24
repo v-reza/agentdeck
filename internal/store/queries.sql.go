@@ -1746,9 +1746,13 @@ func (q *Queries) ListAssignableAgents(ctx context.Context, orgID string) ([]Lis
 }
 
 const listAssignableAgentsForBoard = `-- name: ListAssignableAgentsForBoard :many
-SELECT a.id, a.name, a.has_provider_key
+SELECT a.id,
+       a.name,
+       (CASE WHEN a.provider_id IS NULL THEN a.has_provider_key
+             ELSE COALESCE(p.api_key_enc IS NOT NULL, false) END)::boolean AS has_provider_key
 FROM agents a
 JOIN boards b ON b.project_id = a.project_id AND b.org_id = a.org_id
+LEFT JOIN providers p ON p.id = a.provider_id AND p.org_id = a.org_id
 WHERE a.org_id = $1 AND b.id = $2 AND a.archived_at IS NULL
 ORDER BY a.name
 `
@@ -1761,13 +1765,20 @@ type ListAssignableAgentsForBoardParams struct {
 type ListAssignableAgentsForBoardRow struct {
 	ID             string
 	Name           string
-	HasProviderKey *bool
+	HasProviderKey bool
 }
 
 // The real assign picker for a board: every active agent of the board's own
 // project, ordered the way the picker shows them. It is the source of the
 // preview's "Filter Active Only" claim, so the section proves AC2 against the
 // same rows the task-create modal would offer.
+// `has_provider_key` here is the PROVIDER's key, not the agent's column. DECISIONS
+// 6A.J moved credentials to `providers` ("sekali per ruang kerja, dirujuk banyak
+// agent") and US-AD109 AC6 says the agent keeps no copy, so reading
+// `a.has_provider_key` would mark an agent unready while its provider holds a
+// working key. An agent with no provider row keeps its own column as the answer:
+// nothing else can hold a credential for it. This is the same rule the registry
+// and the agent detail apply (frontend `agentState`).
 func (q *Queries) ListAssignableAgentsForBoard(ctx context.Context, arg ListAssignableAgentsForBoardParams) ([]ListAssignableAgentsForBoardRow, error) {
 	rows, err := q.db.Query(ctx, listAssignableAgentsForBoard, arg.OrgID, arg.ID)
 	if err != nil {

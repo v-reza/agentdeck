@@ -57,6 +57,11 @@ export function AgentRegistry() {
   // page already has in cache — not from a second copy of the name on every
   // agent row, which is the denormalisation US-AD109 removed.
   const providerName = new Map(providers.map((entry) => [entry.id, entry.name]))
+  // The credential that makes an agent ready lives on its provider, not on the
+  // agent (DECISIONS 6A.J / US-AD109 AC6). Same lookup the provider column uses.
+  const providerHasKey = new Map(providers.map((entry) => [entry.id, entry.has_key]))
+  const isReady = (agent: Agent) =>
+    agent.provider_id ? providerHasKey.get(agent.provider_id) === true : agent.has_provider_key
   const canDelete = useCanAct('admin')
   const [deleteAgent] = useDeleteAgentMutation()
   const [pendingDelete, setPendingDelete] = useState<Agent | null>(null)
@@ -73,8 +78,8 @@ export function AgentRegistry() {
   // filter below can surface them on their own.
   const active = list.filter((agent) => !agent.archived_at)
   const archivedCount = list.length - active.length
-  const visible = filterAgents(list, search, status)
-  const readyCount = active.filter((agent) => agent.has_provider_key).length
+  const visible = filterAgents(list, search, status, isReady)
+  const readyCount = active.filter(isReady).length
 
   return (
     <>
@@ -312,14 +317,20 @@ function AgentStatusCard({
  * the three things it searches — agent, model, skill — so those are the three
  * fields; provider and tools are not in the design's copy and are not invented.
  */
-function filterAgents(list: Agent[], search: string, status: StatusFilterValue): Agent[] {
+function filterAgents(
+  list: Agent[],
+  search: string,
+  status: StatusFilterValue,
+  isReady: (agent: Agent) => boolean,
+): Agent[] {
   const needle = search.trim().toLowerCase()
   return list.filter((agent) => {
     // Archived is its own bucket, never mixed into ready/needsKey: an archived
     // agent is not "ready to take a task" whatever its credential state is.
+    const ready = isReady(agent)
     if (status === 'archived' && !agent.archived_at) return false
-    if (status === 'ready' && (agent.archived_at || !agent.has_provider_key)) return false
-    if (status === 'needsKey' && (agent.archived_at || agent.has_provider_key)) return false
+    if (status === 'ready' && (agent.archived_at || !ready)) return false
+    if (status === 'needsKey' && (agent.archived_at || ready)) return false
     if (needle === '') return true
     return [agent.name, agent.model, ...(agent.skills ?? [])].some((field) =>
       String(field).toLowerCase().includes(needle),

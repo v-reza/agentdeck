@@ -166,6 +166,13 @@ type Querier interface {
 	// project, ordered the way the picker shows them. It is the source of the
 	// preview's "Filter Active Only" claim, so the section proves AC2 against the
 	// same rows the task-create modal would offer.
+	// `has_provider_key` here is the PROVIDER's key, not the agent's column. DECISIONS
+	// 6A.J moved credentials to `providers` ("sekali per ruang kerja, dirujuk banyak
+	// agent") and US-AD109 AC6 says the agent keeps no copy, so reading
+	// `a.has_provider_key` would mark an agent unready while its provider holds a
+	// working key. An agent with no provider row keeps its own column as the answer:
+	// nothing else can hold a credential for it. This is the same rule the registry
+	// and the agent detail apply (frontend `agentState`).
 	ListAssignableAgentsForBoard(ctx context.Context, arg ListAssignableAgentsForBoardParams) ([]ListAssignableAgentsForBoardRow, error)
 	// Dispatcher claim (ARCHITECTURE 4b): one atomic statement. SKIP LOCKED lets
 	// concurrent dispatchers claim disjoint batches instead of serialising on the

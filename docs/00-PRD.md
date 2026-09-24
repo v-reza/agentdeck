@@ -865,7 +865,7 @@ Sebagai pengguna, saya ingin mendaftarkan agent lewat formulir: nama, provider, 
 Sebagai pengguna, saya ingin menghubungkan agent ke penyedia LLM saya sendiri lewat base URL dan API key, sehingga saya tidak terikat pada penyedia bawaan AgentDeck.
 - [ ] AC1 Mendaftarkan agent dengan `provider = 'openai_compatible'` dan `base_url` yang valid berhasil; `base_url` wajib ada bila provider itu, dan harus kosong untuk provider lain.
 - [ ] AC2 Daftar model diambil dari `GET {base_url}/models` milik pengguna dan ditampilkan sebagai pilihan.
-- [ ] AC3 (keamanan) Base URL yang menunjuk ke alamat private, loopback, atau link-local (termasuk `169.254.169.254`) ditolak; hanya `https` yang diterima.
+- [ ] AC3 (keamanan) Base URL yang menunjuk ke alamat private, loopback, atau link-local (termasuk `169.254.169.254`) ditolak; hanya `https` yang diterima. **Pengecualian (DECISIONS §6A.F, keputusan user 2026-09-21):** `localhost`, `127.0.0.1`, dan `host.docker.internal` sebagai **string persis** diizinkan dan boleh `http` — provider AI milik operator sering jalan di mesin mereka sendiri tanpa TLS. Alias loopback (`2130706433`, `0x7f000001`, `0177.0.0.1`, `[::1]`, `[::ffff:127.0.0.1]`), seluruh RFC1918, dan link-local tetap ditolak. Keputusan itu **mengalahkan** kalimat "loopback ditolak" di atas.
 - [ ] AC4 (keamanan) Redirect dari base URL ke alamat private tidak diikuti.
 - [ ] AC5 Kredensial BYO mengikuti aturan US-AD96 AC2/AC4: tulis-saja, ter-mask, hanya `owner`/`admin`.
 

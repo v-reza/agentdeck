@@ -83,6 +83,10 @@ export function AgentDetail() {
   // Same resolution as the registry: `agent.provider` is the protocol, the
   // column and the hero ask which provider the operator registered.
   const providerName = new Map(providers.map((entry) => [entry.id, entry.name]))
+  // The credential that decides "ready" is the provider's (DECISIONS 6A.J), so
+  // the answer comes from the same list the hero already reads. An unknown or
+  // absent provider answers false, which is the safe direction.
+  const hasProviderKey = providers.find((entry) => entry.id === agent?.provider_id)?.has_key ?? false
   const [updateAgent] = useUpdateAgentMutation()
   const [archiveAgent] = useArchiveAgentMutation()
   const canArchive = useCanAct('admin')
@@ -138,7 +142,7 @@ export function AgentDetail() {
         right={
           agent ? (
             <div className="flex items-center gap-2.5">
-              <StatusPill agent={agent} />
+              <StatusPill agent={agent} hasProviderKey={hasProviderKey} />
               {/* US-AD86: rotating or revoking the credential happens here.
                   Owner/admin only — the same floor the PUT/DELETE routes carry. */}
               {canManageKey ? (
@@ -187,7 +191,11 @@ export function AgentDetail() {
             </Panel>
           ) : (
             <>
-              <AgentHero agent={agent} providerName={providerName.get(agent.provider_id ?? '')} />
+              <AgentHero
+                agent={agent}
+                providerName={providerName.get(agent.provider_id ?? '')}
+                hasProviderKey={hasProviderKey}
+              />
 
               <form id={FORM_ID} action={saveAction} className="flex flex-col gap-4">
                 <AgentConfigSection
@@ -204,12 +212,13 @@ export function AgentDetail() {
                 <div className="grid grid-cols-2 gap-4">
                   <LifecycleCard
                     agent={agent}
+                    hasProviderKey={hasProviderKey}
                     canArchive={canArchive}
                     error={archive.error}
                     errorID={ARCHIVE_ERROR_ID}
                   />
                   <SaveStateCard
-                    state={STATE_LABEL[agentState(agent)]}
+                    state={STATE_LABEL[agentState(agent, hasProviderKey)]}
                     saved={saveState.done}
                     error={saveState.error}
                     pending={isSaving}
