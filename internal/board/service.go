@@ -53,7 +53,16 @@ var (
 	// Member for the field update (US-AD96) and owner/admin for retiring the
 	// agent. The domain error exists so the reason is one string in one place.
 	ErrArchiveRequiresAdmin = errors.New("archiving an agent requires the owner or admin role")
-	ErrLastOwner            = errors.New("cannot remove the last owner")
+	// ErrArchiveRequiresAdminTask is US-AD59 AC4. Same authority question as
+	// the agent sentinel above, different resource: retiring a task is an
+	// admin decision, while ordinary column moves stay Member-level.
+	ErrArchiveRequiresAdminTask = errors.New("archiving a task requires the owner or admin role")
+	// ErrArchiveRequiresTerminal is US-AD59 AC2: only a task that has already
+	// finished moving may be retired. Archiving `running` would take the row off
+	// the board while a run still holds it, and archiving `blocked`/`ready`
+	// would hide work that is still queued.
+	ErrArchiveRequiresTerminal = errors.New("only a finished task can be archived")
+	ErrLastOwner               = errors.New("cannot remove the last owner")
 	// ErrUnknownProvider is US-AD86 AC3: a credential for a provider the price
 	// table does not know is a 400, not a stored secret nobody can spend. It is
 	// deliberately not ErrInvalidInput: the operator's fix is "pick a provider
@@ -616,6 +625,23 @@ func (s *Service) ListBoardTasks(ctx context.Context, orgID, boardID string) ([]
 // the caller states the status it believes the task is in, and the database
 // only updates a row that still holds it. Two writers racing produce one winner
 // and one ErrConflict, never a double move.
+//
+// Archiving is the one transition with rules of its own (US-AD59):
+//
+//	AC2 — only a terminal task may be archived. `blocked`, `ready`, `review`
+//	      and the rest are still moving, and hiding a moving row takes work off
+//	      the board that nobody finished. 409, because the payload is fine and
+//	      the task's state is what refuses it.
+//	AC3 — archiving an already-archived task is idempotent, and it needs no
+//	      branch of its own: `archived` is itself terminal, so a retry passes
+//	      AC2's check and the write below compares the row against the status
+//	      just read — which matches. The caller's own `from` is deliberately not
+//	      what the guard is given, which is the part that makes the retry a
+//	      200 rather than a 409 on the caller's earlier write.
+//
+// AC4 (owner/admin) is enforced in the handler, not here: the role is not part
+// of the domain state, and `MoveTask` is also reached by the dispatcher paths
+// that hold no role at all.
 func (s *Service) MoveTask(ctx context.Context, id, orgID string, from, to TaskStatus) (Task, error) {
 	if from == "" || to == "" {
 		return Task{}, ErrInvalidStatus
@@ -626,7 +652,17 @@ func (s *Service) MoveTask(ctx context.Context, id, orgID string, from, to TaskS
 		return s.repo.GetTask(ctx, id, orgID)
 	}
 	if to == StatusArchived {
-		return s.repo.UpdateTaskStatus(ctx, id, orgID, from, to)
+		current, err := s.repo.GetTask(ctx, id, orgID)
+		if err != nil {
+			return Task{}, err
+		}
+		if !current.Status.IsTerminal() {
+			return Task{}, ErrArchiveRequiresTerminal
+		}
+		// `current.Status`, not the caller's `from`: the guard's job here is to
+		// catch a concurrent writer between the read above and this write, not
+		// to re-check a status the caller stated before the read.
+		return s.repo.UpdateTaskStatus(ctx, id, orgID, current.Status, to)
 	}
 	return s.repo.UpdateTaskStatus(ctx, id, orgID, from, to)
 }

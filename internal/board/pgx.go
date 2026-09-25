@@ -411,12 +411,22 @@ func (r *pgxRepository) ListBoardTasks(ctx context.Context, orgID, boardID strin
 // UpdateTaskStatus applies one lifecycle transition. The WHERE clause includes
 // the expected current status, so a row that already moved returns no row and
 // this reports ErrConflict instead of reporting a stale task as current.
+//
+// The parameter names are the trap. sqlc derives them from the statement below,
+// where `$3` is the guard (`WHERE status = $3`) and `$4` is the new value
+// (`SET status = $4`). So `Status` must carry the EXPECTED current status and
+// `Status_2` the target — the opposite of what the two names suggest. Filling
+// them the intuitive way makes every transition match zero rows and surface as
+// ErrConflict, which is a silent 409 on every move rather than a crash.
+//
+// `from`/`to` keep their own meaning: `from` is what the caller believes the
+// status is, `to` is where it should land.
 func (r *pgxRepository) UpdateTaskStatus(ctx context.Context, id, orgID string, from, to TaskStatus) (Task, error) {
 	row, err := r.q.UpdateTaskStatus(ctx, store.UpdateTaskStatusParams{
 		ID:       id,
 		OrgID:    orgID,
-		Status:   string(to),
-		Status_2: string(from),
+		Status:   string(from),
+		Status_2: string(to),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -306,6 +306,29 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
    saat §6A.J ditambahkan, judulnya ikut berubah jadi `§6A.H` dan `§6A.G` hilang, sementara
    `ARCHITECTURE.md` + `cmd/api/agent_skills.go` masih menunjuk `§6A.G`. Sudah dibalikin ke
    G, dan `tools/verify_suite.py` sekarang memeriksa penomoran 6A. (label kembar / hilang).
+4d. **Nol test untuk perpindahan kolom board, dan itu menutupi bug yang bikin seluruh
+   drag-and-drop mati.** `UpdateTaskStatusParams` punya dua field (`Status`, `Status_2`)
+   hasil generate sqlc dari `SET status = $4 WHERE ... AND status = $3`, jadi `Status`
+   adalah **guard** dan `Status_2` nilai barunya — terbalik dari kesan namanya.
+   `internal/board/pgx.go` mengisinya dengan urutan intuitif, sehingga `WHERE status =
+   <tujuan>` tidak pernah cocok: **setiap** `POST /tasks/{id}/move` balas 409 `task is
+   not in the expected state`, tanpa error, tanpa log. Fix: `Status: string(from)`.
+   Sekarang dijaga `internal/board/task_status_test.go` lawan Postgres nyata (mutasi
+   dikembalikan ke urutan lama → MERAH, dengan pesan yang menunjuk penyebabnya).
+   Pelajarannya bukan soal satu swap: suite punya 0 test `UpdateTaskStatus`, jadi bug
+   ini tidak bisa dilihat gate mana pun. Fon tulis status task cuma satu, jadi blast
+   radius-nya seluruh board.
+4e. **`tasks.archived_at` nol penulis.** Ada di DDL dan di `taskResponse`, tapi tidak
+   ada satu statement pun yang menulisnya — arsip cuma mengubah `status`. Semua read
+   path menyaring `status != 'archived'`, jadi tidak ada bug hari ini; `archived_at`
+   cuma selalu NULL. Jangan pakai kolom itu untuk memutuskan apa pun sampai ada penulis.
+4f. **US-AD59 bocor 3 AC sekaligus, semuanya di jalur arsip task.** (a) tidak ada
+   penegakan "hanya dari status terminal" — `done`/`cancelled`/`archived` saja yang
+   boleh; (b) route `move` di-floor Member, padahal AC4 bilang arsip butuh owner/admin;
+   (c) arsip kedua balas 409, padahal AC3 bilang idempoten. Ketiganya sekarang dijaga
+   `cmd/api/tasks_archive_test.go` + probe API nyata. Kontrak yang bertabrakan: baris
+   ARCHITECTURE untuk `/tasks/{id}/move` menulis floor `Member` tanpa menyebut pengecualian
+   arsip — PRD AC4 yang dipakai, dan barisnya dikoreksi.
 5. Belum ada `LICENSE`/`NOTICE`/`THIRD_PARTY`. Konflik lisensi di design
    (`09b-github.html` Apache-2.0 vs `05-landing.html` MIT).
 6. ~~Audit `livez`/`metrics` + tabel tanpa DDL~~ **SELESAI** — lihat

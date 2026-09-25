@@ -608,7 +608,11 @@ func (r *fakeBoardRepo) GetTask(_ context.Context, id, orgID string) (board.Task
 func (r *fakeBoardRepo) ListBoardTasks(_ context.Context, orgID, boardID string) ([]board.Task, error) {
 	out := []board.Task{}
 	for _, task := range r.tasks {
-		if task.OrgID == orgID && task.BoardID == boardID {
+		// Mirror the statement's `status != 'archived'`. The double used to
+		// return archived rows, so a test asserting that a retired task leaves
+		// the board would have passed or failed depending on the double rather
+		// than on the query production actually runs.
+		if task.OrgID == orgID && task.BoardID == boardID && task.Status != board.StatusArchived {
 			out = append(out, task)
 		}
 	}

@@ -64,8 +64,12 @@ func writeBoardError(w http.ResponseWriter, err error) {
 		errors.Is(err, board.ErrInvalidInput), errors.Is(err, board.ErrInvalidStatus),
 		errors.Is(err, providerreg.ErrInvalidInput):
 		http.Error(w, err.Error(), http.StatusBadRequest)
-	case errors.Is(err, board.ErrArchiveRequiresAdmin):
+	case errors.Is(err, board.ErrArchiveRequiresAdmin), errors.Is(err, board.ErrArchiveRequiresAdminTask):
 		http.Error(w, err.Error(), http.StatusForbidden)
+	// US-AD59 AC2: a task that is still moving cannot be retired. 409, not 400:
+	// the payload is well-formed and the state is what refuses it.
+	case errors.Is(err, board.ErrArchiveRequiresTerminal):
+		http.Error(w, err.Error(), http.StatusConflict)
 	// US-AD86 AC3: an unknown provider is the caller's mistake and the fix is a
 	// different provider, so it is a 400 rather than a 409. Same for US-AD67
 	// AC2's unpriced model — the fix is a different model.
@@ -501,6 +505,13 @@ func (a boardAPI) updateBoardColumns(w http.ResponseWriter, r *http.Request) {
 
 // ---- tasks -----------------------------------------------------------------
 
+// taskRequest is shared by create and update, and `status` is read by create
+// only: `POST /boards/{id}/tasks` accepts an explicit starting status, while
+// `PATCH /tasks/{id}` edits text and priority. A status sent to PATCH is
+// therefore ignored — and that is a trap this struct used to keep quiet about.
+// Moving a task is `POST /tasks/{id}/move`, which carries the optimistic-status
+// guard; accepting `status` on PATCH too would be a second way to move a task
+// with no guard at all.
 type taskRequest struct {
 	Title    string `json:"title"`
 	Body     string `json:"body"`
@@ -721,6 +732,16 @@ func (a boardAPI) moveTask(w http.ResponseWriter, r *http.Request) {
 	}
 	if !board.AcceptableStatus(req.To) {
 		http.Error(w, "unsupported task status", http.StatusBadRequest)
+		return
+	}
+	// US-AD59 AC4, enforced here rather than in the service: the role is not
+	// domain state, and this is the same one-endpoint-two-floors shape as
+	// PATCH /agents/{id} (US-AD73 AC4). The floor is raised for the archive
+	// target only — the board's drag-and-drop moves ordinary columns at Member
+	// level, which is what the route's gate is for.
+	if board.TaskStatus(req.To) == board.StatusArchived &&
+		orgCtx.role != auth.Owner && orgCtx.role != auth.Admin {
+		http.Error(w, board.ErrArchiveRequiresAdminTask.Error(), http.StatusForbidden)
 		return
 	}
 	from := board.StatusBacklog

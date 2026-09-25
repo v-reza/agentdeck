@@ -1820,12 +1820,12 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | `GET` | `/api/v1/tasks/{id}` | Session/Key | Viewer | Ya | ✅ | Detail lengkap task + active run ID |
 | `PATCH` | `/api/v1/tasks/{id}` | Session/Key | Member | Ya | ✅ | Edit task (`title, body, priority, completion_contract`) |
 | `DELETE` | `/api/v1/tasks/{id}` | Session/Key | Admin | Ya | ✅ | Soft-delete, bisa dipulihkan 30 hari (US-AD80 AC2) |
-| `POST` | `/api/v1/tasks/{id}/move` | Session/Key | Member | Ya | ✅ | Geser task ke kolom/status lain (`{to_status: "ready"}`) |
+| `POST` | `/api/v1/tasks/{id}/move` | Session/Key | Member | Ya | ✅ | Geser task ke kolom/status lain. Satu route dua floor: perpindahan biasa Member, sedangkan `{"from":...,"to":"archived"}` butuh owner/admin (US-AD59 AC4), dan hanya dari status terminal (AC2) |
 | `POST` | `/api/v1/tasks/{id}/assign` | Session/Key | Member | Ya | ✅ | Assign/unassign agent (`{agent_id: "..."}`) |
 | `POST` | `/api/v1/tasks/{id}/claim` | Session/Key | Member | Ya | ⬜ | Manual force claim (bypass loop dispatcher) |
 | `POST` | `/api/v1/tasks/{id}/cancel` | Session/Key | Member | Ya | ⬜ | Batalkan task & abort active run jika ada |
 | `POST` | `/api/v1/tasks/{id}/retry` | Session/Key | Member | Ya | ⬜ | Reset failure count, pindah status ke `ready` |
-| `POST` | `/api/v1/tasks/{id}/archive` | Session/Key | Member | Ya | ⬜ | Set status ke `archived`, sembunyikan dari view board |
+| `POST` | `/api/v1/tasks/{id}/archive` | Session/Key | Admin | Ya | ⬜ | Set status ke `archived`, sembunyikan dari view board. **Admin, bukan Member**: US-AD59 AC4 menetapkan minimal `admin`, dan baris ini dulu menulis Member — kontradiksi yang tidak pernah ketahuan karena nol test menyentuh arsip task |
 
 #### 6.2.10 Task Links / Dependencies (4 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
