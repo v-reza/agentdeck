@@ -220,5 +220,24 @@ test.describe('AgentDeck dashboard', () => {
     const drawer = page.getByRole('complementary', { name: 'Task Detail Drawer' })
     await expect(drawer).toBeVisible()
     await expect(drawer.getByText('Open me').first()).toBeVisible()
+
+    // The design draws icons in this drawer and the implementation used to draw
+    // none of them — the whole accessory layer was missing, which a text-only
+    // smoke test cannot see.
+    //
+    // Four, not five: this task has no dependency edges, so the
+    // `CornerDownRight` arrow the design puts on each edge has nothing to mark.
+    // The arrow is therefore covered by the dependency section's own rendering
+    // rather than by this count, and the count is pinned to what an edge-free
+    // task draws: close, archive, trash, shield. The archive and delete icons are
+    // present because the fixture signs in as the workspace owner (US-AD59 AC4).
+    await expect(drawer.locator('svg')).toHaveCount(4)
+    await expect(drawer.getByRole('button', { name: 'Tutup' })).toBeVisible()
+
+    // US-AD59 AC4: the archive control is owner/admin only. The fixture signs in
+    // as the workspace owner, so both destructive buttons are present — and the
+    // note says so in the same words the role check uses.
+    await expect(drawer.getByRole('button', { name: /Arsipkan Task/ })).toBeVisible()
+    await expect(drawer.getByRole('button', { name: /Hapus/ })).toBeVisible()
   })
 })
