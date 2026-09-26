@@ -170,6 +170,19 @@ type Membership struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+type Notification struct {
+	ID         string
+	UserID     string
+	OrgID      string
+	Kind       string
+	Title      string
+	Body       *string
+	TargetType *string
+	TargetID   *string
+	ReadAt     pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+}
+
 type Org struct {
 	ID        string
 	Slug      string

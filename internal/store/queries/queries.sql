@@ -67,6 +67,143 @@ INSERT INTO audit_log (org_id, actor_user_id, action, target_type, target_id, be
 SELECT $1, $3, 'org.rename', 'org', $1, $4::jsonb, $5::jsonb, $6
 FROM renamed;
 
+-- name: ListAuditLog :many
+-- 6.2.19 / US-AD95. Cursor pagination by id DESC (bigserial, jadi id adalah
+-- urutannya). `cursor` = id terakhir yang dilihat; NULL berarti halaman pertama.
+--
+-- Setiap filter opsional memakai pola `($n::text IS NULL OR col = $n)`, bukan
+-- query yang dirakit di Go: satu statement, satu rencana eksekusi, dan tidak ada
+-- jalan bagi pemanggil untuk menyuntik SQL lewat nilai filter.
+--
+-- ponytail: `from`/`to` disaring dengan perbandingan langsung, bukan index
+-- khusus rentang; audit_log_org_action_idx sudah melayani (org_id, created_at
+-- DESC) dan tabel ini kecil. Naikkan ke index BRIN kalau suatu saat volumenya
+-- membuat scan ini mahal.
+SELECT id, org_id, actor_user_id, actor_agent_id, action, target_type, target_id,
+       before_json, after_json, ip, created_at
+FROM audit_log
+WHERE org_id = $1
+  AND ($2::bigint = 0 OR id < $2)
+  AND (sqlc.narg('actor')::text IS NULL OR actor_user_id = sqlc.narg('actor'))
+  AND (sqlc.narg('action')::text IS NULL OR action = sqlc.narg('action'))
+  AND (sqlc.narg('from_ts')::timestamptz IS NULL OR created_at >= sqlc.narg('from_ts'))
+  AND (sqlc.narg('to_ts')::timestamptz IS NULL OR created_at <= sqlc.narg('to_ts'))
+ORDER BY id DESC
+LIMIT $3;
+
+-- name: CreateNotification :one
+INSERT INTO notifications (id, user_id, org_id, kind, title, body, target_type, target_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, user_id, org_id, kind, title, body, target_type, target_id, read_at, created_at;
+
+-- name: ListNotifications :many
+-- 6.2.19 / US-AD61: milik satu pengguna, terbaru dulu, dengan plafon. `unread`
+-- dihitung terpisah supaya badge tetap benar walau daftarnya dipotong LIMIT.
+SELECT id, user_id, org_id, kind, title, body, target_type, target_id, read_at, created_at
+FROM notifications
+WHERE user_id = $1 AND org_id = $2
+ORDER BY created_at DESC, id DESC
+LIMIT $3;
+
+-- name: CountUnreadNotifications :one
+SELECT count(*) FROM notifications
+WHERE user_id = $1 AND org_id = $2 AND read_at IS NULL;
+
+-- name: MarkNotificationsRead :execrows
+-- Dua bentuk dalam satu statement: `ids` kosong + `all` benar = semua yang belum
+-- dibaca; kalau tidak, hanya id yang disebut. `user_id` dan `org_id` ada di
+-- predikat, jadi id milik pengguna lain tidak pernah tersentuh.
+UPDATE notifications
+SET read_at = now()
+WHERE user_id = $1 AND org_id = $2 AND read_at IS NULL
+  AND (sqlc.arg(mark_all)::boolean OR id = ANY(sqlc.arg(ids)::text[]));
+
+-- name: SearchTasks :many
+-- 6.2.19: pencarian teks. `ILIKE '%'||pattern||'%'`, BUKAN operator `%`.
+--
+-- Operator `%` di pg_trgm adalah similarity di atas ambang
+-- (`pg_trgm.similarity_threshold`, bawaan 0.3), bukan "mengandung". Memakainya
+-- untuk kotak pencarian berarti "deploy" tidak menemukan "Fix the deploy
+-- pipeline for staging" — persis kebalikan dari yang diharapkan, dan itu
+-- ketahuan cuma dari tes lawan database nyata.
+--
+-- `ILIKE '%...%'` memang pencarian di tengah kata, dan justru itulah yang
+-- diakselerasi index `gin_trgm_ops` di tasks_title_trgm_idx (migrasi 0004).
+-- `pattern` sudah di-escape di Go (%, _, \) supaya pemanggil yang mengetik
+-- tanda persen mencari tanda persen, bukan "semua baris".
+--
+-- `similarity()` tetap dipakai untuk URUTAN: judul yang persis sama muncul
+-- sebelum judul yang cuma memuat kata itu di tengah kalimat panjang.
+--
+-- ponytail: urutannya similarity judul saja, bukan gabungan judul+body. Kalau
+-- body ikut diberi bobot, `greatest(similarity(title,$3), similarity(body,$3))`
+-- adalah penggantinya, dengan index trigram di kedua kolom.
+SELECT id, org_id, board_id, title, body, status, priority, assignee_agent_id,
+       created_by, idempotency_key, block_kind, consecutive_failures, workspace_kind,
+       workspace_path, branch_name, completion_contract, goal_mode, goal_max_turns,
+       current_run_id, cost_micros, tokens_in, tokens_out, created_at, started_at,
+       completed_at, archived_at
+FROM tasks
+WHERE org_id = $1
+  AND (sqlc.narg('board_id')::text IS NULL OR board_id = sqlc.narg('board_id'))
+  AND (title ILIKE sqlc.arg('pattern') OR body ILIKE sqlc.arg('pattern'))
+ORDER BY similarity(title, sqlc.arg('query')) DESC, created_at DESC
+LIMIT sqlc.arg('page_limit');
+
+-- name: SearchRuns :many
+-- 6.2.19: "cari run berdasarkan kegagalan atau metadata". Yang bisa dicari:
+-- failure_kind, outcome, dan pesan error/summary — tiga kolom yang memang
+-- menjelaskan kenapa sebuah run berakhir seperti itu. Teksnya dicocokkan dengan
+-- ILIKE, sama seperti SearchTasks dan dengan alasan yang sama (operator `%`
+-- adalah similarity di atas ambang, bukan "mengandung"). `runs.org_id` sudah
+-- ada sejak 3.14, jadi scoping-nya langsung, bukan lewat join ke tasks.
+SELECT r.id, r.org_id, r.task_id, r.agent_id, r.attempt, r.status, r.outcome,
+       r.failure_kind, r.claim_lock, r.claim_expires, r.worker_pid, r.last_heartbeat_at,
+       r.max_runtime_seconds, r.cost_micros, r.tokens_in, r.tokens_out, r.summary,
+       r.error, r.metadata_json, r.started_at, r.ended_at, r.cancel_requested_at
+FROM runs r
+WHERE r.org_id = $1
+  AND (sqlc.narg('task_id')::text IS NULL OR r.task_id = sqlc.narg('task_id'))
+  AND (sqlc.narg('failure_kind')::text IS NULL OR r.failure_kind = sqlc.narg('failure_kind'))
+  AND (sqlc.narg('outcome')::text IS NULL OR r.outcome = sqlc.narg('outcome'))
+  AND (sqlc.narg('pattern')::text IS NULL
+       OR r.error ILIKE sqlc.narg('pattern') OR r.summary ILIKE sqlc.narg('pattern'))
+ORDER BY r.started_at DESC
+LIMIT sqlc.arg('page_limit');
+
+-- name: ListOrgAdminsAndOwners :many
+-- Penerima notifikasi operasional (US-AD61): perubahan status yang butuh
+-- manusia memutuskan — budget habis, run gagal — ditujukan ke owner dan admin,
+-- bukan ke seluruh anggota. Seorang viewer tidak bisa berbuat apa-apa dengan
+-- kabar itu, dan mengirimnya ke semua orang membuat badge jadi kebisingan.
+SELECT m.user_id
+FROM memberships m
+WHERE m.org_id = $1
+  AND m.role IN ('owner', 'admin')
+ORDER BY m.created_at;
+
+-- name: CreateNotificationOnce :execrows
+-- Notifikasi idempoten: satu baris per (penerima, org, kind, target, hari).
+--
+-- Tanpa penjagaan ini, `budget.warning` ditulis ulang setiap langkah setelah
+-- ambang 80% terlewati — puluhan baris untuk satu kejadian, dan badge jadi tidak
+-- berarti. Dedup dilakukan di SQL, bukan di aplikasi, karena produsernya
+-- (dispatcher) bisa berjalan di dua proses sekaligus.
+--
+-- `target_id` boleh NULL: `run.failed` selalu menunjuk run, sementara
+-- `credential.invalid` tidak menunjuk apa pun.
+INSERT INTO notifications (id, user_id, org_id, kind, title, body, target_type, target_id)
+SELECT sqlc.arg('id'), sqlc.arg('user_id'), sqlc.arg('org_id'), sqlc.arg('kind'),
+       sqlc.arg('title'), sqlc.narg('body'), sqlc.narg('target_type'), sqlc.narg('target_id')
+WHERE NOT EXISTS (
+    SELECT 1 FROM notifications n
+    WHERE n.user_id = sqlc.arg('user_id')
+      AND n.org_id = sqlc.arg('org_id')
+      AND n.kind = sqlc.arg('kind')
+      AND n.target_id IS NOT DISTINCT FROM sqlc.narg('target_id')
+      AND n.created_at::date = now()::date
+);
+
 -- name: GetPersonalWorkspace :one
 -- The registration-kind org where THIS user is the owner: that is the only
 -- shape that means "my personal workspace". Membership alone is not enough —

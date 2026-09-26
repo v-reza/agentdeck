@@ -109,6 +109,7 @@ type Querier interface {
 	// Counts unfinished parents: the dispatcher promotes a child to ready only when
 	// this returns zero (ARCHITECTURE 4e).
 	CountUnfinishedParents(ctx context.Context, childID string) (int32, error)
+	CountUnreadNotifications(ctx context.Context, arg CountUnreadNotificationsParams) (int64, error)
 	// Agents. The agent is the retry/limit source for every run it executes.
 	// Every mutable column UpdateAgent writes is written here too. The two drifted
 	// once: `reasoning_effort` was bound only by UpdateAgent, so a client's value
@@ -140,6 +141,17 @@ type Querier interface {
 	CreateEvent(ctx context.Context, arg CreateEventParams) (Event, error)
 	CreateLedgerEntry(ctx context.Context, arg CreateLedgerEntryParams) (LedgerEntry, error)
 	CreateMembership(ctx context.Context, arg CreateMembershipParams) error
+	CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error)
+	// Notifikasi idempoten: satu baris per (penerima, org, kind, target, hari).
+	//
+	// Tanpa penjagaan ini, `budget.warning` ditulis ulang setiap langkah setelah
+	// ambang 80% terlewati — puluhan baris untuk satu kejadian, dan badge jadi tidak
+	// berarti. Dedup dilakukan di SQL, bukan di aplikasi, karena produsernya
+	// (dispatcher) bisa berjalan di dua proses sekaligus.
+	//
+	// `target_id` boleh NULL: `run.failed` selalu menunjuk run, sementara
+	// `credential.invalid` tidak menunjuk apa pun.
+	CreateNotificationOnce(ctx context.Context, arg CreateNotificationOnceParams) (int64, error)
 	CreateOrg(ctx context.Context, arg CreateOrgParams) (CreateOrgRow, error)
 	CreateOrgKind(ctx context.Context, arg CreateOrgKindParams) error
 	// M0 — password reset (US-AD88).
@@ -352,6 +364,18 @@ type Querier interface {
 	// like ListBoardTasks), and the order puts live work first so the running row is
 	// the one an operator sees without scrolling.
 	ListAssignedTasks(ctx context.Context, arg ListAssignedTasksParams) ([]ListAssignedTasksRow, error)
+	// 6.2.19 / US-AD95. Cursor pagination by id DESC (bigserial, jadi id adalah
+	// urutannya). `cursor` = id terakhir yang dilihat; NULL berarti halaman pertama.
+	//
+	// Setiap filter opsional memakai pola `($n::text IS NULL OR col = $n)`, bukan
+	// query yang dirakit di Go: satu statement, satu rencana eksekusi, dan tidak ada
+	// jalan bagi pemanggil untuk menyuntik SQL lewat nilai filter.
+	//
+	// ponytail: `from`/`to` disaring dengan perbandingan langsung, bukan index
+	// khusus rentang; audit_log_org_action_idx sudah melayani (org_id, created_at
+	// DESC) dan tabel ini kecil. Naikkan ke index BRIN kalau suatu saat volumenya
+	// membuat scan ini mahal.
+	ListAuditLog(ctx context.Context, arg ListAuditLogParams) ([]AuditLog, error)
 	// SSE resume: events newer than the client's Last-Event-ID for one board.
 	ListBoardEventsAfter(ctx context.Context, arg ListBoardEventsAfterParams) ([]Event, error)
 	ListBoardLedger(ctx context.Context, arg ListBoardLedgerParams) ([]LedgerEntry, error)
@@ -373,6 +397,14 @@ type Querier interface {
 	ListClaimableBoards(ctx context.Context) ([]ListClaimableBoardsRow, error)
 	ListMembers(ctx context.Context, orgID string) ([]ListMembersRow, error)
 	ListModelPrices(ctx context.Context, orgID string) ([]AgentModelPrice, error)
+	// 6.2.19 / US-AD61: milik satu pengguna, terbaru dulu, dengan plafon. `unread`
+	// dihitung terpisah supaya badge tetap benar walau daftarnya dipotong LIMIT.
+	ListNotifications(ctx context.Context, arg ListNotificationsParams) ([]Notification, error)
+	// Penerima notifikasi operasional (US-AD61): perubahan status yang butuh
+	// manusia memutuskan — budget habis, run gagal — ditujukan ke owner dan admin,
+	// bukan ke seluruh anggota. Seorang viewer tidak bisa berbuat apa-apa dengan
+	// kabar itu, dan mengirimnya ke semua orang membuat badge jadi kebisingan.
+	ListOrgAdminsAndOwners(ctx context.Context, orgID string) ([]string, error)
 	// The org roster a user belongs to, with their role in each. Scoping is
 	// by membership, not by the caller's guess of an org id, so this cannot
 	// leak a tenant the user is not part of (tenant isolation, ARCHITECTURE 17).
@@ -420,6 +452,10 @@ type Querier interface {
 	ListTaskEvents(ctx context.Context, taskID *string) ([]Event, error)
 	ListTaskParents(ctx context.Context, childID string) ([]ListTaskParentsRow, error)
 	ListTaskRuns(ctx context.Context, arg ListTaskRunsParams) ([]ListTaskRunsRow, error)
+	// Dua bentuk dalam satu statement: `ids` kosong + `all` benar = semua yang belum
+	// dibaca; kalau tidak, hanya id yang disebut. `user_id` dan `org_id` ada di
+	// predikat, jadi id milik pengguna lain tidak pernah tersentuh.
+	MarkNotificationsRead(ctx context.Context, arg MarkNotificationsReadParams) (int64, error)
 	NextRunAttempt(ctx context.Context, taskID string) (int32, error)
 	// GET /orgs/{id}/cost-summary (US-AD32 reporting): total 30 hari, dipecah per
 	// model dan per board. Satu query dengan dua GROUPING SETS, bukan dua query:
@@ -507,6 +543,33 @@ type Querier interface {
 	// satu baris (bukan bool) supaya "run-nya tidak ada" dan "belum diminta batal"
 	// tidak bisa tertukar: yang pertama harus melempar, yang kedua tidak.
 	RunCancelRequested(ctx context.Context, id string) (bool, error)
+	// 6.2.19: "cari run berdasarkan kegagalan atau metadata". Yang bisa dicari:
+	// failure_kind, outcome, dan pesan error/summary — tiga kolom yang memang
+	// menjelaskan kenapa sebuah run berakhir seperti itu. Teksnya dicocokkan dengan
+	// ILIKE, sama seperti SearchTasks dan dengan alasan yang sama (operator `%`
+	// adalah similarity di atas ambang, bukan "mengandung"). `runs.org_id` sudah
+	// ada sejak 3.14, jadi scoping-nya langsung, bukan lewat join ke tasks.
+	SearchRuns(ctx context.Context, arg SearchRunsParams) ([]Run, error)
+	// 6.2.19: pencarian teks. `ILIKE '%'||pattern||'%'`, BUKAN operator `%`.
+	//
+	// Operator `%` di pg_trgm adalah similarity di atas ambang
+	// (`pg_trgm.similarity_threshold`, bawaan 0.3), bukan "mengandung". Memakainya
+	// untuk kotak pencarian berarti "deploy" tidak menemukan "Fix the deploy
+	// pipeline for staging" — persis kebalikan dari yang diharapkan, dan itu
+	// ketahuan cuma dari tes lawan database nyata.
+	//
+	// `ILIKE '%...%'` memang pencarian di tengah kata, dan justru itulah yang
+	// diakselerasi index `gin_trgm_ops` di tasks_title_trgm_idx (migrasi 0004).
+	// `pattern` sudah di-escape di Go (%, _, \) supaya pemanggil yang mengetik
+	// tanda persen mencari tanda persen, bukan "semua baris".
+	//
+	// `similarity()` tetap dipakai untuk URUTAN: judul yang persis sama muncul
+	// sebelum judul yang cuma memuat kata itu di tengah kalimat panjang.
+	//
+	// ponytail: urutannya similarity judul saja, bukan gabungan judul+body. Kalau
+	// body ikut diberi bobot, `greatest(similarity(title,$3), similarity(body,$3))`
+	// adalah penggantinya, dengan index trigram di kedua kolom.
+	SearchTasks(ctx context.Context, arg SearchTasksParams) ([]Task, error)
 	// US-AD86: store the sealed credential. Encryption/decryption lives in
 	// internal/crypto; this statement only ever sees ciphertext, so a DB dump alone
 	// cannot recover a provider key. Returning the derived flag lets the handler

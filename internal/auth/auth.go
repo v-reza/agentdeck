@@ -136,15 +136,19 @@ type WorkspaceMember struct {
 }
 
 type AuditEntry struct {
-	OrgID       string
-	ActorUserID string
-	Action      string
-	TargetType  string
-	TargetID    string
-	Before      string
-	After       string
-	IP          string
-	CreatedAt   time.Time
+	OrgID string
+	// ActorUserID and ActorAgentID are the two shapes an actor can take
+	// (audit_log has a column for each). Exactly one is set in practice;
+	// both are carried so a reader does not have to guess which to render.
+	ActorUserID  string
+	ActorAgentID string
+	Action       string
+	TargetType   string
+	TargetID     string
+	Before       string
+	After        string
+	IP           string
+	CreatedAt    time.Time
 }
 
 const (

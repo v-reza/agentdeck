@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -1157,6 +1158,114 @@ func runRow(r runRowShape) Run {
 		// terisi — nilai yang ada di DB tapi tidak pernah sampai ke pemanggil.
 		CancelRequestedAt: ts(r.CancelRequestedAt),
 	}
+}
+
+// ---- search (6.2.19) -------------------------------------------------------
+
+// likePatternPtr is likePattern for an optional filter, and the nil case is the
+// whole point.
+//
+// Passing `likePattern("")` — which is "%%" — would be a bug with teeth: the
+// pattern is not NULL, so `r.error ILIKE '%%'` evaluates to NULL for any run
+// whose error is NULL, and the OR makes the whole predicate NULL, dropping the
+// row. Searching runs by task alone would then return nothing, because every
+// successful run has no error text. The first run against Postgres did exactly
+// that.
+func likePatternPtr(q string) *string {
+	if strings.TrimSpace(q) == "" {
+		return nil
+	}
+	pattern := likePattern(q)
+	return &pattern
+}
+
+// likePattern turns a user's search text into a LIKE pattern that matches
+// anywhere in the column.
+//
+// The escaping is the point. `%` and `_` are wildcards in LIKE, and a user who
+// types "50%" is asking for the literal characters "50%" — without this, they
+// would get every row containing "50". The backslash itself has to be escaped
+// first, or "\\%" would turn into a literal backslash followed by a wildcard.
+//
+// Note what is NOT escaped: the pattern is passed as a bind parameter, so quotes
+// and semicolons are just text. Escaping those would be the wrong fix for an
+// injection worry that the parameter already handles.
+func likePattern(q string) string {
+	replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	return "%" + replacer.Replace(q) + "%"
+}
+
+func (r *pgxRepository) SearchTasks(ctx context.Context, orgID, q, boardID string, limit int32) ([]Task, error) {
+	limit = ClampSearchLimit(limit)
+	rows, err := r.q.SearchTasks(ctx, store.SearchTasksParams{
+		OrgID: orgID,
+		// `pattern` is the escaped LIKE form; `query` is the raw text, used only
+		// for similarity() ordering. Passing the escaped form to similarity()
+		// would rank against the backslashes instead of what the user typed.
+		Pattern:   likePattern(q),
+		Query:     q,
+		PageLimit: limit,
+		// Empty means "every board"; the SQL takes NULL for that, so the
+		// conversion happens here rather than in the query text.
+		BoardID: strPtr(boardID),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Task, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, taskRow(row))
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) SearchRuns(ctx context.Context, orgID string, f RunSearchFilter) ([]Run, error) {
+	limit := ClampSearchLimit(f.Limit)
+	rows, err := r.q.SearchRuns(ctx, store.SearchRunsParams{
+		OrgID:       orgID,
+		PageLimit:   limit,
+		TaskID:      strPtr(f.TaskID),
+		FailureKind: strPtr(f.FailureKind),
+		Outcome:     strPtr(f.Outcome),
+		Pattern:     likePatternPtr(f.Q),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Run, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, runRowFromStore(row))
+	}
+	return out, nil
+}
+
+// runRowFromStore converts a full store.Run. It exists because runRowShape is
+// the narrow projection the claim and reclaim queries return, and store.Run
+// carries four more columns than that shape (claim_lock, claim_expires,
+// worker_pid, metadata_json) — so the two are not convertible, and pretending
+// otherwise with a cast is what the compiler refused. The field list here is
+// exactly the shape runRow reads.
+func runRowFromStore(r store.Run) Run {
+	return runRow(runRowShape{
+		ID:                r.ID,
+		OrgID:             r.OrgID,
+		TaskID:            r.TaskID,
+		AgentID:           r.AgentID,
+		Attempt:           r.Attempt,
+		Status:            r.Status,
+		Outcome:           r.Outcome,
+		FailureKind:       r.FailureKind,
+		LastHeartbeatAt:   r.LastHeartbeatAt,
+		MaxRuntimeSeconds: r.MaxRuntimeSeconds,
+		CostMicros:        r.CostMicros,
+		TokensIn:          r.TokensIn,
+		TokensOut:         r.TokensOut,
+		Summary:           r.Summary,
+		Error:             r.Error,
+		StartedAt:         r.StartedAt,
+		EndedAt:           r.EndedAt,
+		CancelRequestedAt: r.CancelRequestedAt,
+	})
 }
 
 func stepRow(s store.Step) Step {

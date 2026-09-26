@@ -76,6 +76,17 @@ type Store interface {
 	// itself, or the task sits in `awaiting_approval` forever and the board shows
 	// work that is actually waiting on nobody.
 	ExpireDueApprovals(ctx context.Context, orgID string) ([]board.Approval, error)
+	// NotifyOperational is the in-app producer (US-AD61). It is called from the
+	// two places where a human needs to know something a machine decided: the
+	// board crossed its budget threshold, and a run failed. It is a Store method
+	// rather than a side effect inside the executor so the executor stays the
+	// only package that talks to a provider, and so the dedup rule lives with
+	// the other storage rules.
+	//
+	// It returns an error the caller deliberately ignores in the run path: a
+	// notification that cannot be written must not fail the run that triggered
+	// it. The alert is less important than the work.
+	NotifyOperational(ctx context.Context, orgID, kind, title, body, targetType, targetID string) error
 	GetAgent(ctx context.Context, id, orgID string) (board.Agent, error)
 	ProviderAddress(ctx context.Context, orgID, id string) (string, error)
 	ProviderCredential(ctx context.Context, orgID, id string) (string, error)

@@ -132,6 +132,41 @@ type Repository interface {
 	// CountOrgOwners is the guard for the last-owner rule.
 	CountOrgOwners(ctx context.Context, orgID string) (int, error)
 
+	// ---- audit log + notifications (6.2.19) ------------------------------
+
+	// ListAuditLog reads the workspace's audit trail, newest first (US-AD95).
+	// Every filter is optional: a zero AuditFilter value means "no filter", not
+	// "match the empty string" — the distinction is why the fields are pointers
+	// and an empty time, rather than plain strings.
+	ListAuditLog(ctx context.Context, orgID string, f AuditFilter) ([]AuditEntry, error)
+
+	// CreateNotification stores one in-app notification for a single user
+	// (US-AD61). The org id is part of the row, so a notification can never be
+	// read back outside the workspace it belongs to.
+	CreateNotification(ctx context.Context, n Notification) (Notification, error)
+
+	// ListNotifications returns one user's notifications in one workspace,
+	// newest first, capped at limit, plus the total unread count. The count is
+	// returned separately because the badge must stay correct when the list
+	// itself is truncated by the cap.
+	ListNotifications(ctx context.Context, userID, orgID string, limit int32) ([]Notification, int, error)
+
+	// MarkNotificationsRead marks the named notifications read, or every unread
+	// one when markAll is set (US-AD61 AC1). Scoped by user and org in SQL, so
+	// an id belonging to somebody else is never touched. It reports how many
+	// rows changed.
+	MarkNotificationsRead(ctx context.Context, userID, orgID string, ids []string, markAll bool) (int, error)
+
+	// CreateNotificationOnce is the same write, but refuses to add a second row
+	// for the same (user, org, kind, target) on the same day. Budget and failure
+	// notices are raised from inside a loop that runs per step, so the dedup has
+	// to live in the write rather than in the caller.
+	CreateNotificationOnce(ctx context.Context, n Notification) (int64, error)
+
+	// OrgAdminsAndOwners lists the recipients for operational notices. A viewer
+	// cannot act on "the board ran out of budget", so they are not notified.
+	OrgAdminsAndOwners(ctx context.Context, orgID string) ([]string, error)
+
 	// CreateSession stores the SHA-256 of a 64-byte opaque token. The raw
 	// token only ever exists in the Set-Cookie, so a store dump leaks nothing.
 	CreateSession(ctx context.Context, sess Session) error

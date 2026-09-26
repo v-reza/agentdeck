@@ -225,6 +225,41 @@ type AssignableAgent struct {
 	HasProviderKey bool
 }
 
+// RunSearchFilter is 6.2.19's run search. Every field is optional; empty means
+// "no constraint". The strings are plain because the HTTP layer has already
+// turned an absent query parameter into "", and "" and NULL mean the same thing
+// here — the query uses sqlc.narg, so "" would match nothing if it were passed
+// through, which is why the adapter converts empty to NULL.
+type RunSearchFilter struct {
+	TaskID      string
+	FailureKind string
+	Outcome     string
+	// Q matches against `error` and `summary`.
+	Q     string
+	Limit int32
+}
+
+// DefaultSearchLimit caps a search page when the caller does not ask for one.
+// 25 is one screen of results; a search box that returns more than a screen is
+// a list, and the endpoint that lists is the one with pagination.
+const DefaultSearchLimit = 25
+
+// MaxSearchLimit is the ceiling on a caller-supplied limit. Without it,
+// `?limit=100000` turns a search into a full-table scan with trigram ranking.
+const MaxSearchLimit = 100
+
+// ClampSearchLimit normalises a caller-supplied page size.
+func ClampSearchLimit(limit int32) int32 {
+	switch {
+	case limit <= 0:
+		return DefaultSearchLimit
+	case limit > MaxSearchLimit:
+		return MaxSearchLimit
+	default:
+		return limit
+	}
+}
+
 // RetryPolicy mirrors the agents.retry_policy CHECK (DECISIONS §4).
 func AcceptableRetryPolicy(s string) bool {
 	switch s {
@@ -574,6 +609,12 @@ type Repository interface {
 	CreateTask(ctx context.Context, t Task) (Task, error)
 	GetTask(ctx context.Context, id, orgID string) (Task, error)
 	ListBoardTasks(ctx context.Context, orgID, boardID string, filter TaskFilter) ([]Task, error)
+	// SearchTasks is 6.2.19's trigram search over title and body. `q` is
+	// required and non-empty; `boardID` empty means every board in the org.
+	SearchTasks(ctx context.Context, orgID, q, boardID string, limit int32) ([]Task, error)
+	// SearchRuns searches run failure metadata. Every filter is optional, and
+	// an empty one matches everything rather than nothing.
+	SearchRuns(ctx context.Context, orgID string, f RunSearchFilter) ([]Run, error)
 	// UpdateTaskStatus applies one lifecycle transition atomically: the WHERE
 	// clause includes the expected current status, so two writers racing on the
 	// same task produce one winner and one ErrConflict instead of a double move.

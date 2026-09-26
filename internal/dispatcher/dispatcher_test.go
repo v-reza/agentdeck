@@ -29,6 +29,8 @@ type fakeStore struct {
 	cancelRequested bool
 	cancelSummary   string
 	applied         []string
+	// notifications is what the dispatcher asked to announce (US-AD61).
+	notifications []string
 }
 
 func newFakeStore() *fakeStore {
@@ -125,6 +127,13 @@ func (f *fakeStore) WakeDependents(_ context.Context, taskID string) error {
 
 // ExpireDueApprovals is the N23 sweep. The fake records which orgs it was asked
 // about, so a tick that forgets to sweep at all is visible.
+// notifications records what the dispatcher asked to be announced, so a test
+// can assert an alert was raised without standing up the auth store.
+func (f *fakeStore) NotifyOperational(_ context.Context, orgID, kind, title, body, targetType, targetID string) error {
+	f.notifications = append(f.notifications, kind+"|"+orgID+"|"+targetType+"|"+targetID)
+	return nil
+}
+
 func (f *fakeStore) ExpireDueApprovals(_ context.Context, orgID string) ([]board.Approval, error) {
 	f.expiredOrgs = append(f.expiredOrgs, orgID)
 	return f.expiredByOrg[orgID], nil

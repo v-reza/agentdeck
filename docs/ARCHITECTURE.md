@@ -1917,12 +1917,12 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 #### 6.2.19 Audit, Search & System (6 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/audit-log` | Session/Key | Admin | Ya | ⬜ | Paginasi cursor riwayat modifikasi resource workspace; filter `actor, action, from, to` (US-AD95) |
-| `GET` | `/api/v1/notifications` | Session | Viewer | Ya | ⬜ | List notifikasi in-app milik user + `unread_count` (US-AD61) |
-| `POST` | `/api/v1/notifications/read` | Session | Viewer | Ya | ⬜ | Body `{ids: [...]}` atau `{all: true}` → `200`; tandai terbaca (US-AD61 AC1) |
-| `GET` | `/api/v1/search/tasks` | Session/Key | Viewer | Ya | ⬜ | Full-text trigram search task (`?q=...&board_id=...`) |
-| `GET` | `/api/v1/search/runs` | Session/Key | Viewer | Ya | ⬜ | Cari run berdasarkan kegagalan atau metadata |
-| `GET` | `/api/v1/system/info` | Public | None | Ya | ⬜ | Info versi backend Go & commit SHA |
+| `GET` | `/api/v1/audit-log` | Session/Key | Admin | Ya | ✅ | Paginasi cursor riwayat modifikasi resource workspace; filter `actor, action, from, to` (US-AD95) |
+| `GET` | `/api/v1/notifications` | Session | Viewer | Ya | ✅ | List notifikasi in-app milik user + `unread_count` (US-AD61) |
+| `POST` | `/api/v1/notifications/read` | Session | Viewer | Ya | ✅ | Body `{ids: [...]}` atau `{all: true}` → `200`; tandai terbaca (US-AD61 AC1) |
+| `GET` | `/api/v1/search/tasks` | Session/Key | Viewer | Ya | ✅ | Full-text trigram search task (`?q=...&board_id=...`) |
+| `GET` | `/api/v1/search/runs` | Session/Key | Viewer | Ya | ✅ | Cari run berdasarkan kegagalan atau metadata |
+| `GET` | `/api/v1/system/info` | Public | None | Ya | ✅ | Info versi backend Go & commit SHA |
 
 
 ### 6.2.20 Ringkasan kemajuan per modul

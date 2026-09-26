@@ -703,6 +703,23 @@ func (q *Queries) CountUnfinishedParents(ctx context.Context, childID string) (i
 	return column_1, err
 }
 
+const countUnreadNotifications = `-- name: CountUnreadNotifications :one
+SELECT count(*) FROM notifications
+WHERE user_id = $1 AND org_id = $2 AND read_at IS NULL
+`
+
+type CountUnreadNotificationsParams struct {
+	UserID string
+	OrgID  string
+}
+
+func (q *Queries) CountUnreadNotifications(ctx context.Context, arg CountUnreadNotificationsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countUnreadNotifications, arg.UserID, arg.OrgID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAgent = `-- name: CreateAgent :one
 INSERT INTO agents (id, org_id, project_id, name, provider, model, reasoning_effort,
                     skills_json, tools_json, max_runtime_seconds, retry_policy, max_attempts,
@@ -1100,6 +1117,101 @@ type CreateMembershipParams struct {
 func (q *Queries) CreateMembership(ctx context.Context, arg CreateMembershipParams) error {
 	_, err := q.db.Exec(ctx, createMembership, arg.OrgID, arg.UserID, arg.Role)
 	return err
+}
+
+const createNotification = `-- name: CreateNotification :one
+INSERT INTO notifications (id, user_id, org_id, kind, title, body, target_type, target_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, user_id, org_id, kind, title, body, target_type, target_id, read_at, created_at
+`
+
+type CreateNotificationParams struct {
+	ID         string
+	UserID     string
+	OrgID      string
+	Kind       string
+	Title      string
+	Body       *string
+	TargetType *string
+	TargetID   *string
+}
+
+func (q *Queries) CreateNotification(ctx context.Context, arg CreateNotificationParams) (Notification, error) {
+	row := q.db.QueryRow(ctx, createNotification,
+		arg.ID,
+		arg.UserID,
+		arg.OrgID,
+		arg.Kind,
+		arg.Title,
+		arg.Body,
+		arg.TargetType,
+		arg.TargetID,
+	)
+	var i Notification
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.OrgID,
+		&i.Kind,
+		&i.Title,
+		&i.Body,
+		&i.TargetType,
+		&i.TargetID,
+		&i.ReadAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createNotificationOnce = `-- name: CreateNotificationOnce :execrows
+INSERT INTO notifications (id, user_id, org_id, kind, title, body, target_type, target_id)
+SELECT $1, $2, $3, $4,
+       $5, $6, $7, $8
+WHERE NOT EXISTS (
+    SELECT 1 FROM notifications n
+    WHERE n.user_id = $2
+      AND n.org_id = $3
+      AND n.kind = $4
+      AND n.target_id IS NOT DISTINCT FROM $8
+      AND n.created_at::date = now()::date
+)
+`
+
+type CreateNotificationOnceParams struct {
+	ID         string
+	UserID     string
+	OrgID      string
+	Kind       string
+	Title      string
+	Body       *string
+	TargetType *string
+	TargetID   *string
+}
+
+// Notifikasi idempoten: satu baris per (penerima, org, kind, target, hari).
+//
+// Tanpa penjagaan ini, `budget.warning` ditulis ulang setiap langkah setelah
+// ambang 80% terlewati — puluhan baris untuk satu kejadian, dan badge jadi tidak
+// berarti. Dedup dilakukan di SQL, bukan di aplikasi, karena produsernya
+// (dispatcher) bisa berjalan di dua proses sekaligus.
+//
+// `target_id` boleh NULL: `run.failed` selalu menunjuk run, sementara
+// `credential.invalid` tidak menunjuk apa pun.
+func (q *Queries) CreateNotificationOnce(ctx context.Context, arg CreateNotificationOnceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, createNotificationOnce,
+		arg.ID,
+		arg.UserID,
+		arg.OrgID,
+		arg.Kind,
+		arg.Title,
+		arg.Body,
+		arg.TargetType,
+		arg.TargetID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const createOrg = `-- name: CreateOrg :one
@@ -3219,6 +3331,81 @@ func (q *Queries) ListAssignedTasks(ctx context.Context, arg ListAssignedTasksPa
 	return items, nil
 }
 
+const listAuditLog = `-- name: ListAuditLog :many
+SELECT id, org_id, actor_user_id, actor_agent_id, action, target_type, target_id,
+       before_json, after_json, ip, created_at
+FROM audit_log
+WHERE org_id = $1
+  AND ($2::bigint = 0 OR id < $2)
+  AND ($4::text IS NULL OR actor_user_id = $4)
+  AND ($5::text IS NULL OR action = $5)
+  AND ($6::timestamptz IS NULL OR created_at >= $6)
+  AND ($7::timestamptz IS NULL OR created_at <= $7)
+ORDER BY id DESC
+LIMIT $3
+`
+
+type ListAuditLogParams struct {
+	OrgID   string
+	Column2 int64
+	Limit   int32
+	Actor   *string
+	Action  *string
+	FromTs  pgtype.Timestamptz
+	ToTs    pgtype.Timestamptz
+}
+
+// 6.2.19 / US-AD95. Cursor pagination by id DESC (bigserial, jadi id adalah
+// urutannya). `cursor` = id terakhir yang dilihat; NULL berarti halaman pertama.
+//
+// Setiap filter opsional memakai pola `($n::text IS NULL OR col = $n)`, bukan
+// query yang dirakit di Go: satu statement, satu rencana eksekusi, dan tidak ada
+// jalan bagi pemanggil untuk menyuntik SQL lewat nilai filter.
+//
+// ponytail: `from`/`to` disaring dengan perbandingan langsung, bukan index
+// khusus rentang; audit_log_org_action_idx sudah melayani (org_id, created_at
+// DESC) dan tabel ini kecil. Naikkan ke index BRIN kalau suatu saat volumenya
+// membuat scan ini mahal.
+func (q *Queries) ListAuditLog(ctx context.Context, arg ListAuditLogParams) ([]AuditLog, error) {
+	rows, err := q.db.Query(ctx, listAuditLog,
+		arg.OrgID,
+		arg.Column2,
+		arg.Limit,
+		arg.Actor,
+		arg.Action,
+		arg.FromTs,
+		arg.ToTs,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuditLog
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.ActorUserID,
+			&i.ActorAgentID,
+			&i.Action,
+			&i.TargetType,
+			&i.TargetID,
+			&i.BeforeJson,
+			&i.AfterJson,
+			&i.Ip,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBoardEventsAfter = `-- name: ListBoardEventsAfter :many
 SELECT id, org_id, board_id, task_id, run_id, kind, payload_json, created_at
 FROM events
@@ -3579,6 +3766,85 @@ func (q *Queries) ListModelPrices(ctx context.Context, orgID string) ([]AgentMod
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNotifications = `-- name: ListNotifications :many
+SELECT id, user_id, org_id, kind, title, body, target_type, target_id, read_at, created_at
+FROM notifications
+WHERE user_id = $1 AND org_id = $2
+ORDER BY created_at DESC, id DESC
+LIMIT $3
+`
+
+type ListNotificationsParams struct {
+	UserID string
+	OrgID  string
+	Limit  int32
+}
+
+// 6.2.19 / US-AD61: milik satu pengguna, terbaru dulu, dengan plafon. `unread`
+// dihitung terpisah supaya badge tetap benar walau daftarnya dipotong LIMIT.
+func (q *Queries) ListNotifications(ctx context.Context, arg ListNotificationsParams) ([]Notification, error) {
+	rows, err := q.db.Query(ctx, listNotifications, arg.UserID, arg.OrgID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Notification
+	for rows.Next() {
+		var i Notification
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.OrgID,
+			&i.Kind,
+			&i.Title,
+			&i.Body,
+			&i.TargetType,
+			&i.TargetID,
+			&i.ReadAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrgAdminsAndOwners = `-- name: ListOrgAdminsAndOwners :many
+SELECT m.user_id
+FROM memberships m
+WHERE m.org_id = $1
+  AND m.role IN ('owner', 'admin')
+ORDER BY m.created_at
+`
+
+// Penerima notifikasi operasional (US-AD61): perubahan status yang butuh
+// manusia memutuskan — budget habis, run gagal — ditujukan ke owner dan admin,
+// bukan ke seluruh anggota. Seorang viewer tidak bisa berbuat apa-apa dengan
+// kabar itu, dan mengirimnya ke semua orang membuat badge jadi kebisingan.
+func (q *Queries) ListOrgAdminsAndOwners(ctx context.Context, orgID string) ([]string, error) {
+	rows, err := q.db.Query(ctx, listOrgAdminsAndOwners, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var user_id string
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -4251,6 +4517,36 @@ func (q *Queries) ListTaskRuns(ctx context.Context, arg ListTaskRunsParams) ([]L
 	return items, nil
 }
 
+const markNotificationsRead = `-- name: MarkNotificationsRead :execrows
+UPDATE notifications
+SET read_at = now()
+WHERE user_id = $1 AND org_id = $2 AND read_at IS NULL
+  AND ($3::boolean OR id = ANY($4::text[]))
+`
+
+type MarkNotificationsReadParams struct {
+	UserID  string
+	OrgID   string
+	MarkAll bool
+	Ids     []string
+}
+
+// Dua bentuk dalam satu statement: `ids` kosong + `all` benar = semua yang belum
+// dibaca; kalau tidak, hanya id yang disebut. `user_id` dan `org_id` ada di
+// predikat, jadi id milik pengguna lain tidak pernah tersentuh.
+func (q *Queries) MarkNotificationsRead(ctx context.Context, arg MarkNotificationsReadParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markNotificationsRead,
+		arg.UserID,
+		arg.OrgID,
+		arg.MarkAll,
+		arg.Ids,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const nextRunAttempt = `-- name: NextRunAttempt :one
 SELECT COALESCE(MAX(attempt), 0) + 1 AS attempt FROM runs WHERE task_id = $1
 `
@@ -4680,6 +4976,181 @@ func (q *Queries) RunCancelRequested(ctx context.Context, id string) (bool, erro
 	var requested bool
 	err := row.Scan(&requested)
 	return requested, err
+}
+
+const searchRuns = `-- name: SearchRuns :many
+SELECT r.id, r.org_id, r.task_id, r.agent_id, r.attempt, r.status, r.outcome,
+       r.failure_kind, r.claim_lock, r.claim_expires, r.worker_pid, r.last_heartbeat_at,
+       r.max_runtime_seconds, r.cost_micros, r.tokens_in, r.tokens_out, r.summary,
+       r.error, r.metadata_json, r.started_at, r.ended_at, r.cancel_requested_at
+FROM runs r
+WHERE r.org_id = $1
+  AND ($2::text IS NULL OR r.task_id = $2)
+  AND ($3::text IS NULL OR r.failure_kind = $3)
+  AND ($4::text IS NULL OR r.outcome = $4)
+  AND ($5::text IS NULL
+       OR r.error ILIKE $5 OR r.summary ILIKE $5)
+ORDER BY r.started_at DESC
+LIMIT $6
+`
+
+type SearchRunsParams struct {
+	OrgID       string
+	TaskID      *string
+	FailureKind *string
+	Outcome     *string
+	Pattern     *string
+	PageLimit   int32
+}
+
+// 6.2.19: "cari run berdasarkan kegagalan atau metadata". Yang bisa dicari:
+// failure_kind, outcome, dan pesan error/summary — tiga kolom yang memang
+// menjelaskan kenapa sebuah run berakhir seperti itu. Teksnya dicocokkan dengan
+// ILIKE, sama seperti SearchTasks dan dengan alasan yang sama (operator `%`
+// adalah similarity di atas ambang, bukan "mengandung"). `runs.org_id` sudah
+// ada sejak 3.14, jadi scoping-nya langsung, bukan lewat join ke tasks.
+func (q *Queries) SearchRuns(ctx context.Context, arg SearchRunsParams) ([]Run, error) {
+	rows, err := q.db.Query(ctx, searchRuns,
+		arg.OrgID,
+		arg.TaskID,
+		arg.FailureKind,
+		arg.Outcome,
+		arg.Pattern,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Run
+	for rows.Next() {
+		var i Run
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.TaskID,
+			&i.AgentID,
+			&i.Attempt,
+			&i.Status,
+			&i.Outcome,
+			&i.FailureKind,
+			&i.ClaimLock,
+			&i.ClaimExpires,
+			&i.WorkerPid,
+			&i.LastHeartbeatAt,
+			&i.MaxRuntimeSeconds,
+			&i.CostMicros,
+			&i.TokensIn,
+			&i.TokensOut,
+			&i.Summary,
+			&i.Error,
+			&i.MetadataJson,
+			&i.StartedAt,
+			&i.EndedAt,
+			&i.CancelRequestedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchTasks = `-- name: SearchTasks :many
+SELECT id, org_id, board_id, title, body, status, priority, assignee_agent_id,
+       created_by, idempotency_key, block_kind, consecutive_failures, workspace_kind,
+       workspace_path, branch_name, completion_contract, goal_mode, goal_max_turns,
+       current_run_id, cost_micros, tokens_in, tokens_out, created_at, started_at,
+       completed_at, archived_at
+FROM tasks
+WHERE org_id = $1
+  AND ($2::text IS NULL OR board_id = $2)
+  AND (title ILIKE $3 OR body ILIKE $3)
+ORDER BY similarity(title, $4) DESC, created_at DESC
+LIMIT $5
+`
+
+type SearchTasksParams struct {
+	OrgID     string
+	BoardID   *string
+	Pattern   string
+	Query     string
+	PageLimit int32
+}
+
+// 6.2.19: pencarian teks. `ILIKE '%'||pattern||'%'`, BUKAN operator `%`.
+//
+// Operator `%` di pg_trgm adalah similarity di atas ambang
+// (`pg_trgm.similarity_threshold`, bawaan 0.3), bukan "mengandung". Memakainya
+// untuk kotak pencarian berarti "deploy" tidak menemukan "Fix the deploy
+// pipeline for staging" — persis kebalikan dari yang diharapkan, dan itu
+// ketahuan cuma dari tes lawan database nyata.
+//
+// `ILIKE '%...%'` memang pencarian di tengah kata, dan justru itulah yang
+// diakselerasi index `gin_trgm_ops` di tasks_title_trgm_idx (migrasi 0004).
+// `pattern` sudah di-escape di Go (%, _, \) supaya pemanggil yang mengetik
+// tanda persen mencari tanda persen, bukan "semua baris".
+//
+// `similarity()` tetap dipakai untuk URUTAN: judul yang persis sama muncul
+// sebelum judul yang cuma memuat kata itu di tengah kalimat panjang.
+//
+// ponytail: urutannya similarity judul saja, bukan gabungan judul+body. Kalau
+// body ikut diberi bobot, `greatest(similarity(title,$3), similarity(body,$3))`
+// adalah penggantinya, dengan index trigram di kedua kolom.
+func (q *Queries) SearchTasks(ctx context.Context, arg SearchTasksParams) ([]Task, error) {
+	rows, err := q.db.Query(ctx, searchTasks,
+		arg.OrgID,
+		arg.BoardID,
+		arg.Pattern,
+		arg.Query,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Task
+	for rows.Next() {
+		var i Task
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.BoardID,
+			&i.Title,
+			&i.Body,
+			&i.Status,
+			&i.Priority,
+			&i.AssigneeAgentID,
+			&i.CreatedBy,
+			&i.IdempotencyKey,
+			&i.BlockKind,
+			&i.ConsecutiveFailures,
+			&i.WorkspaceKind,
+			&i.WorkspacePath,
+			&i.BranchName,
+			&i.CompletionContract,
+			&i.GoalMode,
+			&i.GoalMaxTurns,
+			&i.CurrentRunID,
+			&i.CostMicros,
+			&i.TokensIn,
+			&i.TokensOut,
+			&i.CreatedAt,
+			&i.StartedAt,
+			&i.CompletedAt,
+			&i.ArchivedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setAgentProviderKey = `-- name: SetAgentProviderKey :one

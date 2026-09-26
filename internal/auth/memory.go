@@ -39,6 +39,9 @@ type memoryRepository struct {
 	resets       map[string]PasswordResetRow
 	audits       []AuditEntry
 	auditErr     error
+	// notifications is the in-app inbox (6.2.19). Append order is not the read
+	// order — the list query sorts newest first — so nothing here depends on it.
+	notifications []Notification
 }
 
 // NewMemoryRepository builds the in-memory Repository used by the unit tests.
@@ -46,14 +49,15 @@ func NewMemoryRepository() Repository { return newMemoryRepository() }
 
 func newMemoryRepository() *memoryRepository {
 	return &memoryRepository{
-		users:       map[string]User{},
-		byEmail:     map[string]string{},
-		orgs:        map[string]Workspace{},
-		memberships: map[string]map[string]Role{},
-		joinedAt:    map[string]map[string]time.Time{},
-		sessions:    map[string]Session{},
-		resets:      map[string]PasswordResetRow{},
-		audits:      []AuditEntry{},
+		users:         map[string]User{},
+		byEmail:       map[string]string{},
+		orgs:          map[string]Workspace{},
+		memberships:   map[string]map[string]Role{},
+		joinedAt:      map[string]map[string]time.Time{},
+		sessions:      map[string]Session{},
+		resets:        map[string]PasswordResetRow{},
+		audits:        []AuditEntry{},
+		notifications: []Notification{},
 	}
 }
 
@@ -220,6 +224,160 @@ func (m *memoryRepository) lastAudit() (AuditEntry, bool) {
 		return AuditEntry{}, false
 	}
 	return m.audits[len(m.audits)-1], true
+}
+
+// ---- audit log + notifications (6.2.19) ------------------------------------
+
+// ListAuditLog mirrors the SQL's semantics, including the parts that are easy to
+// get subtly wrong in a double: the cursor is exclusive, an unset filter matches
+// everything, and the page is capped. A double that is more permissive than the
+// query would let a handler pass a test it fails in production.
+func (m *memoryRepository) ListAuditLog(ctx context.Context, orgID string, f AuditFilter) ([]AuditEntry, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.auditErr != nil {
+		return nil, m.auditErr
+	}
+	limit := ClampAuditLimit(f.Limit)
+	out := []AuditEntry{}
+	// Newest first, like `ORDER BY id DESC`. The slice is append-ordered, so
+	// walking backwards is the same order.
+	for i := len(m.audits) - 1; i >= 0; i-- {
+		entry := m.audits[i]
+		if entry.OrgID != orgID {
+			continue
+		}
+		if f.ActorUserID != nil && entry.ActorUserID != *f.ActorUserID {
+			continue
+		}
+		if f.Action != nil && entry.Action != *f.Action {
+			continue
+		}
+		if !f.From.IsZero() && entry.CreatedAt.Before(f.From) {
+			continue
+		}
+		if !f.To.IsZero() && entry.CreatedAt.After(f.To) {
+			continue
+		}
+		if f.Cursor != 0 && int64(i+1) >= f.Cursor {
+			continue
+		}
+		out = append(out, entry)
+		if int32(len(out)) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+// CreateNotificationOnce mirrors the SQL guard: a second row for the same
+// (user, org, kind, target) on the same day is refused, and the number of rows
+// written is returned so callers can prove the dedup rather than trust it.
+func (m *memoryRepository) CreateNotificationOnce(_ context.Context, n Notification) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, existing := range m.notifications {
+		if existing.UserID != n.UserID || existing.OrgID != n.OrgID ||
+			existing.Kind != n.Kind || existing.TargetID != n.TargetID {
+			continue
+		}
+		// Same calendar day, UTC — the SQL guard is `created_at::date = now()::date`.
+		if existing.CreatedAt.UTC().Format("2006-01-02") == n.CreatedAt.UTC().Format("2006-01-02") {
+			return 0, nil
+		}
+	}
+	if n.CreatedAt.IsZero() {
+		n.CreatedAt = time.Now().UTC()
+	}
+	m.notifications = append(m.notifications, n)
+	return 1, nil
+}
+
+// OrgAdminsAndOwners lists the recipients for operational notices. Memberships
+// are keyed org -> user -> role here, so the filter walks the inner map.
+func (m *memoryRepository) OrgAdminsAndOwners(_ context.Context, orgID string) ([]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	out := []string{}
+	for userID, role := range m.memberships[orgID] {
+		if role == Owner || role == Admin {
+			out = append(out, userID)
+		}
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+func (m *memoryRepository) CreateNotification(ctx context.Context, n Notification) (Notification, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if n.ID == "" {
+		n.ID = ulid.Must()
+	}
+	if !ValidNotificationKinds[n.Kind] {
+		return Notification{}, ErrInvalidInput
+	}
+	if n.Title == "" {
+		return Notification{}, ErrInvalidInput
+	}
+	if n.CreatedAt.IsZero() {
+		n.CreatedAt = time.Now().UTC()
+	}
+	m.notifications = append(m.notifications, n)
+	return n, nil
+}
+
+func (m *memoryRepository) ListNotifications(ctx context.Context, userID, orgID string, limit int32) ([]Notification, int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if limit <= 0 {
+		limit = DefaultAuditLimit
+	}
+	// Newest first, then cap; the unread count is over ALL rows, not the page —
+	// the badge must not shrink because the list was truncated.
+	mine := []Notification{}
+	for i := len(m.notifications) - 1; i >= 0; i-- {
+		n := m.notifications[i]
+		if n.UserID == userID && n.OrgID == orgID {
+			mine = append(mine, n)
+		}
+	}
+	unread := 0
+	for _, n := range mine {
+		if n.ReadAt == nil {
+			unread++
+		}
+	}
+	if int32(len(mine)) > limit {
+		mine = mine[:limit]
+	}
+	return mine, unread, nil
+}
+
+func (m *memoryRepository) MarkNotificationsRead(ctx context.Context, userID, orgID string, ids []string, markAll bool) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(ids) == 0 && !markAll {
+		return 0, nil
+	}
+	wanted := map[string]bool{}
+	for _, id := range ids {
+		wanted[id] = true
+	}
+	now := time.Now().UTC()
+	changed := 0
+	for i, n := range m.notifications {
+		if n.UserID != userID || n.OrgID != orgID || n.ReadAt != nil {
+			continue
+		}
+		if !markAll && !wanted[n.ID] {
+			continue
+		}
+		readAt := now
+		m.notifications[i].ReadAt = &readAt
+		changed++
+	}
+	return changed, nil
 }
 
 func (m *memoryRepository) CreateMembership(ctx context.Context, orgID, userID string, role Role) error {

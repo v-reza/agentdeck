@@ -295,7 +295,13 @@ func main() {
 	host, _ := os.Hostname()
 	boardService := board.NewService(board.NewPgxRepository(pool)).
 		WithClaimLock(host).
-		WithDecrypter(credentialDecrypter(cfg.MasterKey))
+		WithDecrypter(credentialDecrypter(cfg.MasterKey)).
+		// US-AD61: the in-app notification sink. The board service produces
+		// notices (budget threshold, failed run) and the auth store is the only
+		// thing that knows how to write one, so the composition root is where the
+		// two meet. Without this line the producer methods are no-ops and the
+		// inbox is a table nobody writes to.
+		WithNotifier(store)
 
 	var mailer notifier = notify.LogMailer{Logger: logger}
 	if cfg.SMTP.Host != "" {
@@ -316,6 +322,11 @@ func main() {
 	// one place to read the order of the whole request path.
 	metricsReg := metrics.NewRegistry()
 	mux := http.NewServeMux()
+	// 6.2.19: which build is serving. Public on purpose — it is the one thing an
+	// operator needs from outside when a deploy is suspected of being stale, and
+	// it reads no database and no configuration.
+	mux.HandleFunc("GET /api/v1/system/info", systemInfo)
+
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = fmt.Fprintln(w, "ok")
 	})
@@ -353,6 +364,16 @@ func main() {
 		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.listSessions), auth.Viewer)))
 	mux.Handle("DELETE /api/v1/auth/sessions/{id}",
 		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.revokeSession), auth.Viewer)))
+
+	// 6.2.19's two session-scoped reads. Both carry no id, so they resolve the
+	// tenant from the session plus X-Org-ID — the same shape as the session
+	// routes above, and the same reason: there is no path parameter to trust.
+	mux.Handle("GET /api/v1/audit-log",
+		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.listAuditLog), auth.Admin)))
+	mux.Handle("GET /api/v1/notifications",
+		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.listNotifications), auth.Viewer)))
+	mux.Handle("POST /api/v1/notifications/read",
+		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.markNotificationsRead), auth.Viewer)))
 	mux.Handle("POST /api/v1/auth/password/change",
 		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.changePassword), auth.Viewer)))
 	mux.Handle("DELETE /api/v1/auth/me",
@@ -434,7 +455,13 @@ func main() {
 	// completions the moment it is upgraded — and a self-hosted board that nobody
 	// is watching is exactly where that goes unnoticed. AGENTDECK_DISPATCH=1 says
 	// the operator wants runs to execute.
-	if os.Getenv("AGENTDECK_DISPATCH") == "1" {
+	// The name is AGENTDECK_DISPAT, and it is the name four documents promise
+	// (ARCHITECTURE 2813/2838, OPEN-ISSUES, the overnight brief, .hermes.md).
+	// Reading AGENTDECK_DISPATCH here — which is what this did — meant an
+	// operator who followed the contract set the documented variable and got a
+	// dispatcher that never started, while the log below told them to set the
+	// very variable they had just set.
+	if os.Getenv("AGENTDECK_DISPAT") == "1" {
 		runner := dispatcher.ExecutorRunner{}
 		d := dispatcher.New(boardService, runner, dispatcher.DefaultTick, dispatcher.DefaultBatch, logger)
 		go d.Run(ctx)

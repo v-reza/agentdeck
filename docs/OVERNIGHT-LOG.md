@@ -556,3 +556,64 @@ satu pemeriksaan yang cuma bisa dilakukan di sini: body 4096 rune non-ASCII
 
 **Urutan yang dibetulin:** probe ditulis dan dijalankan **sebelum** commit. Di F6
 probe ditulis setelah commit ter-push, jadi commit itu jalan tanpa bukti probe.
+
+## F9 — 6.2.19 Audit, Search & System (6 endpoint)
+
+**Status:** selesai, ter-push. 108 ✅ / 21 ⬜. Gate rc=0.
+
+**Deviasi slot brief:** brief menaruh 6.2.19 di slot 8; F8 mengerjakan 6.2.17
+lebih dulu (termurah dulu), jadi 6.2.19 jatuh ke slot 9. Dicatat, bukan didiemin.
+
+**Yang dikerjakan**
+- Migrasi `0018` — tabel `notifications` (§3.21). Ditulis lengkap di kontrak
+  sejak awal, **nol migrasi** yang membuatnya. Kelima kalinya pola ini muncul.
+- 9 query baru: `ListAuditLog` (filter + cursor), `SearchTasks`, `SearchRuns`,
+  `CreateNotificationOnce`, `OrgAdminsAndOwners`, dll.
+- `internal/auth/{audit.go,pgx.go,memory.go,repository.go}` — `AuditFilter`,
+  `Notification`, `NotifyOnce`, adapter pgx + memory.
+- `internal/board/{search.go,notify.go}` — `SearchTasks`/`SearchRuns` +
+  producer notifikasi.
+- `cmd/api/system.go` — 6 handler; 3 route `authAPI` (audit + notif), 2 route
+  `boardAPI` (search), 1 route publik (`/system/info`).
+- `/system/info` **tanpa DB**, `commit` dibaca dari `runtime/debug.ReadBuildInfo`
+  — jadi bisa dipakai membuktikan container yang jalan memang build terbaru.
+
+**Empat bug nyata yang ketangkap sebelum commit**
+1. **`AGENTDECK_DISPAT` vs `AGENTDECK_DISPATCH`.** Empat dokumen kontrak
+   (ARCHITECTURE §2813/§2838, OPEN-ISSUES, BRIEF, `.hermes.md`) bilang
+   `AGENTDECK_DISPAT`; `cmd/api/main.go:452` membaca `AGENTDECK_DISPATCH`, dan
+   log-nya menyuruh set nama yang salah. Operator yang ikut kontrak menyalakan
+   dispatcher dan tidak terjadi apa-apa. Dibetulin ke `AGENTDECK_DISPAT`.
+2. **`Store.Notify` tidak membuat id.** `notifications_id_ulid_chk` menolak
+   string kosong ⇒ 500 di jalur pertama yang memakainya.
+3. **`likePattern("")` = `"%%"`, bukan NULL.** `r.error ILIKE '%%'` pada baris
+   yang `error`-nya NULL mengevaluasi NULL, jadi run tanpa error tersaring
+   habis: filter `task_id` saja mengembalikan nol. Diganti `likePatternPtr`.
+4. **Operator `%` pg_trgm salah arti.** `%` adalah *similarity* di atas ambang
+   0.3, bukan "mengandung" — `deploy` tidak cocok dengan judul panjang. Diganti
+   `ILIKE '%'||pattern||'%'`, yang justru diakselerasi index trigram.
+
+**Notifikasi akhirnya punya produser.** Tabel tanpa penulis = inbox selalu
+kosong. Dua `kind` disambungkan ke titik presisi, bukan kira-kira:
+- `budget.warning` di `run.go:116` (`checkRunBudget`) — ambang 80% (N18),
+  penerima = owner + admin org, dedup per (user, kind, target, hari) di SQL
+  supaya tidak spam tiap step.
+- `run.failed` setelah `EndRun` — hanya untuk `outcome == "failed"`.
+Dua `kind` sisanya (`approval.requested`, `credential.invalid`) **belum punya
+produser** dan dicatat di `docs/OPEN-ISSUES.md`.
+
+**Verifikasi**
+- Gate `tools/gate-overnight.cmd` rc=0 (vitest 68 passed, prettier bersih).
+- `verify_suite.py` 0 FAIL, `STATUS ENDPOINT: 108 ✅ dan 21 ⬜ cocok dengan cmd/api`.
+- `go test`: `./internal/board/` ok 76.8s · `./internal/auth/` ok 33.3s ·
+  `./cmd/api/` ok 22.9s · `./internal/dispatcher/` ok 1.3s ·
+  `./internal/migrate/` ok 95.6s (0018 idempoten).
+- Mutation: `likePattern` 5/5 CAUGHT · ambang budget 5/5 CAUGHT.
+- Probe `tools/probe-f9.py` lawan API nyata: **35/35 hijau**.
+- Rebuild container, `healthz=200`, `/system/info` mengembalikan `go1.24.13`.
+
+**Gap yang dicatat, bukan didiemin**
+- Tiga endpoint §6.2.19 bertanda `Auth: Session/Key`; `api_keys` belum ada, jadi
+  diregistrasi `auth.Member`/`auth.Viewer` mengikuti preseden F7.
+- `credential.invalid` belum punya jalur probe provider yang gagal permanen.
+- `approval.requested` belum ditembak karena dispatcher default MATI.

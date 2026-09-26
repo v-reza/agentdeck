@@ -77,6 +77,11 @@ func registerRunRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, bAPI
 	boardRoute("PATCH /api/v1/comments/{id}", http.HandlerFunc(boardAPI.editComment), auth.Member)
 	boardRoute("DELETE /api/v1/comments/{id}", http.HandlerFunc(boardAPI.deleteComment), auth.Member)
 
+	// Search (6.2.19). Reading only, so Viewer — the same floor as the boards and
+	// tasks it reads.
+	boardRoute("GET /api/v1/search/tasks", http.HandlerFunc(boardAPI.searchTasks), auth.Viewer)
+	boardRoute("GET /api/v1/search/runs", http.HandlerFunc(boardAPI.searchRuns), auth.Viewer)
+
 	// Trace.
 	boardRoute("GET /api/v1/runs/{id}/steps", http.HandlerFunc(boardAPI.listRunSteps), auth.Viewer)
 	boardRoute("POST /api/v1/runs/{id}/steps", http.HandlerFunc(boardAPI.createRunStep), auth.Member)

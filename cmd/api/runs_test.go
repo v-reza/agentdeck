@@ -56,6 +56,25 @@ type stubRunRepo struct {
 	// BIGSERIAL does, so a test can create two comments and tell them apart.
 	comments   []board.Comment
 	commentSeq int64
+	// searchCalls records the arguments the search handlers passed down, so a
+	// test can assert the org came from the session and the query was not
+	// mangled on the way in.
+	searchCalls []string
+}
+
+// SearchTasks/SearchRuns exist on the stub for the same reason every other
+// method here does: stubRunRepo embeds a nil board.Repository, so a method the
+// handler reaches but the stub does not implement panics with a nil dereference
+// instead of returning a value. That panic reads as a handler bug in the test
+// output, which is exactly the wrong place to be looking.
+func (s *stubRunRepo) SearchTasks(_ context.Context, orgID, q, boardID string, _ int32) ([]board.Task, error) {
+	s.searchCalls = append(s.searchCalls, "tasks:"+orgID+":"+q+":"+boardID)
+	return []board.Task{}, nil
+}
+
+func (s *stubRunRepo) SearchRuns(_ context.Context, orgID string, f board.RunSearchFilter) ([]board.Run, error) {
+	s.searchCalls = append(s.searchCalls, "runs:"+orgID+":"+f.FailureKind+":"+f.Outcome)
+	return []board.Run{}, nil
 }
 
 func (s *stubRunRepo) GetTask(_ context.Context, id, orgID string) (board.Task, error) {

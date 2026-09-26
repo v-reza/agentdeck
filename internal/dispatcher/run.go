@@ -114,6 +114,17 @@ func (s *stepSink) checkRunBudget() error {
 	if budget.Exceeded() {
 		s.budgetExceeded = true
 		s.d.markCancelled(s.runID)
+		// US-AD61: kabari owner/admin. Ini titik presisinya — tepat saat cap
+		// terlewati, bukan di akhir run, supaya peringatannya tiba saat masih
+		// ada waktu memperbaiki. Dedup di penulisnya menjaga satu run yang
+		// panjang dari menulis puluhan baris.
+		//
+		// Error-nya sengaja tidak dikembalikan: alert yang gagal tidak boleh
+		// menggagalkan run yang sudah dibayar.
+		_ = s.d.store.NotifyOperational(s.ctx, s.task.OrgID, "budget.warning",
+			"Board mencapai batas harian",
+			s.task.Title+" berhenti karena board kehabisan budget harian.",
+			"board", s.task.BoardID)
 		return errBudgetReached
 	}
 	return nil
@@ -156,6 +167,20 @@ func (d *Dispatcher) runOne(ctx context.Context, b board.Board, task board.Task,
 
 	if err := d.store.BumpDailyRunCount(ctx, task.BoardID); err != nil {
 		d.log.Warn("dispatcher: run count rollup", "board", task.BoardID, "error", err)
+	}
+
+	// US-AD61: kabari owner/admin saat run benar-benar gagal. Ditaruh sebelum
+	// EndRun, bukan sesudah, supaya pesannya bisa membawa outcome yang sudah
+	// diputuskan di atas — termasuk membedakan `budget_exceeded` (yang sudah
+	// punya alert sendiri di checkRunBudget) dari kegagalan biasa.
+	//
+	// `cancelled` sengaja TIDAK dikabari: itu tindakan manusia, dan mengabari
+	// seseorang tentang hal yang baru saja dia lakukan sendiri adalah kebisingan.
+	if summary.Outcome == "failed" || summary.Outcome == "budget_exceeded" {
+		_ = d.store.NotifyOperational(ctx, task.OrgID, "run.failed",
+			"Run gagal: "+task.Title,
+			"Kegagalan "+summary.FailureKind+" pada task "+task.Title+".",
+			"run", runID)
 	}
 
 	run, err := d.store.EndRun(ctx, runID, task.OrgID, summary)

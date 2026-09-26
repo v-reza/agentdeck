@@ -88,6 +88,30 @@ coret.
   autentikasi tandingan. **Yang menahan ini:** begitu `api_keys` dibangun,
   keempat route Worker itu harus pindah bersama-sama, bukan satu-satu.
 
+- **Tiga endpoint 6.2.19 terdaftar `auth.Viewer`, kontraknya `Session/Key`.**
+  §6.2.19 bilang `audit-log`, `search/tasks`, dan `search/runs` menerima API key
+  (`Auth: Session/Key`). Isu yang sama seperti `POST /tasks/{id}/approvals` di
+  atas: `api_keys` belum ada, jadi ketiganya diregistrasi sesi saja. Ini lebih
+  ringan daripada kasus Worker — endpoint ini baca-saja, dan API key nanti
+  otomatis punya role yang sama — tapi tetap satu keluarga: **semua route
+  `Session/Key` harus pindah bersama-sama begitu `api_keys` dibangun.**
+
+- **`notifications` cuma punya dua produser dari empat `kind`.** Kontrak §3.21
+  menyebut empat: `approval.requested`, `budget.warning`, `run.failed`,
+  `credential.invalid`. Yang benar-benar ditulis sekarang cuma
+  `budget.warning` (ambang 80% di `checkRunBudget`) dan `run.failed` (akhir run
+  gagal). `approval.requested` belum disambungkan ke `POST
+  /tasks/{id}/approvals`; `credential.invalid` belum punya titik picu (yang
+  paling masuk akal: kegagalan dekripsi kredensial provider, atau probe model
+  yang ditolak). Keduanya tinggal memanggil `NotifyOperational`, bukan pekerjaan
+  skema.
+
+- **`notifications` tidak punya retensi.** Tidak ada sapuan yang menghapus baris
+  lama, jadi inbox tumbuh tanpa batas. `GET /notifications` sudah punya `limit`,
+  jadi ini bukan masalah kebenaran — hanya pertumbuhan. Pola yang sama sudah ada
+  untuk approval (`ExpireDueApprovals` di tick), jadi tempatnya jelas kalau
+  nanti perlu.
+
 ## Isu terbuka yang baru diverifikasi
 
 - **Dua definisi "hari ini" untuk biaya board.** `BoardSpendToday` (jumlah

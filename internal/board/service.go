@@ -180,6 +180,12 @@ func checkColumnNamesUnique(cols []Column) error {
 // error to a status code.
 type Service struct {
 	repo Repository
+	// notifier is the in-app notification sink (US-AD61). Nil means this
+	// deployment has none — the tests build a Service without one, and the
+	// producer methods are written to be no-ops in that case rather than
+	// panicking. See notify.go for why it is an interface here and not an
+	// import of internal/auth.
+	notifier NotificationWriter
 	// claimLock identifies this process as the owner of a run. It exists so the
 	// dispatcher's heartbeat (5.1 phase 1) only touches runs this instance
 	// claimed: two instances sharing a board must not keep each other's dead runs

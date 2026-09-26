@@ -88,6 +88,8 @@ func (a authAPI) mux(t *testing.T) *http.ServeMux {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) })
+	// 6.2.19: public, and the only route here that reads no session at all.
+	mux.HandleFunc("GET /api/v1/system/info", systemInfo)
 	mux.HandleFunc("POST /api/v1/auth/register", a.register)
 	mux.HandleFunc("POST /api/v1/auth/login", a.login)
 	mux.HandleFunc("POST /api/v1/auth/logout", a.logout)
@@ -126,6 +128,13 @@ func (a authAPI) mux(t *testing.T) *http.ServeMux {
 	headerRoute("DELETE /api/v1/auth/sessions/{id}", http.HandlerFunc(a.revokeSession), auth.Viewer)
 	headerRoute("POST /api/v1/auth/password/change", http.HandlerFunc(a.changePassword), auth.Viewer)
 	headerRoute("DELETE /api/v1/auth/me", http.HandlerFunc(a.closeAccount), auth.Viewer)
+
+	// 6.2.19. Audit log is Admin (11.3 "Lihat Audit Log"); the notification
+	// routes are the caller's own inbox, so Viewer. None of them carries an id,
+	// hence headerRoute.
+	headerRoute("GET /api/v1/audit-log", http.HandlerFunc(a.listAuditLog), auth.Admin)
+	headerRoute("GET /api/v1/notifications", http.HandlerFunc(a.listNotifications), auth.Viewer)
+	headerRoute("POST /api/v1/notifications/read", http.HandlerFunc(a.markNotificationsRead), auth.Viewer)
 
 	return mux
 }

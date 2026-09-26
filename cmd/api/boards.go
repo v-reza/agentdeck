@@ -60,9 +60,14 @@ func writeBoardError(w http.ResponseWriter, err error) {
 	// the models probe relies on — a base URL the SSRF guard refused. The fix is
 	// a different address, so it is a 400 on every route that reaches it, not a
 	// 500 that reads as "the server broke".
+	//
+	// auth.ErrInvalidInput joins them for 6.2.19: an unparseable audit cursor, a
+	// notification marked read with neither `ids` nor `all`, and a search with
+	// no query are all the caller's mistake. Without this arm they surface as
+	// 500, which tells the caller to retry something that will fail identically.
 	case errors.Is(err, board.ErrColumnsInvalid), errors.Is(err, board.ErrBudgetInvalid),
 		errors.Is(err, board.ErrInvalidInput), errors.Is(err, board.ErrInvalidStatus),
-		errors.Is(err, providerreg.ErrInvalidInput):
+		errors.Is(err, providerreg.ErrInvalidInput), errors.Is(err, auth.ErrInvalidInput):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, board.ErrArchiveRequiresAdmin), errors.Is(err, board.ErrArchiveRequiresAdminTask):
 		http.Error(w, err.Error(), http.StatusForbidden)

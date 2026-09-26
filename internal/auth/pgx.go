@@ -219,6 +219,149 @@ func (r *pgxRepository) RenameOrgWithAudit(ctx context.Context, id, actorUserID,
 	return nil
 }
 
+// ---- audit log + notifications (6.2.19) ------------------------------------
+
+func (r *pgxRepository) ListAuditLog(ctx context.Context, orgID string, f AuditFilter) ([]AuditEntry, error) {
+	// The SQL takes a zero-value cursor and a NULL timestamp as "no filter",
+	// which is exactly what the zero AuditFilter already means — so the
+	// conversion is a straight pass-through plus the limit clamp. The optional
+	// filters use sqlc.narg, so an unset one really is NULL rather than an empty
+	// string that matches no row.
+	rows, err := r.q.ListAuditLog(ctx, store.ListAuditLogParams{
+		OrgID:   orgID,
+		Column2: f.Cursor,
+		Limit:   ClampAuditLimit(f.Limit),
+		Actor:   f.ActorUserID,
+		Action:  f.Action,
+		FromTs:  timeOrNil(f.From),
+		ToTs:    timeOrNil(f.To),
+	})
+	if err != nil {
+		return nil, mapPgError(err)
+	}
+	out := make([]AuditEntry, 0, len(rows))
+	for _, row := range rows {
+		entry := AuditEntry{
+			OrgID:       row.OrgID,
+			ActorUserID: strOrEmpty(row.ActorUserID),
+			Action:      row.Action,
+			TargetType:  row.TargetType,
+			TargetID:    row.TargetID,
+			Before:      string(row.BeforeJson),
+			After:       string(row.AfterJson),
+			IP:          row.Ip,
+			CreatedAt:   row.CreatedAt.Time,
+		}
+		// ActorAgentID is a column the screen renders when it is set (US-AD95
+		// AC1 says "aktor"), and no producer writes it yet. Read it anyway: a
+		// future agent-driven audited action should not need this line changed.
+		entry.ActorAgentID = strOrEmpty(row.ActorAgentID)
+		out = append(out, entry)
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) CreateNotification(ctx context.Context, n Notification) (Notification, error) {
+	row, err := r.q.CreateNotification(ctx, store.CreateNotificationParams{
+		ID:         n.ID,
+		UserID:     n.UserID,
+		OrgID:      n.OrgID,
+		Kind:       n.Kind,
+		Title:      n.Title,
+		Body:       ptrOrNil(n.Body),
+		TargetType: ptrOrNil(n.TargetType),
+		TargetID:   ptrOrNil(n.TargetID),
+	})
+	if err != nil {
+		return Notification{}, mapPgError(err)
+	}
+	return notificationRow(row), nil
+}
+
+func (r *pgxRepository) ListNotifications(ctx context.Context, userID, orgID string, limit int32) ([]Notification, int, error) {
+	if limit <= 0 {
+		limit = DefaultAuditLimit
+	}
+	rows, err := r.q.ListNotifications(ctx, store.ListNotificationsParams{
+		UserID: userID, OrgID: orgID, Limit: limit,
+	})
+	if err != nil {
+		return nil, 0, mapPgError(err)
+	}
+	out := make([]Notification, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, notificationRow(row))
+	}
+	unread, err := r.q.CountUnreadNotifications(ctx, store.CountUnreadNotificationsParams{
+		UserID: userID, OrgID: orgID,
+	})
+	if err != nil {
+		return nil, 0, mapPgError(err)
+	}
+	return out, int(unread), nil
+}
+
+func (r *pgxRepository) MarkNotificationsRead(ctx context.Context, userID, orgID string, ids []string, markAll bool) (int, error) {
+	if len(ids) == 0 && !markAll {
+		// Nothing named and nothing global: an UPDATE with an empty id array
+		// would match no rows anyway, but answering here keeps the caller's
+		// "marked 0" honest instead of running a no-op statement.
+		return 0, nil
+	}
+	if ids == nil {
+		ids = []string{}
+	}
+	n, err := r.q.MarkNotificationsRead(ctx, store.MarkNotificationsReadParams{
+		UserID: userID, OrgID: orgID, MarkAll: markAll, Ids: ids,
+	})
+	if err != nil {
+		return 0, mapPgError(err)
+	}
+	return int(n), nil
+}
+
+func notificationRow(r store.Notification) Notification {
+	out := Notification{
+		ID:        r.ID,
+		UserID:    r.UserID,
+		OrgID:     r.OrgID,
+		Kind:      r.Kind,
+		Title:     r.Title,
+		Body:      strOrEmpty(r.Body),
+		CreatedAt: r.CreatedAt.Time,
+	}
+	out.TargetType = strOrEmpty(r.TargetType)
+	out.TargetID = strOrEmpty(r.TargetID)
+	if r.ReadAt.Valid {
+		readAt := r.ReadAt.Time
+		out.ReadAt = &readAt
+	}
+	return out
+}
+
+// timeOrNil turns the zero time into SQL NULL. `AuditFilter` uses the zero value
+// for "unbounded", and Postgres would otherwise compare against year 1.
+func timeOrNil(t time.Time) pgtype.Timestamptz {
+	if t.IsZero() {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: t, Valid: true}
+}
+
+func strOrEmpty(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+func ptrOrNil(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 func (r *pgxRepository) CreateMembership(ctx context.Context, orgID, userID string, role Role) error {
 	// The generated query upserts, which would let a re-invite re-rank an
 	// existing member — including an owner demoted by their own signup. The
@@ -398,6 +541,26 @@ func sessionInfo(id, userID string, agent *string, ip *netip.Addr, lastSeen, cre
 		info.IP = ip.String()
 	}
 	return info
+}
+
+// CreateNotificationOnce is the deduped write; see the query's comment for why
+// the guard lives in SQL.
+func (r *pgxRepository) CreateNotificationOnce(ctx context.Context, n Notification) (int64, error) {
+	return r.q.CreateNotificationOnce(ctx, store.CreateNotificationOnceParams{
+		ID:         n.ID,
+		UserID:     n.UserID,
+		OrgID:      n.OrgID,
+		Kind:       n.Kind,
+		Title:      n.Title,
+		Body:       ptrOrNil(n.Body),
+		TargetType: ptrOrNil(n.TargetType),
+		TargetID:   ptrOrNil(n.TargetID),
+	})
+}
+
+// OrgAdminsAndOwners returns the recipients of operational notices.
+func (r *pgxRepository) OrgAdminsAndOwners(ctx context.Context, orgID string) ([]string, error) {
+	return r.q.ListOrgAdminsAndOwners(ctx, orgID)
 }
 
 func (r *pgxRepository) CreateSession(ctx context.Context, sess Session) error {
