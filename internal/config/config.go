@@ -24,6 +24,11 @@ type Config struct {
 	// credential endpoints need it, and refusing to start would take the whole
 	// product down over a feature nobody has used yet.
 	MasterKey string
+	// MetricsAuth is the "user:password" a Prometheus scraper presents at
+	// /metrics (ARCHITECTURE 6.2.1, "Basic Auth / Int"). Empty means the
+	// endpoint is closed — it answers 404 rather than serving tenant ids in its
+	// label sets to anyone who can reach the port.
+	MetricsAuth string
 }
 
 // SMTPConfig is the relay the API sends through. An empty Host selects the
@@ -61,6 +66,7 @@ func Load(getenv func(string) string) (Config, error) {
 		Shutdown:             10 * time.Second,
 		AppBaseURL:           appBaseURL,
 		MasterKey:            getenv("AGENTDECK_MASTER_KEY"),
+		MetricsAuth:          getenv("AGENTDECK_METRICS_AUTH"),
 		SMTP: SMTPConfig{
 			Host:     getenv("SMTP_HOST"),
 			Port:     getenv("SMTP_PORT"),

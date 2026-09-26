@@ -3,7 +3,7 @@
 # CGO is off so the result is a static binary that runs on the scratch-like
 # alpine base and stays inside the N14 size budget.
 
-FROM golang:1.22-alpine AS build
+FROM golang:1.24-alpine AS build
 WORKDIR /src
 
 # Dependencies first so a source-only change does not re-download the module cache.

@@ -61,6 +61,11 @@ services:
       # into this code should not start paying for completions because someone
       # assigned an agent to a task and forgot. Set to 1 to run the tick loop.
       AGENTDECK_DISPATCH: ${AGENTDECK_DISPATCH:-0}
+      # Prometheus scrape credential, "user:password" (ARCHITECTURE 6.2.1).
+      # Unset means /metrics answers 404: the label sets carry board and org ids,
+      # which is tenant topology, so the endpoint is closed until an operator
+      # opts in. A self-hosted install that never sets it is not exposed.
+      AGENTDECK_METRICS_AUTH: ${AGENTDECK_METRICS_AUTH:-}
     ports:
       - '${API_PORT:-8080}:8080'
     depends_on:

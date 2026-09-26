@@ -1691,9 +1691,9 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
 | `GET` | `/healthz` | Public | None | Ya | ✅ | `200 OK` ping liveness container |
-| `GET` | `/livez` | Public | None | Ya | ⬜ | `200 OK` process running |
+| `GET` | `/livez` | Public | None | Ya | ✅ | `200 OK` process running |
 | `GET` | `/readyz` | Public | None | Ya | ✅ | Cek koneksi DB pool & R2 reachability |
-| `GET` | `/metrics` | Basic Auth / Int | Admin | Ya | ⬜ | Prometheus text format scrape metrics (§14) |
+| `GET` | `/metrics` | Basic Auth / Int | Admin | Ya | ✅ | Prometheus text format scrape metrics (§14) |
 
 #### 6.2.2 Auth & Sessions (12 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
@@ -2463,23 +2463,47 @@ Semua log runtime menggunakan `log/slog` (stdlib Go 1.21+) dengan format JSON te
 
 ### 14.2 Metrik Prometheus Yang Wajib Ada
 
+**Implementasi: `internal/metrics`.** Registry-nya hand-rolled, bukan
+`prometheus/client_golang` — P1 mengunci stack di "nol dependency yang bisa rusak
+saat major version naik" dan N14 membatasi binary 30 MB, sementara format
+exposition itu spesifikasi teks yang stabil. Yang hilang karena pilihan ini: nol
+quantile histogram, nol exemplar, nol process collector. Yang dibutuhkan §14.2
+(counter, gauge, satu histogram) semuanya aritmetika yang paket itu kerjakan sendiri.
+
+Tiga hal yang gampang salah dan sudah ditangani:
+
+1. **Label `path` diambil dari pola route, bukan URL.** `r.Pattern` Go menyertakan
+   method (`"GET /api/v1/tasks/{id}"`), jadi method-nya dibuang supaya tidak
+   menduplikasi label `method`. Melabeli pakai URL mentah berarti satu seri per id
+   task — ledakan cardinality yang menjatuhkan Prometheus. Request tanpa route
+   masuk bucket `unmatched`, bukan satu seri per URL yang dipindai bot.
+2. **Metrik yang belum punya produsen tetap dideklarasikan**, tapi tanpa baris
+   nilai. Kalau dicetak `0`, "belum ter-instrumentasi" jadi tidak bisa dibedakan
+   dari "jalan dan sepi" — dan dashboard yang mereferensikan metrik hilang itu
+   dashboard yang rusak. Yang belum ter-instrumentasi per fase 1: seluruh kelompok
+   dispatcher/SSE/budget/db (butuh pemanggil di jalur runtime), lihat kolom di bawah.
+3. **`/metrics` tertutup secara default.** Tanpa `AGENTDECK_METRICS_AUTH`, endpoint
+   menjawab 404. Label set-nya membawa `board_id` dan `org_id` — itu topologi
+   tenant, dan instalasi self-hosted yang tidak dikeraskan tidak boleh
+   mempublikasikannya hanya karena port-nya terbuka.
+
 Semua metrik teregister di bawah prefix `agentdeck_`:
 
-| Nama Metrik | Tipe | Label | Deskripsi |
-|---|---|---|---|
-| `agentdeck_http_requests_total` | Counter | `method`, `path`, `status` (int kode HTTP) | Hit seluruh request selain `/healthz` |
-| `agentdeck_http_request_duration_seconds` | Histogram | `method`, `path` | Buckets: 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5 (latensi p95 baca N1: ≤ 150 ms) |
-| `agentdeck_tasks_claimed_total` | Counter | `board_id`, `agent_id` | Task yang berhasil diklaim dispatcher |
-| `agentdeck_tasks_status_total` | Gauge | `board_id`, `status` | Jumlah task per status pada board |
-| `agentdeck_runs_total` | Counter | `outcome` (succeeded/failed/timed_out/reclaimed/budget_exceeded) | Run yang mencapai terminal state |
-| `agentdeck_runs_active` | Gauge | `org_id` | Run yang sedang running saat ini |
-| `agentdeck_dispatcher_loop_duration_ms` | Gauge | `board_id` | Durasi satu siklus tick dispatcher (N19: interval 2 s) |
-| `agentdeck_sse_connections_active` | Gauge | - | Koneksi SSE aktif saat ini (alarm jika > 1000 per instance) |
-| `agentdeck_sse_events_sent_total` | Counter | `event_kind` | Jumlah frame SSE yang dikirim ke klien |
-| `agentdeck_budget_exceeded_total` | Counter | `board_id` | Jumlah kali budget harian board exceeded |
-| `agentdeck_db_pool_connections` | Gauge | `state` (idle/in_use) | Status pool koneksi pgx |
-| `agentdeck_db_query_duration_seconds` | Histogram | `query_name` (label nama kueri, §4) | Durasi eksekusi SQL kritis |
-| `agentdeck_heartbeat_lag_seconds` | Gauge | `run_id` | Seberapa lama sejak heartbeat terakhir (alarm jika > 300s) |
+| Nama Metrik | Tipe | Label | Deskripsi | Produsen |
+|---|---|---|---|---|
+| `agentdeck_http_requests_total` | Counter | `method`, `path`, `status` (int kode HTTP) | Hit seluruh request selain `/healthz` | `internal/metrics` (middleware) |
+| `agentdeck_http_request_duration_seconds` | Histogram | `method`, `path` | Buckets: 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5 (latensi p95 baca N1: ≤ 150 ms) | `internal/metrics` (middleware) |
+| `agentdeck_tasks_claimed_total` | Counter | `board_id`, `agent_id` | Task yang berhasil diklaim dispatcher | belum — butuh pemanggil di dispatcher |
+| `agentdeck_tasks_status_total` | Gauge | `board_id`, `status` | Jumlah task per status pada board | belum — butuh pembaca DB |
+| `agentdeck_runs_total` | Counter | `outcome` (succeeded/failed/timed_out/reclaimed/budget_exceeded) | Run yang mencapai terminal state | belum — butuh pemanggil di dispatcher |
+| `agentdeck_runs_active` | Gauge | `org_id` | Run yang sedang running saat ini | belum — butuh pemanggil di dispatcher |
+| `agentdeck_dispatcher_loop_duration_ms` | Gauge | `board_id` | Durasi satu siklus tick dispatcher (N19: interval 2 s) | belum — butuh pemanggil di tick |
+| `agentdeck_sse_connections_active` | Gauge | - | Koneksi SSE aktif saat ini (alarm jika > 1000 per instance) | belum — `internal/sse` belum ada |
+| `agentdeck_sse_events_sent_total` | Counter | `event_kind` | Jumlah frame SSE yang dikirim ke klien | belum — `internal/sse` belum ada |
+| `agentdeck_budget_exceeded_total` | Counter | `board_id` | Jumlah kali budget harian board exceeded | belum — butuh pemanggil di evaluasi budget |
+| `agentdeck_db_pool_connections` | Gauge | `state` (idle/in_use) | Status pool koneksi pgx | belum — butuh pembaca `pgxpool.Stat` |
+| `agentdeck_db_query_duration_seconds` | Histogram | `query_name` (label nama kueri, §4) | Durasi eksekusi SQL kritis | belum — butuh instrumentasi query |
+| `agentdeck_heartbeat_lag_seconds` | Gauge | `run_id` | Seberapa lama sejak heartbeat terakhir (alarm jika > 300s) | belum — butuh pembaca di reclaim |
 
 ### 14.3 Trace ID Propagation
 
@@ -2722,7 +2746,10 @@ agentdeck/
 │   ├── crypto/                  # AES-256-GCM untuk kredensial provider
 │   ├── migrate/                 # Migrasi database (embed.FS)
 │   │   ├── migrate.go           # Runner
-│   │   └── 0001.up.sql … 0012.up.sql   # Satu file per langkah
+│   │   └── 0001.up.sql … 0014.up.sql   # Satu file per langkah
+│   ├── metrics/                 # Registry metrik + middleware HTTP (§14.2)
+│   │   ├── metrics.go           # Counter, gauge, histogram; render teks Prometheus
+│   │   └── middleware.go        # Label `path` dari pola route, bukan URL
 │   ├── modelprice/              # Harga manual per model (tingkat 1 §6A.C)
 │   │   ├── types.go             # Domain, validasi, kontrak Repo, Service
 │   │   └── pgx.go               # Implementasi Postgres

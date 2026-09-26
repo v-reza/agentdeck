@@ -16,6 +16,7 @@ import (
 	"agentdeck/internal/board"
 	"agentdeck/internal/config"
 	"agentdeck/internal/dispatcher"
+	"agentdeck/internal/metrics"
 	"agentdeck/internal/migrate"
 	"agentdeck/internal/modelprice"
 	"agentdeck/internal/notify"
@@ -283,6 +284,10 @@ func main() {
 	// new workspace opens with one project and the board form never has to ask
 	// the operator to create one first.
 	api := authAPI{store: store, mailer: mailer, logger: logger, appBaseURL: cfg.AppBaseURL, projects: boardService, masterKey: cfg.MasterKey}
+	// §14.2: the metric registry and the middleware that fills the HTTP half of
+	// it. The middleware wraps the mux at the bottom of this function, so it is
+	// one place to read the order of the whole request path.
+	metricsReg := metrics.NewRegistry()
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = fmt.Fprintln(w, "ok")
@@ -307,6 +312,11 @@ func main() {
 	// has no session to authenticate with.
 	mux.HandleFunc("POST /api/v1/auth/password/reset-request", api.requestPasswordReset)
 	mux.HandleFunc("POST /api/v1/auth/password/reset", api.resetPassword)
+
+	// ARCHITECTURE 6.2.1: liveness and the Prometheus surface. Registered here
+	// rather than inside a domain file because they belong to no domain.
+	// `metricsReg` is wrapped around the whole mux below, so it sees every route.
+	registerMetricsRoutes(mux, metricsReg, cfg.MetricsAuth)
 
 	// Org and membership routes. The middleware resolves the tenant from the
 	// session plus X-Org-ID (never from the path), so the {id} in the path is
@@ -381,7 +391,7 @@ func main() {
 		logger.Info("dispatcher disabled; set AGENTDECK_DISPATCH=1 to execute runs")
 	}
 
-	server := &http.Server{Addr: cfg.Addr, Handler: mux}
+	server := &http.Server{Addr: cfg.Addr, Handler: metricsReg.Middleware(mux)}
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Shutdown)
