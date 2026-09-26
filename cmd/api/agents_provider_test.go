@@ -133,7 +133,7 @@ func TestAgentProviderIsResolvedFromTheRegistry(t *testing.T) {
 	f := newPhase5Fixture(t)
 	f.seedProvider(t, "prov-a", f.scenario.orgA, "openai_compatible", "http://127.0.0.1:9999/v1", []string{"seeded-model"})
 
-	body := `{"name":"agent-resolve","provider":"openai","model":"seeded-model",
+	body := `{"name":"agent-resolve","provider":"google","model":"seeded-model",
 	          "base_url":"https://attacker.example/v1","provider_id":"prov-a"}`
 	w := f.postAgent(t, "alice", f.scenario.orgA, f.projectID, body)
 	if w.Code != http.StatusCreated {
@@ -171,14 +171,14 @@ func TestAgentProviderIsResolvedFromTheRegistry(t *testing.T) {
 func TestAgentWithoutProviderIsStillValid(t *testing.T) {
 	f := newPhase5Fixture(t)
 
-	body := `{"name":"agent-no-provider","provider":"openai","model":"gpt-4o"}`
+	body := `{"name":"agent-no-provider","provider":"openai_compatible","model":"gpt-4o"}`
 	w := f.postAgent(t, "alice", f.scenario.orgA, f.projectID, body)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create without a provider: want 201, got %d — %s", w.Code, w.Body.String())
 	}
 
 	stored := f.storedAgent(t, decodeAgent(t, w).ID)
-	if stored.Provider != "openai" {
+	if stored.Provider != "openai_compatible" {
 		t.Errorf("provider: want the request's own value, got %q", stored.Provider)
 	}
 	if stored.ProviderID != "" {
@@ -414,7 +414,7 @@ func TestAgentResponseCarriesProviderID(t *testing.T) {
 
 	// An agent with no provider omits the field rather than sending "" — an
 	// absent reference and an empty string must not both reach the client.
-	noProvider := `{"name":"agent-no-provider","provider":"openai","model":"gpt-4o"}`
+	noProvider := `{"name":"agent-no-provider","provider":"openai_compatible","model":"gpt-4o"}`
 	w2 := f.postAgent(t, "alice", f.scenario.orgA, f.projectID, noProvider)
 	if w2.Code != http.StatusCreated {
 		t.Fatalf("setup create without provider: want 201, got %d — %s", w2.Code, w2.Body.String())

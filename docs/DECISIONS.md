@@ -318,10 +318,11 @@ per-org berbeda antar tenant. Tanpa dua kolom ini, baris lama tidak bisa dibukti
 - `provider = 'openai_compatible'` + kolom `agents.base_url`.
 - ~~Kolom `provider` yang ada **TIDAK diganti**~~ — **sudah tidak benar.** §6A.J mengubah
   artinya: `agents.provider` sekarang **protokol/dialect** yang diturunkan dari
-  `providers.protocol`, bukan nama vendor. `ValidateProvider` masih membaca
-  `pricing.Providers()` (18 nama vendor dari tabel harga) di `internal/board/service.go`,
-  tapi nilai yang melewatinya sudah berupa protokol dari registry — jadi aturan dan datanya
-  diukur dengan kacamata berbeda. US-AD68 (`price_version`) tetap berlaku apa adanya.
+  `providers.protocol`, bukan nama vendor. `ValidateProvider` **sudah diperbaiki**
+  (sekarang membaca `providerreg.AcceptableProtocol` — tiga protokol DDL, bukan 18
+  nama vendor dari `pricing.Providers()`); fungsi `pricing.Providers()` dihapus
+  karena tinggal nol pemanggil. Tabel harga tetap jadi sumber validasi `model`
+  lewat `pricing.Resolve`. US-AD68 (`price_version`) tetap berlaku apa adanya.
 - **Form pendaftaran hanya menawarkan `openai_compatible`** (keputusan user, 2026-09-21).
   Alasan: user mau operator memasukkan base URL dan kredensial miliknya sendiri, jadi daftar
   model datang dari endpoint mereka, bukan dari tabel harga kita.
@@ -443,8 +444,10 @@ ruang kerja**, dirujuk banyak agent.
   permukaan test, sementara nol baris kode Anthropic/Google native sudah ada.
 - **`agents.provider` berubah arti.** Dulu "provider" sekaligus nama vendor di
   tabel harga. Sekarang dia **protokol/dialect**, dan nilainya **diturunkan dari
-  `providers.protocol`**, bukan diketik user. `pricing.Providers()` (18 nama dari
-  `table_gen.go`) tetap jadi sumber validasi `model`, bukan `provider`.
+  `providers.protocol`**, bukan diketik user. `pricing.Providers()` sudah dihapus:
+  tabel harga tetap jadi sumber validasi `model` (lewat `pricing.Resolve`), tapi
+  **bukan** `provider` — daftar 18 nama vendor di `table_gen.go` itu kosakata
+  vendor, sedangkan kolom ini menyimpan protokol.
 - **Blast radius kecil, sudah diukur**: `agents.provider` dibaca di 4 tempat saja —
   `validateName`, cek `base_url`, `ValidateProvider`, gate model — sisanya
   row-mapping. Yang berubah **arti gate-nya**, bukan strukturnya.

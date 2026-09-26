@@ -34,24 +34,3 @@ func Patterns() []PricePattern {
 	}
 	return out
 }
-
-// Providers returns the distinct provider ids the price table knows, sorted.
-//
-// It exists so "is this provider known?" has one answer, derived from the table
-// itself: a hand-maintained list in a validator would drift from the table the
-// moment a provider is added or renamed there. US-AD86 AC3 rejects an unknown
-// provider with 400, and this is the set it is checked against.
-func Providers() []string {
-	seen := make(map[string]bool)
-	for _, p := range rawModelPrices {
-		if p.Provider != "" {
-			seen[p.Provider] = true
-		}
-	}
-	out := make([]string, 0, len(seen))
-	for name := range seen {
-		out = append(out, name)
-	}
-	sort.Strings(out)
-	return out
-}

@@ -90,7 +90,7 @@ func TestCreateAgentAC1(t *testing.T) {
 	f := newAgentFixture(t)
 	w := f.postAgent(t, "alice", f.scenario.orgA, f.projectID, `{
 		"name":"agent-backend",
-		"provider":"openai",
+		"provider":"openai_compatible",
 		"model":"gpt-4o",
 		"reasoning_effort":"high",
 		"skills":["go","sql"],
@@ -103,7 +103,7 @@ func TestCreateAgentAC1(t *testing.T) {
 		t.Fatalf("AC1: want 201, got %d — %s", w.Code, w.Body.String())
 	}
 	got := decodeAgent(t, w)
-	if got.Name != "agent-backend" || got.Provider != "openai" || got.Model != "gpt-4o" {
+	if got.Name != "agent-backend" || got.Provider != "openai_compatible" || got.Model != "gpt-4o" {
 		t.Errorf("AC1: identity fields not echoed: %+v", got)
 	}
 	if got.ReasoningEffort != "high" {
@@ -129,7 +129,7 @@ func TestCreateAgentAC1(t *testing.T) {
 // TestCreateAgentAC2ViewerForbidden is US-AD20 AC2 on the mutating endpoint.
 func TestCreateAgentAC2ViewerForbidden(t *testing.T) {
 	f := newAgentFixture(t)
-	w := f.postAgent(t, "vera", f.scenario.orgA, f.projectID, `{"name":"agent-x","provider":"openai","model":"gpt-4o"}`)
+	w := f.postAgent(t, "vera", f.scenario.orgA, f.projectID, `{"name":"agent-x","provider":"openai_compatible","model":"gpt-4o"}`)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("AC2: viewer want 403, got %d — %s", w.Code, w.Body.String())
 	}
@@ -139,7 +139,7 @@ func TestCreateAgentAC2ViewerForbidden(t *testing.T) {
 // that also stops the roles the route table permits.
 func TestCreateAgentAC2MemberAllowed(t *testing.T) {
 	f := newAgentFixture(t)
-	w := f.postAgent(t, "marta", f.scenario.orgA, f.projectID, `{"name":"agent-member","provider":"openai","model":"gpt-4o"}`)
+	w := f.postAgent(t, "marta", f.scenario.orgA, f.projectID, `{"name":"agent-member","provider":"openai_compatible","model":"gpt-4o"}`)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("member registering an agent want 201, got %d — %s", w.Code, w.Body.String())
 	}
@@ -149,7 +149,7 @@ func TestCreateAgentAC2MemberAllowed(t *testing.T) {
 // guard together, because the AC names both the conflict and the role floor.
 func TestDeleteAgentAC4RequiresAdmin(t *testing.T) {
 	f := newAgentFixture(t)
-	created := decodeAgent(t, f.postAgent(t, "alice", f.scenario.orgA, f.projectID, `{"name":"agent-del","provider":"openai","model":"gpt-4o"}`))
+	created := decodeAgent(t, f.postAgent(t, "alice", f.scenario.orgA, f.projectID, `{"name":"agent-del","provider":"openai_compatible","model":"gpt-4o"}`))
 	// marta is a member: registering is allowed, deleting is not.
 	w := f.do(t, http.MethodDelete, "/api/v1/agents/"+created.ID, "marta", f.scenario.orgA)
 	if w.Code != http.StatusForbidden {
@@ -165,7 +165,7 @@ func TestDeleteAgentAC4RequiresAdmin(t *testing.T) {
 // removing it mid-run would strand that run.
 func TestDeleteAgentAC4RunningTask(t *testing.T) {
 	f := newAgentFixture(t)
-	created := decodeAgent(t, f.postAgent(t, "alice", f.scenario.orgA, f.projectID, `{"name":"agent-busy","provider":"openai","model":"gpt-4o"}`))
+	created := decodeAgent(t, f.postAgent(t, "alice", f.scenario.orgA, f.projectID, `{"name":"agent-busy","provider":"openai_compatible","model":"gpt-4o"}`))
 
 	// Seed exactly one running task for this agent. A task in any other status
 	// must NOT block the delete, so the guard is about `running` specifically.
@@ -192,7 +192,7 @@ func TestDeleteAgentAC4RunningTask(t *testing.T) {
 // every legitimate delete.
 func TestDeleteAgentAllowedWhenIdle(t *testing.T) {
 	f := newAgentFixture(t)
-	created := decodeAgent(t, f.postAgent(t, "alice", f.scenario.orgA, f.projectID, `{"name":"agent-idle","provider":"openai","model":"gpt-4o"}`))
+	created := decodeAgent(t, f.postAgent(t, "alice", f.scenario.orgA, f.projectID, `{"name":"agent-idle","provider":"openai_compatible","model":"gpt-4o"}`))
 
 	// A task in a non-running status must not block the delete.
 	if _, err := f.repo.CreateTask(context.Background(), board.Task{
@@ -217,7 +217,7 @@ func TestDeleteAgentAllowedWhenIdle(t *testing.T) {
 // service's error mapping is what is under test.
 func TestCreateAgentAC3DuplicateName(t *testing.T) {
 	f := newAgentFixture(t)
-	body := `{"name":"agent-dup","provider":"openai","model":"gpt-4o"}`
+	body := `{"name":"agent-dup","provider":"openai_compatible","model":"gpt-4o"}`
 	if w := f.postAgent(t, "alice", f.scenario.orgA, f.projectID, body); w.Code != http.StatusCreated {
 		t.Fatalf("AC3 setup: first create want 201, got %d — %s", w.Code, w.Body.String())
 	}
@@ -236,7 +236,7 @@ func TestCreateAgentAC3SameNameDifferentProject(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed second project: %v", err)
 	}
-	body := `{"name":"agent-shared","provider":"openai","model":"gpt-4o"}`
+	body := `{"name":"agent-shared","provider":"openai_compatible","model":"gpt-4o"}`
 	if w := f.postAgent(t, "alice", f.scenario.orgA, f.projectID, body); w.Code != http.StatusCreated {
 		t.Fatalf("first project: want 201, got %d — %s", w.Code, w.Body.String())
 	}
@@ -255,7 +255,7 @@ func TestCreateAgentAC3SameNameDifferentProject(t *testing.T) {
 // the omitted fields, not about how far the catalog reaches.
 func TestCreateAgentAC5NoCredentialRequired(t *testing.T) {
 	f := newAgentFixture(t)
-	w := f.postAgent(t, "bella", f.scenario.orgB, "proj-b", `{"name":"agent-solo","provider":"openai","model":"gpt-4o"}`)
+	w := f.postAgent(t, "bella", f.scenario.orgB, "proj-b", `{"name":"agent-solo","provider":"openai_compatible","model":"gpt-4o"}`)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("AC5: minimal agent want 201, got %d — %s", w.Code, w.Body.String())
 	}
@@ -282,7 +282,7 @@ func TestCreateAgentAC5NoCredentialRequired(t *testing.T) {
 // 403 so the id's existence stays unconfirmed.
 func TestAgentTenantBoundary(t *testing.T) {
 	f := newAgentFixture(t)
-	created := decodeAgent(t, f.postAgent(t, "alice", f.scenario.orgA, f.projectID, `{"name":"agent-secret","provider":"openai","model":"gpt-4o"}`))
+	created := decodeAgent(t, f.postAgent(t, "alice", f.scenario.orgA, f.projectID, `{"name":"agent-secret","provider":"openai_compatible","model":"gpt-4o"}`))
 
 	// bella owns orgB and is a member of nothing in orgA. She names orgB as her
 	// tenant while addressing orgA's agent: the lookup must miss.
@@ -309,8 +309,8 @@ func TestListAgentsIsProjectScoped(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed other project: %v", err)
 	}
-	f.postAgent(t, "alice", f.scenario.orgA, f.projectID, `{"name":"agent-here","provider":"openai","model":"gpt-4o"}`)
-	f.postAgent(t, "alice", f.scenario.orgA, "proj-other", `{"name":"agent-elsewhere","provider":"openai","model":"gpt-4o"}`)
+	f.postAgent(t, "alice", f.scenario.orgA, f.projectID, `{"name":"agent-here","provider":"openai_compatible","model":"gpt-4o"}`)
+	f.postAgent(t, "alice", f.scenario.orgA, "proj-other", `{"name":"agent-elsewhere","provider":"openai_compatible","model":"gpt-4o"}`)
 
 	w := f.do(t, http.MethodGet, "/api/v1/projects/"+f.projectID+"/agents", "vera", f.scenario.orgA)
 	if w.Code != http.StatusOK {
@@ -333,15 +333,15 @@ func TestCreateAgentRejectsBadInput(t *testing.T) {
 		name string
 		body string
 	}{
-		{"empty name", `{"name":"","provider":"openai","model":"gpt-4o"}`},
-		{"blank name", `{"name":"   ","provider":"openai","model":"gpt-4o"}`},
+		{"empty name", `{"name":"","provider":"openai_compatible","model":"gpt-4o"}`},
+		{"blank name", `{"name":"   ","provider":"openai_compatible","model":"gpt-4o"}`},
 		{"empty provider", `{"name":"a","provider":"","model":"gpt-4o"}`},
-		{"empty model", `{"name":"a","provider":"openai","model":""}`},
-		{"unknown retry policy", `{"name":"a","provider":"openai","model":"gpt-4o","retry_policy":"sometimes"}`},
-		{"runtime above N9 cap", `{"name":"a","provider":"openai","model":"gpt-4o","max_runtime_seconds":90000}`},
-		{"runtime below floor", `{"name":"a","provider":"openai","model":"gpt-4o","max_runtime_seconds":0}`},
-		{"attempts above cap", `{"name":"a","provider":"openai","model":"gpt-4o","max_attempts":11}`},
-		{"attempts below floor", `{"name":"a","provider":"openai","model":"gpt-4o","max_attempts":0}`},
+		{"empty model", `{"name":"a","provider":"openai_compatible","model":""}`},
+		{"unknown retry policy", `{"name":"a","provider":"openai_compatible","model":"gpt-4o","retry_policy":"sometimes"}`},
+		{"runtime above N9 cap", `{"name":"a","provider":"openai_compatible","model":"gpt-4o","max_runtime_seconds":90000}`},
+		{"runtime below floor", `{"name":"a","provider":"openai_compatible","model":"gpt-4o","max_runtime_seconds":0}`},
+		{"attempts above cap", `{"name":"a","provider":"openai_compatible","model":"gpt-4o","max_attempts":11}`},
+		{"attempts below floor", `{"name":"a","provider":"openai_compatible","model":"gpt-4o","max_attempts":0}`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

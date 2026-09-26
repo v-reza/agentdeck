@@ -290,7 +290,7 @@ test.describe('provider credential panel (27-agent-provider-key, US-AD86)', () =
     const projects = await api<{ id: string }[]>(page, orgID, 'GET', '/projects')
     const created = await api<{ id: string }>(page, orgID, 'POST', `/projects/${projects.data[0].id}/agents`, {
       name: 'agent-panel-e2e',
-      provider: 'openai',
+      provider: 'openai_compatible',
       model: 'gpt-4o',
       reasoning_effort: 'medium',
       max_runtime_seconds: 1800,

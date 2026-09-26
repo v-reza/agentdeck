@@ -265,19 +265,26 @@ func TestPutProviderKeyRejectsUnknownProvider(t *testing.T) {
 }
 
 // TestPutProviderKeyAcceptsKnownProviders is the accepting half of AC3: every
-// provider id the price table knows must pass, and the BYO id must pass with it.
-// A validator that rejected one of these would be a regression the AC3 test alone
-// cannot see.
+// protocol the schema declares must pass.
+//
+// It used to accept the 18 *vendor* ids `pricing.Providers()` knows — `openai`,
+// `deepseek`, `qwen` — which is a different vocabulary from the one
+// `agents.provider` holds (US-AD109 AC6: the value is derived from
+// `providers.protocol`). That test was not merely stale, it was the thing
+// keeping the mismatch in place: it asserted the wrong answer, so the validator
+// could not be corrected without a failure that looked like a regression.
+// DECISIONS 6A.J records the mismatch; the vendor half now lives in
+// `TestValidateProviderAcceptsOnlyProtocols`, which asserts the refusal.
 func TestPutProviderKeyAcceptsKnownProviders(t *testing.T) {
-	for _, provider := range []string{"openai", "anthropic", "deepseek", board.ProviderOpenAICompatible} {
-		t.Run(provider, func(t *testing.T) {
-			if err := board.ValidateProvider(provider); err != nil {
-				t.Fatalf("provider %q the table prices was rejected: %v", provider, err)
+	for _, protocol := range []string{"openai_compatible", "anthropic", "google"} {
+		t.Run(protocol, func(t *testing.T) {
+			if err := board.ValidateProvider(protocol); err != nil {
+				t.Fatalf("protocol %q the schema declares was rejected: %v", protocol, err)
 			}
 		})
 	}
 	if err := board.ValidateProvider("not-a-provider"); err == nil {
-		t.Fatal("ValidateProvider accepted an id that is in no price table")
+		t.Fatal("ValidateProvider accepted an id that is in no vocabulary at all")
 	}
 }
 
@@ -438,7 +445,7 @@ func TestValidateProviderWithoutStoredKeyIs400(t *testing.T) {
 func TestValidateProviderWithoutProviderIs400(t *testing.T) {
 	f := newCredentialFixture(t)
 	agent := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-probe-noprovider","provider":"openai","model":"gpt-4o"}`)
+		`{"name":"agent-probe-noprovider","provider":"openai_compatible","model":"gpt-4o"}`)
 
 	w := f.validate(t, "alice", f.scenario.orgA, agent.ID)
 	if w.Code != http.StatusBadRequest {

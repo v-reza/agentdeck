@@ -61,7 +61,7 @@ async function signIn(page: Page, orgID: string) {
 
 const AGENT = {
   name: 'agent-detail-e2e',
-  provider: 'openai',
+  provider: 'openai_compatible',
   model: 'gpt-4o',
   reasoning_effort: 'medium',
   max_runtime_seconds: 1800,

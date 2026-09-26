@@ -115,7 +115,7 @@ async function seedProvider(page: Page, orgID: string, name: string): Promise<{ 
 function agentPayload(overrides: Record<string, unknown> = {}) {
   return {
     name: 'agent-backend',
-    provider: 'openai',
+    provider: 'openai_compatible',
     model: 'gpt-4o',
     reasoning_effort: 'medium',
     max_runtime_seconds: 1800,
@@ -148,7 +148,7 @@ test.describe('agent registry (US-AD20)', () => {
     )
     expect(created.status, created.text).toBe(201)
     expect(created.data.name).toBe('agent-backend')
-    expect(created.data.provider).toBe('openai')
+    expect(created.data.provider).toBe('openai_compatible')
     // The model string is the pricing key, so it must survive verbatim.
     expect(created.data.model).toBe('gpt-4o')
     expect(created.data.reasoning_effort).toBe('medium')

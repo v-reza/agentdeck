@@ -129,7 +129,7 @@ func (r *fakeBoardRepo) UnarchiveAgent(_ context.Context, id, orgID string) (boa
 func TestUpdateAgentReplacesEveryField(t *testing.T) {
 	f := newUpdateFixture(t)
 	created := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-before","provider":"openai","model":"gpt-4o"}`)
+		`{"name":"agent-before","provider":"openai_compatible","model":"gpt-4o"}`)
 
 	w := f.patchAgent(t, "alice", f.scenario.orgA, created.ID, `{
 		"name":"agent-after",
@@ -176,7 +176,7 @@ func TestUpdateAgentReplacesEveryField(t *testing.T) {
 func TestUpdateAgentKeepsOmittedFields(t *testing.T) {
 	f := newUpdateFixture(t)
 	created := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-keep","provider":"openai","model":"gpt-4o","max_runtime_seconds":7200,"retry_policy":"always","max_attempts":5,"skills":["go"]}`)
+		`{"name":"agent-keep","provider":"openai_compatible","model":"gpt-4o","max_runtime_seconds":7200,"retry_policy":"always","max_attempts":5,"skills":["go"]}`)
 
 	w := f.patchAgent(t, "alice", f.scenario.orgA, created.ID, `{"name":"agent-renamed"}`)
 	if w.Code != http.StatusOK {
@@ -186,7 +186,7 @@ func TestUpdateAgentKeepsOmittedFields(t *testing.T) {
 	if got.Name != "agent-renamed" {
 		t.Errorf("name want agent-renamed, got %q", got.Name)
 	}
-	if got.Provider != "openai" || got.Model != "gpt-4o" {
+	if got.Provider != "openai_compatible" || got.Model != "gpt-4o" {
 		t.Errorf("omitted provider/model were reset: %q / %q", got.Provider, got.Model)
 	}
 	if got.MaxRuntimeSeconds != 7200 || got.RetryPolicy != "always" || got.MaxAttempts != 5 {
@@ -213,7 +213,7 @@ func TestUpdateAgentKeepsOmittedFields(t *testing.T) {
 func TestUpdateAgentIgnoresABaseURL(t *testing.T) {
 	f := newUpdateFixture(t)
 	created := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-byo","provider":"openai","model":"gpt-4o"}`)
+		`{"name":"agent-byo","provider":"openai_compatible","model":"gpt-4o"}`)
 
 	// Every shape the old contract refused or acted on: all of them are now a
 	// no-op on the address, and none of them is an error.
@@ -255,9 +255,9 @@ func TestUpdateAgentIgnoresABaseURL(t *testing.T) {
 func TestUpdateAgentDuplicateNameIs409(t *testing.T) {
 	f := newUpdateFixture(t)
 	f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-taken","provider":"openai","model":"gpt-4o"}`)
+		`{"name":"agent-taken","provider":"openai_compatible","model":"gpt-4o"}`)
 	other := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-other","provider":"openai","model":"gpt-4o"}`)
+		`{"name":"agent-other","provider":"openai_compatible","model":"gpt-4o"}`)
 
 	w := f.patchAgent(t, "alice", f.scenario.orgA, other.ID, `{"name":"agent-taken"}`)
 	if w.Code != http.StatusConflict {
@@ -289,7 +289,7 @@ func TestArchiveAgentRequiresAdmin(t *testing.T) {
 			// Each actor gets its own agent so the owner/admin cases do not
 			// archive the row the member case is about to address.
 			agent := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-				`{"name":"agent-retire-`+tc.actor+`","provider":"openai","model":"gpt-4o"}`)
+				`{"name":"agent-retire-`+tc.actor+`","provider":"openai_compatible","model":"gpt-4o"}`)
 			w := f.patchAgent(t, tc.actor, f.scenario.orgA, agent.ID, `{"archived":true}`)
 			if w.Code != tc.status {
 				t.Fatalf("%s archiving: want %d, got %d — %s", tc.actor, tc.status, w.Code, w.Body.String())
@@ -320,7 +320,7 @@ func TestArchiveAgentRequiresAdmin(t *testing.T) {
 func TestArchiveAgentWithRunningTaskIs409(t *testing.T) {
 	f := newUpdateFixture(t)
 	created := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-busy","provider":"openai","model":"gpt-4o"}`)
+		`{"name":"agent-busy","provider":"openai_compatible","model":"gpt-4o"}`)
 
 	task, err := f.repo.CreateTask(context.Background(), board.Task{
 		ID: "task-running", OrgID: f.scenario.orgA, BoardID: f.boardA,
@@ -364,7 +364,7 @@ func TestArchiveAgentWithRunningTaskIs409(t *testing.T) {
 func TestUnarchiveAgentSucceeds(t *testing.T) {
 	f := newUpdateFixture(t)
 	created := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-return","provider":"openai","model":"gpt-4o"}`)
+		`{"name":"agent-return","provider":"openai_compatible","model":"gpt-4o"}`)
 
 	archived := f.patchAgent(t, "alice", f.scenario.orgA, created.ID, `{"archived":true}`)
 	if archived.Code != http.StatusOK {
@@ -393,7 +393,7 @@ func TestUnarchiveAgentSucceeds(t *testing.T) {
 func TestUpdateAgentTenantBoundaryIs404(t *testing.T) {
 	f := newUpdateFixture(t)
 	created := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-secret","provider":"openai","model":"gpt-4o"}`)
+		`{"name":"agent-secret","provider":"openai_compatible","model":"gpt-4o"}`)
 
 	for _, body := range []string{`{"name":"hijacked"}`, `{"archived":true}`} {
 		w := f.patchAgent(t, "bella", f.scenario.orgB, created.ID, body)
@@ -569,9 +569,9 @@ func TestAgentCatalogNeverInventsAPrice(t *testing.T) {
 func TestListAgentsReportsArchivedAt(t *testing.T) {
 	f := newUpdateFixture(t)
 	f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-active","provider":"openai","model":"gpt-4o"}`)
+		`{"name":"agent-active","provider":"openai_compatible","model":"gpt-4o"}`)
 	retired := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-retired","provider":"openai","model":"gpt-4o"}`)
+		`{"name":"agent-retired","provider":"openai_compatible","model":"gpt-4o"}`)
 	if w := f.patchAgent(t, "alice", f.scenario.orgA, retired.ID, `{"archived":true}`); w.Code != http.StatusOK {
 		t.Fatalf("setup archive: want 200, got %d — %s", w.Code, w.Body.String())
 	}

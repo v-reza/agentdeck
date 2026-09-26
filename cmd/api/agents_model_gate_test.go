@@ -44,7 +44,7 @@ func TestCreateAgentRejectsUnpricedModel(t *testing.T) {
 	// "totally-made-up-model" resolves to SourceUnpriced: it is in no exact
 	// entry and matches no pattern. That is the AC2 case.
 	w := f.postAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-unpriced","provider":"openai","model":"totally-made-up-model"}`)
+		`{"name":"agent-unpriced","provider":"google","model":"totally-made-up-model"}`)
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("US-AD67 AC2: unpriced model want 400, got %d — %s", w.Code, w.Body.String())
@@ -102,7 +102,7 @@ func TestUpdateAgentRejectsUnknownProviderAndUnpricedModel(t *testing.T) {
 	for i, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			created := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-				fmt.Sprintf(`{"name":"agent-gate-%d","provider":"openai","model":"gpt-4o"}`, i))
+				fmt.Sprintf(`{"name":"agent-gate-%d","provider":"google","model":"gpt-4o"}`, i))
 
 			w := f.patchAgent(t, "alice", f.scenario.orgA, created.ID, tc.body)
 			if w.Code != http.StatusBadRequest {
@@ -116,7 +116,7 @@ func TestUpdateAgentRejectsUnknownProviderAndUnpricedModel(t *testing.T) {
 func TestUpdateAgentAcceptsBYOModel(t *testing.T) {
 	f := newUpdateFixture(t)
 	created := f.createAgent(t, "alice", f.scenario.orgA, f.projectID,
-		`{"name":"agent-byo-switch","provider":"openai","model":"gpt-4o"}`)
+		`{"name":"agent-byo-switch","provider":"openai_compatible","model":"gpt-4o"}`)
 
 	w := f.patchAgent(t, "alice", f.scenario.orgA, created.ID,
 		`{"provider":"openai_compatible","model":"my-own-llama-70b","base_url":"https://byo.test/v1"}`)

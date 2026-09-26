@@ -378,6 +378,30 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
    runner yang belum pernah lihat task-nya. Dan kartu helper "AC5 …/AC1 …" —
    itu jargon spec (`US-AD`, `AC`) di UI yang dirender, dilarang `.hermes.md`;
    dua faktanya ditulis ulang pakai bahasa operator.
+4k. **`ValidateProvider` mengukur `provider` dengan kosakata yang salah.** Tabel
+   harga berkunci **vendor** (`openai`, `deepseek`, `qwen`, … 18 nama); schema
+   berkunci **protokol** (`openai_compatible`/`anthropic`/`google`). Keduanya cuma
+   kebetulan beririsan — `anthropic` dan `google` dua-duanya, `openai` cuma yang
+   pertama. Karena validatornya membaca `pricing.Providers()`, `POST
+   /projects/{id}/agents` dengan `provider:"deepseek"` tersimpan sebagai 201 —
+   nilai yang nol layer lain terima, dan yang **sudah nggak ditawarkan form**
+   sejak registry jadi pemilik endpoint+kredensial. Ini inkonsistensi yang
+   `DECISIONS §6A.J` sendiri catat; sekarang validatornya baca
+   `providerreg.AcceptableProtocol` dan `pricing.Providers()` (nggol pemanggil)
+   dihapus. Terukur lawan container: `provider:"deepseek"` **201 → 400**, dan
+   tiga jalur sah (cuma `provider_id` persis seperti UI, `provider_id`+`provider`,
+   tanpa provider_id) **tetap apa adanya**.
+   Dua hal yang bikin ini mahal ketemu, dan keduanya dicatat supaya nggak
+   keulang: (a) **`TestPutProviderKeyAcceptsKnownProviders` adalah test yang
+   menahan bug-nya** — dia assert `openai`/`deepseek`/`qwen` harus lolos, jadi
+   memperbaiki validatornya kelihatan seperti regresi; test itu ditulis ulang ke
+   protokol, dan sisi penolakannya pindah ke `provider_protocol_test.go`. (b) 38
+   fixture test kirim `provider:"openai"`. Yang gate US-AD67 AC2 (model harus
+   berharga) **tidak boleh** dipindah ke `openai_compatible`, karena protokol itu
+   sengaja dikecualikan dari AC2 (US-AD106) ⇒ test itu bakal lolos vakum;
+   dipindah ke `google`, yang vendor sekaligus protokol, jadi gate-nya tetap
+   menggigit. Mutasi (validator nerima apa pun non-kosong) **CAUGHT** di 5 test
+   lintas dua lapisan.
 5. Belum ada `LICENSE`/`NOTICE`/`THIRD_PARTY`. Konflik lisensi di design
    (`09b-github.html` Apache-2.0 vs `05-landing.html` MIT).
 6. ~~Audit `livez`/`metrics` + tabel tanpa DDL~~ **SELESAI** — lihat

@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"agentdeck/internal/pricing"
+	"agentdeck/internal/providerreg"
 )
 
 // Domain errors. Handlers map these to stable HTTP codes; the same failure must
@@ -558,22 +559,25 @@ func (s *Service) UnarchiveAgent(ctx context.Context, id, orgID string) (Agent, 
 
 // ---- provider credentials (US-AD86) -----------------------------------------
 
-// ValidateProvider rejects a provider id the deployment's price table does not
-// know (US-AD86 AC3). It lives in the service rather than the handler because
-// the create/update paths validate providers too, and one rule read from one
-// table is the only way the two cannot disagree.
+// ValidateProvider rejects a `provider` that is not one of the three protocols
+// the schema declares (the `providers_protocol_chk` CHECK), because that is what
+// `agents.provider` holds: US-AD109 derives the value from `providers.protocol`
+// and the request may only carry it for an agent that has no provider of its own.
 //
-// The table is the source of truth on purpose: a hand-maintained allowlist here
-// would accept a provider the catalog cannot price, which US-AD67 AC1 calls a
-// 400 as well.
+// It used to accept the 18 vendor ids `pricing.Providers()` knows, and that was
+// the wrong vocabulary. The price table is keyed by *vendor*; the schema is
+// keyed by *protocol*; the two overlap only by accident (`anthropic` and
+// `google` are both, `openai` is only the former). Accepting the vendor list
+// meant `POST /projects/{id}/agents` stored `provider="deepseek"` — a value no
+// other layer would accept, and one the form has not offered since the registry
+// became the source of endpoint and credential. DECISIONS 6A.J records the
+// mismatch; this is the fix.
+//
+// The model half of US-AD67 AC2 still reads the price table, which is what that
+// table is for. Only the provider half changes vocabulary.
 func ValidateProvider(provider string) error {
-	if provider == ProviderOpenAICompatible {
+	if providerreg.AcceptableProtocol(provider) {
 		return nil
-	}
-	for _, known := range pricing.Providers() {
-		if provider == known {
-			return nil
-		}
 	}
 	return fmt.Errorf("%w: %q", ErrUnknownProvider, provider)
 }
