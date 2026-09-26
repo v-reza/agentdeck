@@ -88,6 +88,17 @@ coret.
   autentikasi tandingan. **Yang menahan ini:** begitu `api_keys` dibangun,
   keempat route Worker itu harus pindah bersama-sama, bukan satu-satu.
 
+- **`api_keys` sudah ada (F10, 6.2.3) — route Worker belum dipindah.**
+  Mekanismenya kini jalan: bearer `adk_...` diautentikasi di
+  `contextMiddleware`, dan key mewarisi `role` pemiliknya dari `memberships`
+  (2291). Tapi keempat route Worker (`POST /tasks/{id}/approvals` dari F7, plus
+  `runs/{id}/heartbeat`, `/end`, `/steps`) **masih** terdaftar `auth.Member`
+  dari preseden lama. Pemindahannya belum dikerjakan dan itu disengaja:
+  mengubah gerbang otentikasi empat endpoint sekaligus adalah perubahan
+  tersendiri dengan tesnya sendiri, bukan efek samping penambahan `api_keys`.
+  **Yang menahan ini:** belum ada tes yang membuktikan key agent tidak bisa
+  dipakai untuk endpoint sesi, dan sebaliknya — itu yang harus ada lebih dulu.
+
 - **Tiga endpoint 6.2.19 terdaftar `auth.Viewer`, kontraknya `Session/Key`.**
   §6.2.19 bilang `audit-log`, `search/tasks`, dan `search/runs` menerima API key
   (`Auth: Session/Key`). Isu yang sama seperti `POST /tasks/{id}/approvals` di

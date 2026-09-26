@@ -11,6 +11,9 @@ import (
 )
 
 type Querier interface {
+	// Lookup autentikasi. Hanya key aktif: yang dicabut harus gagal seperti key
+	// yang tidak ada, tanpa membocorkan bahwa prefix-nya pernah terdaftar.
+	APIKeyByPrefix(ctx context.Context, prefix string) (APIKeyByPrefixRow, error)
 	// Resolusi skills_json -> teks prompt (3.8: "resolusi slug -> skill saat menyusun
 	// prompt agent"). Dikerjakan di SQL, bukan di Go, karena urutannya milik
 	// array_positions: skills_json adalah pilihan yang BERURUTAN dan urutan itu
@@ -89,6 +92,8 @@ type Querier interface {
 	// claimed again.
 	ClearTaskCurrentRun(ctx context.Context, arg ClearTaskCurrentRunParams) error
 	ConsumePasswordReset(ctx context.Context, tokenHash string) (int64, error)
+	// Dipakai `GET /api-keys/{id}` untuk statistik pemakaian tanpa join ke runs.
+	CountAPIKeysForUser(ctx context.Context, arg CountAPIKeysForUserParams) (int64, error)
 	// Guards US-AD20 AC4: an agent holding a task in `running` may not be deleted,
 	// because the run it is executing would lose its retry/limit source mid-flight.
 	CountAgentRunningTasks(ctx context.Context, arg CountAgentRunningTasksParams) (int64, error)
@@ -110,6 +115,13 @@ type Querier interface {
 	// this returns zero (ARCHITECTURE 4e).
 	CountUnfinishedParents(ctx context.Context, childID string) (int32, error)
 	CountUnreadNotifications(ctx context.Context, arg CountUnreadNotificationsParams) (int64, error)
+	// 6.2.3: kunci API. Empat operasi yang dibutuhkan endpoint-nya, plus satu
+	// lookup autentikasi.
+	//
+	// `prefix` adalah 8 karakter pertama token (`adk_` + 4), jadi lookup-nya satu
+	// index unik — bukan scan. `revoked_at IS NULL` ada di setiap predikat baca:
+	// key yang dicabut tidak boleh cocok, dan itu harus dijamin SQL, bukan pemanggil.
+	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (CreateAPIKeyRow, error)
 	// Agents. The agent is the retry/limit source for every run it executes.
 	// Every mutable column UpdateAgent writes is written here too. The two drifted
 	// once: `reasoning_effort` was bound only by UpdateAgent, so a client's value
@@ -208,6 +220,8 @@ type Querier interface {
 	// Nol baris karena itu berarti "sudah diputuskan", dan pemanggilnya membedakan
 	// itu dari "tidak ada" lewat GetApproval yang dijalankan lebih dulu.
 	DecideApproval(ctx context.Context, arg DecideApprovalParams) (int64, error)
+	// Hapus fisik (kontrak: "Hapus fisik baris api_key").
+	DeleteAPIKey(ctx context.Context, arg DeleteAPIKeyParams) (int64, error)
 	DeleteAgent(ctx context.Context, arg DeleteAgentParams) error
 	// System skills are not deletable: they are the baseline every workspace starts
 	// from, and removing one would silently strip capability from existing agents.
@@ -245,6 +259,7 @@ type Querier interface {
 	// bukan menetes sedikit-sedikit.
 	ExpireApprovals(ctx context.Context, orgID string) ([]ExpireApprovalsRow, error)
 	FinishStep(ctx context.Context, arg FinishStepParams) (Step, error)
+	GetAPIKey(ctx context.Context, arg GetAPIKeyParams) (GetAPIKeyRow, error)
 	GetAgent(ctx context.Context, arg GetAgentParams) (GetAgentRow, error)
 	// The ONLY reader of the ciphertext column. Returns it alone so the sealed bytes
 	// never travel inside a struct that gets logged, cached, or serialised.
@@ -320,6 +335,9 @@ type Querier interface {
 	// admin hanya boleh mencabut sesi anggota ruang kerjanya, bukan sesi siapa pun
 	// di instalasi itu. Tanpa cek ini, "admin" berarti admin mana pun atas siapa pun.
 	IsOrgMember(ctx context.Context, arg IsOrgMemberParams) (bool, error)
+	// Milik satu user di satu workspace. Key milik anggota lain tidak pernah
+	// terlihat — scoping-nya di SQL supaya lupa menyaring tidak mungkin.
+	ListAPIKeys(ctx context.Context, arg ListAPIKeysParams) ([]ListAPIKeysRow, error)
 	// The list needs "dipakai N agent" on every row, so usage is resolved in the
 	// same round trip: a per-row query would be N+1 against a table the user scrolls.
 	// `?` is jsonb containment for a top-level array element, i.e. the slug is in
@@ -527,6 +545,10 @@ type Querier interface {
 	// punya run aktif, dan memindahkannya ke `ready` membuatnya bisa diklaim lagi
 	// sementara run lama masih menulis. Nol baris = 409.
 	RetryTask(ctx context.Context, arg RetryTaskParams) (Task, error)
+	// Idempoten dari sisi hasil: mencabut dua kali mengubah nol baris kedua kali,
+	// jadi handler bisa membedakan "baru dicabut" dari "sudah dicabut" tanpa
+	// membaca dulu (dan tanpa balapan).
+	RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) (int64, error)
 	// Sesi yang dicabut SEMUA (US-AD98 AC2 tutup akun) memakai DeleteUserSessions
 	// di password_reset.sql — satu statement yang sama, dan jalur kedua untuk hal
 	// yang sama adalah tempat kedua untuk melenceng.
@@ -590,6 +612,9 @@ type Querier interface {
 	// akan ditolak Authenticate pada request berikutnya — tapi mencabutnya lebih
 	// jelas daripada membiarkannya menggantung sampai kedaluwarsa.
 	SoftDeleteUser(ctx context.Context, id string) error
+	// Dicatat saat key dipakai. Kegagalan di sini tidak boleh menggagalkan request
+	// (lihat internal/auth/apikey.go) — ini telemetri, bukan otorisasi.
+	TouchAPIKey(ctx context.Context, id string) error
 	TouchSession(ctx context.Context, tokenHash string) error
 	UnarchiveAgent(ctx context.Context, arg UnarchiveAgentParams) (UnarchiveAgentRow, error)
 	// US-AD96: the edit form replaces every mutable field at once, so this is a

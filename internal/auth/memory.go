@@ -42,6 +42,11 @@ type memoryRepository struct {
 	// notifications is the in-app inbox (6.2.19). Append order is not the read
 	// order — the list query sorts newest first — so nothing here depends on it.
 	notifications []Notification
+	// apiKeys adalah key aktif + dicabut, satu slice. Hash-nya disimpan terpisah
+	// di map supaya tipe APIKey (yang keluar ke response) tidak pernah punya
+	// field untuk menampungnya.
+	apiKeys    []APIKey
+	apiKeyHash map[string]string
 }
 
 // NewMemoryRepository builds the in-memory Repository used by the unit tests.
@@ -306,6 +311,100 @@ func (m *memoryRepository) OrgAdminsAndOwners(_ context.Context, orgID string) (
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+// ---- api keys (3.18, 6.2.3) -----------------------------------------------
+
+func (m *memoryRepository) CreateAPIKey(ctx context.Context, key APIKey, tokenHash string) (APIKey, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.apiKeyHash == nil {
+		m.apiKeyHash = map[string]string{}
+	}
+	key.CreatedAt = time.Now()
+	m.apiKeys = append(m.apiKeys, key)
+	m.apiKeyHash[key.ID] = tokenHash
+	return key, nil
+}
+
+func (m *memoryRepository) ListAPIKeys(ctx context.Context, userID, orgID string) ([]APIKey, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var out []APIKey
+	// Terbaru dulu, sama seperti ORDER BY created_at DESC di SQL.
+	for i := len(m.apiKeys) - 1; i >= 0; i-- {
+		if k := m.apiKeys[i]; k.UserID == userID && k.OrgID == orgID {
+			out = append(out, k)
+		}
+	}
+	return out, nil
+}
+
+func (m *memoryRepository) GetAPIKey(ctx context.Context, id, userID, orgID string) (APIKey, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, k := range m.apiKeys {
+		if k.ID == id && k.UserID == userID && k.OrgID == orgID {
+			return k, nil
+		}
+	}
+	return APIKey{}, ErrAPIKeyNotFound
+}
+
+func (m *memoryRepository) RevokeAPIKey(ctx context.Context, id, userID, orgID string) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for i, k := range m.apiKeys {
+		if k.ID == id && k.UserID == userID && k.OrgID == orgID && k.RevokedAt == nil {
+			now := time.Now()
+			m.apiKeys[i].RevokedAt = &now
+			return 1, nil
+		}
+	}
+	return 0, nil
+}
+
+func (m *memoryRepository) DeleteAPIKey(ctx context.Context, id, userID, orgID string) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for i, k := range m.apiKeys {
+		if k.ID == id && k.UserID == userID && k.OrgID == orgID {
+			m.apiKeys = append(m.apiKeys[:i], m.apiKeys[i+1:]...)
+			delete(m.apiKeyHash, id)
+			return 1, nil
+		}
+	}
+	return 0, nil
+}
+
+func (m *memoryRepository) APIKeyByPrefix(ctx context.Context, prefix string) (APIKeyWithRole, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, k := range m.apiKeys {
+		if k.Prefix != prefix || k.RevokedAt != nil {
+			continue
+		}
+		role, ok := m.memberships[k.OrgID][k.UserID]
+		if !ok {
+			// Tanpa keanggotaan tidak ada peran yang diwarisi, jadi key tidak
+			// bisa dipakai — sama seperti JOIN di SQL yang tidak menemukan baris.
+			return APIKeyWithRole{}, ErrAPIKeyNotFound
+		}
+		return APIKeyWithRole{APIKey: k, TokenHash: m.apiKeyHash[k.ID], Role: role}, nil
+	}
+	return APIKeyWithRole{}, ErrAPIKeyNotFound
+}
+
+func (m *memoryRepository) TouchAPIKey(ctx context.Context, id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for i, k := range m.apiKeys {
+		if k.ID == id {
+			now := time.Now()
+			m.apiKeys[i].LastUsedAt = &now
+		}
+	}
+	return nil
 }
 
 func (m *memoryRepository) CreateNotification(ctx context.Context, n Notification) (Notification, error) {

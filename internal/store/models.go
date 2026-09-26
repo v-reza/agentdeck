@@ -57,6 +57,18 @@ type AgentSkill struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+type ApiKey struct {
+	ID         string
+	OrgID      string
+	UserID     string
+	Name       string
+	Prefix     string
+	TokenHash  string
+	LastUsedAt pgtype.Timestamptz
+	RevokedAt  pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+}
+
 type Approval struct {
 	ID          string
 	OrgID       string

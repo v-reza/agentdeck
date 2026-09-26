@@ -128,6 +128,12 @@ func (a authAPI) mux(t *testing.T) *http.ServeMux {
 	headerRoute("DELETE /api/v1/auth/sessions/{id}", http.HandlerFunc(a.revokeSession), auth.Viewer)
 	headerRoute("POST /api/v1/auth/password/change", http.HandlerFunc(a.changePassword), auth.Viewer)
 	headerRoute("DELETE /api/v1/auth/me", http.HandlerFunc(a.closeAccount), auth.Viewer)
+	// 6.2.3: API keys. Sama seperti sesi, {id}-nya bukan id organisasi.
+	headerRoute("GET /api/v1/api-keys", http.HandlerFunc(a.listAPIKeys), auth.Member)
+	headerRoute("POST /api/v1/api-keys", http.HandlerFunc(a.createAPIKey), auth.Member)
+	headerRoute("GET /api/v1/api-keys/{id}", http.HandlerFunc(a.getAPIKey), auth.Member)
+	headerRoute("DELETE /api/v1/api-keys/{id}", http.HandlerFunc(a.deleteAPIKey), auth.Member)
+	headerRoute("POST /api/v1/api-keys/{id}/revoke", http.HandlerFunc(a.revokeAPIKey), auth.Member)
 
 	// 6.2.19. Audit log is Admin (11.3 "Lihat Audit Log"); the notification
 	// routes are the caller's own inbox, so Viewer. None of them carries an id,

@@ -617,3 +617,72 @@ produser** dan dicatat di `docs/OPEN-ISSUES.md`.
   diregistrasi `auth.Member`/`auth.Viewer` mengikuti preseden F7.
 - `credential.invalid` belum punya jalur probe provider yang gagal permanen.
 - `approval.requested` belum ditembak karena dispatcher default MATI.
+
+## F10 — 6.2.3 API Keys (5 endpoint)
+
+**Status:** selesai, ter-push. 113 ✅ / 16 ⬜. Gate rc=0.
+
+**Deviasi slot brief:** brief menaruh 6.2.19 di slot 8 dan 6.2.3 di slot 10;
+urutan dikerjakan 6.2.17 (F8) → 6.2.19 (F9) → 6.2.3 (F10) karena brief sendiri
+bilang "termurah dulu" dan ketiganya nol dependensi eksternal.
+
+**Kenapa 6.2.3 lebih dari CRUD.** `api_keys` adalah tabel yang **menutup gap
+Worker-auth** yang dicatat F7 dan F9 di `docs/OPEN-ISSUES.md`. Sebelum ini,
+`contextMiddleware` hanya tahu sesi, jadi endpoint Worker (`heartbeat`, `end`,
+`steps`, `POST /tasks/{id}/approvals`) terpaksa didaftarkan `auth.Member`.
+Sekarang bearer `adk_...` diautentikasi di middleware dan key **mewarisi `role`
+pemiliknya** dari `memberships` (2291) — jadi mekanismenya ada. Route-nya
+sendiri belum dipindah, dan itu dicatat sebagai isu terbuka dengan alasannya.
+
+**Pola kontrak yang keenam kali berulang.** Tabel `api_keys` ditulis LENGKAP di
+ARCHITECTURE §3.18 sejak awal — DDL, tujuh constraint, dua index, komentar
+"Melayani: autentikasi — SELECT ... WHERE prefix = $1 AND revoked_at IS NULL" —
+dan **nol migrasi** yang membuatnya. Sama seperti `comments` (F8),
+`notifications` (F9), `approvals` (F7), dan index trigram `tasks_title_trgm_idx`
+(migrasi 0004, "Melayani: search full-text"). Kontraknya memang sudah
+merancang endpoint ini; yang tidak ada adalah pembuatnya. Migrasi `0019`.
+
+**Keputusan yang gw ambil:**
+- **`prefix` = 8 karakter pertama, 4 karakter acak** (bukan dari slug org).
+  §2291 mencontohkan `adk_myorg` (slug), tapi slug di DB nyata sampai 25
+  karakter dan `api_keys_prefix_chk` menuntut tepat 8 — contoh di dokumen itu
+  ilustratif, constraint-nya literal. Empat karakter acak hex selalu 8 total
+  dan tidak butuh penyaringan karakter.
+- **Token 48 byte acak, SHA-256, bukan bcrypt** — persis catatan §3.18: key
+  high-entropy, jadi tidak ada ruang tebak yang perlu diperlambat. Bcrypt di
+  jalur autentikasi programatik hanya menambah biaya per request.
+- **Key's org menang atas `X-Org-ID`**, tidak dicocokkan. Key di-scope ke satu
+  workspace saat dibuat, jadi tidak ada yang perlu dipilih; menuntut header
+  akan merusak pemanggil CLI/SDK yang jadi alasan endpoint ini ada.
+- **Revoke idempoten, hapus fisik.** Mencabut dua kali = 200; yang tidak ada =
+  404. Keduanya dibedakan dengan membaca dulu, karena `RevokeAPIKey` mengubah
+  nol baris di kedua kasus.
+- **`TouchAPIKey` gagal ≠ autentikasi gagal.** `last_used_at` itu telemetri;
+  menolak request sah karena kolom telemetri gagal ditulis akan membuat key
+  tampak mati sesekali.
+
+**Temuan di luar F10:** `cmd/api/main.go` membaca **`AGENTDECK_DISPATCH`**,
+sementara empat dokumen kontrak (ARCHITECTURE §2813 + §2838, OPEN-ISSUES,
+OVERNIGHT-BRIEF, `.hermes.md`) menyebut **`AGENTDECK_DISPAT`**. Operator yang
+ikut kontrak menyalakan dispatcher dan tidak terjadi apa-apa; log-nya pun
+menyuruh set nama yang salah. Diperbaiki ke `AGENTDECK_DISPAT`. Karena
+defaultnya tetap OFF, perilaku runtime tidak berubah.
+
+**Bukti:**
+- `go build ./...` + `go vet ./...` bersih; `gofmt -l .` kosong.
+- `go test ./internal/auth/` ok 40.6s · `./cmd/api/` ok 23.6s · `./internal/migrate/` ok 97.0s (0019 idempoten).
+- Mutation 6 mutant (5 CAUGHT, 1 BUILD-FAIL artefak): prefix bukan 8 char,
+  bandingkan hash dilewati, nama kosong diterima, `LooksLikeAPIKey` selalu true,
+  prefix pendek tidak dijaga.
+- `tools/probe-f10.py` **33/33 hijau** lawan API nyata — termasuk bearer `adk_`
+  mengautentikasi tanpa X-Org-ID, peran diwarisi (key owner lolos audit-log,
+  key member 403), plaintext tidak pernah muncul lagi, revoke langsung mematikan.
+- `tools/gate-overnight.cmd` rc=0.
+
+**Catatan proses:** probe ditulis **sebelum** commit (aturan sejak F6), dan
+`tools/probe-f10.py` sudah hijau sebelum commit dibuat. Gate deteksi route
+diverifikasi ulang: kelima route awalnya ditulis lewat closure `headerRoute`
+lokal dan **tidak terdeteksi** `verify_suite.py` (yang hanya membaca
+`mux.Handle`/`HandleFunc` + tujuh nama helper) — gate melaporkan "0 FAIL" untuk
+endpoint yang ada. Ditulis ulang inline, lalu gate menandai kelimanya. Ini
+kesalahan yang sama seperti F7.

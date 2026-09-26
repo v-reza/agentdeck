@@ -22,6 +22,7 @@ var (
 	ErrUnauthorized       = errors.New("unauthorized")
 	ErrSlugTaken          = errors.New("slug already taken")
 	ErrUserNotFound       = errors.New("user not found")
+	ErrAPIKeyNotFound     = errors.New("api key not found")
 	ErrSessionNotFound    = errors.New("session not found")
 	// ErrResetTokenInvalid covers expired, already-used, and unknown tokens
 	// with one error on purpose (US-AD88 AC3): the caller answers 410 for all

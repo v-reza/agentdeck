@@ -157,6 +157,23 @@ type Repository interface {
 	// rows changed.
 	MarkNotificationsRead(ctx context.Context, userID, orgID string, ids []string, markAll bool) (int, error)
 
+	// --- API keys (3.18, 6.2.3) ------------------------------------------
+	//
+	// The token hash is passed separately from the row so the APIKey type never
+	// carries it: a value that is not in the struct cannot be logged or
+	// serialised by accident.
+	CreateAPIKey(ctx context.Context, key APIKey, tokenHash string) (APIKey, error)
+	ListAPIKeys(ctx context.Context, userID, orgID string) ([]APIKey, error)
+	GetAPIKey(ctx context.Context, id, userID, orgID string) (APIKey, error)
+	// RevokeAPIKey and DeleteAPIKey report rows changed, so the caller can tell
+	// "did it" from "was already like that" without a read-then-write race.
+	RevokeAPIKey(ctx context.Context, id, userID, orgID string) (int64, error)
+	DeleteAPIKey(ctx context.Context, id, userID, orgID string) (int64, error)
+	// APIKeyByPrefix carries the owner's role from memberships (2291): a key
+	// inherits the role of whoever minted it.
+	APIKeyByPrefix(ctx context.Context, prefix string) (APIKeyWithRole, error)
+	TouchAPIKey(ctx context.Context, id string) error
+
 	// CreateNotificationOnce is the same write, but refuses to add a second row
 	// for the same (user, org, kind, target) on the same day. Budget and failure
 	// notices are raised from inside a loop that runs per step, so the dedup has

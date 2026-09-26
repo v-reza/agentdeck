@@ -79,6 +79,41 @@ func (a authAPI) orgHeaderContextMiddleware(next http.Handler) http.Handler {
 
 func (a authAPI) contextMiddleware(next http.Handler, pathID bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A bearer `adk_...` is a programmatic key, not a session (11.1). It
+		// carries its own org and role — the role inherited from whoever minted
+		// it (2291) — so it does not need X-Org-ID, and requiring one would
+		// break the CLI/SDK callers this endpoint exists for.
+		//
+		// The key's org wins over X-Org-ID rather than being checked against it:
+		// a key is scoped to one workspace at creation, so there is nothing to
+		// choose. A caller that sends both gets the key's own workspace.
+		if token := sessionToken(r); auth.LooksLikeAPIKey(token) {
+			identity, ok := a.store.AuthenticateAPIKey(r.Context(), token)
+			if !ok {
+				http.Error(w, "authentication required", http.StatusUnauthorized)
+				return
+			}
+			user, err := a.store.UserByID(r.Context(), identity.UserID)
+			if err != nil {
+				http.Error(w, "authentication required", http.StatusUnauthorized)
+				return
+			}
+			workspace, err := a.store.WorkspaceByID(r.Context(), identity.OrgID)
+			if err != nil {
+				http.Error(w, "authentication required", http.StatusUnauthorized)
+				return
+			}
+			ctx := withOrgContext(r.Context(), orgContext{
+				email:     user.Email,
+				userID:    user.ID,
+				workspace: workspace,
+				role:      identity.Role,
+				resolved:  true,
+			})
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
 		user, ok := currentUser(a.store, r)
 		if !ok {
 			http.Error(w, "authentication required", http.StatusUnauthorized)

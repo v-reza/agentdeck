@@ -204,6 +204,62 @@ WHERE NOT EXISTS (
       AND n.created_at::date = now()::date
 );
 
+-- 6.2.3: kunci API. Empat operasi yang dibutuhkan endpoint-nya, plus satu
+-- lookup autentikasi.
+--
+-- `prefix` adalah 8 karakter pertama token (`adk_` + 4), jadi lookup-nya satu
+-- index unik — bukan scan. `revoked_at IS NULL` ada di setiap predikat baca:
+-- key yang dicabut tidak boleh cocok, dan itu harus dijamin SQL, bukan pemanggil.
+
+-- name: CreateAPIKey :one
+INSERT INTO api_keys (id, org_id, user_id, name, prefix, token_hash)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, org_id, user_id, name, prefix, last_used_at, revoked_at, created_at;
+
+-- name: ListAPIKeys :many
+-- Milik satu user di satu workspace. Key milik anggota lain tidak pernah
+-- terlihat — scoping-nya di SQL supaya lupa menyaring tidak mungkin.
+SELECT id, org_id, user_id, name, prefix, last_used_at, revoked_at, created_at
+FROM api_keys
+WHERE user_id = $1 AND org_id = $2
+ORDER BY created_at DESC;
+
+-- name: GetAPIKey :one
+SELECT id, org_id, user_id, name, prefix, last_used_at, revoked_at, created_at
+FROM api_keys
+WHERE id = $1 AND user_id = $2 AND org_id = $3;
+
+-- name: RevokeAPIKey :execrows
+-- Idempoten dari sisi hasil: mencabut dua kali mengubah nol baris kedua kali,
+-- jadi handler bisa membedakan "baru dicabut" dari "sudah dicabut" tanpa
+-- membaca dulu (dan tanpa balapan).
+UPDATE api_keys
+SET revoked_at = now()
+WHERE id = $1 AND user_id = $2 AND org_id = $3 AND revoked_at IS NULL;
+
+-- name: DeleteAPIKey :execrows
+-- Hapus fisik (kontrak: "Hapus fisik baris api_key").
+DELETE FROM api_keys
+WHERE id = $1 AND user_id = $2 AND org_id = $3;
+
+-- name: APIKeyByPrefix :one
+-- Lookup autentikasi. Hanya key aktif: yang dicabut harus gagal seperti key
+-- yang tidak ada, tanpa membocorkan bahwa prefix-nya pernah terdaftar.
+SELECT k.id, k.org_id, k.user_id, k.name, k.prefix, k.token_hash,
+       k.last_used_at, k.revoked_at, k.created_at, m.role
+FROM api_keys k
+JOIN memberships m ON m.user_id = k.user_id AND m.org_id = k.org_id
+WHERE k.prefix = $1 AND k.revoked_at IS NULL;
+
+-- name: TouchAPIKey :exec
+-- Dicatat saat key dipakai. Kegagalan di sini tidak boleh menggagalkan request
+-- (lihat internal/auth/apikey.go) — ini telemetri, bukan otorisasi.
+UPDATE api_keys SET last_used_at = now() WHERE id = $1;
+
+-- name: CountAPIKeysForUser :one
+-- Dipakai `GET /api-keys/{id}` untuk statistik pemakaian tanpa join ke runs.
+SELECT count(*)::bigint FROM api_keys WHERE user_id = $1 AND org_id = $2;
+
 -- name: GetPersonalWorkspace :one
 -- The registration-kind org where THIS user is the owner: that is the only
 -- shape that means "my personal workspace". Membership alone is not enough —

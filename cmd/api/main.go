@@ -376,6 +376,22 @@ func main() {
 		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.markNotificationsRead), auth.Viewer)))
 	mux.Handle("POST /api/v1/auth/password/change",
 		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.changePassword), auth.Viewer)))
+
+	// 6.2.3: API keys. Didaftarkan inline seperti route sesi di atas, bukan lewat
+	// closure lokal: tools/verify_suite.py membaca `mux.Handle(...)` dan tujuh
+	// nama helper, jadi helper baru membuat kelima route ini tak terlihat oleh
+	// gate — dan gate yang buta melaporkan "0 FAIL" untuk endpoint yang ada.
+	// {id}-nya adalah id KEY, bukan id organisasi.
+	mux.Handle("GET /api/v1/api-keys",
+		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.listAPIKeys), auth.Member)))
+	mux.Handle("POST /api/v1/api-keys",
+		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.createAPIKey), auth.Member)))
+	mux.Handle("GET /api/v1/api-keys/{id}",
+		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.getAPIKey), auth.Member)))
+	mux.Handle("DELETE /api/v1/api-keys/{id}",
+		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.deleteAPIKey), auth.Member)))
+	mux.Handle("POST /api/v1/api-keys/{id}/revoke",
+		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.revokeAPIKey), auth.Member)))
 	mux.Handle("DELETE /api/v1/auth/me",
 		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.closeAccount), auth.Viewer)))
 

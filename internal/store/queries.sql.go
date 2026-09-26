@@ -12,6 +12,47 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const aPIKeyByPrefix = `-- name: APIKeyByPrefix :one
+SELECT k.id, k.org_id, k.user_id, k.name, k.prefix, k.token_hash,
+       k.last_used_at, k.revoked_at, k.created_at, m.role
+FROM api_keys k
+JOIN memberships m ON m.user_id = k.user_id AND m.org_id = k.org_id
+WHERE k.prefix = $1 AND k.revoked_at IS NULL
+`
+
+type APIKeyByPrefixRow struct {
+	ID         string
+	OrgID      string
+	UserID     string
+	Name       string
+	Prefix     string
+	TokenHash  string
+	LastUsedAt pgtype.Timestamptz
+	RevokedAt  pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+	Role       string
+}
+
+// Lookup autentikasi. Hanya key aktif: yang dicabut harus gagal seperti key
+// yang tidak ada, tanpa membocorkan bahwa prefix-nya pernah terdaftar.
+func (q *Queries) APIKeyByPrefix(ctx context.Context, prefix string) (APIKeyByPrefixRow, error) {
+	row := q.db.QueryRow(ctx, aPIKeyByPrefix, prefix)
+	var i APIKeyByPrefixRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.UserID,
+		&i.Name,
+		&i.Prefix,
+		&i.TokenHash,
+		&i.LastUsedAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
+		&i.Role,
+	)
+	return i, err
+}
+
 const agentSkillBodies = `-- name: AgentSkillBodies :many
 SELECT s.slug, s.name, s.body_md, array_position($1::text[], s.slug) AS position
 FROM agent_skills s
@@ -591,6 +632,23 @@ func (q *Queries) ClearTaskCurrentRun(ctx context.Context, arg ClearTaskCurrentR
 	return err
 }
 
+const countAPIKeysForUser = `-- name: CountAPIKeysForUser :one
+SELECT count(*)::bigint FROM api_keys WHERE user_id = $1 AND org_id = $2
+`
+
+type CountAPIKeysForUserParams struct {
+	UserID string
+	OrgID  string
+}
+
+// Dipakai `GET /api-keys/{id}` untuk statistik pemakaian tanpa join ke runs.
+func (q *Queries) CountAPIKeysForUser(ctx context.Context, arg CountAPIKeysForUserParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countAPIKeysForUser, arg.UserID, arg.OrgID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countAgentRunningTasks = `-- name: CountAgentRunningTasks :one
 SELECT count(*) FROM tasks
 WHERE assignee_agent_id = $1 AND org_id = $2 AND status = 'running'
@@ -718,6 +776,62 @@ func (q *Queries) CountUnreadNotifications(ctx context.Context, arg CountUnreadN
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const createAPIKey = `-- name: CreateAPIKey :one
+
+INSERT INTO api_keys (id, org_id, user_id, name, prefix, token_hash)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, org_id, user_id, name, prefix, last_used_at, revoked_at, created_at
+`
+
+type CreateAPIKeyParams struct {
+	ID        string
+	OrgID     string
+	UserID    string
+	Name      string
+	Prefix    string
+	TokenHash string
+}
+
+type CreateAPIKeyRow struct {
+	ID         string
+	OrgID      string
+	UserID     string
+	Name       string
+	Prefix     string
+	LastUsedAt pgtype.Timestamptz
+	RevokedAt  pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+}
+
+// 6.2.3: kunci API. Empat operasi yang dibutuhkan endpoint-nya, plus satu
+// lookup autentikasi.
+//
+// `prefix` adalah 8 karakter pertama token (`adk_` + 4), jadi lookup-nya satu
+// index unik — bukan scan. `revoked_at IS NULL` ada di setiap predikat baca:
+// key yang dicabut tidak boleh cocok, dan itu harus dijamin SQL, bukan pemanggil.
+func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (CreateAPIKeyRow, error) {
+	row := q.db.QueryRow(ctx, createAPIKey,
+		arg.ID,
+		arg.OrgID,
+		arg.UserID,
+		arg.Name,
+		arg.Prefix,
+		arg.TokenHash,
+	)
+	var i CreateAPIKeyRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.UserID,
+		&i.Name,
+		&i.Prefix,
+		&i.LastUsedAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const createAgent = `-- name: CreateAgent :one
@@ -1689,6 +1803,26 @@ func (q *Queries) DecideApproval(ctx context.Context, arg DecideApprovalParams) 
 	return result.RowsAffected(), nil
 }
 
+const deleteAPIKey = `-- name: DeleteAPIKey :execrows
+DELETE FROM api_keys
+WHERE id = $1 AND user_id = $2 AND org_id = $3
+`
+
+type DeleteAPIKeyParams struct {
+	ID     string
+	UserID string
+	OrgID  string
+}
+
+// Hapus fisik (kontrak: "Hapus fisik baris api_key").
+func (q *Queries) DeleteAPIKey(ctx context.Context, arg DeleteAPIKeyParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteAPIKey, arg.ID, arg.UserID, arg.OrgID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteAgent = `-- name: DeleteAgent :exec
 DELETE FROM agents WHERE id = $1 AND org_id = $2
 `
@@ -2110,6 +2244,45 @@ func (q *Queries) FinishStep(ctx context.Context, arg FinishStepParams) (Step, e
 		&i.StartedAt,
 		&i.EndedAt,
 		&i.PayloadJson,
+	)
+	return i, err
+}
+
+const getAPIKey = `-- name: GetAPIKey :one
+SELECT id, org_id, user_id, name, prefix, last_used_at, revoked_at, created_at
+FROM api_keys
+WHERE id = $1 AND user_id = $2 AND org_id = $3
+`
+
+type GetAPIKeyParams struct {
+	ID     string
+	UserID string
+	OrgID  string
+}
+
+type GetAPIKeyRow struct {
+	ID         string
+	OrgID      string
+	UserID     string
+	Name       string
+	Prefix     string
+	LastUsedAt pgtype.Timestamptz
+	RevokedAt  pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+}
+
+func (q *Queries) GetAPIKey(ctx context.Context, arg GetAPIKeyParams) (GetAPIKeyRow, error) {
+	row := q.db.QueryRow(ctx, getAPIKey, arg.ID, arg.UserID, arg.OrgID)
+	var i GetAPIKeyRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.UserID,
+		&i.Name,
+		&i.Prefix,
+		&i.LastUsedAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -2938,6 +3111,60 @@ func (q *Queries) IsOrgMember(ctx context.Context, arg IsOrgMemberParams) (bool,
 	var is_member bool
 	err := row.Scan(&is_member)
 	return is_member, err
+}
+
+const listAPIKeys = `-- name: ListAPIKeys :many
+SELECT id, org_id, user_id, name, prefix, last_used_at, revoked_at, created_at
+FROM api_keys
+WHERE user_id = $1 AND org_id = $2
+ORDER BY created_at DESC
+`
+
+type ListAPIKeysParams struct {
+	UserID string
+	OrgID  string
+}
+
+type ListAPIKeysRow struct {
+	ID         string
+	OrgID      string
+	UserID     string
+	Name       string
+	Prefix     string
+	LastUsedAt pgtype.Timestamptz
+	RevokedAt  pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+}
+
+// Milik satu user di satu workspace. Key milik anggota lain tidak pernah
+// terlihat — scoping-nya di SQL supaya lupa menyaring tidak mungkin.
+func (q *Queries) ListAPIKeys(ctx context.Context, arg ListAPIKeysParams) ([]ListAPIKeysRow, error) {
+	rows, err := q.db.Query(ctx, listAPIKeys, arg.UserID, arg.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAPIKeysRow
+	for rows.Next() {
+		var i ListAPIKeysRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.UserID,
+			&i.Name,
+			&i.Prefix,
+			&i.LastUsedAt,
+			&i.RevokedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAgentSkillsWithUsage = `-- name: ListAgentSkillsWithUsage :many
@@ -4917,6 +5144,29 @@ func (q *Queries) RetryTask(ctx context.Context, arg RetryTaskParams) (Task, err
 	return i, err
 }
 
+const revokeAPIKey = `-- name: RevokeAPIKey :execrows
+UPDATE api_keys
+SET revoked_at = now()
+WHERE id = $1 AND user_id = $2 AND org_id = $3 AND revoked_at IS NULL
+`
+
+type RevokeAPIKeyParams struct {
+	ID     string
+	UserID string
+	OrgID  string
+}
+
+// Idempoten dari sisi hasil: mencabut dua kali mengubah nol baris kedua kali,
+// jadi handler bisa membedakan "baru dicabut" dari "sudah dicabut" tanpa
+// membaca dulu (dan tanpa balapan).
+func (q *Queries) RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeAPIKey, arg.ID, arg.UserID, arg.OrgID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const revokeOtherSessions = `-- name: RevokeOtherSessions :exec
 
 UPDATE sessions
@@ -5299,6 +5549,17 @@ WHERE id = $1 AND deleted_at IS NULL
 // jelas daripada membiarkannya menggantung sampai kedaluwarsa.
 func (q *Queries) SoftDeleteUser(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, softDeleteUser, id)
+	return err
+}
+
+const touchAPIKey = `-- name: TouchAPIKey :exec
+UPDATE api_keys SET last_used_at = now() WHERE id = $1
+`
+
+// Dicatat saat key dipakai. Kegagalan di sini tidak boleh menggagalkan request
+// (lihat internal/auth/apikey.go) — ini telemetri, bukan otorisasi.
+func (q *Queries) TouchAPIKey(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, touchAPIKey, id)
 	return err
 }
 

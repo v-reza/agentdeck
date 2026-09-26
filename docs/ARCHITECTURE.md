@@ -1715,11 +1715,11 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 #### 6.2.3 API Keys (5 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/api-keys` | Session | Member | Ya | ⬜ | List key milik user (`id, name, prefix, last_used_at`) |
-| `POST` | `/api/v1/api-keys` | Session | Member | Ya (Key) | ⬜ | Body `{name}` → `201` + plaintext `adk_...` (hanya sekali) |
-| `GET` | `/api/v1/api-keys/{id}` | Session | Member | Ya | ⬜ | Detail key + statistik pemakaian |
-| `DELETE` | `/api/v1/api-keys/{id}` | Session | Member | Ya | ⬜ | Hapus fisik baris api_key |
-| `POST` | `/api/v1/api-keys/{id}/revoke` | Session | Member | Ya | ⬜ | Update `revoked_at = now()` → `200 OK` |
+| `GET` | `/api/v1/api-keys` | Session | Member | Ya | ✅ | List key milik user (`id, name, prefix, last_used_at`) |
+| `POST` | `/api/v1/api-keys` | Session | Member | Ya (Key) | ✅ | Body `{name}` → `201` + plaintext `adk_...` (hanya sekali) |
+| `GET` | `/api/v1/api-keys/{id}` | Session | Member | Ya | ✅ | Detail key + statistik pemakaian |
+| `DELETE` | `/api/v1/api-keys/{id}` | Session | Member | Ya | ✅ | Hapus fisik baris api_key |
+| `POST` | `/api/v1/api-keys/{id}/revoke` | Session | Member | Ya | ✅ | Update `revoked_at = now()` → `200 OK` |
 
 #### 6.2.4 Orgs & Memberships (9 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
