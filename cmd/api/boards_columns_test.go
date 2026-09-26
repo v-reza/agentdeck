@@ -24,7 +24,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sort"
+	"strings"
 	"testing"
 
 	"agentdeck/internal/board"
@@ -605,16 +607,28 @@ func (r *fakeBoardRepo) GetTask(_ context.Context, id, orgID string) (board.Task
 	return task, nil
 }
 
-func (r *fakeBoardRepo) ListBoardTasks(_ context.Context, orgID, boardID string) ([]board.Task, error) {
+// ListBoardTasks mirrors the statement's `status != 'archived'` plus its three
+// optional filters. The double used to return archived rows, so a test asserting
+// that a retired task leaves the board would have passed or failed depending on
+// the double rather than on the query production actually runs. The filters are
+// mirrored for the same reason: with the SQL doing the work, a double that
+// ignored them would let the handler look correct while returning everything.
+func (r *fakeBoardRepo) ListBoardTasks(_ context.Context, orgID, boardID string, filter board.TaskFilter) ([]board.Task, error) {
 	out := []board.Task{}
 	for _, task := range r.tasks {
-		// Mirror the statement's `status != 'archived'`. The double used to
-		// return archived rows, so a test asserting that a retired task leaves
-		// the board would have passed or failed depending on the double rather
-		// than on the query production actually runs.
-		if task.OrgID == orgID && task.BoardID == boardID && task.Status != board.StatusArchived {
-			out = append(out, task)
+		if task.OrgID != orgID || task.BoardID != boardID || task.Status == board.StatusArchived {
+			continue
 		}
+		if len(filter.Statuses) > 0 && !slices.Contains(filter.Statuses, task.Status) {
+			continue
+		}
+		if filter.Assignee != nil && task.AssigneeAgentID != *filter.Assignee {
+			continue
+		}
+		if filter.Search != nil && !strings.Contains(strings.ToLower(task.Title), strings.ToLower(*filter.Search)) {
+			continue
+		}
+		out = append(out, task)
 	}
 	return out, nil
 }

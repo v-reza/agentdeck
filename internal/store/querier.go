@@ -188,6 +188,14 @@ type Querier interface {
 	ListAssignedTasks(ctx context.Context, arg ListAssignedTasksParams) ([]ListAssignedTasksRow, error)
 	// SSE resume: events newer than the client's Last-Event-ID for one board.
 	ListBoardEventsAfter(ctx context.Context, arg ListBoardEventsAfterParams) ([]Event, error)
+	// Filters are optional and nullable: NULL means "no constraint", which is why
+	// each is written as `sqlc.narg(...) IS NULL OR ...` rather than assembled in
+	// Go. The contract (§6.2.16) advertises `status, assignee, search`; a filter
+	// that only exists in the client is a filter that silently diverges from the
+	// one the API documents.
+	//
+	// `sqlc.narg` rather than a sentinel: an empty string is a legitimate search
+	// term for "no match", so it cannot double as "unset".
 	ListBoardTasks(ctx context.Context, arg ListBoardTasksParams) ([]Task, error)
 	ListBoards(ctx context.Context, arg ListBoardsParams) ([]Board, error)
 	ListMembers(ctx context.Context, orgID string) ([]ListMembersRow, error)

@@ -320,7 +320,10 @@ func (s *Service) guardRemovedColumns(ctx context.Context, before Board, after [
 		return nil
 	}
 
-	tasks, err := s.repo.ListBoardTasks(ctx, before.OrgID, before.ID)
+	// Unfiltered on purpose: this asks "does any task still live in a column I
+	// am removing", so narrowing the set would let a filtered-out task sit in a
+	// deleted column.
+	tasks, err := s.repo.ListBoardTasks(ctx, before.OrgID, before.ID, TaskFilter{})
 	if err != nil {
 		return err
 	}
@@ -488,6 +491,18 @@ func (s *Service) AgentAssignment(ctx context.Context, orgID, agentID string) (A
 	return view, nil
 }
 
+// ListAssignableAgents is the create-task modal's picker for one board
+// (US-AD11 AC1). It is the same repository call the agent detail screen makes,
+// exposed on the board because that is the only scope a create-task modal has:
+// `AgentAssignment` resolves a board from the agent's tasks, which cannot answer
+// "who can I assign on *this* board" for an agent that holds none.
+func (s *Service) ListAssignableAgents(ctx context.Context, orgID, boardID string) ([]AssignableAgent, error) {
+	if _, err := s.repo.GetBoard(ctx, boardID, orgID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListAssignableAgentsForBoard(ctx, orgID, boardID)
+}
+
 // DeleteAgent removes an agent, refusing while it still holds a running task
 // (AC4). The check and the delete are not one transaction: a task could be
 // claimed between them. That race is acceptable here because the tasks_agent_fk
@@ -585,7 +600,13 @@ func (s *Service) ProviderKey(ctx context.Context, id, orgID string) ([]byte, er
 // CreateTask persists a new task on a board. The initial status is backlog
 // unless the caller passes a status; ready is set by the dispatcher once the
 // dependency gate passes, not by this method.
-func (s *Service) CreateTask(ctx context.Context, orgID, boardID, title, body, createdBy string, priority int, status TaskStatus) (Task, error) {
+//
+// `assigneeAgentID` is optional (US-AD11 AC5: a task with no agent is valid and
+// still lands in backlog). When it is given it is resolved through the
+// org-scoped `GetAgent` first: the foreign key only proves the id exists
+// somewhere, so without this a member of one workspace could point their task at
+// another workspace's agent by id.
+func (s *Service) CreateTask(ctx context.Context, orgID, boardID, title, body, createdBy string, priority int, status TaskStatus, assigneeAgentID string) (Task, error) {
 	if !validateName(title) {
 		return Task{}, ErrInvalidInput
 	}
@@ -595,18 +616,24 @@ func (s *Service) CreateTask(ctx context.Context, orgID, boardID, title, body, c
 	if priority < -10 || priority > 10 {
 		return Task{}, ErrInvalidInput
 	}
+	if assigneeAgentID != "" {
+		if _, err := s.repo.GetAgent(ctx, assigneeAgentID, orgID); err != nil {
+			return Task{}, ErrInvalidInput
+		}
+	}
 	t := Task{
-		ID:            Must(),
-		OrgID:         orgID,
-		BoardID:       boardID,
-		Title:         title,
-		Body:          body,
-		Status:        status,
-		Priority:      priority,
-		CreatedBy:     createdBy,
-		WorkspaceKind: WorkspaceScratch,
-		GoalMode:      "auto",
-		GoalMaxTurns:  25,
+		ID:              Must(),
+		OrgID:           orgID,
+		BoardID:         boardID,
+		Title:           title,
+		Body:            body,
+		Status:          status,
+		Priority:        priority,
+		CreatedBy:       createdBy,
+		AssigneeAgentID: assigneeAgentID,
+		WorkspaceKind:   WorkspaceScratch,
+		GoalMode:        "auto",
+		GoalMaxTurns:    25,
 	}
 	return s.repo.CreateTask(ctx, t)
 }
@@ -616,9 +643,10 @@ func (s *Service) GetTask(ctx context.Context, id, orgID string) (Task, error) {
 	return s.repo.GetTask(ctx, id, orgID)
 }
 
-// ListBoardTasks lists the non-archived tasks of one board.
-func (s *Service) ListBoardTasks(ctx context.Context, orgID, boardID string) ([]Task, error) {
-	return s.repo.ListBoardTasks(ctx, orgID, boardID)
+// ListBoardTasks lists the non-archived tasks of one board, narrowed by the
+// contract's optional `status`, `assignee` and `search` filters.
+func (s *Service) ListBoardTasks(ctx context.Context, orgID, boardID string, filter TaskFilter) ([]Task, error) {
+	return s.repo.ListBoardTasks(ctx, orgID, boardID, filter)
 }
 
 // MoveTask applies one lifecycle transition with the optimistic-status guard:

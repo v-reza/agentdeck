@@ -396,8 +396,23 @@ func (r *pgxRepository) GetTask(ctx context.Context, id, orgID string) (Task, er
 	return taskRow(row), nil
 }
 
-func (r *pgxRepository) ListBoardTasks(ctx context.Context, orgID, boardID string) ([]Task, error) {
-	rows, err := r.q.ListBoardTasks(ctx, store.ListBoardTasksParams{OrgID: orgID, BoardID: boardID})
+// ListBoardTasks reads one board's live tasks with the contract's optional
+// filters applied in SQL. `filter.Statuses` is a `[]TaskStatus` and the query
+// wants `[]string`, so the conversion happens here rather than at the call sites.
+func (r *pgxRepository) ListBoardTasks(ctx context.Context, orgID, boardID string, filter TaskFilter) ([]Task, error) {
+	params := store.ListBoardTasksParams{
+		OrgID:    orgID,
+		BoardID:  boardID,
+		Assignee: filter.Assignee,
+		Search:   filter.Search,
+	}
+	if len(filter.Statuses) > 0 {
+		params.Status = make([]string, 0, len(filter.Statuses))
+		for _, status := range filter.Statuses {
+			params.Status = append(params.Status, string(status))
+		}
+	}
+	rows, err := r.q.ListBoardTasks(ctx, params)
 	if err != nil {
 		return nil, err
 	}

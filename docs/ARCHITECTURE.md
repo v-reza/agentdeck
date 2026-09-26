@@ -1668,7 +1668,7 @@ Transisi `outcome` di `runs` (hanya diisi saat `status='ended'`): `succeeded`, `
 
 ---
 
-### 6.2 Tabel Endpoint Lengkap (127 Endpoint)
+### 6.2 Tabel Endpoint Lengkap (129 Endpoint)
 
 > **Kolom `Status`** mencerminkan **kode**, bukan niat: ✅ = route terdaftar di
 > `cmd/api`, ⬜ = belum. Tanda ini diperiksa `tools/verify_suite.py` dua arah —
@@ -1695,7 +1695,7 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 | `GET` | `/readyz` | Public | None | Ya | ✅ | Cek koneksi DB pool & R2 reachability |
 | `GET` | `/metrics` | Basic Auth / Int | Admin | Ya | ⬜ | Prometheus text format scrape metrics (§14) |
 
-#### 6.2.2 Auth & Sessions (11 Endpoint)
+#### 6.2.2 Auth & Sessions (12 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
 | `POST` | `/api/v1/auth/register` | Public | None | Tidak | ✅ | Body `{email, password, name?, org_name?}` → `201` + cookie. `name` absen → diisi bagian lokal email; `org_name` absen → workspace personal dibuat otomatis (B2C, US-AD01 AC5/AC6) |
@@ -1709,6 +1709,7 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 | `DELETE` | `/api/v1/auth/sessions/{id}` | Session | Viewer | Ya | ⬜ | Cabut sesi sendiri; sesi user lain butuh `owner`/`admin` (US-AD90 AC4, US-AD05) |
 | `POST` | `/api/v1/auth/password/reset-request` | Public | None | Tidak | ✅ | Body `{email}` → `202 Accepted` — selalu `202`, email tak terdaftar pun (US-AD88 AC5) |
 | `POST` | `/api/v1/auth/password/reset` | Public | None | Tidak | ✅ | Body `{token, new_password}` → `200 OK`; token kedaluwarsa/dipakai → `410` (US-AD88 AC3) |
+| `GET` | `/api/v1/users/{id}` | Session | Viewer | Ya | ✅ | Profil user publik milik pemanggil. Id orang lain atau id karangan dua-duanya `404`, bukan `403`: `403` akan mengonfirmasi akun itu ada, dan itu justru kebocoran yang dilarang US-AD89 AC4 |
 
 #### 6.2.3 API Keys (5 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
@@ -1812,11 +1813,12 @@ panggilan keluar. Kredensial yang tidak ada juga `400` — melaporkan "terverifi
 untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upstream
 (401, 5xx, tidak terjangkau) adalah `502`, sama seperti `POST /provider/models`.
 
-#### 6.2.9 Tasks (11 Endpoint)
+#### 6.2.9 Tasks (12 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/boards/{board_id}/tasks` | Session/Key | Viewer | Ya | ✅ | List task di board (filter `status, assignee, search`) |
-| `POST` | `/api/v1/boards/{board_id}/tasks` | Session/Key | Member | Ya (Key) | ✅ | Buat task baru (`title, body, workspace_kind`, dll.) |
+| `GET` | `/api/v1/boards/{board_id}/tasks` | Session/Key | Viewer | Ya | ✅ | List task di board. Filter `status` (boleh berulang), `assignee`, `search` diterapkan di SQL, bukan disaring klien |
+| `GET` | `/api/v1/boards/{board_id}/assignable-agents` | Session/Key | Viewer | Ya | ✅ | Pilihan agent untuk picker modal "Buat Task Baru" (US-AD11 AC1, US-AD14 AC1): agent aktif project board itu saja, diurutkan nama |
+| `POST` | `/api/v1/boards/{board_id}/tasks` | Session/Key | Member | Ya (Key) | ✅ | Buat task baru (`title, body, priority, assignee_agent_id`; tanpa agent tetap sah — US-AD11 AC5) |
 | `GET` | `/api/v1/tasks/{id}` | Session/Key | Viewer | Ya | ✅ | Detail lengkap task + active run ID |
 | `PATCH` | `/api/v1/tasks/{id}` | Session/Key | Member | Ya | ✅ | Edit task (`title, body, priority, completion_contract`) |
 | `DELETE` | `/api/v1/tasks/{id}` | Session/Key | Admin | Ya | ✅ | Soft-delete, bisa dipulihkan 30 hari (US-AD80 AC2) |
@@ -1945,7 +1947,7 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | 6.2.19 | Audit, Search & System | 0 | 6 | 6 |
 | | **Total** | **66** | **61** | **127** |
 
-*Total endpoint terdefinisi: 127 endpoint.*
+*Total endpoint terdefinisi: 129 endpoint.*
 
 ## 7. Realtime (SSE)
 
@@ -2631,7 +2633,7 @@ Sistem pengujian AgentDeck dibangun untuk menjamin kebenaran state machine, keta
                      ┌───────────────────────┐
                      │   Load Tests (k6)     │  Target konkurensi dan volume (N4: 50 agen running, N5: 100.000 run/bulan, N6: 1.000.000 event/bulan)
                      ├───────────────────────┤
-                     │  API Contract Tests   │  127 Endpoint coverage
+                     │  API Contract Tests   │  129 Endpoint coverage
                      ├───────────────────────┤
                      │ Integration (Pg test) │  Testcontainers Postgres 16
                      ├───────────────────────┤

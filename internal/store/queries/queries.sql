@@ -534,12 +534,28 @@ FROM tasks
 WHERE id = $1 AND org_id = $2;
 
 -- name: ListBoardTasks :many
+-- Filters are optional and nullable: NULL means "no constraint", which is why
+-- each is written as `sqlc.narg(...) IS NULL OR ...` rather than assembled in
+-- Go. The contract (§6.2.16) advertises `status, assignee, search`; a filter
+-- that only exists in the client is a filter that silently diverges from the
+-- one the API documents.
+--
+-- `sqlc.narg` rather than a sentinel: an empty string is a legitimate search
+-- term for "no match", so it cannot double as "unset".
 SELECT id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
        idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
        branch_name, completion_contract, goal_mode, goal_max_turns, current_run_id,
        cost_micros, tokens_in, tokens_out, created_at, started_at, completed_at, archived_at
 FROM tasks
 WHERE org_id = $1 AND board_id = $2 AND status != 'archived'
+  -- An array, not a scalar: the board's filter chips are multi-select, and a
+  -- scalar here would mean the UI silently dropping every status but the first.
+  AND (sqlc.narg('status')::text[] IS NULL OR status = ANY(sqlc.narg('status')::text[]))
+  AND (sqlc.narg('assignee')::text IS NULL OR assignee_agent_id = sqlc.narg('assignee')::text)
+  -- ponytail: ILIKE on title only, no trigram index. Board lists are per-board
+  -- (tens of rows), so a sequential match is free here. Add a `pg_trgm` GIN
+  -- index the day one board holds thousands of tasks.
+  AND (sqlc.narg('search')::text IS NULL OR title ILIKE '%' || sqlc.narg('search')::text || '%')
 ORDER BY priority DESC, created_at DESC;
 
 -- The status transition guard is in the WHERE clause, not in Go: two writers

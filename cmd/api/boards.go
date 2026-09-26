@@ -159,6 +159,9 @@ func registerBoardRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, pr
 	boardRoute("PATCH /api/v1/boards/{id}/columns", http.HandlerFunc(boardAPI.updateBoardColumns), auth.Admin)
 	boardRoute("POST /api/v1/boards/{board_id}/tasks", http.HandlerFunc(boardAPI.createTask), auth.Member)
 	boardRoute("GET /api/v1/boards/{board_id}/tasks", http.HandlerFunc(boardAPI.listTasks), auth.Viewer)
+	// The create-task modal's picker (US-AD11 AC1). Viewer floor: it lists what
+	// exists on the board, and the modal that reads it is Member-gated anyway.
+	boardRoute("GET /api/v1/boards/{id}/assignable-agents", http.HandlerFunc(boardAPI.listAssignableAgents), auth.Viewer)
 	boardRoute("GET /api/v1/tasks/{id}", http.HandlerFunc(boardAPI.getTask), auth.Viewer)
 	boardRoute("PATCH /api/v1/tasks/{id}", http.HandlerFunc(boardAPI.updateTask), auth.Member)
 	// US-AD80 AC2: deleting a task is owner/admin, and ARCHITECTURE 6.2.6's
@@ -513,10 +516,11 @@ func (a boardAPI) updateBoardColumns(w http.ResponseWriter, r *http.Request) {
 // guard; accepting `status` on PATCH too would be a second way to move a task
 // with no guard at all.
 type taskRequest struct {
-	Title    string `json:"title"`
-	Body     string `json:"body"`
-	Priority *int   `json:"priority"`
-	Status   string `json:"status"`
+	Title           string `json:"title"`
+	Body            string `json:"body"`
+	AssigneeAgentID string `json:"assignee_agent_id"`
+	Priority        *int   `json:"priority"`
+	Status          string `json:"status"`
 }
 
 type taskResponse struct {
@@ -618,6 +622,7 @@ func (a boardAPI) createTask(w http.ResponseWriter, r *http.Request) {
 		orgCtx.email,
 		priority,
 		status,
+		req.AssigneeAgentID,
 	)
 	if err != nil {
 		writeBoardError(w, err)
@@ -628,14 +633,58 @@ func (a boardAPI) createTask(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(toTaskResponse(t))
 }
 
+// GET /api/v1/boards/{id}/assignable-agents — the create-task modal's picker.
+//
+// Shape matches the `picker` array inside `GET /agents/{id}/tasks`, so the two
+// screens render the same option list from the same query.
+func (a boardAPI) listAssignableAgents(w http.ResponseWriter, r *http.Request) {
+	orgCtx, err := a.boardContext(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	agents, err := a.svc.ListAssignableAgents(r.Context(), orgCtx.workspace.ID, r.PathValue("id"))
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	out := make([]assignableAgentResponse, 0, len(agents))
+	for _, option := range agents {
+		out = append(out, assignableAgentResponse(option))
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(out)
+}
+
 // GET /api/v1/boards/{board_id}/tasks
+//
+// The three filters are the ones §6.2.16 advertises. They are read from the
+// query string and applied in SQL: accepting them and filtering the response in
+// the client would make `curl` and the app disagree about the same board.
 func (a boardAPI) listTasks(w http.ResponseWriter, r *http.Request) {
 	orgCtx, err := a.boardContext(r)
 	if err != nil {
 		http.Error(w, "authentication required", http.StatusUnauthorized)
 		return
 	}
-	tasks, err := a.svc.ListBoardTasks(r.Context(), orgCtx.workspace.ID, r.PathValue("board_id"))
+	query := r.URL.Query()
+	filter := board.TaskFilter{}
+	// `?status=a&status=b` — repeated, not comma-joined: a status is a bare word
+	// and `url.Values` already models a set, so nothing has to split a string.
+	for _, status := range query["status"] {
+		if !board.AcceptableStatus(status) {
+			http.Error(w, "unsupported task status", http.StatusBadRequest)
+			return
+		}
+		filter.Statuses = append(filter.Statuses, board.TaskStatus(status))
+	}
+	if assignee := query.Get("assignee"); assignee != "" {
+		filter.Assignee = &assignee
+	}
+	if search := query.Get("search"); search != "" {
+		filter.Search = &search
+	}
+	tasks, err := a.svc.ListBoardTasks(r.Context(), orgCtx.workspace.ID, r.PathValue("board_id"), filter)
 	if err != nil {
 		writeBoardError(w, err)
 		return

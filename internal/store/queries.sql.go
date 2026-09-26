@@ -1962,16 +1962,41 @@ SELECT id, org_id, board_id, title, body, status, priority, assignee_agent_id, c
        cost_micros, tokens_in, tokens_out, created_at, started_at, completed_at, archived_at
 FROM tasks
 WHERE org_id = $1 AND board_id = $2 AND status != 'archived'
+  -- An array, not a scalar: the board's filter chips are multi-select, and a
+  -- scalar here would mean the UI silently dropping every status but the first.
+  AND ($3::text[] IS NULL OR status = ANY($3::text[]))
+  AND ($4::text IS NULL OR assignee_agent_id = $4::text)
+  -- ponytail: ILIKE on title only, no trigram index. Board lists are per-board
+  -- (tens of rows), so a sequential match is free here. Add a ` + "`" + `pg_trgm` + "`" + ` GIN
+  -- index the day one board holds thousands of tasks.
+  AND ($5::text IS NULL OR title ILIKE '%' || $5::text || '%')
 ORDER BY priority DESC, created_at DESC
 `
 
 type ListBoardTasksParams struct {
-	OrgID   string
-	BoardID string
+	OrgID    string
+	BoardID  string
+	Status   []string
+	Assignee *string
+	Search   *string
 }
 
+// Filters are optional and nullable: NULL means "no constraint", which is why
+// each is written as `sqlc.narg(...) IS NULL OR ...` rather than assembled in
+// Go. The contract (§6.2.16) advertises `status, assignee, search`; a filter
+// that only exists in the client is a filter that silently diverges from the
+// one the API documents.
+//
+// `sqlc.narg` rather than a sentinel: an empty string is a legitimate search
+// term for "no match", so it cannot double as "unset".
 func (q *Queries) ListBoardTasks(ctx context.Context, arg ListBoardTasksParams) ([]Task, error) {
-	rows, err := q.db.Query(ctx, listBoardTasks, arg.OrgID, arg.BoardID)
+	rows, err := q.db.Query(ctx, listBoardTasks,
+		arg.OrgID,
+		arg.BoardID,
+		arg.Status,
+		arg.Assignee,
+		arg.Search,
+	)
 	if err != nil {
 		return nil, err
 	}

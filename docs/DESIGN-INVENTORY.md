@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (137 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (139 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 61 |
+| `<svg>` | 111 | 70 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -20,7 +20,7 @@ yang punya file impl — lihat §3.
 | blok skeleton (abu berukuran) | 323 | 20 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 21 |
+| file memakai `lucide-react` | 0 | 23 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -161,9 +161,9 @@ Nol.
 | 15-profile | `/settings/profile` | `Profile.tsx` | 0/7 | 0 | 1 |
 | 16-security | `/settings/security` | — | 0/0 | 0 | 0 |
 | 17-close-account | `/settings/close` | — | 0/0 | 0 | 0 |
-| 18-kanban | `/boards/:id` | `KanbanBoard.tsx` | 5/0 | 0 | 1 |
-| 19-table-view | `/boards/:id?view=table` | `TableView.tsx` | 0/0 | 0 | 1 |
-| 20-task-drawer | `(drawer)` | `StepTimeline.tsx`, `TaskDetailDrawer.tsx` | 12/0 | 0 | 1 |
+| 18-kanban | `/boards/:id` | `BoardToolbar.tsx`, `KanbanBoard.tsx` | 5/4 | 0 | 1 |
+| 19-table-view | `/boards/:id?view=table` | `BoardToolbar.tsx`, `TableView.tsx` | 0/4 | 0 | 1 |
+| 20-task-drawer | `(drawer)` | `StepTimeline.tsx`, `TaskDetailDrawer.tsx` | 12/5 | 0 | 1 |
 | 21-task-create | `(modal)` | `TaskCreateForm.tsx` | 7/0 | 0 | 0 |
 | 22-column-editor | `(panel)` | `ColumnEditor.tsx`, `BoardSettings.tsx` | 0/6 | 0 | 1 |
 | 23-board-settings | `/boards/:id/settings` | `BoardSettings.tsx` | 0/0 | 0 | 0 |
@@ -195,7 +195,7 @@ Nol.
 
 ## 10. File tanpa layar (shell & komponen bersama)
 
-84 file tidak dipetakan ke satu layar. Ini wajar untuk
+85 file tidak dipetakan ke satu layar. Ini wajar untuk
 layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 
 - `App.tsx`
@@ -240,6 +240,7 @@ layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 - `data/content.ts`
 - `hooks/use-action-form.ts`
 - `hooks/use-board-health.ts`
+- `hooks/use-can-act.test.tsx`
 - `hooks/use-cost-rail.ts`
 - `hooks/use-directory-totals.ts`
 - `hooks/use-directory.ts`

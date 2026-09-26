@@ -51,6 +51,29 @@ type Board struct {
 	CreatedAt         time.Time
 }
 
+// TaskFilter narrows a board listing. Every field is optional: nil means "no
+// constraint on this axis", which is why they are pointers rather than zero
+// values — an empty search term is a real search ("match nothing") and must not
+// be indistinguishable from "no search".
+//
+// The three axes are the ones §6.2.16 advertises for
+// `GET /api/v1/boards/{board_id}/tasks`, applied in SQL rather than by the
+// caller filtering the response.
+type TaskFilter struct {
+	// Statuses is a set: the board's filter chips are multi-select, and a scalar
+	// would mean dropping every selection but the first. Empty = no constraint,
+	// which is indistinguishable from "no status matches" only if a caller passes
+	// an empty non-nil slice — `AcceptableStatus` rejects that at the edge.
+	Statuses []TaskStatus
+	Assignee *string
+	Search   *string
+}
+
+// Empty reports whether the filter constrains anything.
+func (f TaskFilter) Empty() bool {
+	return len(f.Statuses) == 0 && f.Assignee == nil && f.Search == nil
+}
+
 // TaskStatus is the lifecycle a task may hold. It mirrors the tasks.status CHECK
 // list in ARCHITECTURE 3.8 exactly; keeping it here means the compiler, not a
 // comment, enforces which statuses exist.
@@ -303,7 +326,7 @@ type Repository interface {
 	// ---- tasks -----------------------------------------------------------
 	CreateTask(ctx context.Context, t Task) (Task, error)
 	GetTask(ctx context.Context, id, orgID string) (Task, error)
-	ListBoardTasks(ctx context.Context, orgID, boardID string) ([]Task, error)
+	ListBoardTasks(ctx context.Context, orgID, boardID string, filter TaskFilter) ([]Task, error)
 	// UpdateTaskStatus applies one lifecycle transition atomically: the WHERE
 	// clause includes the expected current status, so two writers racing on the
 	// same task produce one winner and one ErrConflict instead of a double move.

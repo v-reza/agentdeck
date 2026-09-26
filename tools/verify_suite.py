@@ -644,6 +644,19 @@ def check_structure():
             if implemented:
                 wrong.append(f"{meth} {path} ditandai ⬜ tapi route-nya ada")
 
+    # ponytail: arah ketiga — route ada tapi tidak tercatat sama sekali di
+    # dokumen — dulu tidak dicek, dan itu bukan celah teoretis: `GET
+    # /boards/{id}/assignable-agents` ditambahkan tanpa satu baris pun di §6.2,
+    # dan gate-nya hijau. Penanganannya sederhana karena `routes` sudah
+    # dinormalisasi ke bentuk yang sama dengan `path` di dokumen.
+    documented = set()
+    for m in re.finditer(r"(?m)^\|\s*`(GET|POST|PUT|PATCH|DELETE)`\s*\|\s*`([^`]+)`\s*\|", arch):
+        documented.add((m.group(1), re.sub(r"\{[^}]+\}", "{}", m.group(2)).split("?")[0]))
+    for meth, path in sorted(routes - documented):
+        if path.startswith("/internal/") or path in ("/healthz", "/livez", "/readyz", "/metrics"):
+            continue
+        wrong.append(f"{meth} {path} ada di cmd/api tapi tidak tercatat di tabel endpoint ARCHITECTURE")
+
     if wrong:
         for w in wrong:
             say("FAIL", f"STATUS ENDPOINT: {w}")
