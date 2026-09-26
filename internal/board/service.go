@@ -172,11 +172,29 @@ func checkColumnNamesUnique(cols []Column) error {
 // error to a status code.
 type Service struct {
 	repo Repository
+	// claimLock identifies this process as the owner of a run. It exists so the
+	// dispatcher's heartbeat (5.1 phase 1) only touches runs this instance
+	// claimed: two instances sharing a board must not keep each other's dead runs
+	// alive. Empty is allowed and means "unset" — see WithClaimLock.
+	claimLock string
+	// decrypt opens an AES-GCM sealed provider credential. Nil means no master key
+	// was configured, which is reported rather than worked around.
+	decrypt func([]byte) (string, error)
+	// providers resolves an agent's provider_id to an endpoint. Nil means none was
+	// wired in, which is reported rather than guessed.
+	providers ProviderRegistry
 }
 
 // NewService builds the domain service over a Repository.
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// WithClaimLock names this instance for run ownership. Set once at wiring time;
+// returning the receiver keeps the constructor call a one-liner.
+func (s *Service) WithClaimLock(host string) *Service {
+	s.claimLock = host
+	return s
 }
 
 // CreateProject persists a new project inside an org. Slug uniqueness is per
@@ -828,11 +846,21 @@ func (s *Service) TaskHistory(ctx context.Context, taskID string) ([]Event, erro
 // Claim applies the dispatcher's atomic claim over the board's ready tasks.
 // Two dispatchers running concurrently claim disjoint sets because the CTE
 // holds FOR UPDATE SKIP LOCKED inside one transaction (ARCHITECTURE 4b).
-func (s *Service) Claim(ctx context.Context, orgID, boardID, runID string, limit int) ([]Task, error) {
-	if limit <= 0 {
+// Claim is the dispatcher's batch claim. Each claimed task gets its own run id:
+// sharing one id across a batch left every task but the first without a run row,
+// so a caller that passed a single id would half-claim the batch.
+//
+// runIDs is the caller's own list, sized to `limit`; the SQL takes the first
+// len(rows) entries by row number. The returned tasks carry the run id that was
+// written into each `current_run_id`, so the dispatcher never has to guess which
+// id went to which row.
+func (s *Service) Claim(ctx context.Context, orgID, boardID string, runIDs []string, limit int) ([]Task, error) {
+	if limit <= 0 || len(runIDs) < limit {
+		// A short list would leave rows with a NULL run id: claimed and
+		// unrunnable at the same time.
 		return nil, ErrInvalidInput
 	}
-	return s.repo.ClaimReadyTasks(ctx, orgID, boardID, runID, limit)
+	return s.repo.ClaimReadyTasks(ctx, orgID, boardID, runIDs, limit)
 }
 
 // AcceptableStatus reports whether a status string is one the lifecycle allows

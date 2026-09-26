@@ -56,6 +56,11 @@ services:
       # stored key unreadable.
       #   openssl rand -hex 32
       AGENTDECK_MASTER_KEY: ${AGENTDECK_MASTER_KEY:-}
+      # The dispatcher EXECUTES runs, which means calling LLM providers and
+      # spending the operator's money. Off unless asked for: a deployment upgraded
+      # into this code should not start paying for completions because someone
+      # assigned an agent to a task and forgot. Set to 1 to run the tick loop.
+      AGENTDECK_DISPATCH: ${AGENTDECK_DISPATCH:-0}
     ports:
       - '${API_PORT:-8080}:8080'
     depends_on:

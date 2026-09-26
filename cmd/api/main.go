@@ -15,6 +15,7 @@ import (
 	"agentdeck/internal/auth"
 	"agentdeck/internal/board"
 	"agentdeck/internal/config"
+	"agentdeck/internal/dispatcher"
 	"agentdeck/internal/migrate"
 	"agentdeck/internal/modelprice"
 	"agentdeck/internal/notify"
@@ -260,7 +261,13 @@ func main() {
 	}
 
 	store := auth.NewStore(auth.NewPgxRepository(pool))
-	boardService := board.NewService(board.NewPgxRepository(pool))
+	// The board service carries this instance's identity for run ownership (5.1)
+	// and the two runtime hooks the dispatcher needs: opening a stored provider
+	// credential, and resolving an agent's provider_id to an endpoint.
+	host, _ := os.Hostname()
+	boardService := board.NewService(board.NewPgxRepository(pool)).
+		WithClaimLock(host).
+		WithDecrypter(credentialDecrypter(cfg.MasterKey))
 
 	var mailer notifier = notify.LogMailer{Logger: logger}
 	if cfg.SMTP.Host != "" {
@@ -341,6 +348,11 @@ func main() {
 	// `GET /agent-catalog`, yang harus melaporkan harga yang BENAR-BENAR akan
 	// ditagih, bukan harga katalog yang sudah ditimpa.
 	modelPriceSvc := modelprice.NewService(modelprice.NewPgxRepository(pool))
+	// The dispatcher reads endpoints and credentials from the provider registry
+	// (§6A.J), so it is wired here — after providerSvc exists, and before the
+	// dispatcher goroutine below can run.
+	boardService.WithProviderRegistry(providerRegistryAdapter{svc: providerSvc})
+
 	registerAgentRoutes(mux, api, boardService, providerSvc, modelPriceSvc)
 	registerAgentCredentialRoutes(mux, api, boardService, providerSvc)
 	registerAgentSkillRoutes(mux, api, skill.NewService(skill.NewPgxRepository(pool)))
@@ -352,6 +364,22 @@ func main() {
 	// surface — because the alternative (refresh on read) would let a Viewer
 	// spend the workspace's credential. Stopped by the same ctx as the server.
 	go providerreg.NewModelRefresher(providerSvc, logger).Run(ctx)
+
+	// The dispatcher CALLS LLM PROVIDERS and SPENDS THE OPERATOR'S MONEY, so it is
+	// opt-in rather than on by default. Turning it on for every deployment would
+	// mean a workspace that assigned an agent to a task starts paying for
+	// completions the moment it is upgraded — and a self-hosted board that nobody
+	// is watching is exactly where that goes unnoticed. AGENTDECK_DISPATCH=1 says
+	// the operator wants runs to execute.
+	if os.Getenv("AGENTDECK_DISPATCH") == "1" {
+		runner := dispatcher.ExecutorRunner{}
+		d := dispatcher.New(boardService, runner, dispatcher.DefaultTick, dispatcher.DefaultBatch, logger)
+		go d.Run(ctx)
+		logger.Info("dispatcher enabled", "host", host, "tick", dispatcher.DefaultTick.String(),
+			"batch", dispatcher.DefaultBatch)
+	} else {
+		logger.Info("dispatcher disabled; set AGENTDECK_DISPATCH=1 to execute runs")
+	}
 
 	server := &http.Server{Addr: cfg.Addr, Handler: mux}
 	go func() {

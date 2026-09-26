@@ -467,6 +467,50 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
    Diuji: `<select>` disusupkan → `verify_suite` EXIT 1 dengan `FAIL AUDIT: SELECT:
    components/ui/input.tsx`; jargon `US-AD54 AC2` disusupkan → EXIT 1; keduanya
    dipulihkan → EXIT 0.
+4o. **M4 selesai: dispatcher + executor — runtime-nya benar-benar memanggil LLM.**
+   Item 4l di atas bilang "executor LLM tidak dibangun, dan itu keputusan produk".
+   Itu **sudah tidak benar**: ARCHITECTURE §4a/§4b/§5.1/§5.3/§10 ternyata sudah
+   mendefinisikan binding agent↔task sampai ke SQL-nya, jadi tidak ada keputusan
+   produk yang hilang — pertanyaannya sudah dijawab dokumen.
+   Yang dibangun: `internal/executor/` (susun prompt dari `agent_skills.body_md` →
+   `POST /chat/completions` → step + biaya), `internal/dispatcher/` (tick 2 s N19,
+   batch 20 N20, heartbeat → reclaim → gate dependency → gate budget → klaim →
+   worker → finalisasi), `internal/migrate/0014.up.sql` (`daily_board_costs` — tabel
+   §3.8 yang nol migrasi pernah bikin), wiring di `cmd/api/main.go`, dan
+   `tools/probe-m5.py` + `tools/fake-llm.py` sebagai bukti.
+   **Enam bug nyata yang ketemu, semuanya cuma kelihatan dari test/probe lawan kode
+   yang berjalan, bukan dari membaca:**
+   - `ClaimReadyTasks` menulis **satu** `current_run_id` untuk **seluruh batch**
+     (§4a kasih run id per task) ⇒ task kedua dan seterusnya menunjuk run yang tidak
+     akan pernah ada. Juga nol cek dependency padahal §4a mensyaratkannya.
+   - **Nol penulis `claim_expires`** padahal §4b syaratnya `claim_expires IS NOT NULL`
+     ⇒ reclaim run basi **tidak akan pernah menyala**; agent yang hang menahan task
+     `running` selamanya. Sama bentuknya dengan `current_run_id` di item 4l.
+   - `redact` meratakan error jadi `errors.New` ⇒ `errors.As` kehilangan status HTTP
+     dan **semua** 401/402/404 jatuh ke `transient` — kredensial jelek di-retry
+     sampai plafon, persis yang §10 ada buat dicegah. Redaksi dipindah ke string,
+     rantai error tetap utuh.
+   - `retryOrFail` cuma dua arah (retry/failed), jadi `policy`/`budget`/`needs_input`/
+     `dependency` **tidak pernah masuk `blocked`** — padahal §10.2 mengirim keempatnya
+     ke sana dan retry cuma membakar uang untuk ditolak lagi.
+   - Kredensial dibaca dari `agents.provider_api_key_enc`, padahal §6A.J memindahkan
+     rahasia ke entitas `providers`. Kalau tidak ketahuan: setiap agent yang punya
+     provider sendiri akan 401 dan dilaporkan sebagai `capability` — terbaca seperti
+     nama model salah, bukan sumber kredensial salah.
+   - Klaim tanpa run: `StartRun` gagal ⇒ task `running` **tanpa baris `runs`**, tidak
+     terlihat reclaim (yang butuh run) dan tidak tersentuh predikat klaim (yang
+     butuh `ready`). Ditambah `ReleaseClaim` yang melepas ikatan + menaikkan
+     `consecutive_failures` + menulis `block_kind`.
+   **Keputusan yang gw ambil:** dispatcher **mati kecuali `AGENTDECK_DISPATCH=1`**.
+   Tick yang selalu hidup berarti deployment hasil upgrade mulai membayar completion
+   begitu seseorang menugaskan agent ke sebuah task — di board self-hosted yang
+   tidak diawasi, itu tidak ketahuan. Bukti: `tools/probe-m5.py` 17/17 hijau lawan
+   API nyata (klaim otomatis, biaya 1060 micros, `daily_board_costs` keisi, 401 →
+   `failed` tanpa retry, kredensial teredaksi jadi `Bearer [REDACTED]`, task tanpa
+   agent → `blocked`/`needs_input`). Mutation 3/3 CAUGHT (`claim_expires` NULL,
+   predikat dependency dihapus, 401 tidak diklasifikasi).
+   **Yang masih belum ada:** workspace container/worktree per run (US-AD12 — semua
+   run jalan di `scratch`), SSE, storage, webhook, `POST /boards/{id}/budget` (M5).
 5. Belum ada `LICENSE`/`NOTICE`/`THIRD_PARTY`. Konflik lisensi di design
    (`09b-github.html` Apache-2.0 vs `05-landing.html` MIT).
 6. ~~Audit `livez`/`metrics` + tabel tanpa DDL~~ **SELESAI** — lihat

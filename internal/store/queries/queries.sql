@@ -637,22 +637,52 @@ WHERE a.org_id = $1 AND b.id = $2 AND a.archived_at IS NULL
 ORDER BY a.name;
 
 -- name: ClaimReadyTasks :many
-WITH claimed AS (
-    SELECT t.id
+-- Satu ULID per task, bukan satu untuk seluruh batch.
+--
+-- Versi sebelumnya menulis `current_run_id = $4` untuk SEMUA baris yang diklaim,
+-- jadi tiga task yang diklaim bersama akan berbagi satu run id. Dua akibatnya:
+-- `StartRun` menolak task yang current_run_id-nya bukan run id yang dipanggil
+-- (hanya satu yang lolos), dan baris `runs` yang lain tidak pernah ada padahal
+-- task-nya sudah `running`. Sekarang pemanggil mengirim array ULID sepanjang
+-- batch dan tiap baris mendapat indeksnya sendiri.
+--
+-- `created_at ASC` mengikuti 4a: task lama didahulukan dalam prioritas yang sama
+-- (versi lama memakai DESC, jadi FIFO-nya terbalik).
+--
+-- Predikat dependency ikut di sini, bukan di Go: sebuah task yang parent-nya
+-- belum `done`/`cancelled`/`archived` tidak boleh diklaim. Menaruhnya di SQL
+-- berarti properti itu tidak bisa dilewati oleh pemanggil mana pun.
+-- Dua CTE, bukan satu: Postgres menolak `FOR UPDATE` di query yang memakai window
+-- function ("FOR UPDATE is not allowed with window functions"). Jadi lock dan
+-- penomoran dipisah — CTE pertama mengunci batch-nya, CTE kedua menomori baris
+-- yang sudah terkunci. Lock-nya tetap dipegang sampai transaksi commit, jadi
+-- penomoran tidak membuka celah bagi dispatcher lain.
+WITH claimable AS (
+    SELECT t.id, t.priority, t.created_at
     FROM tasks t
     WHERE t.org_id = $1 AND t.board_id = $2
       AND t.status = 'ready'
       AND t.current_run_id IS NULL
-    ORDER BY t.priority DESC, t.created_at DESC
+      AND NOT EXISTS (
+          SELECT 1 FROM task_links tl
+          JOIN tasks parent ON parent.id = tl.parent_id
+          WHERE tl.child_id = t.id
+            AND parent.status NOT IN ('done','cancelled','archived')
+      )
+    ORDER BY t.priority DESC, t.created_at ASC
     LIMIT $3
     FOR UPDATE SKIP LOCKED
+),
+numbered AS (
+    SELECT id, row_number() OVER (ORDER BY priority DESC, created_at ASC) AS rn
+    FROM claimable
 )
 UPDATE tasks t
 SET status = 'running',
-    current_run_id = $4,
+    current_run_id = (sqlc.arg(run_ids)::text[])[n.rn],
     started_at = COALESCE(t.started_at, now())
-FROM claimed c
-WHERE t.id = c.id
+FROM numbered n
+WHERE t.id = n.id
 RETURNING t.id, t.org_id, t.board_id, t.title, t.body, t.status, t.priority,
           t.assignee_agent_id, t.created_by, t.idempotency_key, t.block_kind,
           t.consecutive_failures, t.workspace_kind, t.workspace_path, t.branch_name,
@@ -755,8 +785,18 @@ ORDER BY model;
 DELETE FROM agent_model_prices WHERE org_id = $1 AND model = $2;
 
 -- name: CreateRun :one
-INSERT INTO runs (id, org_id, task_id, agent_id, attempt, status, max_runtime_seconds, last_heartbeat_at)
-VALUES ($1, $2, $3, $4, $5, 'running', $6, now())
+-- claim_lock dan claim_expires wajib diisi di sini, bukan opsional.
+-- `claim_expires` adalah kolom yang membuat reclaim 4b mungkin: query itu
+-- mensyaratkan `claim_expires IS NOT NULL`, jadi run yang dibiarkan NULL tidak
+-- pernah bisa di-reclaim — agent yang hang akan memegang task `running` selamanya
+-- dan jalur retry 10 tidak pernah kebagian. Batasnya max_runtime_seconds agent
+-- (N9 4 jam): run yang melewatinya basi menurut definisi.
+INSERT INTO runs (id, org_id, task_id, agent_id, attempt, status, max_runtime_seconds,
+                  last_heartbeat_at, claim_lock, claim_expires)
+-- `$6::int` di kedua tempat, bukan `$6` polos: make_interval(secs) bertipe
+-- double precision sementara kolomnya integer, dan Postgres menolak satu parameter
+-- yang dipakai dengan dua tipe ("inconsistent types deduced for parameter").
+VALUES ($1, $2, $3, $4, $5, 'running', $6::int, now(), $7, now() + make_interval(secs => $6::int))
 RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
           last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
           summary, error, started_at, ended_at;
@@ -929,3 +969,149 @@ RETURNING id, org_id, board_id, title, body, status, priority, assignee_agent_id
           idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
           branch_name, completion_contract, goal_mode, goal_max_turns, current_run_id,
           cost_micros, tokens_in, tokens_out, created_at, started_at, completed_at, archived_at;
+
+-- ============================================================================
+-- M4 irisan 2: dispatcher tick (heartbeat, reclaim, dependency, budget, klaim)
+-- ============================================================================
+
+-- name: HeartbeatOwnedRuns :exec
+-- Fase 1 tick. 5.1: "perbarui last_heartbeat_at untuk semua run yang sedang
+-- dirunning oleh instance ini" — kuncinya claim_lock (identitas instance), bukan
+-- board: `runs` memang tidak punya board_id, dan dua instance di board yang sama
+-- tidak boleh saling memperpanjang hidup.
+UPDATE runs SET last_heartbeat_at = now()
+WHERE status = 'running' AND org_id = $1 AND claim_lock = $2;
+
+-- name: ClaimReadyTaskDepsBlocked :execrows
+-- Fase 3d (5.2): kandidat yang parent-nya belum selesai tidak diklaim, tapi
+-- dipindah ke 'blocked' dengan block_kind='dependency' supaya terlihat di papan
+-- sebagai menunggu, bukan hilang dari pandangan. 4e.1 membangunkannya kembali.
+UPDATE tasks t SET status = 'blocked', block_kind = 'dependency'
+WHERE t.org_id = $1 AND t.board_id = $2 AND t.status = 'ready' AND t.current_run_id IS NULL
+  AND EXISTS (
+    SELECT 1 FROM task_links tl JOIN tasks p ON p.id = tl.parent_id
+    WHERE tl.child_id = t.id AND p.status NOT IN ('done','cancelled','archived')
+  );
+
+-- name: UpsertDailyBoardCost :exec
+-- 4c/5.3: agregat biaya harian per board. Di-UPSERT setiap step selesai, jadi
+-- dispatcher tidak perlu menjumlahkan ledger_entries tiap tick.
+INSERT INTO daily_board_costs (org_id, board_id, day, total_micros, tokens_in, tokens_out, updated_at)
+VALUES ($1, $2, (now() AT TIME ZONE 'UTC')::date, $3, $4, $5, now())
+ON CONFLICT (board_id, day) DO UPDATE
+SET total_micros = daily_board_costs.total_micros + EXCLUDED.total_micros,
+    tokens_in    = daily_board_costs.tokens_in    + EXCLUDED.tokens_in,
+    tokens_out   = daily_board_costs.tokens_out   + EXCLUDED.tokens_out,
+    updated_at   = now();
+
+-- name: BoardBudgetToday :one
+-- 4c versi tabel agregat: cap, terpakai hari ini, dan status ambang N18.
+-- COALESCE untuk board yang belum punya baris hari ini — cap tetap terbaca,
+-- terpakai nol, jadi guardrail-nya tidak bergantung pada ada-tidaknya baris.
+SELECT b.budget_daily_micros AS cap, b.id AS board_id,
+       COALESCE(d.total_micros, 0)::bigint AS spent_today,
+       COALESCE(d.run_count, 0)::int AS run_count,
+       CASE
+         WHEN COALESCE(d.total_micros, 0) >= b.budget_daily_micros THEN 'exceeded'
+         WHEN COALESCE(d.total_micros, 0) >= (b.budget_daily_micros * 0.8) THEN 'warning'
+         ELSE 'ok'
+       END AS budget_status
+FROM boards b
+LEFT JOIN daily_board_costs d
+  ON d.board_id = b.id AND d.day = (now() AT TIME ZONE 'UTC')::date
+WHERE b.id = $1 AND b.org_id = $2;
+
+-- name: BumpDailyRunCount :exec
+-- run_count naik sekali per run, bukan per step; dipanggil saat run berakhir.
+UPDATE daily_board_costs SET run_count = run_count + 1, updated_at = now()
+WHERE board_id = $1 AND day = (now() AT TIME ZONE 'UTC')::date;
+
+-- name: ReclaimStaleRuns :many
+-- 4b: run 'running' tanpa heartbeat 15 menit (N8) di-reclaim dalam satu
+-- transaksi: run ditutup dengan outcome 'reclaimed', task dikembalikan ke
+-- 'ready' dengan consecutive_failures naik (§10.3). Task yang sudah melewati
+-- plafon percobaan ditandai 'failed' alih-alih 'ready', supaya tidak diklaim
+-- ulang tanpa batas.
+WITH stale AS (
+    SELECT r.id, r.task_id
+    FROM runs r
+    WHERE r.org_id = $1 AND r.status = 'running'
+      AND r.claim_expires IS NOT NULL
+      AND r.last_heartbeat_at < now() - interval '15 minutes'
+    ORDER BY r.last_heartbeat_at ASC
+    LIMIT $2
+    FOR UPDATE SKIP LOCKED
+),
+ended AS (
+    UPDATE runs r SET status = 'ended', outcome = 'reclaimed', ended_at = now()
+    FROM stale s WHERE r.id = s.id
+    RETURNING r.task_id
+)
+UPDATE tasks t
+SET status = CASE WHEN t.consecutive_failures + 1 >= sqlc.arg(max_attempts)::int THEN 'failed' ELSE 'ready' END,
+    current_run_id = NULL,
+    consecutive_failures = t.consecutive_failures + 1
+FROM ended e
+WHERE t.id = e.task_id AND t.status = 'running'
+RETURNING t.id, t.board_id, t.status;
+
+-- name: WakeDependents :exec
+-- 4e.1: setelah sebuah task masuk 'done', anak yang diblokir karena dependency
+-- dibangunkan. Hanya yang block_kind='dependency' — blokir karena policy atau
+-- kebutuhan input manusia bukan urusan query ini.
+UPDATE tasks t SET status = 'ready', block_kind = NULL
+WHERE t.id IN (SELECT tl.child_id FROM task_links tl WHERE tl.parent_id = $1)
+  AND t.status = 'blocked' AND t.block_kind = 'dependency';
+
+-- name: RecordRunUsage :exec
+-- Rollup kolom biaya/token di runs sendiri, bukan hanya di ledger: 5.3 memakai
+-- `runs.cost_micros` untuk laporan per run, dan agent tidak pernah menulisnya.
+UPDATE runs
+SET cost_micros = cost_micros + $2,
+    tokens_in   = tokens_in   + $3,
+    tokens_out  = tokens_out  + $4
+WHERE id = $1;
+
+-- name: ReleaseClaim :one
+-- Lepaskan task yang sudah diklaim tapi tidak bisa dijalankan (tidak ada agent,
+-- agent diarsipkan, atau tidak ada alamat provider) — termasuk kasus StartRun
+-- gagal, di mana baris `runs` TIDAK ADA sehingga EndRun 4b tidak bisa dipakai.
+--
+-- Kenapa ini harus ada: klaim menulis `status='running'` + current_run_id. Kalau
+-- persiapan gagal dan tidak ada yang melepasnya, task itu `running` selamanya —
+-- tidak terlihat reclaim (tidak ada run untuk di-reclaim) dan tidak terlihat
+-- predikat klaim (bukan `ready`). Satu task, satu user, hilang dari antrean.
+--
+-- Diterapkan di sini, bukan di Go, karena 10.2 memetakan `needs_input` ke
+-- `blocked` dan sisanya ke `failed`; memisahkannya membuat papan bisa menampilkan
+-- "menunggu manusia" alih-alih kehilangan tasknya.
+UPDATE tasks t
+SET current_run_id = NULL,
+    consecutive_failures = t.consecutive_failures + 1,
+    status = CASE WHEN sqlc.arg(failure_kind)::text = 'needs_input' THEN 'blocked' ELSE 'failed' END,
+    block_kind = CASE WHEN sqlc.arg(failure_kind)::text = 'needs_input' THEN 'needs_input' ELSE NULL END
+WHERE t.id = sqlc.arg(task_id) AND t.org_id = sqlc.arg(org_id) AND t.status = 'running'
+RETURNING t.id, t.board_id, t.status;
+
+-- name: ListClaimableBoards :many
+-- 5.1: "satu instance per board yang aktif". Daftar board yang punya project
+-- (board tanpa project tidak bisa punya task). Instance memilihnya sendiri lewat
+-- tick: tidak ada registry pusat, jadi menambah instance tidak butuh koordinasi.
+-- Dibatasi ke board yang punya setidaknya satu task `ready` supaya org dengan
+-- puluhan board tidak membayar satu query budget per board tiap 2 detik.
+SELECT b.id, b.org_id, b.project_id, b.slug, b.name, b.budget_daily_micros
+FROM boards b
+WHERE EXISTS (
+    SELECT 1 FROM tasks t
+    WHERE t.board_id = b.id AND t.status IN ('ready','running')
+);
+
+-- name: AgentSkillBodies :many
+-- Resolusi skills_json -> teks prompt (3.8: "resolusi slug -> skill saat menyusun
+-- prompt agent"). Dikerjakan di SQL, bukan di Go, karena urutannya milik
+-- array_positions: skills_json adalah pilihan yang BERURUTAN dan urutan itu
+-- satu-satunya sinyal prioritas yang dipunyainya.
+SELECT s.slug, s.name, s.body_md, array_position(sqlc.arg(slugs)::text[], s.slug) AS position
+FROM agent_skills s
+WHERE s.org_id = sqlc.arg(org_id) AND s.slug = ANY(sqlc.arg(slugs)::text[])
+ORDER BY position;

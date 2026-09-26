@@ -486,12 +486,18 @@ func (r *pgxRepository) DeleteTask(ctx context.Context, id, orgID string) error 
 // of ready tasks with FOR UPDATE SKIP LOCKED then flips them to running in the
 // same statement, so concurrent dispatchers claim disjoint sets and a task is
 // never claimed twice (ARCHITECTURE 4b).
-func (r *pgxRepository) ClaimReadyTasks(ctx context.Context, orgID, boardID, runID string, limit int) ([]Task, error) {
+// ClaimReadyTasks claims one batch, one run id per task.
+//
+// runIDs must be at least as long as the batch the query will claim: the SQL
+// indexes it by row number, so a short slice would write NULL into
+// current_run_id and leave a `running` task with no run. The caller sizes it from
+// the batch limit, which is the most rows the query can return.
+func (r *pgxRepository) ClaimReadyTasks(ctx context.Context, orgID, boardID string, runIDs []string, limit int) ([]Task, error) {
 	rows, err := r.q.ClaimReadyTasks(ctx, store.ClaimReadyTasksParams{
-		OrgID:        orgID,
-		BoardID:      boardID,
-		Limit:        int32(limit),
-		CurrentRunID: nullString(runID),
+		OrgID:   orgID,
+		BoardID: boardID,
+		Limit:   int32(limit),
+		RunIds:  runIDs,
 	})
 	if err != nil {
 		return nil, err
@@ -976,12 +982,13 @@ func ledgerRow(l store.LedgerEntry) LedgerEntry {
 
 func (r *pgxRepository) CreateRun(ctx context.Context, run Run) (Run, error) {
 	row, err := r.q.CreateRun(ctx, store.CreateRunParams{
-		ID:                run.ID,
-		OrgID:             run.OrgID,
-		TaskID:            run.TaskID,
-		AgentID:           run.AgentID,
-		Attempt:           int16(run.Attempt),
-		MaxRuntimeSeconds: int32(run.MaxRuntimeSecs),
+		ID:        run.ID,
+		OrgID:     run.OrgID,
+		TaskID:    run.TaskID,
+		AgentID:   run.AgentID,
+		Attempt:   int16(run.Attempt),
+		Column6:   int32(run.MaxRuntimeSecs),
+		ClaimLock: nullString(run.ClaimLock),
 	})
 	if err != nil {
 		return Run{}, err

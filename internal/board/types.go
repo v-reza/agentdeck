@@ -197,6 +197,11 @@ type Agent struct {
 	// source of truth: the ciphertext itself never reaches this struct, so it
 	// cannot leak through a log line or a JSON tag on a list response.
 	HasProviderKey bool
+	// Skills is resolved from SkillsJSON against `agent_skills` (3.8) and Tools
+	// from ToolsJSON. Both are read-time only: the columns hold the ordered slug
+	// list and the tool allowlist, these hold what the executor actually needs.
+	Skills []AgentSkill
+	Tools  []string
 }
 
 // AssignedTask is one row of the assignment table on the agent detail screen
@@ -263,15 +268,51 @@ type Run struct {
 	Outcome         string
 	FailureKind     string
 	LastHeartbeatAt *time.Time
-	MaxRuntimeSecs  int
-	CostMicros      int64
-	TokensIn        int64
-	TokensOut       int64
-	Summary         string
-	Error           string
-	StartedAt       time.Time
-	EndedAt         *time.Time
+	// ClaimLock identifies the dispatcher instance holding this run (5.1 phase 1:
+	// the heartbeat only touches runs this instance owns). Stored as is; the value
+	// is a hostname, and it is not secret.
+	ClaimLock      string
+	MaxRuntimeSecs int
+	CostMicros     int64
+	TokensIn       int64
+	TokensOut      int64
+	Summary        string
+	Error          string
+	StartedAt      time.Time
+	EndedAt        *time.Time
 }
+
+// ResolvedAgent is an agent plus what only the runtime needs: its endpoint and a
+// decrypted credential. Kept apart from Agent so the shape that reaches the UI,
+// logs and JSON never carries a secret.
+type ResolvedAgent struct {
+	Agent
+	BaseURL string
+	APIKey  string
+}
+
+// AgentSkill is one resolved `agent_skills` row. BodyMD is the prompt text.
+type AgentSkill struct {
+	Slug   string
+	Name   string
+	BodyMD string
+}
+
+// BoardBudget is the guardrail reading of ARCHITECTURE 4c: the board's daily cap
+// next to what it has spent today, plus the N18 threshold verdict. The verdict is
+// computed in SQL so the number the dispatcher enforces and the number a screen
+// shows come from the same comparison.
+type BoardBudget struct {
+	BoardID          string
+	CapMicros        int64
+	SpentTodayMicros int64
+	RunCount         int
+	// Status is ok | warning | exceeded (N18 alerts at 80%).
+	Status string
+}
+
+// Exceeded reports whether spend has reached the cap, which is what stops a claim.
+func (b BoardBudget) Exceeded() bool { return b.Status == "exceeded" }
 
 // RunStatus is `runs.status`. The three live states are distinct on purpose:
 // `claiming` is the window between the row lock being released and the executor
@@ -443,7 +484,20 @@ type Repository interface {
 	// ClaimReadyTasks is the dispatcher's atomic claim: it locks a bounded batch
 	// of ready tasks with FOR UPDATE SKIP LOCKED and flips them to running in one
 	// statement, so concurrent dispatchers claim disjoint sets (ARCHITECTURE 4b).
-	ClaimReadyTasks(ctx context.Context, orgID, boardID, runID string, limit int) ([]Task, error)
+	ClaimReadyTasks(ctx context.Context, orgID, boardID string, runIDs []string, limit int) ([]Task, error)
+
+	// --- dispatcher tick, ARCHITECTURE 5.1 ---
+	BlockDependentTasks(ctx context.Context, orgID, boardID string) (int64, error)
+	ReclaimStaleRuns(ctx context.Context, orgID string, limit, maxAttempts int) ([]Task, error)
+	HeartbeatOwnedRuns(ctx context.Context, orgID, lock string) error
+	WakeDependents(ctx context.Context, taskID string) error
+	BoardBudgetToday(ctx context.Context, orgID, boardID string) (BoardBudget, error)
+	UpsertDailyBoardCost(ctx context.Context, orgID, boardID string, micros, tokensIn, tokensOut int64) error
+	BumpDailyRunCount(ctx context.Context, boardID string) error
+	RecordRunUsage(ctx context.Context, runID string, micros, tokensIn, tokensOut int64) error
+	ReleaseClaim(ctx context.Context, taskID, orgID, runID, failureKind, detail string) error
+	ClaimableBoards(ctx context.Context) ([]Board, error)
+	AgentSkillBodies(ctx context.Context, orgID string, slugs []string) ([]AgentSkill, error)
 	// ClaimTask claims one named task (POST /tasks/{id}/claim).
 	ClaimTask(ctx context.Context, taskID, orgID, runID string) (Task, error)
 

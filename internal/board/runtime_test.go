@@ -47,6 +47,10 @@ func newRuntimeFixture(t *testing.T, retryPolicy string, maxAttempts int) runtim
 	if _, err := repo.CreateBoard(ctx, Board{
 		ID: boardID, OrgID: orgID, ProjectID: project.ID,
 		Slug: lower("rt-" + ulid.Must()[20:]), Name: "Runtime Board", Columns: DefaultColumns,
+		// The same cap the create endpoint defaults to (cmd/api/boards.go). Seeding
+		// this repo call with the zero value would make the board's cap $0, which the
+		// dispatcher reads as "already over budget".
+		BudgetDailyMicros: DefaultBudgetDailyMicros,
 	}); err != nil {
 		t.Fatalf("create board: %v", err)
 	}
@@ -77,7 +81,7 @@ func newRuntimeFixture(t *testing.T, retryPolicy string, maxAttempts int) runtim
 		t.Fatalf("ready: %v", err)
 	}
 	runID := ulid.Must()
-	claimed, err := repo.ClaimReadyTasks(ctx, orgID, boardID, runID, 1)
+	claimed, err := repo.ClaimReadyTasks(ctx, orgID, boardID, []string{runID}, 1)
 	if err != nil {
 		t.Fatalf("claim: %v", err)
 	}
@@ -86,7 +90,11 @@ func newRuntimeFixture(t *testing.T, retryPolicy string, maxAttempts int) runtim
 	}
 	return runtimeFixture{
 		orgID: orgID, boardID: boardID, taskID: task.ID, agentID: agent.ID, runID: runID,
-		svc: NewService(repo), repo: repo, maxTries: maxAttempts,
+		// WithClaimLock matches production: the dispatcher always names its instance,
+		// and a run with no owner cannot be heartbeated by anyone (see
+		// HeartbeatOwned, which refuses an unnamed heartbeat rather than applying it
+		// to every run in the org).
+		svc: NewService(repo).WithClaimLock("test-host"), repo: repo, maxTries: maxAttempts,
 	}
 }
 
@@ -194,7 +202,7 @@ func TestPgEndRunCountsAndCapsRetries(t *testing.T) {
 	// Attempt 2 fails as well: 2 failures against max_attempts=2 is the ceiling,
 	// so the task stops instead of looping.
 	runID2 := ulid.Must()
-	if _, err := f.repo.ClaimReadyTasks(context.Background(), f.orgID, f.boardID, runID2, 1); err != nil {
+	if _, err := f.repo.ClaimReadyTasks(context.Background(), f.orgID, f.boardID, []string{runID2}, 1); err != nil {
 		t.Fatalf("re-claim: %v", err)
 	}
 	if _, err := f.svc.StartRun(context.Background(), f.orgID, f.taskID, f.agentID, runID2); err != nil {

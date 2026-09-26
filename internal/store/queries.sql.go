@@ -11,6 +11,54 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const agentSkillBodies = `-- name: AgentSkillBodies :many
+SELECT s.slug, s.name, s.body_md, array_position($1::text[], s.slug) AS position
+FROM agent_skills s
+WHERE s.org_id = $2 AND s.slug = ANY($1::text[])
+ORDER BY position
+`
+
+type AgentSkillBodiesParams struct {
+	Slugs []string
+	OrgID string
+}
+
+type AgentSkillBodiesRow struct {
+	Slug     string
+	Name     string
+	BodyMd   string
+	Position int32
+}
+
+// Resolusi skills_json -> teks prompt (3.8: "resolusi slug -> skill saat menyusun
+// prompt agent"). Dikerjakan di SQL, bukan di Go, karena urutannya milik
+// array_positions: skills_json adalah pilihan yang BERURUTAN dan urutan itu
+// satu-satunya sinyal prioritas yang dipunyainya.
+func (q *Queries) AgentSkillBodies(ctx context.Context, arg AgentSkillBodiesParams) ([]AgentSkillBodiesRow, error) {
+	rows, err := q.db.Query(ctx, agentSkillBodies, arg.Slugs, arg.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AgentSkillBodiesRow
+	for rows.Next() {
+		var i AgentSkillBodiesRow
+		if err := rows.Scan(
+			&i.Slug,
+			&i.Name,
+			&i.BodyMd,
+			&i.Position,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const archiveAgent = `-- name: ArchiveAgent :one
 UPDATE agents
 SET archived_at = now()
@@ -173,6 +221,50 @@ func (q *Queries) BlockTask(ctx context.Context, arg BlockTaskParams) (Task, err
 	return i, err
 }
 
+const boardBudgetToday = `-- name: BoardBudgetToday :one
+SELECT b.budget_daily_micros AS cap, b.id AS board_id,
+       COALESCE(d.total_micros, 0)::bigint AS spent_today,
+       COALESCE(d.run_count, 0)::int AS run_count,
+       CASE
+         WHEN COALESCE(d.total_micros, 0) >= b.budget_daily_micros THEN 'exceeded'
+         WHEN COALESCE(d.total_micros, 0) >= (b.budget_daily_micros * 0.8) THEN 'warning'
+         ELSE 'ok'
+       END AS budget_status
+FROM boards b
+LEFT JOIN daily_board_costs d
+  ON d.board_id = b.id AND d.day = (now() AT TIME ZONE 'UTC')::date
+WHERE b.id = $1 AND b.org_id = $2
+`
+
+type BoardBudgetTodayParams struct {
+	ID    string
+	OrgID string
+}
+
+type BoardBudgetTodayRow struct {
+	Cap          int64
+	BoardID      string
+	SpentToday   int64
+	RunCount     int32
+	BudgetStatus string
+}
+
+// 4c versi tabel agregat: cap, terpakai hari ini, dan status ambang N18.
+// COALESCE untuk board yang belum punya baris hari ini — cap tetap terbaca,
+// terpakai nol, jadi guardrail-nya tidak bergantung pada ada-tidaknya baris.
+func (q *Queries) BoardBudgetToday(ctx context.Context, arg BoardBudgetTodayParams) (BoardBudgetTodayRow, error) {
+	row := q.db.QueryRow(ctx, boardBudgetToday, arg.ID, arg.OrgID)
+	var i BoardBudgetTodayRow
+	err := row.Scan(
+		&i.Cap,
+		&i.BoardID,
+		&i.SpentToday,
+		&i.RunCount,
+		&i.BudgetStatus,
+	)
+	return i, err
+}
+
 const boardSpendToday = `-- name: BoardSpendToday :one
 SELECT COALESCE(SUM(l.cost_micros), 0)::BIGINT AS spend_micros
 FROM ledger_entries l
@@ -193,23 +285,69 @@ func (q *Queries) BoardSpendToday(ctx context.Context, arg BoardSpendTodayParams
 	return spend_micros, err
 }
 
+const bumpDailyRunCount = `-- name: BumpDailyRunCount :exec
+UPDATE daily_board_costs SET run_count = run_count + 1, updated_at = now()
+WHERE board_id = $1 AND day = (now() AT TIME ZONE 'UTC')::date
+`
+
+// run_count naik sekali per run, bukan per step; dipanggil saat run berakhir.
+func (q *Queries) BumpDailyRunCount(ctx context.Context, boardID string) error {
+	_, err := q.db.Exec(ctx, bumpDailyRunCount, boardID)
+	return err
+}
+
+const claimReadyTaskDepsBlocked = `-- name: ClaimReadyTaskDepsBlocked :execrows
+UPDATE tasks t SET status = 'blocked', block_kind = 'dependency'
+WHERE t.org_id = $1 AND t.board_id = $2 AND t.status = 'ready' AND t.current_run_id IS NULL
+  AND EXISTS (
+    SELECT 1 FROM task_links tl JOIN tasks p ON p.id = tl.parent_id
+    WHERE tl.child_id = t.id AND p.status NOT IN ('done','cancelled','archived')
+  )
+`
+
+type ClaimReadyTaskDepsBlockedParams struct {
+	OrgID   string
+	BoardID string
+}
+
+// Fase 3d (5.2): kandidat yang parent-nya belum selesai tidak diklaim, tapi
+// dipindah ke 'blocked' dengan block_kind='dependency' supaya terlihat di papan
+// sebagai menunggu, bukan hilang dari pandangan. 4e.1 membangunkannya kembali.
+func (q *Queries) ClaimReadyTaskDepsBlocked(ctx context.Context, arg ClaimReadyTaskDepsBlockedParams) (int64, error) {
+	result, err := q.db.Exec(ctx, claimReadyTaskDepsBlocked, arg.OrgID, arg.BoardID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const claimReadyTasks = `-- name: ClaimReadyTasks :many
-WITH claimed AS (
-    SELECT t.id
+WITH claimable AS (
+    SELECT t.id, t.priority, t.created_at
     FROM tasks t
     WHERE t.org_id = $1 AND t.board_id = $2
       AND t.status = 'ready'
       AND t.current_run_id IS NULL
-    ORDER BY t.priority DESC, t.created_at DESC
+      AND NOT EXISTS (
+          SELECT 1 FROM task_links tl
+          JOIN tasks parent ON parent.id = tl.parent_id
+          WHERE tl.child_id = t.id
+            AND parent.status NOT IN ('done','cancelled','archived')
+      )
+    ORDER BY t.priority DESC, t.created_at ASC
     LIMIT $3
     FOR UPDATE SKIP LOCKED
+),
+numbered AS (
+    SELECT id, row_number() OVER (ORDER BY priority DESC, created_at ASC) AS rn
+    FROM claimable
 )
 UPDATE tasks t
 SET status = 'running',
-    current_run_id = $4,
+    current_run_id = ($4::text[])[n.rn],
     started_at = COALESCE(t.started_at, now())
-FROM claimed c
-WHERE t.id = c.id
+FROM numbered n
+WHERE t.id = n.id
 RETURNING t.id, t.org_id, t.board_id, t.title, t.body, t.status, t.priority,
           t.assignee_agent_id, t.created_by, t.idempotency_key, t.block_kind,
           t.consecutive_failures, t.workspace_kind, t.workspace_path, t.branch_name,
@@ -219,18 +357,38 @@ RETURNING t.id, t.org_id, t.board_id, t.title, t.body, t.status, t.priority,
 `
 
 type ClaimReadyTasksParams struct {
-	OrgID        string
-	BoardID      string
-	Limit        int32
-	CurrentRunID *string
+	OrgID   string
+	BoardID string
+	Limit   int32
+	RunIds  []string
 }
 
+// Satu ULID per task, bukan satu untuk seluruh batch.
+//
+// Versi sebelumnya menulis `current_run_id = $4` untuk SEMUA baris yang diklaim,
+// jadi tiga task yang diklaim bersama akan berbagi satu run id. Dua akibatnya:
+// `StartRun` menolak task yang current_run_id-nya bukan run id yang dipanggil
+// (hanya satu yang lolos), dan baris `runs` yang lain tidak pernah ada padahal
+// task-nya sudah `running`. Sekarang pemanggil mengirim array ULID sepanjang
+// batch dan tiap baris mendapat indeksnya sendiri.
+//
+// `created_at ASC` mengikuti 4a: task lama didahulukan dalam prioritas yang sama
+// (versi lama memakai DESC, jadi FIFO-nya terbalik).
+//
+// Predikat dependency ikut di sini, bukan di Go: sebuah task yang parent-nya
+// belum `done`/`cancelled`/`archived` tidak boleh diklaim. Menaruhnya di SQL
+// berarti properti itu tidak bisa dilewati oleh pemanggil mana pun.
+// Dua CTE, bukan satu: Postgres menolak `FOR UPDATE` di query yang memakai window
+// function ("FOR UPDATE is not allowed with window functions"). Jadi lock dan
+// penomoran dipisah — CTE pertama mengunci batch-nya, CTE kedua menomori baris
+// yang sudah terkunci. Lock-nya tetap dipegang sampai transaksi commit, jadi
+// penomoran tidak membuka celah bagi dispatcher lain.
 func (q *Queries) ClaimReadyTasks(ctx context.Context, arg ClaimReadyTasksParams) ([]Task, error) {
 	rows, err := q.db.Query(ctx, claimReadyTasks,
 		arg.OrgID,
 		arg.BoardID,
 		arg.Limit,
-		arg.CurrentRunID,
+		arg.RunIds,
 	)
 	if err != nil {
 		return nil, err
@@ -942,20 +1100,22 @@ func (q *Queries) CreateProvider(ctx context.Context, arg CreateProviderParams) 
 }
 
 const createRun = `-- name: CreateRun :one
-INSERT INTO runs (id, org_id, task_id, agent_id, attempt, status, max_runtime_seconds, last_heartbeat_at)
-VALUES ($1, $2, $3, $4, $5, 'running', $6, now())
+INSERT INTO runs (id, org_id, task_id, agent_id, attempt, status, max_runtime_seconds,
+                  last_heartbeat_at, claim_lock, claim_expires)
+VALUES ($1, $2, $3, $4, $5, 'running', $6::int, now(), $7, now() + make_interval(secs => $6::int))
 RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
           last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
           summary, error, started_at, ended_at
 `
 
 type CreateRunParams struct {
-	ID                string
-	OrgID             string
-	TaskID            string
-	AgentID           string
-	Attempt           int16
-	MaxRuntimeSeconds int32
+	ID        string
+	OrgID     string
+	TaskID    string
+	AgentID   string
+	Attempt   int16
+	Column6   int32
+	ClaimLock *string
 }
 
 type CreateRunRow struct {
@@ -978,6 +1138,15 @@ type CreateRunRow struct {
 	EndedAt           pgtype.Timestamptz
 }
 
+// claim_lock dan claim_expires wajib diisi di sini, bukan opsional.
+// `claim_expires` adalah kolom yang membuat reclaim 4b mungkin: query itu
+// mensyaratkan `claim_expires IS NOT NULL`, jadi run yang dibiarkan NULL tidak
+// pernah bisa di-reclaim — agent yang hang akan memegang task `running` selamanya
+// dan jalur retry 10 tidak pernah kebagian. Batasnya max_runtime_seconds agent
+// (N9 4 jam): run yang melewatinya basi menurut definisi.
+// `$6::int` di kedua tempat, bukan `$6` polos: make_interval(secs) bertipe
+// double precision sementara kolomnya integer, dan Postgres menolak satu parameter
+// yang dipakai dengan dua tipe ("inconsistent types deduced for parameter").
 func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (CreateRunRow, error) {
 	row := q.db.QueryRow(ctx, createRun,
 		arg.ID,
@@ -985,7 +1154,8 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (CreateRun
 		arg.TaskID,
 		arg.AgentID,
 		arg.Attempt,
-		arg.MaxRuntimeSeconds,
+		arg.Column6,
+		arg.ClaimLock,
 	)
 	var i CreateRunRow
 	err := row.Scan(
@@ -2041,6 +2211,29 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (GetUserByIDRow, e
 	return i, err
 }
 
+const heartbeatOwnedRuns = `-- name: HeartbeatOwnedRuns :exec
+
+UPDATE runs SET last_heartbeat_at = now()
+WHERE status = 'running' AND org_id = $1 AND claim_lock = $2
+`
+
+type HeartbeatOwnedRunsParams struct {
+	OrgID     string
+	ClaimLock *string
+}
+
+// ============================================================================
+// M4 irisan 2: dispatcher tick (heartbeat, reclaim, dependency, budget, klaim)
+// ============================================================================
+// Fase 1 tick. 5.1: "perbarui last_heartbeat_at untuk semua run yang sedang
+// dirunning oleh instance ini" — kuncinya claim_lock (identitas instance), bukan
+// board: `runs` memang tidak punya board_id, dan dua instance di board yang sama
+// tidak boleh saling memperpanjang hidup.
+func (q *Queries) HeartbeatOwnedRuns(ctx context.Context, arg HeartbeatOwnedRunsParams) error {
+	_, err := q.db.Exec(ctx, heartbeatOwnedRuns, arg.OrgID, arg.ClaimLock)
+	return err
+}
+
 const heartbeatRun = `-- name: HeartbeatRun :one
 UPDATE runs
 SET last_heartbeat_at = now()
@@ -2747,6 +2940,56 @@ func (q *Queries) ListBoards(ctx context.Context, arg ListBoardsParams) ([]Board
 	return items, nil
 }
 
+const listClaimableBoards = `-- name: ListClaimableBoards :many
+SELECT b.id, b.org_id, b.project_id, b.slug, b.name, b.budget_daily_micros
+FROM boards b
+WHERE EXISTS (
+    SELECT 1 FROM tasks t
+    WHERE t.board_id = b.id AND t.status IN ('ready','running')
+)
+`
+
+type ListClaimableBoardsRow struct {
+	ID                string
+	OrgID             string
+	ProjectID         string
+	Slug              string
+	Name              string
+	BudgetDailyMicros int64
+}
+
+// 5.1: "satu instance per board yang aktif". Daftar board yang punya project
+// (board tanpa project tidak bisa punya task). Instance memilihnya sendiri lewat
+// tick: tidak ada registry pusat, jadi menambah instance tidak butuh koordinasi.
+// Dibatasi ke board yang punya setidaknya satu task `ready` supaya org dengan
+// puluhan board tidak membayar satu query budget per board tiap 2 detik.
+func (q *Queries) ListClaimableBoards(ctx context.Context) ([]ListClaimableBoardsRow, error) {
+	rows, err := q.db.Query(ctx, listClaimableBoards)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClaimableBoardsRow
+	for rows.Next() {
+		var i ListClaimableBoardsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.ProjectID,
+			&i.Slug,
+			&i.Name,
+			&i.BudgetDailyMicros,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMembers = `-- name: ListMembers :many
 SELECT m.user_id, u.email, u.name, m.role, m.created_at
 FROM memberships m
@@ -3297,6 +3540,136 @@ func (q *Queries) NextRunAttempt(ctx context.Context, taskID string) (int32, err
 	var attempt int32
 	err := row.Scan(&attempt)
 	return attempt, err
+}
+
+const reclaimStaleRuns = `-- name: ReclaimStaleRuns :many
+WITH stale AS (
+    SELECT r.id, r.task_id
+    FROM runs r
+    WHERE r.org_id = $1 AND r.status = 'running'
+      AND r.claim_expires IS NOT NULL
+      AND r.last_heartbeat_at < now() - interval '15 minutes'
+    ORDER BY r.last_heartbeat_at ASC
+    LIMIT $2
+    FOR UPDATE SKIP LOCKED
+),
+ended AS (
+    UPDATE runs r SET status = 'ended', outcome = 'reclaimed', ended_at = now()
+    FROM stale s WHERE r.id = s.id
+    RETURNING r.task_id
+)
+UPDATE tasks t
+SET status = CASE WHEN t.consecutive_failures + 1 >= $3::int THEN 'failed' ELSE 'ready' END,
+    current_run_id = NULL,
+    consecutive_failures = t.consecutive_failures + 1
+FROM ended e
+WHERE t.id = e.task_id AND t.status = 'running'
+RETURNING t.id, t.board_id, t.status
+`
+
+type ReclaimStaleRunsParams struct {
+	OrgID       string
+	Limit       int32
+	MaxAttempts int32
+}
+
+type ReclaimStaleRunsRow struct {
+	ID      string
+	BoardID string
+	Status  string
+}
+
+// 4b: run 'running' tanpa heartbeat 15 menit (N8) di-reclaim dalam satu
+// transaksi: run ditutup dengan outcome 'reclaimed', task dikembalikan ke
+// 'ready' dengan consecutive_failures naik (§10.3). Task yang sudah melewati
+// plafon percobaan ditandai 'failed' alih-alih 'ready', supaya tidak diklaim
+// ulang tanpa batas.
+func (q *Queries) ReclaimStaleRuns(ctx context.Context, arg ReclaimStaleRunsParams) ([]ReclaimStaleRunsRow, error) {
+	rows, err := q.db.Query(ctx, reclaimStaleRuns, arg.OrgID, arg.Limit, arg.MaxAttempts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReclaimStaleRunsRow
+	for rows.Next() {
+		var i ReclaimStaleRunsRow
+		if err := rows.Scan(&i.ID, &i.BoardID, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const recordRunUsage = `-- name: RecordRunUsage :exec
+UPDATE runs
+SET cost_micros = cost_micros + $2,
+    tokens_in   = tokens_in   + $3,
+    tokens_out  = tokens_out  + $4
+WHERE id = $1
+`
+
+type RecordRunUsageParams struct {
+	ID         string
+	CostMicros int64
+	TokensIn   int64
+	TokensOut  int64
+}
+
+// Rollup kolom biaya/token di runs sendiri, bukan hanya di ledger: 5.3 memakai
+// `runs.cost_micros` untuk laporan per run, dan agent tidak pernah menulisnya.
+func (q *Queries) RecordRunUsage(ctx context.Context, arg RecordRunUsageParams) error {
+	_, err := q.db.Exec(ctx, recordRunUsage,
+		arg.ID,
+		arg.CostMicros,
+		arg.TokensIn,
+		arg.TokensOut,
+	)
+	return err
+}
+
+const releaseClaim = `-- name: ReleaseClaim :one
+UPDATE tasks t
+SET current_run_id = NULL,
+    consecutive_failures = t.consecutive_failures + 1,
+    status = CASE WHEN $1::text = 'needs_input' THEN 'blocked' ELSE 'failed' END,
+    block_kind = CASE WHEN $1::text = 'needs_input' THEN 'needs_input' ELSE NULL END
+WHERE t.id = $2 AND t.org_id = $3 AND t.status = 'running'
+RETURNING t.id, t.board_id, t.status
+`
+
+type ReleaseClaimParams struct {
+	FailureKind string
+	TaskID      string
+	OrgID       string
+}
+
+type ReleaseClaimRow struct {
+	ID      string
+	BoardID string
+	Status  string
+}
+
+// Lepaskan task yang sudah diklaim tapi tidak bisa dijalankan (tidak ada agent,
+// agent diarsipkan, atau tidak ada alamat provider) — termasuk kasus StartRun
+// gagal, di mana baris `runs` TIDAK ADA sehingga EndRun 4b tidak bisa dipakai.
+//
+// Kenapa ini harus ada: klaim menulis `status='running'` + current_run_id. Kalau
+// persiapan gagal dan tidak ada yang melepasnya, task itu `running` selamanya —
+// tidak terlihat reclaim (tidak ada run untuk di-reclaim) dan tidak terlihat
+// predikat klaim (bukan `ready`). Satu task, satu user, hilang dari antrean.
+//
+// Diterapkan di sini, bukan di Go, karena 10.2 memetakan `needs_input` ke
+// `blocked` dan sisanya ke `failed`; memisahkannya membuat papan bisa menampilkan
+// "menunggu manusia" alih-alih kehilangan tasknya.
+func (q *Queries) ReleaseClaim(ctx context.Context, arg ReleaseClaimParams) (ReleaseClaimRow, error) {
+	row := q.db.QueryRow(ctx, releaseClaim, arg.FailureKind, arg.TaskID, arg.OrgID)
+	var i ReleaseClaimRow
+	err := row.Scan(&i.ID, &i.BoardID, &i.Status)
+	return i, err
 }
 
 const renameOrgWithAudit = `-- name: RenameOrgWithAudit :exec
@@ -4000,6 +4373,37 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 	return i, err
 }
 
+const upsertDailyBoardCost = `-- name: UpsertDailyBoardCost :exec
+INSERT INTO daily_board_costs (org_id, board_id, day, total_micros, tokens_in, tokens_out, updated_at)
+VALUES ($1, $2, (now() AT TIME ZONE 'UTC')::date, $3, $4, $5, now())
+ON CONFLICT (board_id, day) DO UPDATE
+SET total_micros = daily_board_costs.total_micros + EXCLUDED.total_micros,
+    tokens_in    = daily_board_costs.tokens_in    + EXCLUDED.tokens_in,
+    tokens_out   = daily_board_costs.tokens_out   + EXCLUDED.tokens_out,
+    updated_at   = now()
+`
+
+type UpsertDailyBoardCostParams struct {
+	OrgID       string
+	BoardID     string
+	TotalMicros int64
+	TokensIn    int64
+	TokensOut   int64
+}
+
+// 4c/5.3: agregat biaya harian per board. Di-UPSERT setiap step selesai, jadi
+// dispatcher tidak perlu menjumlahkan ledger_entries tiap tick.
+func (q *Queries) UpsertDailyBoardCost(ctx context.Context, arg UpsertDailyBoardCostParams) error {
+	_, err := q.db.Exec(ctx, upsertDailyBoardCost,
+		arg.OrgID,
+		arg.BoardID,
+		arg.TotalMicros,
+		arg.TokensIn,
+		arg.TokensOut,
+	)
+	return err
+}
+
 const upsertModelPrice = `-- name: UpsertModelPrice :one
 
 INSERT INTO agent_model_prices (
@@ -4063,4 +4467,18 @@ func (q *Queries) UpsertModelPrice(ctx context.Context, arg UpsertModelPricePara
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const wakeDependents = `-- name: WakeDependents :exec
+UPDATE tasks t SET status = 'ready', block_kind = NULL
+WHERE t.id IN (SELECT tl.child_id FROM task_links tl WHERE tl.parent_id = $1)
+  AND t.status = 'blocked' AND t.block_kind = 'dependency'
+`
+
+// 4e.1: setelah sebuah task masuk 'done', anak yang diblokir karena dependency
+// dibangunkan. Hanya yang block_kind='dependency' — blokir karena policy atau
+// kebutuhan input manusia bukan urusan query ini.
+func (q *Queries) WakeDependents(ctx context.Context, parentID string) error {
+	_, err := q.db.Exec(ctx, wakeDependents, parentID)
+	return err
 }

@@ -451,6 +451,17 @@ func (s *Service) plaintextKey(ctx context.Context, orgID, id string) (string, e
 	return plaintext, nil
 }
 
+// ProviderKey returns the plaintext credential stored on a provider row.
+//
+// §6A.J moved credentials here once per workspace, so this is what the runtime
+// reads before calling a model; the per-agent column is the legacy path for agents
+// that carry no provider of their own. An empty string with a nil error means the
+// provider has no credential, which is a supported state (a local model server
+// needs none) and must not be confused with a failure to open one.
+func (s *Service) ProviderKey(ctx context.Context, orgID, id string) (string, error) {
+	return s.plaintextKey(ctx, orgID, id)
+}
+
 // StaleProviders returns the providers whose model list needs refetching
 // (AC7's automatic half), across every workspace.
 //

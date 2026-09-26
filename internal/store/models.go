@@ -111,6 +111,17 @@ type Board struct {
 	CreatedAt         pgtype.Timestamptz
 }
 
+type DailyBoardCost struct {
+	OrgID       string
+	BoardID     string
+	Day         pgtype.Date
+	TotalMicros int64
+	RunCount    int32
+	TokensIn    int64
+	TokensOut   int64
+	UpdatedAt   pgtype.Timestamptz
+}
+
 type Event struct {
 	ID          int64
 	OrgID       string

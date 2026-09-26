@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"agentdeck/internal/board"
 	"agentdeck/internal/crypto"
 	"agentdeck/internal/provider"
 	"agentdeck/internal/providerreg"
@@ -92,4 +93,25 @@ func newProviderService(pool store.DBTX, masterKey string) *providerreg.Service 
 			Decrypt: credentialDecrypter(masterKey),
 		},
 	)
+}
+
+// providerRegistryAdapter lets the board service read a provider's endpoint and
+// credential without importing providerreg.
+//
+// The two packages describe the same row with different types, and board must not
+// depend on providerreg — the registry is a sibling domain, and a shared type would
+// make one of them change when the other does. The adapter is two methods, and it
+// lives here because this is the only layer that sees both.
+type providerRegistryAdapter struct{ svc *providerreg.Service }
+
+func (a providerRegistryAdapter) Get(ctx context.Context, orgID, id string) (board.ProviderRef, error) {
+	p, err := a.svc.Get(ctx, orgID, id)
+	if err != nil {
+		return board.ProviderRef{}, err
+	}
+	return board.ProviderRef{ID: p.ID, BaseURL: p.BaseURL}, nil
+}
+
+func (a providerRegistryAdapter) ProviderKey(ctx context.Context, orgID, id string) (string, error) {
+	return a.svc.ProviderKey(ctx, orgID, id)
 }

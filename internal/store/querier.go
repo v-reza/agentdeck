@@ -9,6 +9,11 @@ import (
 )
 
 type Querier interface {
+	// Resolusi skills_json -> teks prompt (3.8: "resolusi slug -> skill saat menyusun
+	// prompt agent"). Dikerjakan di SQL, bukan di Go, karena urutannya milik
+	// array_positions: skills_json adalah pilihan yang BERURUTAN dan urutan itu
+	// satu-satunya sinyal prioritas yang dipunyainya.
+	AgentSkillBodies(ctx context.Context, arg AgentSkillBodiesParams) ([]AgentSkillBodiesRow, error)
 	// US-AD73: archived agents keep their row (running tasks still resolve their
 	// retry/limit source) but disappear from every assign dropdown.
 	ArchiveAgent(ctx context.Context, arg ArchiveAgentParams) (ArchiveAgentRow, error)
@@ -17,8 +22,38 @@ type Querier interface {
 	// task with no kind cannot be routed: the state machine (5.4) sends each kind
 	// back to `ready` by a different action.
 	BlockTask(ctx context.Context, arg BlockTaskParams) (Task, error)
+	// 4c versi tabel agregat: cap, terpakai hari ini, dan status ambang N18.
+	// COALESCE untuk board yang belum punya baris hari ini — cap tetap terbaca,
+	// terpakai nol, jadi guardrail-nya tidak bergantung pada ada-tidaknya baris.
+	BoardBudgetToday(ctx context.Context, arg BoardBudgetTodayParams) (BoardBudgetTodayRow, error)
 	// US-AD32 cost gate reads this: spend for one board since local midnight.
 	BoardSpendToday(ctx context.Context, arg BoardSpendTodayParams) (int64, error)
+	// run_count naik sekali per run, bukan per step; dipanggil saat run berakhir.
+	BumpDailyRunCount(ctx context.Context, boardID string) error
+	// Fase 3d (5.2): kandidat yang parent-nya belum selesai tidak diklaim, tapi
+	// dipindah ke 'blocked' dengan block_kind='dependency' supaya terlihat di papan
+	// sebagai menunggu, bukan hilang dari pandangan. 4e.1 membangunkannya kembali.
+	ClaimReadyTaskDepsBlocked(ctx context.Context, arg ClaimReadyTaskDepsBlockedParams) (int64, error)
+	// Satu ULID per task, bukan satu untuk seluruh batch.
+	//
+	// Versi sebelumnya menulis `current_run_id = $4` untuk SEMUA baris yang diklaim,
+	// jadi tiga task yang diklaim bersama akan berbagi satu run id. Dua akibatnya:
+	// `StartRun` menolak task yang current_run_id-nya bukan run id yang dipanggil
+	// (hanya satu yang lolos), dan baris `runs` yang lain tidak pernah ada padahal
+	// task-nya sudah `running`. Sekarang pemanggil mengirim array ULID sepanjang
+	// batch dan tiap baris mendapat indeksnya sendiri.
+	//
+	// `created_at ASC` mengikuti 4a: task lama didahulukan dalam prioritas yang sama
+	// (versi lama memakai DESC, jadi FIFO-nya terbalik).
+	//
+	// Predikat dependency ikut di sini, bukan di Go: sebuah task yang parent-nya
+	// belum `done`/`cancelled`/`archived` tidak boleh diklaim. Menaruhnya di SQL
+	// berarti properti itu tidak bisa dilewati oleh pemanggil mana pun.
+	// Dua CTE, bukan satu: Postgres menolak `FOR UPDATE` di query yang memakai window
+	// function ("FOR UPDATE is not allowed with window functions"). Jadi lock dan
+	// penomoran dipisah — CTE pertama mengunci batch-nya, CTE kedua menomori baris
+	// yang sudah terkunci. Lock-nya tetap dipegang sampai transaksi commit, jadi
+	// penomoran tidak membuka celah bagi dispatcher lain.
 	ClaimReadyTasks(ctx context.Context, arg ClaimReadyTasksParams) ([]Task, error)
 	ClaimShadowUser(ctx context.Context, arg ClaimShadowUserParams) error
 	// Targeted claim for POST /tasks/{id}/claim (US-AD21). ClaimReadyTasks claims a
@@ -101,6 +136,15 @@ type Querier interface {
 	// provider row, so one edit reaches every agent that uses it (AC6). Every query
 	// carries org_id explicitly, like the rest of this file.
 	CreateProvider(ctx context.Context, arg CreateProviderParams) (Provider, error)
+	// claim_lock dan claim_expires wajib diisi di sini, bukan opsional.
+	// `claim_expires` adalah kolom yang membuat reclaim 4b mungkin: query itu
+	// mensyaratkan `claim_expires IS NOT NULL`, jadi run yang dibiarkan NULL tidak
+	// pernah bisa di-reclaim — agent yang hang akan memegang task `running` selamanya
+	// dan jalur retry 10 tidak pernah kebagian. Batasnya max_runtime_seconds agent
+	// (N9 4 jam): run yang melewatinya basi menurut definisi.
+	// `$6::int` di kedua tempat, bukan `$6` polos: make_interval(secs) bertipe
+	// double precision sementara kolomnya integer, dan Postgres menolak satu parameter
+	// yang dipakai dengan dua tipe ("inconsistent types deduced for parameter").
 	CreateRun(ctx context.Context, arg CreateRunParams) (CreateRunRow, error)
 	// token_hash is SHA-256 of the 64-byte raw token; the raw token only ever
 	// exists in the Set-Cookie (ARCHITECTURE 3.19).
@@ -170,6 +214,14 @@ type Querier interface {
 	GetTask(ctx context.Context, arg GetTaskParams) (Task, error)
 	GetUserByEmail(ctx context.Context, lower string) (GetUserByEmailRow, error)
 	GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error)
+	// ============================================================================
+	// M4 irisan 2: dispatcher tick (heartbeat, reclaim, dependency, budget, klaim)
+	// ============================================================================
+	// Fase 1 tick. 5.1: "perbarui last_heartbeat_at untuk semua run yang sedang
+	// dirunning oleh instance ini" — kuncinya claim_lock (identitas instance), bukan
+	// board: `runs` memang tidak punya board_id, dan dua instance di board yang sama
+	// tidak boleh saling memperpanjang hidup.
+	HeartbeatOwnedRuns(ctx context.Context, arg HeartbeatOwnedRunsParams) error
 	HeartbeatRun(ctx context.Context, arg HeartbeatRunParams) (HeartbeatRunRow, error)
 	// The only writer of tasks.consecutive_failures. The retry ceiling (J4) is read
 	// from this column, so without an increment a failing task retries forever:
@@ -232,6 +284,12 @@ type Querier interface {
 	// term for "no match", so it cannot double as "unset".
 	ListBoardTasks(ctx context.Context, arg ListBoardTasksParams) ([]Task, error)
 	ListBoards(ctx context.Context, arg ListBoardsParams) ([]Board, error)
+	// 5.1: "satu instance per board yang aktif". Daftar board yang punya project
+	// (board tanpa project tidak bisa punya task). Instance memilihnya sendiri lewat
+	// tick: tidak ada registry pusat, jadi menambah instance tidak butuh koordinasi.
+	// Dibatasi ke board yang punya setidaknya satu task `ready` supaya org dengan
+	// puluhan board tidak membayar satu query budget per board tiap 2 detik.
+	ListClaimableBoards(ctx context.Context) ([]ListClaimableBoardsRow, error)
 	ListMembers(ctx context.Context, orgID string) ([]ListMembersRow, error)
 	ListModelPrices(ctx context.Context, orgID string) ([]AgentModelPrice, error)
 	// The org roster a user belongs to, with their role in each. Scoping is
@@ -266,6 +324,28 @@ type Querier interface {
 	ListTaskParents(ctx context.Context, childID string) ([]ListTaskParentsRow, error)
 	ListTaskRuns(ctx context.Context, arg ListTaskRunsParams) ([]ListTaskRunsRow, error)
 	NextRunAttempt(ctx context.Context, taskID string) (int32, error)
+	// 4b: run 'running' tanpa heartbeat 15 menit (N8) di-reclaim dalam satu
+	// transaksi: run ditutup dengan outcome 'reclaimed', task dikembalikan ke
+	// 'ready' dengan consecutive_failures naik (§10.3). Task yang sudah melewati
+	// plafon percobaan ditandai 'failed' alih-alih 'ready', supaya tidak diklaim
+	// ulang tanpa batas.
+	ReclaimStaleRuns(ctx context.Context, arg ReclaimStaleRunsParams) ([]ReclaimStaleRunsRow, error)
+	// Rollup kolom biaya/token di runs sendiri, bukan hanya di ledger: 5.3 memakai
+	// `runs.cost_micros` untuk laporan per run, dan agent tidak pernah menulisnya.
+	RecordRunUsage(ctx context.Context, arg RecordRunUsageParams) error
+	// Lepaskan task yang sudah diklaim tapi tidak bisa dijalankan (tidak ada agent,
+	// agent diarsipkan, atau tidak ada alamat provider) — termasuk kasus StartRun
+	// gagal, di mana baris `runs` TIDAK ADA sehingga EndRun 4b tidak bisa dipakai.
+	//
+	// Kenapa ini harus ada: klaim menulis `status='running'` + current_run_id. Kalau
+	// persiapan gagal dan tidak ada yang melepasnya, task itu `running` selamanya —
+	// tidak terlihat reclaim (tidak ada run untuk di-reclaim) dan tidak terlihat
+	// predikat klaim (bukan `ready`). Satu task, satu user, hilang dari antrean.
+	//
+	// Diterapkan di sini, bukan di Go, karena 10.2 memetakan `needs_input` ke
+	// `blocked` dan sisanya ke `failed`; memisahkannya membuat papan bisa menampilkan
+	// "menunggu manusia" alih-alih kehilangan tasknya.
+	ReleaseClaim(ctx context.Context, arg ReleaseClaimParams) (ReleaseClaimRow, error)
 	// Keep the rename and its audit row in one statement: if the INSERT fails, the
 	// data-modifying CTE is rolled back too (US-AD77 fail-closed).
 	RenameOrgWithAudit(ctx context.Context, arg RenameOrgWithAuditParams) error
@@ -327,12 +407,19 @@ type Querier interface {
 	// spelling drifts between sqlc releases and breaks the caller. `sqlc.arg` names
 	// the parameter and `::text` pins the type, so the generated field is stable.
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error)
+	// 4c/5.3: agregat biaya harian per board. Di-UPSERT setiap step selesai, jadi
+	// dispatcher tidak perlu menjumlahkan ledger_entries tiap tick.
+	UpsertDailyBoardCost(ctx context.Context, arg UpsertDailyBoardCostParams) error
 	// ---------------------------------------------------------------- harga manual --
 	// Tingkat 1 resolusi harga (DECISIONS 6A.C). Baris di sini MENANG atas tabel
 	// katalog exact maupun pattern: itu yang membuat `price_source` bernilai
 	// 'manual' di ledger. Nama model disimpan apa adanya, sama seperti yang
 	// dicocokkan `pricing.Resolve`.
 	UpsertModelPrice(ctx context.Context, arg UpsertModelPriceParams) (AgentModelPrice, error)
+	// 4e.1: setelah sebuah task masuk 'done', anak yang diblokir karena dependency
+	// dibangunkan. Hanya yang block_kind='dependency' — blokir karena policy atau
+	// kebutuhan input manusia bukan urusan query ini.
+	WakeDependents(ctx context.Context, parentID string) error
 }
 
 var _ Querier = (*Queries)(nil)

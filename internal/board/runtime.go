@@ -88,6 +88,7 @@ func (s *Service) StartRun(ctx context.Context, orgID, taskID, agentID, runID st
 		// agent's limit later must not extend a run already in flight, or a
 		// runaway run could be kept alive by editing the agent.
 		MaxRuntimeSecs: agent.MaxRuntimeSeconds,
+		ClaimLock:      s.claimLock,
 	})
 	if err != nil {
 		return Run{}, err
@@ -163,6 +164,7 @@ func (s *Service) ClaimAndStart(ctx context.Context, orgID, taskID string) (Run,
 	run, err := s.repo.CreateRun(ctx, Run{
 		ID: runID, OrgID: orgID, TaskID: claimed.ID, AgentID: agent.ID,
 		Attempt: attempt, Status: RunRunning, MaxRuntimeSecs: agent.MaxRuntimeSeconds,
+		ClaimLock: s.claimLock,
 	})
 	if err != nil {
 		return Run{}, err
@@ -249,9 +251,18 @@ func (s *Service) applyOutcome(ctx context.Context, task Task, run Run) error {
 	return nil
 }
 
-// retryOrFail is J4: increment the counter, then decide from the agent's own
-// policy whether another attempt is allowed.
+// retryOrFail is J4 plus the §10.2 taxonomy. Three-way, not two-way: a failure
+// kind can retry, can be terminal-recoverable, or can fail outright.
+//
+// `blocked` is the branch that used to be missing. §10.2 says needs_input,
+// dependency, policy and budget end in `blocked` with their own block_kind, and
+// that is not a softer `failed`: a policy refusal or a board out of budget will
+// refuse again identically, so retrying it spends money to learn nothing, while
+// `failed` would claim the work is impossible when a human can still unblock it.
 func (s *Service) retryOrFail(ctx context.Context, task Task, run Run) error {
+	if kind, blocked := BlockedKind(run.FailureKind); blocked {
+		return s.blockTask(ctx, task, kind)
+	}
 	failures, err := s.repo.IncrementTaskFailures(ctx, task.ID, task.OrgID)
 	if err != nil {
 		return err

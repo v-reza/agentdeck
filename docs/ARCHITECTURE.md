@@ -1795,8 +1795,10 @@ penambahan kode nanti, bukan migrasi data.
 `POST /providers/{id}/verify` menembak `POST {base_url}/chat/completions` dengan
 `max_tokens: 1`, bukan `GET /models`. Alasannya terukur (DECISIONS §6A.J): ada
 gateway yang menjawab `200` di `/models` tanpa kredensial sama sekali dan `401` di
-inference, jadi `/models` cuma membuktikan endpoint-nya nyala. Ini panggilan
-inference pertama di seluruh kode — runtime belum pernah memanggil LLM.
+inference, jadi `/models` cuma membuktikan endpoint-nya nyala. Saat probe ini ditulis
+itu panggilan inference pertama di seluruh kode; sekarang runtime juga memanggil LLM
+lewat `internal/executor` (§18.3), tapi path-nya berbeda dan tidak saling menggantikan:
+probe ini menjawab "kredensial ini bisa dipakai?", executor menjalankan sebuah task.
 
 Probe-nya **berhenti pada 2xx pertama, dan mencoba paling banyak 3 model** dari
 `models_json` provider itu sendiri. Satu model tidak cukup: gateway yang
@@ -2767,25 +2769,46 @@ gambar struktur di atas tidak dibaca sebagai janji:
 
 | Modul | Untuk | Status |
 |---|---|---|
-| `internal/dispatcher/` | Tick loop, claiming `FOR UPDATE SKIP LOCKED`, reclaim | Belum |
-| `internal/executor/` | Workspace (scratch/worktree/container) + runner LLM | Belum |
+| `internal/dispatcher/` | Tick loop: klaim, dependency, budget, reclaim, worker | **Ada** (lihat catatan) |
+| `internal/executor/` | Runner LLM satu task lawan satu agent | **Ada** (lihat catatan) |
 | `internal/sse/` | Broker SSE + `LISTEN/NOTIFY` | Belum |
 | `internal/storage/` | Klien R2/S3, presigned URL | Belum |
 | `internal/webhook/` | Pengiriman webhook + retry | Belum |
 | `tests/` | Integration test (Testcontainers), load test k6 | Belum |
 
-Runtime **belum pernah memanggil LLM**: `grep -r "chat/completions"` → satu hasil, dan
-itu probe kredensial fase 3 (`internal/provider.ProbeInference`, `max_tokens: 1`),
-bukan runtime.
+**Runtime sudah memanggil LLM.** `internal/executor` menyusun prompt dari
+`agent_skills.body_md` (§5.3), memanggil `POST {base_url}/chat/completions`, dan
+melaporkan biaya per step; `internal/dispatcher` menjalankan tick 2 s (N19) dengan
+batch 20 (N20): heartbeat → reclaim → gate dependency → gate budget → klaim →
+worker → finalisasi. Bukti lawan API nyata: `tools/probe-m5.py` (lihat §18.3.1).
 
-Tapi **siklus hidup run sudah ada** — `internal/board/runtime.go` + `cmd/api/runs.go`:
-klaim bertarget (`POST /tasks/{id}/claim`), `heartbeat`, `end`, trace `steps`, dan
-`ledger_entries` yang akhirnya punya penulis. Yang belum ada adalah **pemanggil
-LLM-nya**: nol kode di repo ini yang menentukan agent mana mengerjakan task mana
-lewat keputusan sendiri, dan itu keputusan produk (US-AD11: satu agent per task),
-bukan sesuatu yang bisa ditebak dari kontrak.
-Itu juga sebabnya "cek kredensial saat agent mau jalan" belum punya mekanisme
-(lihat `DECISIONS.md` §6A.J).
+Dispatcher **mati secara default** (`AGENTDECK_DISPATCH=1` untuk menyalakan).
+Alasannya bukan kehati-hatian: tick yang hidup berarti deployment yang baru
+di-upgrade mulai membayar completion begitu seseorang menugaskan agent ke sebuah
+task, dan board self-hosted yang tidak ada yang mengawasi justru tempat itu tidak
+ketahuan. Menyalakannya harus keputusan operator, bukan efek samping upgrade.
+
+Yang **belum** ada di runtime: workspace container/worktree per run (US-AD12 —
+sekarang semua run jalan di `scratch`), SSE (`internal/sse/`), `storage`, `webhook`,
+dan `POST /boards/{id}/budget` (M5).
+
+#### 18.3.1 Cara membuktikan runtime sendiri
+
+`tools/probe-m5.py` menjalankan satu run ujung-ke-ujung lawan API yang berjalan,
+dengan provider palsu di `tools/fake-llm.py` (host, `:9099`). Yang dibuktikan, dan
+tidak bisa dibuktikan test unit:
+
+1. task `ready` yang punya agent diklaim **tick**, dieksekusi, dan dihargai tanpa
+   ada yang menekan tombol run;
+2. run sukses menutup `succeeded` dan task mendarat di **`review`**, bukan `done`
+   (US-AD22 AC2 — kalau sukses langsung `done`, state `review` tak pernah bisa dimasuki);
+3. kredensial yang ditolak provider jadi `failed`/`capability` **tanpa retry**, dan
+   nilainya tidak pernah muncul di `runs.error`;
+4. task `ready` tanpa agent diparkir sebagai `blocked`/`needs_input`, bukan
+   dibiarkan `running` selamanya.
+
+Jalankan dengan `AGENTDECK_DISPATCH=1` dan provider palsunya hidup; skripnya
+mencetak satu baris per jalur dan keluar 1 kalau ada yang gagal.
 
 ### 18.2 Frontend (`frontend/` — React 19 + Vite + Redux Toolkit)
 
