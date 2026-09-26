@@ -887,6 +887,301 @@ func agentFromUnarchive(r store.UnarchiveAgentRow) Agent {
 	}
 }
 
+// ---- M4 runtime repository ---------------------------------------------------
+
+// runRow maps the four sqlc row shapes for `runs` (Create/Get/Heartbeat/End all
+// RETURN the same column list) onto the domain type. They are structurally
+// identical, so a single mapper keeps them from drifting apart.
+type runRowShape struct {
+	ID                string
+	OrgID             string
+	TaskID            string
+	AgentID           string
+	Attempt           int16
+	Status            string
+	Outcome           *string
+	FailureKind       *string
+	LastHeartbeatAt   pgtype.Timestamptz
+	MaxRuntimeSeconds int32
+	CostMicros        int64
+	TokensIn          int64
+	TokensOut         int64
+	Summary           *string
+	Error             *string
+	StartedAt         pgtype.Timestamptz
+	EndedAt           pgtype.Timestamptz
+}
+
+func runRow(r runRowShape) Run {
+	return Run{
+		ID:              r.ID,
+		OrgID:           r.OrgID,
+		TaskID:          r.TaskID,
+		AgentID:         r.AgentID,
+		Attempt:         int(r.Attempt),
+		Status:          RunStatus(r.Status),
+		Outcome:         str(r.Outcome),
+		FailureKind:     str(r.FailureKind),
+		LastHeartbeatAt: ts(r.LastHeartbeatAt),
+		MaxRuntimeSecs:  int(r.MaxRuntimeSeconds),
+		CostMicros:      r.CostMicros,
+		TokensIn:        r.TokensIn,
+		TokensOut:       r.TokensOut,
+		Summary:         str(r.Summary),
+		Error:           str(r.Error),
+		StartedAt:       r.StartedAt.Time,
+		EndedAt:         ts(r.EndedAt),
+	}
+}
+
+func stepRow(s store.Step) Step {
+	return Step{
+		ID:          s.ID,
+		OrgID:       s.OrgID,
+		RunID:       s.RunID,
+		Seq:         int(s.Seq),
+		Kind:        s.Kind,
+		Name:        s.Name,
+		Status:      s.Status,
+		TokensIn:    s.TokensIn,
+		TokensOut:   s.TokensOut,
+		CostMicros:  s.CostMicros,
+		StartedAt:   s.StartedAt.Time,
+		EndedAt:     ts(s.EndedAt),
+		PayloadJSON: s.PayloadJson,
+	}
+}
+
+func ledgerRow(l store.LedgerEntry) LedgerEntry {
+	return LedgerEntry{
+		ID:               l.ID,
+		OrgID:            l.OrgID,
+		RunID:            l.RunID,
+		TaskID:           l.TaskID,
+		Provider:         l.Provider,
+		Model:            l.Model,
+		Kind:             l.Kind,
+		TokensIn:         l.TokensIn,
+		TokensOut:        l.TokensOut,
+		CacheReadTokens:  l.CacheReadTokens,
+		CacheWriteTokens: l.CacheWriteTokens,
+		ReasoningTokens:  l.ReasoningTokens,
+		CostMicros:       l.CostMicros,
+		PriceVersion:     int(l.PriceVersion),
+		PriceSource:      l.PriceSource,
+		PricingModel:     l.PricingModel,
+		CreatedAt:        l.CreatedAt.Time,
+	}
+}
+
+func (r *pgxRepository) CreateRun(ctx context.Context, run Run) (Run, error) {
+	row, err := r.q.CreateRun(ctx, store.CreateRunParams{
+		ID:                run.ID,
+		OrgID:             run.OrgID,
+		TaskID:            run.TaskID,
+		AgentID:           run.AgentID,
+		Attempt:           int16(run.Attempt),
+		MaxRuntimeSeconds: int32(run.MaxRuntimeSecs),
+	})
+	if err != nil {
+		return Run{}, err
+	}
+	return runRow(runRowShape(row)), nil
+}
+
+func (r *pgxRepository) GetRun(ctx context.Context, id, orgID string) (Run, error) {
+	row, err := r.q.GetRun(ctx, store.GetRunParams{ID: id, OrgID: orgID})
+	if err != nil {
+		return Run{}, err
+	}
+	return runRow(runRowShape(row)), nil
+}
+
+func (r *pgxRepository) ListTaskRuns(ctx context.Context, taskID, orgID string) ([]Run, error) {
+	rows, err := r.q.ListTaskRuns(ctx, store.ListTaskRunsParams{TaskID: taskID, OrgID: orgID})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Run, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, runRow(runRowShape(row)))
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) NextRunAttempt(ctx context.Context, taskID string) (int, error) {
+	attempt, err := r.q.NextRunAttempt(ctx, taskID)
+	return int(attempt), err
+}
+
+// HeartbeatRun answers pgx.ErrNoRows as ErrNotFound rather than a bare error:
+// the caller turning this into a 404 is what tells a worker its run was
+// reclaimed, and a generic 500 would read as "retry instead of stop".
+func (r *pgxRepository) HeartbeatRun(ctx context.Context, id, orgID string) (Run, error) {
+	row, err := r.q.HeartbeatRun(ctx, store.HeartbeatRunParams{ID: id, OrgID: orgID})
+	if err != nil {
+		return Run{}, err
+	}
+	return runRow(runRowShape(row)), nil
+}
+
+func (r *pgxRepository) EndRun(ctx context.Context, id, orgID string, s RunSummary) (Run, error) {
+	row, err := r.q.EndRun(ctx, store.EndRunParams{
+		ID:          id,
+		OrgID:       orgID,
+		Outcome:     nullString(s.Outcome),
+		FailureKind: nullString(s.FailureKind),
+		Error:       nullString(s.Error),
+		Summary:     nullString(s.Summary),
+	})
+	if err != nil {
+		return Run{}, err
+	}
+	return runRow(runRowShape(row)), nil
+}
+
+func (r *pgxRepository) CreateStep(ctx context.Context, s Step) (Step, error) {
+	row, err := r.q.CreateStep(ctx, store.CreateStepParams{
+		OrgID:       s.OrgID,
+		RunID:       s.RunID,
+		Seq:         int16(s.Seq),
+		Kind:        s.Kind,
+		Name:        s.Name,
+		Status:      s.Status,
+		PayloadJson: s.PayloadJSON,
+	})
+	if err != nil {
+		return Step{}, err
+	}
+	return stepRow(row), nil
+}
+
+func (r *pgxRepository) FinishStep(ctx context.Context, runID string, seq int, orgID string, s Step) (Step, error) {
+	row, err := r.q.FinishStep(ctx, store.FinishStepParams{
+		RunID:      runID,
+		Seq:        int16(seq),
+		OrgID:      orgID,
+		Status:     s.Status,
+		TokensIn:   s.TokensIn,
+		TokensOut:  s.TokensOut,
+		CostMicros: s.CostMicros,
+	})
+	if err != nil {
+		return Step{}, err
+	}
+	return stepRow(row), nil
+}
+
+func (r *pgxRepository) ListRunSteps(ctx context.Context, runID, orgID string) ([]Step, error) {
+	rows, err := r.q.ListRunSteps(ctx, store.ListRunStepsParams{RunID: runID, OrgID: orgID})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Step, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, stepRow(row))
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) CreateLedgerEntry(ctx context.Context, e LedgerEntry) (LedgerEntry, error) {
+	row, err := r.q.CreateLedgerEntry(ctx, store.CreateLedgerEntryParams{
+		OrgID:            e.OrgID,
+		RunID:            e.RunID,
+		TaskID:           e.TaskID,
+		Provider:         e.Provider,
+		Model:            e.Model,
+		Kind:             e.Kind,
+		TokensIn:         e.TokensIn,
+		TokensOut:        e.TokensOut,
+		CacheReadTokens:  e.CacheReadTokens,
+		CacheWriteTokens: e.CacheWriteTokens,
+		ReasoningTokens:  e.ReasoningTokens,
+		CostMicros:       e.CostMicros,
+		PriceVersion:     int32(e.PriceVersion),
+		PriceSource:      e.PriceSource,
+		PricingModel:     e.PricingModel,
+	})
+	if err != nil {
+		return LedgerEntry{}, err
+	}
+	return ledgerRow(row), nil
+}
+
+func (r *pgxRepository) ListRunLedger(ctx context.Context, runID, orgID string) ([]LedgerEntry, error) {
+	rows, err := r.q.ListRunLedger(ctx, store.ListRunLedgerParams{RunID: runID, OrgID: orgID})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]LedgerEntry, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, ledgerRow(row))
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) ListBoardLedger(ctx context.Context, boardID, orgID string, limit int) ([]LedgerEntry, error) {
+	rows, err := r.q.ListBoardLedger(ctx, store.ListBoardLedgerParams{
+		BoardID: boardID, OrgID: orgID, Limit: int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]LedgerEntry, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, ledgerRow(row))
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) BoardSpendToday(ctx context.Context, boardID, orgID string) (int64, error) {
+	return r.q.BoardSpendToday(ctx, store.BoardSpendTodayParams{BoardID: boardID, OrgID: orgID})
+}
+
+// IncrementTaskFailures is the only writer of tasks.consecutive_failures.
+func (r *pgxRepository) IncrementTaskFailures(ctx context.Context, taskID, orgID string) (int, error) {
+	n, err := r.q.IncrementTaskFailures(ctx, store.IncrementTaskFailuresParams{ID: taskID, OrgID: orgID})
+	return int(n), err
+}
+
+func (r *pgxRepository) ResetTaskFailures(ctx context.Context, taskID, orgID string) error {
+	return r.q.ResetTaskFailures(ctx, store.ResetTaskFailuresParams{ID: taskID, OrgID: orgID})
+}
+
+// BlockTask sets `blocked` together with its block_kind (see the query comment).
+func (r *pgxRepository) BlockTask(ctx context.Context, taskID, orgID, kind string) error {
+	_, err := r.q.BlockTask(ctx, store.BlockTaskParams{ID: taskID, OrgID: orgID, BlockKind: nullString(kind)})
+	return err
+}
+
+// SetTaskCurrentRun binds a claimed task to the run that will execute it.
+func (r *pgxRepository) SetTaskCurrentRun(ctx context.Context, taskID, orgID, runID string) (Task, error) {
+	row, err := r.q.SetTaskCurrentRun(ctx, store.SetTaskCurrentRunParams{
+		ID: taskID, OrgID: orgID, CurrentRunID: nullString(runID),
+	})
+	if err != nil {
+		return Task{}, err
+	}
+	return taskRow(row), nil
+}
+
+// ClearTaskCurrentRun releases a task from its finished run (see the query
+// comment: the claim predicate requires the column to be NULL).
+func (r *pgxRepository) ClearTaskCurrentRun(ctx context.Context, taskID, orgID string) error {
+	return r.q.ClearTaskCurrentRun(ctx, store.ClearTaskCurrentRunParams{ID: taskID, OrgID: orgID})
+}
+
+// ClaimTask claims one named task. pgx.ErrNoRows means the guard refused it —
+// the task is not `ready`, or another claimer already took it — which the
+// service reports as a conflict.
+func (r *pgxRepository) ClaimTask(ctx context.Context, taskID, orgID, runID string) (Task, error) {
+	row, err := r.q.ClaimTask(ctx, store.ClaimTaskParams{ID: taskID, OrgID: orgID, CurrentRunID: nullString(runID)})
+	if err != nil {
+		return Task{}, err
+	}
+	return taskRow(row), nil
+}
+
 // Must is the package-level ULID helper for board IDs; kept here so callers do
 // not each reach into the ulid package with a second import surface.
 func Must() string { return ulid.Must() }

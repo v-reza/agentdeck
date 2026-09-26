@@ -12,7 +12,7 @@ import { expect, test, type Page } from '@playwright/test'
  * screen has to be exercised against a controlled response.
  *
  * What that buys is still real: the rendering rules (AC2's remaining time, the
- * preview shown verbatim), the AC4 role gate, and the empty state are all
+ * preview shown as stored), the AC4 role gate, and the empty state are all
  * asserted on computed output. What it does NOT prove is that the wire shape
  * matches the server — there is no server to match. When the approvals module
  * lands, the stub should be replaced with a real seeded approval; until then
@@ -81,7 +81,7 @@ test.describe('approval inbox — US-AD37', () => {
     await expect(card).toBeVisible({ timeout: 15_000 })
 
     // The preview is the design's "Preview Aksi" card, and the payload inside it
-    // is rendered **verbatim**: the mockup's card header names the gated action,
+    // is rendered as stored: the mockup's card header names the gated action,
     // and re-formatting the body would hide the difference between what the
     // agent sent and what the operator approves.
     const preview = page.getByTestId('approval-preview')

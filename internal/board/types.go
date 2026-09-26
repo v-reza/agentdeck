@@ -249,6 +249,112 @@ type Event struct {
 	CreatedAt   time.Time
 }
 
+// ---- M4 runtime: runs, steps, ledger -----------------------------------------
+
+// Run is one execution of one task by one agent. It is the unit the dispatcher
+// claims, the executor heartbeats, and the ledger rolls up into.
+type Run struct {
+	ID              string
+	OrgID           string
+	TaskID          string
+	AgentID         string
+	Attempt         int
+	Status          RunStatus
+	Outcome         string
+	FailureKind     string
+	LastHeartbeatAt *time.Time
+	MaxRuntimeSecs  int
+	CostMicros      int64
+	TokensIn        int64
+	TokensOut       int64
+	Summary         string
+	Error           string
+	StartedAt       time.Time
+	EndedAt         *time.Time
+}
+
+// RunStatus is `runs.status`. The three live states are distinct on purpose:
+// `claiming` is the window between the row lock being released and the executor
+// reporting in, and a reclaim has to tell that window apart from a live run.
+type RunStatus string
+
+const (
+	RunPending  RunStatus = "pending"
+	RunClaiming RunStatus = "claiming"
+	RunRunning  RunStatus = "running"
+	RunEnded    RunStatus = "ended"
+)
+
+// Step is one line of a run's trace. `Seq` is dense and starts at 1, which is
+// what makes the trace replayable in order.
+type Step struct {
+	ID          int64
+	OrgID       string
+	RunID       string
+	Seq         int
+	Kind        string
+	Name        string
+	Status      string
+	TokensIn    int64
+	TokensOut   int64
+	CostMicros  int64
+	StartedAt   time.Time
+	EndedAt     *time.Time
+	PayloadJSON []byte
+}
+
+// LedgerEntry is one priced LLM (or tool) call. `CostMicros` is the computed
+// price × quantity, never a unit price: the row has to stay readable after the
+// price table changes, which is why `PriceVersion` is mandatory and `PriceSource`
+// records which of the four resolution tiers produced the number.
+type LedgerEntry struct {
+	ID               int64
+	OrgID            string
+	RunID            string
+	TaskID           string
+	Provider         string
+	Model            string
+	Kind             string
+	TokensIn         int64
+	TokensOut        int64
+	CacheReadTokens  int64
+	CacheWriteTokens int64
+	ReasoningTokens  int64
+	CostMicros       int64
+	PriceVersion     int
+	PriceSource      string
+	PricingModel     string
+	CreatedAt        time.Time
+}
+
+// LedgerUsage is the usage a worker reports for one call. The executor resolves
+// the price (it owns the provider and the model) and hands the ledger a number
+// that is already final; the board service never prices anything itself.
+type LedgerUsage struct {
+	Provider         string
+	Model            string
+	Kind             string
+	TokensIn         int64
+	TokensOut        int64
+	CacheReadTokens  int64
+	CacheWriteTokens int64
+	ReasoningTokens  int64
+	CostMicros       int64
+	PriceVersion     int
+	PriceSource      string
+	PricingModel     string
+}
+
+// RunSummary is what a worker reports when it finishes a run. `FailureKind` is
+// the worker's classification (ARCHITECTURE 10); it decides whether a failure is
+// retryable, so a worker that leaves it empty is treated as `unknown`.
+type RunSummary struct {
+	Outcome     string
+	FailureKind string
+	Summary     string
+	Error       string
+}
+
 // Repository is the persistence boundary for the M1 board domain. As in auth,
 // every method takes a context so a slow database is bounded by the request,
 // and every org-scoped method carries org_id explicitly: there is no second code
@@ -338,6 +444,8 @@ type Repository interface {
 	// of ready tasks with FOR UPDATE SKIP LOCKED and flips them to running in one
 	// statement, so concurrent dispatchers claim disjoint sets (ARCHITECTURE 4b).
 	ClaimReadyTasks(ctx context.Context, orgID, boardID, runID string, limit int) ([]Task, error)
+	// ClaimTask claims one named task (POST /tasks/{id}/claim).
+	ClaimTask(ctx context.Context, taskID, orgID, runID string) (Task, error)
 
 	// ---- dependency DAG --------------------------------------------------
 	CreateTaskLink(ctx context.Context, parentID, childID string) error
@@ -352,4 +460,40 @@ type Repository interface {
 	CreateEvent(ctx context.Context, e Event) (Event, error)
 	ListTaskEvents(ctx context.Context, taskID string) ([]Event, error)
 	ListBoardEventsAfter(ctx context.Context, boardID, orgID string, afterID int64, limit int) ([]Event, error)
+
+	// ---- runs (M4) -------------------------------------------------------
+	CreateRun(ctx context.Context, r Run) (Run, error)
+	GetRun(ctx context.Context, id, orgID string) (Run, error)
+	ListTaskRuns(ctx context.Context, taskID, orgID string) ([]Run, error)
+	NextRunAttempt(ctx context.Context, taskID string) (int, error)
+	// HeartbeatRun returns ErrNotFound when the run is no longer live, so a
+	// worker whose run was reclaimed hears "stop" instead of writing further.
+	HeartbeatRun(ctx context.Context, id, orgID string) (Run, error)
+	EndRun(ctx context.Context, id, orgID string, summary RunSummary) (Run, error)
+
+	// ---- steps (M4) ------------------------------------------------------
+	CreateStep(ctx context.Context, s Step) (Step, error)
+	FinishStep(ctx context.Context, runID string, seq int, orgID string, s Step) (Step, error)
+	ListRunSteps(ctx context.Context, runID, orgID string) ([]Step, error)
+
+	// ---- ledger (M4) -----------------------------------------------------
+	CreateLedgerEntry(ctx context.Context, e LedgerEntry) (LedgerEntry, error)
+	ListRunLedger(ctx context.Context, runID, orgID string) ([]LedgerEntry, error)
+	ListBoardLedger(ctx context.Context, boardID, orgID string, limit int) ([]LedgerEntry, error)
+	BoardSpendToday(ctx context.Context, boardID, orgID string) (int64, error)
+
+	// IncrementTaskFailures/ResetTaskFailures own the retry counter. It has to
+	// be a counter in the database rather than a value the caller passes: the
+	// ceiling comparison happens on the next attempt, possibly on another
+	// worker, so the number must outlive the run that produced it.
+	IncrementTaskFailures(ctx context.Context, taskID, orgID string) (int, error)
+	ResetTaskFailures(ctx context.Context, taskID, orgID string) error
+	// BlockTask sets `blocked` with its kind in one write; SetTaskCurrentRun
+	// binds a claimed task to its run.
+	BlockTask(ctx context.Context, taskID, orgID, kind string) error
+	SetTaskCurrentRun(ctx context.Context, taskID, orgID, runID string) (Task, error)
+	// ClearTaskCurrentRun releases the binding a claim created. It is not
+	// optional bookkeeping: the claim predicate is `current_run_id IS NULL`, so a
+	// finished run that kept its id would make the task unclaimable forever.
+	ClearTaskCurrentRun(ctx context.Context, taskID, orgID string) error
 }

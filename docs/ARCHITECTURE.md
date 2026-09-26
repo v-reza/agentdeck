@@ -1824,7 +1824,7 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | `DELETE` | `/api/v1/tasks/{id}` | Session/Key | Admin | Ya | ✅ | Soft-delete, bisa dipulihkan 30 hari (US-AD80 AC2) |
 | `POST` | `/api/v1/tasks/{id}/move` | Session/Key | Member | Ya | ✅ | Geser task ke kolom/status lain. Satu route dua floor: perpindahan biasa Member, sedangkan `{"from":...,"to":"archived"}` butuh owner/admin (US-AD59 AC4), dan hanya dari status terminal (AC2) |
 | `POST` | `/api/v1/tasks/{id}/assign` | Session/Key | Member | Ya | ✅ | Assign/unassign agent (`{agent_id: "..."}`) |
-| `POST` | `/api/v1/tasks/{id}/claim` | Session/Key | Member | Ya | ⬜ | Manual force claim (bypass loop dispatcher) |
+| `POST` | `/api/v1/tasks/{id}/claim` | Session/Key | Member | Ya | ✅ | Manual force claim (bypass loop dispatcher). Klaim **satu** task yang ditunjuk dan langsung buka run attempt `N+1`; guard `status='ready' AND current_run_id IS NULL` ada di `WHERE`, jadi dua claimer bersamaan menang satu. Task tanpa agent → 400, task tidak `ready` → 409 |
 | `POST` | `/api/v1/tasks/{id}/cancel` | Session/Key | Member | Ya | ⬜ | Batalkan task & abort active run jika ada |
 | `POST` | `/api/v1/tasks/{id}/retry` | Session/Key | Member | Ya | ⬜ | Reset failure count, pindah status ke `ready` |
 | `POST` | `/api/v1/tasks/{id}/archive` | Session/Key | Admin | Ya | ⬜ | Set status ke `archived`, sembunyikan dari view board. **Admin, bukan Member**: US-AD59 AC4 menetapkan minimal `admin`, dan baris ini dulu menulis Member — kontradiksi yang tidak pernah ketahuan karena nol test menyentuh arsip task |
@@ -1840,19 +1840,19 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 #### 6.2.11 Runs (6 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/tasks/{task_id}/runs` | Session/Key | Viewer | Ya | ⬜ | List seluruh run historis task ini (attempt 1..N) |
-| `GET` | `/api/v1/runs/{id}` | Session/Key | Viewer | Ya | ⬜ | Detail status run, outcome, total tokens, cost |
+| `GET` | `/api/v1/tasks/{task_id}/runs` | Session/Key | Viewer | Ya | ✅ | List seluruh run historis task ini (attempt 1..N). Task dibaca dulu supaya id dari workspace lain jadi 404, bukan array kosong |
+| `GET` | `/api/v1/runs/{id}` | Session/Key | Viewer | Ya | ✅ | Detail status run, outcome, total tokens, cost. `cost_micros`/`tokens_*` = jumlah dari `ledger_entries` run itu, dihitung di statement yang menutup run |
 | `POST` | `/api/v1/runs/{id}/cancel` | Session/Key | Member | Ya | ⬜ | Cancel run yang sedang `running` (abort context) |
-| `POST` | `/api/v1/runs/{id}/heartbeat` | Internal/Key | Worker | Ya | ⬜ | Worker kirim heartbeat `now()` (N7: 60 s, N8: 15 menit) |
-| `POST` | `/api/v1/runs/{id}/end` | Internal/Key | Worker | Ya | ⬜ | Worker laporkan hasil akhir (`outcome, error, summary`) |
+| `POST` | `/api/v1/runs/{id}/heartbeat` | Internal/Key | Worker | Ya | ✅ | Worker kirim heartbeat `now()` (N7: 60 s, N8: 15 menit). Predikatnya `status='running'`: run yang sudah ditutup menjawab 404, dan itu sinyal "stop" buat worker yang di-reclaim |
+| `POST` | `/api/v1/runs/{id}/end` | Internal/Key | Worker | Ya | ✅ | Worker laporkan hasil akhir (`outcome, failure_kind, summary, error`). Status task berikutnya **diputuskan service** dari outcome, bukan dikirim worker: kalau worker bisa menamai status, dia bisa melompat ke `done` dan menghapus langkah review manusia |
 | `GET` | `/api/v1/runs/{id}/summary` | Session/Key | Viewer | Ya | ⬜ | Ringkasan teks hasil eksekusi run |
 
 #### 6.2.12 Steps (3 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/runs/{run_id}/steps` | Session/Key | Viewer | Ya | ⬜ | List trace seluruh step dalam run urut `seq` |
-| `POST` | `/api/v1/runs/{run_id}/steps` | Internal/Key | Worker | Tidak | ⬜ | Catat step baru (`seq, kind, name, payload`) |
-| `PATCH` | `/api/v1/runs/{run_id}/steps/{seq}` | Internal/Key | Worker | Ya | ⬜ | Selesaikan step (`status, tokens, cost_micros`) |
+| `GET` | `/api/v1/runs/{run_id}/steps` | Session/Key | Viewer | Ya | ✅ | List trace seluruh step dalam run urut `seq`. `payload_json` dikembalikan apa adanya dari kolomnya, tapi **tidak byte-identik**: kolomnya JSONB (3.13), jadi Postgres menormalkan urutan kunci dan spasi. Trace setia pada **isi** (kunci mana berisi nilai apa), bukan pada byte — byte asli yang penting (body bertanda tangan, command line persis) harus dikirim sebagai string di dalam JSON |
+| `POST` | `/api/v1/runs/{run_id}/steps` | Internal/Key | Worker | Tidak | ✅ | Catat step baru (`seq, kind, name, tokens{in,out}, payload`). `UNIQUE (run_id, seq)` menolak seq kembar; payload > 64 KB (N21) ditolak 400, bukan dipotong |
+| `PATCH` | `/api/v1/runs/{run_id}/steps/{seq}` | Internal/Key | Worker | Ya | ✅ | Selesaikan step (`status`, `tokens{in,out}`, `cost_micros`). `seq` non-numerik → 400 (bukan 500); `status` hanya menerima `succeeded`/`failed` |
 
 #### 6.2.13 Events & Realtime SSE (4 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
@@ -1876,8 +1876,8 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 |---|---|---|---|:---:|---|
 | `GET` | `/api/v1/boards/{id}/budget` | Session/Key | Viewer | Ya | ⬜ | Realtime usage vs cap harian board (N16: $20/hari, N18: alert 80%) |
 | `PATCH` | `/api/v1/boards/{id}/budget` | Session/Key | Admin | Ya | ⬜ | Ubah `budget_daily_micros` board |
-| `GET` | `/api/v1/boards/{id}/ledger` | Session/Key | Viewer | Ya | ⬜ | Laporan rincian pemakaian token & mikro-USD |
-| `GET` | `/api/v1/runs/{id}/ledger` | Session/Key | Viewer | Ya | ⬜ | Ledger entry terperinci per LLM call di suatu run |
+| `GET` | `/api/v1/boards/{id}/ledger` | Session/Key | Viewer | Ya | ✅ | Laporan rincian pemakaian token & mikro-USD. Mengembalikan `spend_today_micros` + `budget_micros` + baris terbaru — angka yang dibandingkan gate biaya (US-AD32) dan yang ditampilkan layar datang dari respons yang sama |
+| `GET` | `/api/v1/runs/{id}/ledger` | Session/Key | Viewer | Ya | ✅ | Ledger entry terperinci per LLM call di suatu run. `price_version` wajib (>0): biaya tanpa versi tidak bisa diturunkan ulang setelah tabel harga berubah |
 | `GET` | `/api/v1/orgs/{id}/cost-summary` | Session/Key | Admin | Ya | ⬜ | Total pengeluaran per model & board 30 hari |
 | `GET` | `/api/v1/model-prices` | Session/Key | Viewer | Ya | ✅ | Harga manual per model milik ruang kerja (tingkat 1 §6A.C) |
 | `PUT` | `/api/v1/model-prices/{model}` | Session/Key | Admin | Ya | ✅ | Set/ubah harga manual satu model (micro-USD per 1M token) |
@@ -2776,7 +2776,14 @@ gambar struktur di atas tidak dibaca sebagai janji:
 
 Runtime **belum pernah memanggil LLM**: `grep -r "chat/completions"` → satu hasil, dan
 itu probe kredensial fase 3 (`internal/provider.ProbeInference`, `max_tokens: 1`),
-bukan runtime. Runtime-nya sendiri masih nol.
+bukan runtime.
+
+Tapi **siklus hidup run sudah ada** — `internal/board/runtime.go` + `cmd/api/runs.go`:
+klaim bertarget (`POST /tasks/{id}/claim`), `heartbeat`, `end`, trace `steps`, dan
+`ledger_entries` yang akhirnya punya penulis. Yang belum ada adalah **pemanggil
+LLM-nya**: nol kode di repo ini yang menentukan agent mana mengerjakan task mana
+lewat keputusan sendiri, dan itu keputusan produk (US-AD11: satu agent per task),
+bukan sesuatu yang bisa ditebak dari kontrak.
 Itu juga sebabnya "cek kredensial saat agent mau jalan" belum punya mekanisme
 (lihat `DECISIONS.md` §6A.J).
 

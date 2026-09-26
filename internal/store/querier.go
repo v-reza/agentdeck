@@ -13,8 +13,20 @@ type Querier interface {
 	// retry/limit source) but disappear from every assign dropdown.
 	ArchiveAgent(ctx context.Context, arg ArchiveAgentParams) (ArchiveAgentRow, error)
 	AssignTask(ctx context.Context, arg AssignTaskParams) (Task, error)
+	// Setting `blocked` and its `block_kind` in one statement, because a blocked
+	// task with no kind cannot be routed: the state machine (5.4) sends each kind
+	// back to `ready` by a different action.
+	BlockTask(ctx context.Context, arg BlockTaskParams) (Task, error)
+	// US-AD32 cost gate reads this: spend for one board since local midnight.
+	BoardSpendToday(ctx context.Context, arg BoardSpendTodayParams) (int64, error)
 	ClaimReadyTasks(ctx context.Context, arg ClaimReadyTasksParams) ([]Task, error)
 	ClaimShadowUser(ctx context.Context, arg ClaimShadowUserParams) error
+	// Targeted claim for POST /tasks/{id}/claim (US-AD21). ClaimReadyTasks claims a
+	// *batch* in priority order, which is the dispatcher's shape; a caller naming one
+	// task needs that task or nothing. Same guard as the batch: the status and the
+	// null run binding are preconditions in the WHERE clause, so two claimers racing
+	// on one task produce one row and one zero-row conflict.
+	ClaimTask(ctx context.Context, arg ClaimTaskParams) (Task, error)
 	// Rotation and revocation are the same statement with a NULL ciphertext.
 	ClearAgentProviderKey(ctx context.Context, arg ClearAgentProviderKeyParams) (ClearAgentProviderKeyRow, error)
 	// providers_org_default_key is a non-deferrable partial unique index, so a
@@ -23,6 +35,12 @@ type Querier interface {
 	// one is unset. Clearing first and setting second are two statements that
 	// cannot collide. AC9 makes the cleared state legitimate, not a half-write.
 	ClearDefaultProvider(ctx context.Context, orgID string) error
+	// EndRun clears the binding. ClaimReadyTasks requires `current_run_id IS NULL`
+	// (ARCHITECTURE 4b), so a finished run that left its id on the task would make
+	// that task permanently unclaimable: J4's retry, J6's reclaim, and the
+	// review -> ready path all end in `ready`, and none of them could ever be
+	// claimed again.
+	ClearTaskCurrentRun(ctx context.Context, arg ClearTaskCurrentRunParams) error
 	ConsumePasswordReset(ctx context.Context, tokenHash string) (int64, error)
 	// Guards US-AD20 AC4: an agent holding a task in `running` may not be deleted,
 	// because the run it is executing would lose its retry/limit source mid-flight.
@@ -58,6 +76,7 @@ type Querier interface {
 	CreateBoard(ctx context.Context, arg CreateBoardParams) (Board, error)
 	// Append-only event log. No UPDATE or DELETE is ever issued against events.
 	CreateEvent(ctx context.Context, arg CreateEventParams) (Event, error)
+	CreateLedgerEntry(ctx context.Context, arg CreateLedgerEntryParams) (LedgerEntry, error)
 	CreateMembership(ctx context.Context, arg CreateMembershipParams) error
 	CreateOrg(ctx context.Context, arg CreateOrgParams) (Org, error)
 	CreateOrgKind(ctx context.Context, arg CreateOrgKindParams) error
@@ -82,9 +101,11 @@ type Querier interface {
 	// provider row, so one edit reaches every agent that uses it (AC6). Every query
 	// carries org_id explicitly, like the rest of this file.
 	CreateProvider(ctx context.Context, arg CreateProviderParams) (Provider, error)
+	CreateRun(ctx context.Context, arg CreateRunParams) (CreateRunRow, error)
 	// token_hash is SHA-256 of the 64-byte raw token; the raw token only ever
 	// exists in the Set-Cookie (ARCHITECTURE 3.19).
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
+	CreateStep(ctx context.Context, arg CreateStepParams) (Step, error)
 	// Tasks. created_by is the acting user; assignee_agent_id is nullable.
 	CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error)
 	// Dependency DAG. Self-links are rejected by the table CHECK, and the service
@@ -107,6 +128,12 @@ type Querier interface {
 	// Revokes every session of one user (US-AD88 AC2). Deliberately not scoped by
 	// token: after a reset the operator has no trusted device, so all of them go.
 	DeleteUserSessions(ctx context.Context, userID string) error
+	// The cost rollup is computed from ledger_entries in the same statement that
+	// closes the run, so runs.cost_micros can never disagree with the ledger it
+	// summarises. A rollup maintained by the executor in a separate UPDATE would
+	// drift the moment a run ends without one.
+	EndRun(ctx context.Context, arg EndRunParams) (EndRunRow, error)
+	FinishStep(ctx context.Context, arg FinishStepParams) (Step, error)
 	GetAgent(ctx context.Context, arg GetAgentParams) (GetAgentRow, error)
 	// The ONLY reader of the ciphertext column. Returns it alone so the sealed bytes
 	// never travel inside a struct that gets logged, cached, or serialised.
@@ -136,12 +163,18 @@ type Querier interface {
 	// api_key_enc is nullable (a local endpoint that checks nothing), and a NULL
 	// scans into a nil []byte rather than an error.
 	GetProviderKey(ctx context.Context, arg GetProviderKeyParams) ([]byte, error)
+	GetRun(ctx context.Context, arg GetRunParams) (GetRunRow, error)
 	// Sliding idle window (US-AD02 AC4): a session that has been idle longer than
 	// the idle timeout is rejected, so last_seen_at is bumped on every use.
 	GetSessionByTokenHash(ctx context.Context, arg GetSessionByTokenHashParams) (GetSessionByTokenHashRow, error)
 	GetTask(ctx context.Context, arg GetTaskParams) (Task, error)
 	GetUserByEmail(ctx context.Context, lower string) (GetUserByEmailRow, error)
 	GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error)
+	HeartbeatRun(ctx context.Context, arg HeartbeatRunParams) (HeartbeatRunRow, error)
+	// The only writer of tasks.consecutive_failures. The retry ceiling (J4) is read
+	// from this column, so without an increment a failing task retries forever:
+	// the ceiling would be compared against a number that never moves.
+	IncrementTaskFailures(ctx context.Context, arg IncrementTaskFailuresParams) (int16, error)
 	// The list needs "dipakai N agent" on every row, so usage is resolved in the
 	// same round trip: a per-row query would be N+1 against a table the user scrolls.
 	// `?` is jsonb containment for a top-level array element, i.e. the slug is in
@@ -188,6 +221,7 @@ type Querier interface {
 	ListAssignedTasks(ctx context.Context, arg ListAssignedTasksParams) ([]ListAssignedTasksRow, error)
 	// SSE resume: events newer than the client's Last-Event-ID for one board.
 	ListBoardEventsAfter(ctx context.Context, arg ListBoardEventsAfterParams) ([]Event, error)
+	ListBoardLedger(ctx context.Context, arg ListBoardLedgerParams) ([]LedgerEntry, error)
 	// Filters are optional and nullable: NULL means "no constraint", which is why
 	// each is written as `sqlc.narg(...) IS NULL OR ...` rather than assembled in
 	// Go. The contract (§6.2.16) advertises `status, assignee, search`; a filter
@@ -207,6 +241,8 @@ type Querier interface {
 	ListProjects(ctx context.Context, orgID string) ([]Project, error)
 	// The default sorts first because it is what the agent form preselects (AC9).
 	ListProviders(ctx context.Context, orgID string) ([]Provider, error)
+	ListRunLedger(ctx context.Context, arg ListRunLedgerParams) ([]LedgerEntry, error)
+	ListRunSteps(ctx context.Context, arg ListRunStepsParams) ([]Step, error)
 	// AC7's automatic half. This is the ONE provider query deliberately not scoped by
 	// org_id: the background refresher has no tenant in hand — it walks every
 	// workspace — so a `WHERE org_id = $1` here would make it impossible to write.
@@ -228,9 +264,12 @@ type Querier interface {
 	ListTaskChildren(ctx context.Context, parentID string) ([]ListTaskChildrenRow, error)
 	ListTaskEvents(ctx context.Context, taskID *string) ([]Event, error)
 	ListTaskParents(ctx context.Context, childID string) ([]ListTaskParentsRow, error)
+	ListTaskRuns(ctx context.Context, arg ListTaskRunsParams) ([]ListTaskRunsRow, error)
+	NextRunAttempt(ctx context.Context, taskID string) (int32, error)
 	// Keep the rename and its audit row in one statement: if the INSERT fails, the
 	// data-modifying CTE is rolled back too (US-AD77 fail-closed).
 	RenameOrgWithAudit(ctx context.Context, arg RenameOrgWithAuditParams) error
+	ResetTaskFailures(ctx context.Context, arg ResetTaskFailuresParams) error
 	// US-AD86: store the sealed credential. Encryption/decryption lives in
 	// internal/crypto; this statement only ever sees ciphertext, so a DB dump alone
 	// cannot recover a provider key. Returning the derived flag lets the handler
@@ -242,6 +281,9 @@ type Querier interface {
 	// AC3: stamped only after the inference probe passes. Nothing else writes this
 	// column, so a non-null value always means a probe succeeded.
 	SetProviderVerifiedAt(ctx context.Context, arg SetProviderVerifiedAtParams) error
+	// Claiming sets tasks.current_run_id (there is no UPDATE for it anywhere else),
+	// so this is what StartRun uses to bind a run to its task.
+	SetTaskCurrentRun(ctx context.Context, arg SetTaskCurrentRunParams) (Task, error)
 	TouchSession(ctx context.Context, tokenHash string) error
 	UnarchiveAgent(ctx context.Context, arg UnarchiveAgentParams) (UnarchiveAgentRow, error)
 	// US-AD96: the edit form replaces every mutable field at once, so this is a

@@ -10,12 +10,19 @@ import { cn } from '@/lib/cn'
  * inventing a separate title would put a caption on screen that the server
  * never agreed to.
  *
- * The payload is rendered **verbatim**. This component previously re-formatted
- * it through `JSON.stringify(JSON.parse(...))`, which directly contradicted its
- * own docstring: pretty-printing hides the difference between what the agent
- * sent and what the operator is approving, and that difference is the entire
- * point of showing the payload at all. One line of whitespace is not worth the
- * one thing the screen exists to expose.
+ * The payload is rendered as it arrived, untouched. This component previously
+ * re-formatted it through `JSON.stringify(JSON.parse(...))`, which directly
+ * contradicted its own docstring: pretty-printing hides differences in what the
+ * agent proposed, and surfacing those differences is the entire point of showing
+ * the payload at all.
+ *
+ * "Rendered as it arrived" is not the same as "byte-identical to what the agent
+ * proposed", and the difference is worth stating because it bounds what this
+ * screen can prove: `approvals.preview_json` is JSONB, so Postgres normalises key
+ * order and whitespace before this component ever sees it. The comparison is
+ * faithful in content — which key holds which value — and not in bytes. Anything
+ * whose exact bytes matter (a signed body, a literal command line) has to be a
+ * string field inside the JSON for the preview to show it truthfully.
  */
 export function DiffViewer({ preview, className }: { preview: string | null; className?: string }) {
   if (!preview) {

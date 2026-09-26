@@ -402,6 +402,34 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
    dipindah ke `google`, yang vendor sekaligus protokol, jadi gate-nya tetap
    menggigit. Mutasi (validator nerima apa pun non-kosong) **CAUGHT** di 5 test
    lintas dua lapisan.
+4l. **M4 sebagian: siklus hidup run + ledger (10 endpoint, ⬜ → ✅).** Yang dibangun:
+   migrasi `0013` (tabel `steps`, `approvals`, `artifacts` — tiga yang belum ada;
+   `runs`/`events`/`ledger_entries` sudah sejak `0008`), `internal/board/runtime.go`,
+   `cmd/api/runs.go`, dan `POST /tasks/{id}/claim` sebagai pintu masuk.
+   `ledger_entries` akhirnya punya penulis, dan `tasks.consecutive_failures`
+   akhirnya punya penulis juga — sebelumnya cuma **dibaca**, jadi plafon retry
+   dibandingkan dengan angka yang tidak pernah bergerak = retry tanpa batas.
+   Temuan yang cuma kelihatan lawan DB nyata: predikat klaim butuh
+   `current_run_id IS NULL`, dan **nol kode** yang melepas ikatan itu — tanpa
+   `ClearTaskCurrentRun` di `EndRun`, setiap task yang pernah disentuh satu run
+   jadi tidak bisa diklaim selamanya (retry J4, reclaim J6, `review` → `ready`).
+   **Kontrak yang bertabrakan:** ARCHITECTURE §5.3/§5.4 bilang run sukses → `done`;
+   PRD US-AD22 AC2 + J2 bilang → `review`. PRD yang dipakai — kalau sukses langsung
+   `done`, status `review` tidak pernah bisa dimasuki padahal dia ada di state
+   machine dan di alur cerita.
+   **Yang TIDAK dibangun, dan itu disengaja:** executor LLM. Nol kode di repo ini
+   yang menentukan agent mana mengerjakan task mana lewat keputusan sendiri, dan
+   US-AD11 menetapkan **satu** agent per task — jadi tidak bisa di-broadcast dan
+   tidak bisa ditebak dari kontrak. Itu keputusan produk, bukan pekerjaan impl.
+   Efeknya: kredensial ledger juga belum ada route-nya (kontrak tidak
+   mendefinisikannya) — rollup biaya dibuktikan di `internal/board/runtime_test.go`
+   lawan Postgres, bukan lewat HTTP.
+   **Klaim "verbatim" di trace itu salah, dan probe yang menangkapnya:** `steps.payload_json`
+   bertipe JSONB, jadi Postgres menormalkan urutan kunci + spasi sebelum handler
+   melihatnya. Test handler lolos karena stub-nya mengembalikan struct in-memory,
+   yang tidak punya perilaku JSONB — hanya probe lawan container yang menunjukkan
+   `{"z":1,"a":[1,2]}` kembali sebagai `{"a": [1, 2], "z": 1}`. Klaim di doc, test,
+   ARCHITECTURE, dan `DiffViewer` dikoreksi jadi "setia pada isi, bukan byte".
 5. Belum ada `LICENSE`/`NOTICE`/`THIRD_PARTY`. Konflik lisensi di design
    (`09b-github.html` Apache-2.0 vs `05-landing.html` MIT).
 6. ~~Audit `livez`/`metrics` + tabel tanpa DDL~~ **SELESAI** — lihat

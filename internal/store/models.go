@@ -57,6 +57,35 @@ type AgentSkill struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+type Approval struct {
+	ID          string
+	OrgID       string
+	TaskID      string
+	RunID       string
+	RequestedBy string
+	DecidedBy   *string
+	Decision    string
+	GateMode    string
+	Reason      *string
+	PreviewJson []byte
+	ExpiresAt   pgtype.Timestamptz
+	DecidedAt   pgtype.Timestamptz
+	CreatedAt   pgtype.Timestamptz
+}
+
+type Artifact struct {
+	ID          string
+	OrgID       string
+	TaskID      string
+	RunID       string
+	Filename    string
+	ContentType string
+	Size        int32
+	StorageKey  string
+	Sha256      string
+	CreatedAt   pgtype.Timestamptz
+}
+
 type AuditLog struct {
 	ID           int64
 	OrgID        string
@@ -197,6 +226,22 @@ type Session struct {
 	ExpiresAt  pgtype.Timestamptz
 	DeletedAt  pgtype.Timestamptz
 	CreatedAt  pgtype.Timestamptz
+}
+
+type Step struct {
+	ID          int64
+	OrgID       string
+	RunID       string
+	Seq         int16
+	Kind        string
+	Name        string
+	Status      string
+	TokensIn    int64
+	TokensOut   int64
+	CostMicros  int64
+	StartedAt   pgtype.Timestamptz
+	EndedAt     pgtype.Timestamptz
+	PayloadJson []byte
 }
 
 type Task struct {

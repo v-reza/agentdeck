@@ -120,6 +120,79 @@ func (q *Queries) AssignTask(ctx context.Context, arg AssignTaskParams) (Task, e
 	return i, err
 }
 
+const blockTask = `-- name: BlockTask :one
+UPDATE tasks
+SET status = 'blocked', block_kind = $3
+WHERE id = $1 AND org_id = $2
+RETURNING id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
+          idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
+          branch_name, completion_contract, goal_mode, goal_max_turns, current_run_id,
+          cost_micros, tokens_in, tokens_out, created_at, started_at, completed_at, archived_at
+`
+
+type BlockTaskParams struct {
+	ID        string
+	OrgID     string
+	BlockKind *string
+}
+
+// Setting `blocked` and its `block_kind` in one statement, because a blocked
+// task with no kind cannot be routed: the state machine (5.4) sends each kind
+// back to `ready` by a different action.
+func (q *Queries) BlockTask(ctx context.Context, arg BlockTaskParams) (Task, error) {
+	row := q.db.QueryRow(ctx, blockTask, arg.ID, arg.OrgID, arg.BlockKind)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.BoardID,
+		&i.Title,
+		&i.Body,
+		&i.Status,
+		&i.Priority,
+		&i.AssigneeAgentID,
+		&i.CreatedBy,
+		&i.IdempotencyKey,
+		&i.BlockKind,
+		&i.ConsecutiveFailures,
+		&i.WorkspaceKind,
+		&i.WorkspacePath,
+		&i.BranchName,
+		&i.CompletionContract,
+		&i.GoalMode,
+		&i.GoalMaxTurns,
+		&i.CurrentRunID,
+		&i.CostMicros,
+		&i.TokensIn,
+		&i.TokensOut,
+		&i.CreatedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
+const boardSpendToday = `-- name: BoardSpendToday :one
+SELECT COALESCE(SUM(l.cost_micros), 0)::BIGINT AS spend_micros
+FROM ledger_entries l
+JOIN tasks t ON t.id = l.task_id
+WHERE t.board_id = $1 AND l.org_id = $2 AND l.created_at >= date_trunc('day', now())
+`
+
+type BoardSpendTodayParams struct {
+	BoardID string
+	OrgID   string
+}
+
+// US-AD32 cost gate reads this: spend for one board since local midnight.
+func (q *Queries) BoardSpendToday(ctx context.Context, arg BoardSpendTodayParams) (int64, error) {
+	row := q.db.QueryRow(ctx, boardSpendToday, arg.BoardID, arg.OrgID)
+	var spend_micros int64
+	err := row.Scan(&spend_micros)
+	return spend_micros, err
+}
+
 const claimReadyTasks = `-- name: ClaimReadyTasks :many
 WITH claimed AS (
     SELECT t.id
@@ -223,6 +296,63 @@ func (q *Queries) ClaimShadowUser(ctx context.Context, arg ClaimShadowUserParams
 	return err
 }
 
+const claimTask = `-- name: ClaimTask :one
+UPDATE tasks
+SET status = 'running',
+    current_run_id = $3,
+    started_at = COALESCE(started_at, now())
+WHERE id = $1 AND org_id = $2 AND status = 'ready' AND current_run_id IS NULL
+RETURNING id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
+          idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
+          branch_name, completion_contract, goal_mode, goal_max_turns, current_run_id,
+          cost_micros, tokens_in, tokens_out, created_at, started_at, completed_at, archived_at
+`
+
+type ClaimTaskParams struct {
+	ID           string
+	OrgID        string
+	CurrentRunID *string
+}
+
+// Targeted claim for POST /tasks/{id}/claim (US-AD21). ClaimReadyTasks claims a
+// *batch* in priority order, which is the dispatcher's shape; a caller naming one
+// task needs that task or nothing. Same guard as the batch: the status and the
+// null run binding are preconditions in the WHERE clause, so two claimers racing
+// on one task produce one row and one zero-row conflict.
+func (q *Queries) ClaimTask(ctx context.Context, arg ClaimTaskParams) (Task, error) {
+	row := q.db.QueryRow(ctx, claimTask, arg.ID, arg.OrgID, arg.CurrentRunID)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.BoardID,
+		&i.Title,
+		&i.Body,
+		&i.Status,
+		&i.Priority,
+		&i.AssigneeAgentID,
+		&i.CreatedBy,
+		&i.IdempotencyKey,
+		&i.BlockKind,
+		&i.ConsecutiveFailures,
+		&i.WorkspaceKind,
+		&i.WorkspacePath,
+		&i.BranchName,
+		&i.CompletionContract,
+		&i.GoalMode,
+		&i.GoalMaxTurns,
+		&i.CurrentRunID,
+		&i.CostMicros,
+		&i.TokensIn,
+		&i.TokensOut,
+		&i.CreatedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
 const clearAgentProviderKey = `-- name: ClearAgentProviderKey :one
 UPDATE agents
 SET provider_api_key_enc = NULL
@@ -259,6 +389,27 @@ UPDATE providers SET is_default = false WHERE org_id = $1 AND is_default
 // cannot collide. AC9 makes the cleared state legitimate, not a half-write.
 func (q *Queries) ClearDefaultProvider(ctx context.Context, orgID string) error {
 	_, err := q.db.Exec(ctx, clearDefaultProvider, orgID)
+	return err
+}
+
+const clearTaskCurrentRun = `-- name: ClearTaskCurrentRun :exec
+UPDATE tasks
+SET current_run_id = NULL
+WHERE id = $1 AND org_id = $2
+`
+
+type ClearTaskCurrentRunParams struct {
+	ID    string
+	OrgID string
+}
+
+// EndRun clears the binding. ClaimReadyTasks requires `current_run_id IS NULL`
+// (ARCHITECTURE 4b), so a finished run that left its id on the task would make
+// that task permanently unclaimable: J4's retry, J6's reclaim, and the
+// review -> ready path all end in `ready`, and none of them could ever be
+// claimed again.
+func (q *Queries) ClearTaskCurrentRun(ctx context.Context, arg ClearTaskCurrentRunParams) error {
+	_, err := q.db.Exec(ctx, clearTaskCurrentRun, arg.ID, arg.OrgID)
 	return err
 }
 
@@ -575,6 +726,76 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 	return i, err
 }
 
+const createLedgerEntry = `-- name: CreateLedgerEntry :one
+INSERT INTO ledger_entries (
+    org_id, run_id, task_id, provider, model, kind,
+    tokens_in, tokens_out, cache_read_tokens, cache_write_tokens, reasoning_tokens,
+    cost_micros, price_version, price_source, pricing_model
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+RETURNING id, org_id, run_id, task_id, provider, model, kind, tokens_in, tokens_out,
+          cache_read_tokens, cache_write_tokens, reasoning_tokens, cost_micros,
+          price_version, price_source, pricing_model, created_at
+`
+
+type CreateLedgerEntryParams struct {
+	OrgID            string
+	RunID            string
+	TaskID           string
+	Provider         string
+	Model            string
+	Kind             string
+	TokensIn         int64
+	TokensOut        int64
+	CacheReadTokens  int64
+	CacheWriteTokens int64
+	ReasoningTokens  int64
+	CostMicros       int64
+	PriceVersion     int32
+	PriceSource      string
+	PricingModel     string
+}
+
+func (q *Queries) CreateLedgerEntry(ctx context.Context, arg CreateLedgerEntryParams) (LedgerEntry, error) {
+	row := q.db.QueryRow(ctx, createLedgerEntry,
+		arg.OrgID,
+		arg.RunID,
+		arg.TaskID,
+		arg.Provider,
+		arg.Model,
+		arg.Kind,
+		arg.TokensIn,
+		arg.TokensOut,
+		arg.CacheReadTokens,
+		arg.CacheWriteTokens,
+		arg.ReasoningTokens,
+		arg.CostMicros,
+		arg.PriceVersion,
+		arg.PriceSource,
+		arg.PricingModel,
+	)
+	var i LedgerEntry
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.RunID,
+		&i.TaskID,
+		&i.Provider,
+		&i.Model,
+		&i.Kind,
+		&i.TokensIn,
+		&i.TokensOut,
+		&i.CacheReadTokens,
+		&i.CacheWriteTokens,
+		&i.ReasoningTokens,
+		&i.CostMicros,
+		&i.PriceVersion,
+		&i.PriceSource,
+		&i.PricingModel,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createMembership = `-- name: CreateMembership :exec
 INSERT INTO memberships (org_id, user_id, role)
 VALUES ($1, $2, $3)
@@ -720,6 +941,75 @@ func (q *Queries) CreateProvider(ctx context.Context, arg CreateProviderParams) 
 	return i, err
 }
 
+const createRun = `-- name: CreateRun :one
+INSERT INTO runs (id, org_id, task_id, agent_id, attempt, status, max_runtime_seconds, last_heartbeat_at)
+VALUES ($1, $2, $3, $4, $5, 'running', $6, now())
+RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
+          last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
+          summary, error, started_at, ended_at
+`
+
+type CreateRunParams struct {
+	ID                string
+	OrgID             string
+	TaskID            string
+	AgentID           string
+	Attempt           int16
+	MaxRuntimeSeconds int32
+}
+
+type CreateRunRow struct {
+	ID                string
+	OrgID             string
+	TaskID            string
+	AgentID           string
+	Attempt           int16
+	Status            string
+	Outcome           *string
+	FailureKind       *string
+	LastHeartbeatAt   pgtype.Timestamptz
+	MaxRuntimeSeconds int32
+	CostMicros        int64
+	TokensIn          int64
+	TokensOut         int64
+	Summary           *string
+	Error             *string
+	StartedAt         pgtype.Timestamptz
+	EndedAt           pgtype.Timestamptz
+}
+
+func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (CreateRunRow, error) {
+	row := q.db.QueryRow(ctx, createRun,
+		arg.ID,
+		arg.OrgID,
+		arg.TaskID,
+		arg.AgentID,
+		arg.Attempt,
+		arg.MaxRuntimeSeconds,
+	)
+	var i CreateRunRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TaskID,
+		&i.AgentID,
+		&i.Attempt,
+		&i.Status,
+		&i.Outcome,
+		&i.FailureKind,
+		&i.LastHeartbeatAt,
+		&i.MaxRuntimeSeconds,
+		&i.CostMicros,
+		&i.TokensIn,
+		&i.TokensOut,
+		&i.Summary,
+		&i.Error,
+		&i.StartedAt,
+		&i.EndedAt,
+	)
+	return i, err
+}
+
 const createSession = `-- name: CreateSession :exec
 INSERT INTO sessions (id, user_id, token_hash, expires_at, last_seen_at, created_at)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -746,6 +1036,52 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 		arg.CreatedAt,
 	)
 	return err
+}
+
+const createStep = `-- name: CreateStep :one
+INSERT INTO steps (org_id, run_id, seq, kind, name, status, payload_json)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, org_id, run_id, seq, kind, name, status, tokens_in, tokens_out,
+          cost_micros, started_at, ended_at, payload_json
+`
+
+type CreateStepParams struct {
+	OrgID       string
+	RunID       string
+	Seq         int16
+	Kind        string
+	Name        string
+	Status      string
+	PayloadJson []byte
+}
+
+func (q *Queries) CreateStep(ctx context.Context, arg CreateStepParams) (Step, error) {
+	row := q.db.QueryRow(ctx, createStep,
+		arg.OrgID,
+		arg.RunID,
+		arg.Seq,
+		arg.Kind,
+		arg.Name,
+		arg.Status,
+		arg.PayloadJson,
+	)
+	var i Step
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.RunID,
+		&i.Seq,
+		&i.Kind,
+		&i.Name,
+		&i.Status,
+		&i.TokensIn,
+		&i.TokensOut,
+		&i.CostMicros,
+		&i.StartedAt,
+		&i.EndedAt,
+		&i.PayloadJson,
+	)
+	return i, err
 }
 
 const createTask = `-- name: CreateTask :one
@@ -1043,6 +1379,139 @@ type DeleteTaskLinkParams struct {
 func (q *Queries) DeleteTaskLink(ctx context.Context, arg DeleteTaskLinkParams) error {
 	_, err := q.db.Exec(ctx, deleteTaskLink, arg.ParentID, arg.ChildID)
 	return err
+}
+
+const endRun = `-- name: EndRun :one
+UPDATE runs r
+SET status      = 'ended',
+    outcome     = $3,
+    failure_kind = $4,
+    error       = $5,
+    summary     = $6,
+    ended_at    = now(),
+    cost_micros = COALESCE((SELECT SUM(cost_micros) FROM ledger_entries WHERE run_id = r.id), 0),
+    tokens_in   = COALESCE((SELECT SUM(tokens_in)   FROM ledger_entries WHERE run_id = r.id), 0),
+    tokens_out  = COALESCE((SELECT SUM(tokens_out)  FROM ledger_entries WHERE run_id = r.id), 0)
+WHERE r.id = $1 AND r.org_id = $2 AND r.status = 'running'
+RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
+          last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
+          summary, error, started_at, ended_at
+`
+
+type EndRunParams struct {
+	ID          string
+	OrgID       string
+	Outcome     *string
+	FailureKind *string
+	Error       *string
+	Summary     *string
+}
+
+type EndRunRow struct {
+	ID                string
+	OrgID             string
+	TaskID            string
+	AgentID           string
+	Attempt           int16
+	Status            string
+	Outcome           *string
+	FailureKind       *string
+	LastHeartbeatAt   pgtype.Timestamptz
+	MaxRuntimeSeconds int32
+	CostMicros        int64
+	TokensIn          int64
+	TokensOut         int64
+	Summary           *string
+	Error             *string
+	StartedAt         pgtype.Timestamptz
+	EndedAt           pgtype.Timestamptz
+}
+
+// The cost rollup is computed from ledger_entries in the same statement that
+// closes the run, so runs.cost_micros can never disagree with the ledger it
+// summarises. A rollup maintained by the executor in a separate UPDATE would
+// drift the moment a run ends without one.
+func (q *Queries) EndRun(ctx context.Context, arg EndRunParams) (EndRunRow, error) {
+	row := q.db.QueryRow(ctx, endRun,
+		arg.ID,
+		arg.OrgID,
+		arg.Outcome,
+		arg.FailureKind,
+		arg.Error,
+		arg.Summary,
+	)
+	var i EndRunRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TaskID,
+		&i.AgentID,
+		&i.Attempt,
+		&i.Status,
+		&i.Outcome,
+		&i.FailureKind,
+		&i.LastHeartbeatAt,
+		&i.MaxRuntimeSeconds,
+		&i.CostMicros,
+		&i.TokensIn,
+		&i.TokensOut,
+		&i.Summary,
+		&i.Error,
+		&i.StartedAt,
+		&i.EndedAt,
+	)
+	return i, err
+}
+
+const finishStep = `-- name: FinishStep :one
+UPDATE steps
+SET status      = $4,
+    tokens_in   = $5,
+    tokens_out  = $6,
+    cost_micros = $7,
+    ended_at    = now()
+WHERE run_id = $1 AND seq = $2 AND org_id = $3
+RETURNING id, org_id, run_id, seq, kind, name, status, tokens_in, tokens_out,
+          cost_micros, started_at, ended_at, payload_json
+`
+
+type FinishStepParams struct {
+	RunID      string
+	Seq        int16
+	OrgID      string
+	Status     string
+	TokensIn   int64
+	TokensOut  int64
+	CostMicros int64
+}
+
+func (q *Queries) FinishStep(ctx context.Context, arg FinishStepParams) (Step, error) {
+	row := q.db.QueryRow(ctx, finishStep,
+		arg.RunID,
+		arg.Seq,
+		arg.OrgID,
+		arg.Status,
+		arg.TokensIn,
+		arg.TokensOut,
+		arg.CostMicros,
+	)
+	var i Step
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.RunID,
+		&i.Seq,
+		&i.Kind,
+		&i.Name,
+		&i.Status,
+		&i.TokensIn,
+		&i.TokensOut,
+		&i.CostMicros,
+		&i.StartedAt,
+		&i.EndedAt,
+		&i.PayloadJson,
+	)
+	return i, err
 }
 
 const getAgent = `-- name: GetAgent :one
@@ -1361,6 +1830,64 @@ func (q *Queries) GetProviderKey(ctx context.Context, arg GetProviderKeyParams) 
 	return api_key_enc, err
 }
 
+const getRun = `-- name: GetRun :one
+SELECT id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
+       last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
+       summary, error, started_at, ended_at
+FROM runs
+WHERE id = $1 AND org_id = $2
+`
+
+type GetRunParams struct {
+	ID    string
+	OrgID string
+}
+
+type GetRunRow struct {
+	ID                string
+	OrgID             string
+	TaskID            string
+	AgentID           string
+	Attempt           int16
+	Status            string
+	Outcome           *string
+	FailureKind       *string
+	LastHeartbeatAt   pgtype.Timestamptz
+	MaxRuntimeSeconds int32
+	CostMicros        int64
+	TokensIn          int64
+	TokensOut         int64
+	Summary           *string
+	Error             *string
+	StartedAt         pgtype.Timestamptz
+	EndedAt           pgtype.Timestamptz
+}
+
+func (q *Queries) GetRun(ctx context.Context, arg GetRunParams) (GetRunRow, error) {
+	row := q.db.QueryRow(ctx, getRun, arg.ID, arg.OrgID)
+	var i GetRunRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TaskID,
+		&i.AgentID,
+		&i.Attempt,
+		&i.Status,
+		&i.Outcome,
+		&i.FailureKind,
+		&i.LastHeartbeatAt,
+		&i.MaxRuntimeSeconds,
+		&i.CostMicros,
+		&i.TokensIn,
+		&i.TokensOut,
+		&i.Summary,
+		&i.Error,
+		&i.StartedAt,
+		&i.EndedAt,
+	)
+	return i, err
+}
+
 const getSessionByTokenHash = `-- name: GetSessionByTokenHash :one
 SELECT id, user_id, token_hash, last_seen_at, expires_at, created_at
 FROM sessions
@@ -1512,6 +2039,87 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (GetUserByIDRow, e
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const heartbeatRun = `-- name: HeartbeatRun :one
+UPDATE runs
+SET last_heartbeat_at = now()
+WHERE id = $1 AND org_id = $2 AND status = 'running'
+RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
+          last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
+          summary, error, started_at, ended_at
+`
+
+type HeartbeatRunParams struct {
+	ID    string
+	OrgID string
+}
+
+type HeartbeatRunRow struct {
+	ID                string
+	OrgID             string
+	TaskID            string
+	AgentID           string
+	Attempt           int16
+	Status            string
+	Outcome           *string
+	FailureKind       *string
+	LastHeartbeatAt   pgtype.Timestamptz
+	MaxRuntimeSeconds int32
+	CostMicros        int64
+	TokensIn          int64
+	TokensOut         int64
+	Summary           *string
+	Error             *string
+	StartedAt         pgtype.Timestamptz
+	EndedAt           pgtype.Timestamptz
+}
+
+func (q *Queries) HeartbeatRun(ctx context.Context, arg HeartbeatRunParams) (HeartbeatRunRow, error) {
+	row := q.db.QueryRow(ctx, heartbeatRun, arg.ID, arg.OrgID)
+	var i HeartbeatRunRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TaskID,
+		&i.AgentID,
+		&i.Attempt,
+		&i.Status,
+		&i.Outcome,
+		&i.FailureKind,
+		&i.LastHeartbeatAt,
+		&i.MaxRuntimeSeconds,
+		&i.CostMicros,
+		&i.TokensIn,
+		&i.TokensOut,
+		&i.Summary,
+		&i.Error,
+		&i.StartedAt,
+		&i.EndedAt,
+	)
+	return i, err
+}
+
+const incrementTaskFailures = `-- name: IncrementTaskFailures :one
+UPDATE tasks
+SET consecutive_failures = consecutive_failures + 1
+WHERE id = $1 AND org_id = $2
+RETURNING consecutive_failures
+`
+
+type IncrementTaskFailuresParams struct {
+	ID    string
+	OrgID string
+}
+
+// The only writer of tasks.consecutive_failures. The retry ceiling (J4) is read
+// from this column, so without an increment a failing task retries forever:
+// the ceiling would be compared against a number that never moves.
+func (q *Queries) IncrementTaskFailures(ctx context.Context, arg IncrementTaskFailuresParams) (int16, error) {
+	row := q.db.QueryRow(ctx, incrementTaskFailures, arg.ID, arg.OrgID)
+	var consecutive_failures int16
+	err := row.Scan(&consecutive_failures)
+	return consecutive_failures, err
 }
 
 const listAgentSkillsWithUsage = `-- name: ListAgentSkillsWithUsage :many
@@ -1955,6 +2563,62 @@ func (q *Queries) ListBoardEventsAfter(ctx context.Context, arg ListBoardEventsA
 	return items, nil
 }
 
+const listBoardLedger = `-- name: ListBoardLedger :many
+SELECT l.id, l.org_id, l.run_id, l.task_id, l.provider, l.model, l.kind,
+       l.tokens_in, l.tokens_out, l.cache_read_tokens, l.cache_write_tokens,
+       l.reasoning_tokens, l.cost_micros, l.price_version, l.price_source,
+       l.pricing_model, l.created_at
+FROM ledger_entries l
+JOIN tasks t ON t.id = l.task_id
+WHERE t.board_id = $1 AND l.org_id = $2
+ORDER BY l.created_at DESC, l.id DESC
+LIMIT $3
+`
+
+type ListBoardLedgerParams struct {
+	BoardID string
+	OrgID   string
+	Limit   int32
+}
+
+func (q *Queries) ListBoardLedger(ctx context.Context, arg ListBoardLedgerParams) ([]LedgerEntry, error) {
+	rows, err := q.db.Query(ctx, listBoardLedger, arg.BoardID, arg.OrgID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LedgerEntry
+	for rows.Next() {
+		var i LedgerEntry
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.RunID,
+			&i.TaskID,
+			&i.Provider,
+			&i.Model,
+			&i.Kind,
+			&i.TokensIn,
+			&i.TokensOut,
+			&i.CacheReadTokens,
+			&i.CacheWriteTokens,
+			&i.ReasoningTokens,
+			&i.CostMicros,
+			&i.PriceVersion,
+			&i.PriceSource,
+			&i.PricingModel,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBoardTasks = `-- name: ListBoardTasks :many
 SELECT id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
        idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
@@ -2286,6 +2950,105 @@ func (q *Queries) ListProviders(ctx context.Context, orgID string) ([]Provider, 
 	return items, nil
 }
 
+const listRunLedger = `-- name: ListRunLedger :many
+SELECT id, org_id, run_id, task_id, provider, model, kind, tokens_in, tokens_out,
+       cache_read_tokens, cache_write_tokens, reasoning_tokens, cost_micros,
+       price_version, price_source, pricing_model, created_at
+FROM ledger_entries
+WHERE run_id = $1 AND org_id = $2
+ORDER BY id
+`
+
+type ListRunLedgerParams struct {
+	RunID string
+	OrgID string
+}
+
+func (q *Queries) ListRunLedger(ctx context.Context, arg ListRunLedgerParams) ([]LedgerEntry, error) {
+	rows, err := q.db.Query(ctx, listRunLedger, arg.RunID, arg.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LedgerEntry
+	for rows.Next() {
+		var i LedgerEntry
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.RunID,
+			&i.TaskID,
+			&i.Provider,
+			&i.Model,
+			&i.Kind,
+			&i.TokensIn,
+			&i.TokensOut,
+			&i.CacheReadTokens,
+			&i.CacheWriteTokens,
+			&i.ReasoningTokens,
+			&i.CostMicros,
+			&i.PriceVersion,
+			&i.PriceSource,
+			&i.PricingModel,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRunSteps = `-- name: ListRunSteps :many
+SELECT id, org_id, run_id, seq, kind, name, status, tokens_in, tokens_out,
+       cost_micros, started_at, ended_at, payload_json
+FROM steps
+WHERE run_id = $1 AND org_id = $2
+ORDER BY seq
+`
+
+type ListRunStepsParams struct {
+	RunID string
+	OrgID string
+}
+
+func (q *Queries) ListRunSteps(ctx context.Context, arg ListRunStepsParams) ([]Step, error) {
+	rows, err := q.db.Query(ctx, listRunSteps, arg.RunID, arg.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Step
+	for rows.Next() {
+		var i Step
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.RunID,
+			&i.Seq,
+			&i.Kind,
+			&i.Name,
+			&i.Status,
+			&i.TokensIn,
+			&i.TokensOut,
+			&i.CostMicros,
+			&i.StartedAt,
+			&i.EndedAt,
+			&i.PayloadJson,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStaleProviderModels = `-- name: ListStaleProviderModels :many
 SELECT id, org_id, name, protocol, base_url, api_key_enc, models_json,
        models_fetched_at, last_verified_at, is_default, created_at
@@ -2453,6 +3216,89 @@ func (q *Queries) ListTaskParents(ctx context.Context, childID string) ([]ListTa
 	return items, nil
 }
 
+const listTaskRuns = `-- name: ListTaskRuns :many
+SELECT id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
+       last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
+       summary, error, started_at, ended_at
+FROM runs
+WHERE task_id = $1 AND org_id = $2
+ORDER BY attempt DESC
+`
+
+type ListTaskRunsParams struct {
+	TaskID string
+	OrgID  string
+}
+
+type ListTaskRunsRow struct {
+	ID                string
+	OrgID             string
+	TaskID            string
+	AgentID           string
+	Attempt           int16
+	Status            string
+	Outcome           *string
+	FailureKind       *string
+	LastHeartbeatAt   pgtype.Timestamptz
+	MaxRuntimeSeconds int32
+	CostMicros        int64
+	TokensIn          int64
+	TokensOut         int64
+	Summary           *string
+	Error             *string
+	StartedAt         pgtype.Timestamptz
+	EndedAt           pgtype.Timestamptz
+}
+
+func (q *Queries) ListTaskRuns(ctx context.Context, arg ListTaskRunsParams) ([]ListTaskRunsRow, error) {
+	rows, err := q.db.Query(ctx, listTaskRuns, arg.TaskID, arg.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTaskRunsRow
+	for rows.Next() {
+		var i ListTaskRunsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.TaskID,
+			&i.AgentID,
+			&i.Attempt,
+			&i.Status,
+			&i.Outcome,
+			&i.FailureKind,
+			&i.LastHeartbeatAt,
+			&i.MaxRuntimeSeconds,
+			&i.CostMicros,
+			&i.TokensIn,
+			&i.TokensOut,
+			&i.Summary,
+			&i.Error,
+			&i.StartedAt,
+			&i.EndedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const nextRunAttempt = `-- name: NextRunAttempt :one
+SELECT COALESCE(MAX(attempt), 0) + 1 AS attempt FROM runs WHERE task_id = $1
+`
+
+func (q *Queries) NextRunAttempt(ctx context.Context, taskID string) (int32, error) {
+	row := q.db.QueryRow(ctx, nextRunAttempt, taskID)
+	var attempt int32
+	err := row.Scan(&attempt)
+	return attempt, err
+}
+
 const renameOrgWithAudit = `-- name: RenameOrgWithAudit :exec
 WITH renamed AS (
     UPDATE orgs
@@ -2485,6 +3331,22 @@ func (q *Queries) RenameOrgWithAudit(ctx context.Context, arg RenameOrgWithAudit
 		arg.Column5,
 		arg.Ip,
 	)
+	return err
+}
+
+const resetTaskFailures = `-- name: ResetTaskFailures :exec
+UPDATE tasks
+SET consecutive_failures = 0
+WHERE id = $1 AND org_id = $2
+`
+
+type ResetTaskFailuresParams struct {
+	ID    string
+	OrgID string
+}
+
+func (q *Queries) ResetTaskFailures(ctx context.Context, arg ResetTaskFailuresParams) error {
+	_, err := q.db.Exec(ctx, resetTaskFailures, arg.ID, arg.OrgID)
 	return err
 }
 
@@ -2557,6 +3419,58 @@ type SetProviderVerifiedAtParams struct {
 func (q *Queries) SetProviderVerifiedAt(ctx context.Context, arg SetProviderVerifiedAtParams) error {
 	_, err := q.db.Exec(ctx, setProviderVerifiedAt, arg.ID, arg.OrgID, arg.LastVerifiedAt)
 	return err
+}
+
+const setTaskCurrentRun = `-- name: SetTaskCurrentRun :one
+UPDATE tasks
+SET current_run_id = $3
+WHERE id = $1 AND org_id = $2
+RETURNING id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
+          idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
+          branch_name, completion_contract, goal_mode, goal_max_turns, current_run_id,
+          cost_micros, tokens_in, tokens_out, created_at, started_at, completed_at, archived_at
+`
+
+type SetTaskCurrentRunParams struct {
+	ID           string
+	OrgID        string
+	CurrentRunID *string
+}
+
+// Claiming sets tasks.current_run_id (there is no UPDATE for it anywhere else),
+// so this is what StartRun uses to bind a run to its task.
+func (q *Queries) SetTaskCurrentRun(ctx context.Context, arg SetTaskCurrentRunParams) (Task, error) {
+	row := q.db.QueryRow(ctx, setTaskCurrentRun, arg.ID, arg.OrgID, arg.CurrentRunID)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.BoardID,
+		&i.Title,
+		&i.Body,
+		&i.Status,
+		&i.Priority,
+		&i.AssigneeAgentID,
+		&i.CreatedBy,
+		&i.IdempotencyKey,
+		&i.BlockKind,
+		&i.ConsecutiveFailures,
+		&i.WorkspaceKind,
+		&i.WorkspacePath,
+		&i.BranchName,
+		&i.CompletionContract,
+		&i.GoalMode,
+		&i.GoalMaxTurns,
+		&i.CurrentRunID,
+		&i.CostMicros,
+		&i.TokensIn,
+		&i.TokensOut,
+		&i.CreatedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
 }
 
 const touchSession = `-- name: TouchSession :exec

@@ -181,6 +181,10 @@ func registerBoardRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, pr
 	boardRoute("POST /api/v1/projects/{project_id}/agents", http.HandlerFunc(boardAPI.createAgent), auth.Member)
 	boardRoute("GET /api/v1/agents/{id}", http.HandlerFunc(boardAPI.getAgent), auth.Viewer)
 	boardRoute("DELETE /api/v1/agents/{id}", http.HandlerFunc(boardAPI.deleteAgent), auth.Admin)
+
+	// M4 runtime (runs, steps, ledger). Registered from here so there is one
+	// place that declares which role reaches which route.
+	registerRunRoutes(mux, api, svc, boardAPI)
 }
 
 // POST /api/v1/projects — create a project in the caller's active org.

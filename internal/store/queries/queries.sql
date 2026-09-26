@@ -753,3 +753,179 @@ ORDER BY model;
 
 -- name: DeleteModelPrice :execrows
 DELETE FROM agent_model_prices WHERE org_id = $1 AND model = $2;
+
+-- name: CreateRun :one
+INSERT INTO runs (id, org_id, task_id, agent_id, attempt, status, max_runtime_seconds, last_heartbeat_at)
+VALUES ($1, $2, $3, $4, $5, 'running', $6, now())
+RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
+          last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
+          summary, error, started_at, ended_at;
+
+-- name: GetRun :one
+SELECT id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
+       last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
+       summary, error, started_at, ended_at
+FROM runs
+WHERE id = $1 AND org_id = $2;
+
+-- name: ListTaskRuns :many
+SELECT id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
+       last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
+       summary, error, started_at, ended_at
+FROM runs
+WHERE task_id = $1 AND org_id = $2
+ORDER BY attempt DESC;
+
+-- name: NextRunAttempt :one
+SELECT COALESCE(MAX(attempt), 0) + 1 AS attempt FROM runs WHERE task_id = $1;
+
+-- name: HeartbeatRun :one
+UPDATE runs
+SET last_heartbeat_at = now()
+WHERE id = $1 AND org_id = $2 AND status = 'running'
+RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
+          last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
+          summary, error, started_at, ended_at;
+
+-- name: EndRun :one
+-- The cost rollup is computed from ledger_entries in the same statement that
+-- closes the run, so runs.cost_micros can never disagree with the ledger it
+-- summarises. A rollup maintained by the executor in a separate UPDATE would
+-- drift the moment a run ends without one.
+UPDATE runs r
+SET status      = 'ended',
+    outcome     = $3,
+    failure_kind = $4,
+    error       = $5,
+    summary     = $6,
+    ended_at    = now(),
+    cost_micros = COALESCE((SELECT SUM(cost_micros) FROM ledger_entries WHERE run_id = r.id), 0),
+    tokens_in   = COALESCE((SELECT SUM(tokens_in)   FROM ledger_entries WHERE run_id = r.id), 0),
+    tokens_out  = COALESCE((SELECT SUM(tokens_out)  FROM ledger_entries WHERE run_id = r.id), 0)
+WHERE r.id = $1 AND r.org_id = $2 AND r.status = 'running'
+RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
+          last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
+          summary, error, started_at, ended_at;
+
+-- name: CreateStep :one
+INSERT INTO steps (org_id, run_id, seq, kind, name, status, payload_json)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, org_id, run_id, seq, kind, name, status, tokens_in, tokens_out,
+          cost_micros, started_at, ended_at, payload_json;
+
+-- name: FinishStep :one
+UPDATE steps
+SET status      = $4,
+    tokens_in   = $5,
+    tokens_out  = $6,
+    cost_micros = $7,
+    ended_at    = now()
+WHERE run_id = $1 AND seq = $2 AND org_id = $3
+RETURNING id, org_id, run_id, seq, kind, name, status, tokens_in, tokens_out,
+          cost_micros, started_at, ended_at, payload_json;
+
+-- name: ListRunSteps :many
+SELECT id, org_id, run_id, seq, kind, name, status, tokens_in, tokens_out,
+       cost_micros, started_at, ended_at, payload_json
+FROM steps
+WHERE run_id = $1 AND org_id = $2
+ORDER BY seq;
+
+-- name: CreateLedgerEntry :one
+INSERT INTO ledger_entries (
+    org_id, run_id, task_id, provider, model, kind,
+    tokens_in, tokens_out, cache_read_tokens, cache_write_tokens, reasoning_tokens,
+    cost_micros, price_version, price_source, pricing_model
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+RETURNING id, org_id, run_id, task_id, provider, model, kind, tokens_in, tokens_out,
+          cache_read_tokens, cache_write_tokens, reasoning_tokens, cost_micros,
+          price_version, price_source, pricing_model, created_at;
+
+-- name: ListRunLedger :many
+SELECT id, org_id, run_id, task_id, provider, model, kind, tokens_in, tokens_out,
+       cache_read_tokens, cache_write_tokens, reasoning_tokens, cost_micros,
+       price_version, price_source, pricing_model, created_at
+FROM ledger_entries
+WHERE run_id = $1 AND org_id = $2
+ORDER BY id;
+
+-- name: ListBoardLedger :many
+SELECT l.id, l.org_id, l.run_id, l.task_id, l.provider, l.model, l.kind,
+       l.tokens_in, l.tokens_out, l.cache_read_tokens, l.cache_write_tokens,
+       l.reasoning_tokens, l.cost_micros, l.price_version, l.price_source,
+       l.pricing_model, l.created_at
+FROM ledger_entries l
+JOIN tasks t ON t.id = l.task_id
+WHERE t.board_id = $1 AND l.org_id = $2
+ORDER BY l.created_at DESC, l.id DESC
+LIMIT $3;
+
+-- name: BoardSpendToday :one
+-- US-AD32 cost gate reads this: spend for one board since local midnight.
+SELECT COALESCE(SUM(l.cost_micros), 0)::BIGINT AS spend_micros
+FROM ledger_entries l
+JOIN tasks t ON t.id = l.task_id
+WHERE t.board_id = $1 AND l.org_id = $2 AND l.created_at >= date_trunc('day', now());
+
+-- name: IncrementTaskFailures :one
+-- The only writer of tasks.consecutive_failures. The retry ceiling (J4) is read
+-- from this column, so without an increment a failing task retries forever:
+-- the ceiling would be compared against a number that never moves.
+UPDATE tasks
+SET consecutive_failures = consecutive_failures + 1
+WHERE id = $1 AND org_id = $2
+RETURNING consecutive_failures;
+
+-- name: ResetTaskFailures :exec
+UPDATE tasks
+SET consecutive_failures = 0
+WHERE id = $1 AND org_id = $2;
+
+-- name: BlockTask :one
+-- Setting `blocked` and its `block_kind` in one statement, because a blocked
+-- task with no kind cannot be routed: the state machine (5.4) sends each kind
+-- back to `ready` by a different action.
+UPDATE tasks
+SET status = 'blocked', block_kind = $3
+WHERE id = $1 AND org_id = $2
+RETURNING id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
+          idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
+          branch_name, completion_contract, goal_mode, goal_max_turns, current_run_id,
+          cost_micros, tokens_in, tokens_out, created_at, started_at, completed_at, archived_at;
+
+-- name: SetTaskCurrentRun :one
+-- Claiming sets tasks.current_run_id (there is no UPDATE for it anywhere else),
+-- so this is what StartRun uses to bind a run to its task.
+UPDATE tasks
+SET current_run_id = $3
+WHERE id = $1 AND org_id = $2
+RETURNING id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
+          idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
+          branch_name, completion_contract, goal_mode, goal_max_turns, current_run_id,
+          cost_micros, tokens_in, tokens_out, created_at, started_at, completed_at, archived_at;
+
+-- name: ClearTaskCurrentRun :exec
+-- EndRun clears the binding. ClaimReadyTasks requires `current_run_id IS NULL`
+-- (ARCHITECTURE 4b), so a finished run that left its id on the task would make
+-- that task permanently unclaimable: J4's retry, J6's reclaim, and the
+-- review -> ready path all end in `ready`, and none of them could ever be
+-- claimed again.
+UPDATE tasks
+SET current_run_id = NULL
+WHERE id = $1 AND org_id = $2;
+
+-- name: ClaimTask :one
+-- Targeted claim for POST /tasks/{id}/claim (US-AD21). ClaimReadyTasks claims a
+-- *batch* in priority order, which is the dispatcher's shape; a caller naming one
+-- task needs that task or nothing. Same guard as the batch: the status and the
+-- null run binding are preconditions in the WHERE clause, so two claimers racing
+-- on one task produce one row and one zero-row conflict.
+UPDATE tasks
+SET status = 'running',
+    current_run_id = $3,
+    started_at = COALESCE(started_at, now())
+WHERE id = $1 AND org_id = $2 AND status = 'ready' AND current_run_id IS NULL
+RETURNING id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
+          idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
+          branch_name, completion_contract, goal_mode, goal_max_turns, current_run_id,
+          cost_micros, tokens_in, tokens_out, created_at, started_at, completed_at, archived_at;
