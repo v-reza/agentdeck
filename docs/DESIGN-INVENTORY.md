@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (139 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (136 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 73 |
+| `<svg>` | 111 | 74 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -20,7 +20,7 @@ yang punya file impl — lihat §3.
 | blok skeleton (abu berukuran) | 323 | 20 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 24 |
+| file memakai `lucide-react` | 0 | 25 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -144,7 +144,7 @@ Nol.
 | 02-register | `/register` | `AuthShell.tsx`, `Register.tsx`, `variants.ts` | 0/0 | 0 | 0 |
 | 03-reset-request | `/reset` | `AuthShell.tsx`, `ResetRequest.tsx`, `variants.ts` | 0/0 | 0 | 0 |
 | 04-reset-confirm | `/reset/:token` | `AuthShell.tsx`, `ResetConfirm.tsx`, `variants.ts` | 0/0 | 0 | 0 |
-| 05-landing | `/` | `LandingPage.tsx` | 9/0 | 0 | 0 |
+| 05-landing | `/` | `Check.tsx`, `LandingPage.tsx` | 9/2 | 0 | 0 |
 | 06-docs-quickstart | `/docs/quickstart` | — | 4/0 | 0 | 0 |
 | 06b-docs-api | `/docs/api` | — | 0/0 | 0 | 0 |
 | 06c-docs-telemetry | `/docs/telemetry` | — | 0/0 | 0 | 0 |
@@ -179,7 +179,7 @@ Nol.
 | 32-run-detail | `/runs/:id` | — | 18/0 | 0 | 0 |
 | 33-run-timeline | `/runs/:id/timeline` | — | 4/0 | 0 | 0 |
 | 34-step-payload | `(panel)` | — | 0/0 | 0 | 0 |
-| 35-approval-inbox | `/approvals` | `ApprovalInbox.tsx` | 10/3 | 0 | 1 |
+| 35-approval-inbox | `/approvals` | `DiffViewer.tsx`, `ApprovalInbox.tsx` | 10/3 | 0 | 1 |
 | 36-approval-detail | `/approvals/:id` | — | 0/0 | 0 | 0 |
 | 37-workspace-settings | `/settings/workspace` | `WorkspaceSettings.tsx` | 0/8 | 0 | 1 |
 | 38-members | `/settings/members` | `role-badge.tsx`, `Members.tsx`, `members-actions.tsx` | 0/1 | 0 | 1 |
@@ -195,20 +195,16 @@ Nol.
 
 ## 10. File tanpa layar (shell & komponen bersama)
 
-85 file tidak dipetakan ke satu layar. Ini wajar untuk
+80 file tidak dipetakan ke satu layar. Ini wajar untuk
 layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 
 - `App.tsx`
 - `app/router.tsx`
-- `components/Check.tsx`
 - `components/CodeBlock.tsx`
 - `components/PublicShell.tsx`
 - `components/ReleaseEntry.tsx`
 - `components/Shell.tsx`
 - `components/SupportCard.tsx`
-- `components/approvals/ActionButtons.tsx`
-- `components/approvals/DiffViewer.tsx`
-- `components/approvals/RiskBadge.tsx`
 - `components/docs/DataTable.tsx`
 - `components/docs/DocHeader.tsx`
 - `components/docs/DocSection.tsx`
@@ -260,7 +256,6 @@ layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 - `routes/dashboard/Layout.tsx`
 - `routes/dashboard/agents/StatusFilter.tsx`
 - `routes/dashboard/boards/TaskDrawerHost.tsx`
-- `routes/dashboard/finops/LedgerExplorer.tsx`
 - `routes/public/DocsPage.tsx`
 - `routes/public/NotFoundPage.tsx`
 - `routes/public/SupportPage.tsx`

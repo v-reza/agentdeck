@@ -1,6 +1,7 @@
 // Marketing landing page.
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowRight } from 'lucide-react'
 import { PublicShell } from '../../components/PublicShell'
 import { faqs } from '../../data/content'
 import { MiniBoard } from '../../components/landing/MiniBoard'
@@ -29,7 +30,7 @@ function LandingPage() {
                 Get started free
               </Link>
               <Link to="/docs/quickstart" className="btn-outline">
-                Read the docs <span aria-hidden="true">→</span>
+                Read the docs <ArrowRight size={14} strokeWidth={1.75} aria-hidden />
               </Link>
             </div>
             <div className="hero-meta">No credit card · Postgres + one binary · ~80 MB idle RAM</div>

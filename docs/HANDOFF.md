@@ -430,6 +430,30 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
    yang tidak punya perilaku JSONB — hanya probe lawan container yang menunjukkan
    `{"z":1,"a":[1,2]}` kembali sebagai `{"a": [1, 2], "z": 1}`. Klaim di doc, test,
    ARCHITECTURE, dan `DiffViewer` dikoreksi jadi "setia pada isi, bukan byte".
+4m. **Cek design ulang: dua gap ikon nyata di `05-landing`, dan satu angka
+   inventory yang menyesatkan.** Layar `05` ditandai `9/0` (9 ikon di design, 0 di
+   impl) dan itu **dua ikon nyata**, bukan sembilan:
+   (a) check daftar fitur digambar **bergaris** 16px (`viewBox 0 0 16 16`,
+   `fill=none`, `stroke-width=2`, `<polyline points="3.5 8.5 6.5 11.5 12.5 4.5">`)
+   sementara impl memakai check **terisi** 20px (`fill=currentColor`) — beda
+   **bentuk**, bukan beda ukuran, dan cuma kelihatan kalau disandingkan;
+   (b) panah "Read the docs" digambar ikon 14px (`stroke-width=1.75`), impl memakai
+   karakter teks `→` yang ikut font dan ukuran teks, bukan grid ikon.
+   Keduanya diperbaiki + dikunci sebagai assertion **atribut** (bukan screenshot:
+   screenshot full-page yang di-downscale tidak me-resolve gaya stroke glyph 16px).
+   Mutasi (check dibalik ke `fill=currentColor`) **CAUGHT**.
+   **Yang gagal dibongkar, dan itu penting untuk cek berikutnya:** tabel §9
+   `DESIGN-INVENTORY.md` menghitung ikon **seluruh halaman**, bukan `<main>`, dan
+   design menggambar ikon shell sebagai **ligature Material Symbols**
+   (`<span class="material-symbols">folder</span>`), bukan `<svg>`. Jadi angka
+   `0/4` di `19-table-view` dan `0/6` di `22-column-editor` **bukan** ikon hilang:
+   impl `22` sudah punya `GripVertical`/`Trash2`/`Plus`/`X` (Lucide) persis yang
+   digambar ligature `drag_indicator`/`delete`/`add_circle`/`close` — beda
+   notasi, sama ikon. Bandingkan per-elemen, jangan percaya kolom `svg`.
+   **Gap beneran yang ketemu dari sini, dan itu milik M5:** US-AD54 AC2
+   ("Multi-sort: klik header kolom untuk sorting asc/desc") — `TableView.tsx`
+   merender tabelnya tapi header-nya tidak bisa diklik dan nol ikon sort. Status
+   story itu **M5**, jadi ini bukan gap F3; pemiliknya M5.
 5. Belum ada `LICENSE`/`NOTICE`/`THIRD_PARTY`. Konflik lisensi di design
    (`09b-github.html` Apache-2.0 vs `05-landing.html` MIT).
 6. ~~Audit `livez`/`metrics` + tabel tanpa DDL~~ **SELESAI** — lihat

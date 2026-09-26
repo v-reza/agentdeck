@@ -1,5 +1,5 @@
 import { baseApi } from './base'
-import type { LedgerEntry, BoardBudget, CostSummary } from '@/lib/domain'
+import type { LedgerEntry, BoardLedger, BoardBudget, CostSummary } from '@/lib/domain'
 
 /**
  * Finops server state (ARCHITECTURE 18.2: `store/api/finops.ts`, tags Ledger,
@@ -33,7 +33,11 @@ export const finopsApi = baseApi.injectEndpoints({
       ],
     }),
 
-    boardLedger: build.query<LedgerEntry[], string>({
+    // The response is the object `GET /boards/{id}/ledger` documents (spend next
+    // to its rows), not a bare array. Typing it as an array is what let a blank
+    // page ship: the caller did `ledger ?? []` then `for (const e of entries)`,
+    // which is fine for `undefined` and fatal for an object.
+    boardLedger: build.query<BoardLedger, string>({
       query: (boardID) => `boards/${boardID}/ledger`,
       providesTags: (_r, _e, boardID) => [{ type: 'Ledger', id: `BOARD-${boardID}` }],
     }),

@@ -131,12 +131,12 @@ function BoardCost({ boardID }: { boardID: string; orgID: string }) {
         </div>
         {isLoading ? (
           <SkeletonRows rows={4} columns={4} />
-        ) : (ledger ?? []).length === 0 ? (
+        ) : (ledger?.entries ?? []).length === 0 ? (
           <p className="p-3 text-[12px] text-[var(--color-tertiary)]">No ledger entries yet.</p>
         ) : (
           <table className="w-full border-collapse">
             <tbody>
-              {(ledger ?? []).map((entry) => (
+              {(ledger?.entries ?? []).map((entry) => (
                 <tr key={entry.id} className="h-8 border-b border-[var(--color-border-subtle)] last:border-b-0">
                   <td className="px-3 font-mono text-[11px] text-[var(--color-secondary)]">
                     {entry.provider}/{entry.model}

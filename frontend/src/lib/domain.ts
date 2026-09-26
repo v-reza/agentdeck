@@ -292,7 +292,13 @@ export interface Approval {
   created_at: string
 }
 
-/** One immutable LLM-call cost row. Integer micro-USD only (DECISIONS 6). */
+/**
+ * One immutable LLM-call cost row. Integer micro-USD only (DECISIONS 6).
+ *
+ * The price fields are the reason the row survives a table change: `cost_micros`
+ * is the computed price, and `price_version`/`price_source`/`pricing_model`
+ * record which snapshot and which of the four resolution tiers produced it.
+ */
 export interface LedgerEntry {
   id: number
   org_id: string
@@ -306,8 +312,28 @@ export interface LedgerEntry {
   cache_read_tokens: number
   cache_write_tokens: number
   cost_micros: number
-  price_version: string
+  price_version: number
+  /** manual | catalog | pattern | unpriced (DECISIONS 6A.C) */
+  price_source: string
+  /** The entry or pattern actually used, e.g. `deepseek-v*`. */
+  pricing_model: string
+  reasoning_tokens: number
   created_at: string
+}
+
+/**
+ * GET /boards/{id}/ledger — a board's recent priced calls plus what it has spent
+ * today.
+ *
+ * This is an **object**, not an array of entries, and that shape is deliberate:
+ * `spend_today_micros` is served next to the rows so the figure a screen shows
+ * and the figure the US-AD32 cost gate reads cannot disagree. A client that
+ * wants just the rows reads `.entries`.
+ */
+export interface BoardLedger {
+  spend_today_micros: number
+  budget_micros: number
+  entries: LedgerEntry[]
 }
 
 /** GET /boards/{id}/budget — realtime usage against the N16 daily cap. */

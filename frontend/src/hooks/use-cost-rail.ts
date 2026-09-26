@@ -84,7 +84,7 @@ export function useCostRail(): CostRailData {
   const ratio = capMicros > 0 ? Math.min(today / capMicros, 1) : 0
 
   const week = useMemo<WeekBar[]>(() => {
-    const entries = ledger ?? []
+    const entries = ledger?.entries ?? []
     if (entries.length === 0) return []
 
     const perDay = new Map<string, number>()
@@ -105,7 +105,7 @@ export function useCostRail(): CostRailData {
   }, [ledger])
 
   const topSpenders = useMemo<SpenderRow[]>(() => {
-    const entries = ledger ?? []
+    const entries = ledger?.entries ?? []
     if (entries.length === 0) return []
 
     const perModel = new Map<string, number>()

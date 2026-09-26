@@ -77,6 +77,24 @@ test.describe('board toolbar and the create-task modal', () => {
     boardID = created.id
   })
 
+  test('the board page renders without throwing', async ({ page }) => {
+    // A render crash on this route used to take the whole page blank, and it did
+    // so silently: React unmounts the tree, the DOM keeps the shell, and every
+    // other assertion in this file fails as a *timeout* four minutes later. That
+    // is a bad signal — it points at the toolbar instead of at the crash.
+    //
+    // The crash was real: `/boards/{id}/ledger` began answering 200 with an
+    // object (`{spend_today_micros, budget_micros, entries}`) while `useCostRail`
+    // still read it as an array and did `for (const entry of ledger ?? [])`.
+    // `?? []` saved it from `undefined` and did nothing for an object.
+    const failures: string[] = []
+    page.on('pageerror', (error) => failures.push(error.message))
+    await page.goto(`/app/${orgID}/boards/${boardID}`)
+    await expect(page.getByRole('link', { name: /^(Board|Papan)$/ })).toBeVisible()
+
+    expect(failures, `the board route threw while rendering: ${failures.join(' | ')}`).toEqual([])
+  })
+
   test('the board toolbar offers both views, search, filter and a task CTA', async ({ page }) => {
     await page.goto(`/app/${orgID}/boards/${boardID}`)
     await expect(page).toHaveURL(new RegExp(`/app/${ULID.source}/boards/${ULID.source}$`))
