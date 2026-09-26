@@ -123,14 +123,19 @@ type Querier interface {
 	// markdown, agents only read it. Nothing here exposes a write path an agent
 	// could reach, and every query carries org_id explicitly.
 	CreateAgentSkill(ctx context.Context, arg CreateAgentSkillParams) (AgentSkill, error)
-	// ---------------------------------------------------------------- approvals --
-	// Gate keputusan manusia (ARCHITECTURE 3.13, 6.2.14).
 	// `expires_at` sengaja TIDAK dikirim pemanggil: N23 mematoknya 24 jam, dan
 	// membiarkan klien memilih tenggatnya berarti approval yang tidak pernah
 	// kedaluwarsa bisa dibuat dengan mengirim tanggal jauh di depan.
 	CreateApproval(ctx context.Context, arg CreateApprovalParams) (Approval, error)
 	// Boards. columns_json is the board's view of status, never a new status.
 	CreateBoard(ctx context.Context, arg CreateBoardParams) (Board, error)
+	// ---------------------------------------------------------------- approvals --
+	// Gate keputusan manusia (ARCHITECTURE 3.13, 6.2.14).
+	// 3.16 + DECISIONS §6: the author is either a user or an agent, never both and
+	// never neither (comments_author_chk). The service picks the branch; this
+	// statement takes the resolved pair so the CHECK can reject a caller that
+	// passes both.
+	CreateComment(ctx context.Context, arg CreateCommentParams) (Comment, error)
 	// Append-only event log. No UPDATE or DELETE is ever issued against events.
 	CreateEvent(ctx context.Context, arg CreateEventParams) (Event, error)
 	CreateLedgerEntry(ctx context.Context, arg CreateLedgerEntryParams) (LedgerEntry, error)
@@ -196,6 +201,8 @@ type Querier interface {
 	// from, and removing one would silently strip capability from existing agents.
 	DeleteAgentSkill(ctx context.Context, arg DeleteAgentSkillParams) error
 	DeleteBoard(ctx context.Context, arg DeleteBoardParams) error
+	// Same author scoping as UpdateCommentBody.
+	DeleteComment(ctx context.Context, arg DeleteCommentParams) (int64, error)
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteMembership(ctx context.Context, arg DeleteMembershipParams) error
 	DeleteModelPrice(ctx context.Context, arg DeleteModelPriceParams) (int64, error)
@@ -235,6 +242,7 @@ type Querier interface {
 	// lain harus tak terbedakan dari yang tidak ada.
 	GetApproval(ctx context.Context, arg GetApprovalParams) (Approval, error)
 	GetBoard(ctx context.Context, arg GetBoardParams) (Board, error)
+	GetComment(ctx context.Context, arg GetCommentParams) (Comment, error)
 	// The single membership row that answers "is this user in this org, and as
 	// what". Every org-scoped handler resolves its tenant through this query, so
 	// there is no second code path that could forget the org_id scope.
@@ -406,6 +414,9 @@ type Querier interface {
 	// pemeriksaan "sudah ada gate pending?" sebelum membuat gate baru.
 	ListTaskApprovals(ctx context.Context, arg ListTaskApprovalsParams) ([]Approval, error)
 	ListTaskChildren(ctx context.Context, parentID string) ([]ListTaskChildrenRow, error)
+	// `id ASC` is the discussion order, and the index comments_task_idx is on
+	// (task_id, id) for exactly this read.
+	ListTaskComments(ctx context.Context, arg ListTaskCommentsParams) ([]Comment, error)
 	ListTaskEvents(ctx context.Context, taskID *string) ([]Event, error)
 	ListTaskParents(ctx context.Context, childID string) ([]ListTaskParentsRow, error)
 	ListTaskRuns(ctx context.Context, arg ListTaskRunsParams) ([]ListTaskRunsRow, error)
@@ -530,6 +541,11 @@ type Querier interface {
 	UpdateBoardBudget(ctx context.Context, arg UpdateBoardBudgetParams) error
 	UpdateBoardColumns(ctx context.Context, arg UpdateBoardColumnsParams) error
 	UpdateBoardName(ctx context.Context, arg UpdateBoardNameParams) error
+	// Author-scoped in SQL, not only in Go: the predicate is the second line of
+	// defence, so a service that forgets to check ownership still cannot edit
+	// somebody else's comment. Zero rows means either "no such comment" or "not
+	// yours", and the service tells them apart by reading first.
+	UpdateCommentBody(ctx context.Context, arg UpdateCommentBodyParams) (Comment, error)
 	UpdateMembershipRole(ctx context.Context, arg UpdateMembershipRoleParams) error
 	UpdateOrgName(ctx context.Context, arg UpdateOrgNameParams) error
 	UpdateProjectName(ctx context.Context, arg UpdateProjectNameParams) error

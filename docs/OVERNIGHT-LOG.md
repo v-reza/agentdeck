@@ -496,3 +496,63 @@ dijeda gate. Pilihannya sengaja — `failed` akan dibaca sebagai "kerjanya rusak
 oleh siapa pun yang melihat `runs.outcome`, dan mereka tidak bisa melihat
 gate-nya dari sana. Kalau ada konsumen yang memfilter `outcome='budget_exceeded'`
 sebagai "kena cap biaya", ia akan salah baca gate ini.
+
+## F8 — 6.2.17 Comments (4 endpoint)
+
+**Status:** selesai, ter-push. 102 ✅ / 27 ⬜ (total 129).
+**Deviasi urutan:** brief menaruh 6.2.19 di slot 8 dan 6.2.17 di slot 9. Yang
+dikerjakan adalah **6.2.17**, karena brief sendiri menetapkan aturan "urut modul
+termurah dulu" dan 6.2.19 bukan modul termurah: ia menuntut tabel `notifications`
+yang belum ada, dua endpoint search yang butuh `pg_trgm` di jalur query, dan satu
+`/system/info`. Comments nol dependensi baru — tabelnya sudah ditulis lengkap di
+ARCHITECTURE §3.16 sejak awal, cuma belum pernah dibuat migrasinya.
+
+**Temuan:** tabel `comments` **didokumentasikan lengkap** di §3.16 (DDL, dua
+constraint, dua index, komentar "Melayani: ...") dan di DECISIONS §6 baris 194 —
+tapi nol migrasi yang menyebutnya, jadi nol tabel di DB. Kelas yang sama dengan
+`GetOrgByIDIncludingDeleted` (F6) dan `approvals` (F7): kontraknya sudah ditulis,
+sambungannya belum ada. Migrasi `0017.up.sql` menyalin §3.16 apa adanya.
+
+**Keputusan yang diambil sendiri** (kontrak diam, AC menuntut):
+- `MaxCommentBody = 4096` karakter, dihitung **rune, bukan byte**. US-AD42 AC3
+  minta "melebihi batas panjang" tanpa menyebut angkanya di dokumen mana pun.
+  Rune dipilih karena byte akan menolak komentar Indonesia lebih awal daripada
+  batas yang tertulis, dan pesan errornya tidak akan menjelaskan kenapa.
+  Kolomnya tetap TEXT, jadi menaikkan batas nanti satu baris, bukan migrasi.
+- Batasnya **inklusif** (4096 diterima, 4097 ditolak), dan itu dipatok tes.
+
+**Migrasi `0017` harus `IF NOT EXISTS`** — bukan gaya, tapi syarat. `Apply`
+mengulang migrasi di atas skema yang sudah terisi di jalur repair, dan
+`TestPostgresRepairMigrationGrantsPrivilegesOnLegacySchema` langsung merah saat
+`CREATE TABLE comments` tanpa `IF NOT EXISTS`. Konvensi itu sudah dipakai 0013
+ke atas; F8 yang melanggarnya lebih dulu, dan tesnya yang menangkap.
+
+**Tes:** `cmd/api` 6/6 (gerbang peran, batas 400, kepemilikan, id non-numerik);
+`internal/board` 7/7 lawan Postgres (constraint penulis nyata, body round-trip,
+predikat penulis **di SQL**, event timeline, task tak dikenal, scoping org).
+**Mutation 7 CAUGHT, 0 SURVIVED** — dan **2 mutant setara** yang diakui: cek
+kepemilikan di service untuk Edit/DeleteComment tidak bisa dibedakan dari versi
+tanpa cek, karena predikat penulis di SQL sudah menangkap kasus yang sama. Itu
+pertahanan berlapis, bukan lubang; yang dibuktikan adalah lapisan SQL-nya.
+
+**Probe:** `tools/probe-comments.py` **25/25 hijau** lawan API nyata, termasuk
+satu pemeriksaan yang cuma bisa dilakukan di sini: body 4096 rune non-ASCII
+(8192 byte) diterima, jadi batasnya benar-benar rune di server yang jalan.
+
+**Dua kesalahan proses gw sendiri yang perlu dicatat:**
+1. **Harness mutation gw salah dua kali.** Pertama, `go test` tanpa `-v` tidak
+   menulis baris `--- PASS`/`--- FAIL`, jadi harness menghitung nol tes dan
+   melaporkan INVALID/SURVIVED untuk apa pun. Kedua, filter `-run` gw bolong:
+   `TestPgCreateCommentStoresBothAuthorShapes` tidak cocok dengan pola mana pun,
+   jadi tes yang justru menguji cabang penulis tidak pernah jalan. Dua-duanya
+   sekarang dipatok: baseline wajib ≥13 PASS sebelum mutasi dimulai, dan
+   `-v` wajib.
+2. **Probe gw butuh empat putaran perbaikan**, tiga di antaranya asumsi endpoint
+   yang salah (register butuh `org_name`; token sesi harus dikirim sebagai
+   Bearer, cookie saja 401; bukan-anggota ditolak 403 oleh middleware sebelum
+   handler jalan). Yang terakhir itu bukan bug produk — 403 lebih ketat daripada
+   404, dan probe-nya yang salah mengharapkan. Isolasi tenant diuji lewat aktor
+   yang punya workspace sendiri, dan itu yang benar-benar mengukur scoping org.
+
+**Urutan yang dibetulin:** probe ditulis dan dijalankan **sebelum** commit. Di F6
+probe ditulis setelah commit ter-push, jadi commit itu jalan tanpa bukti probe.

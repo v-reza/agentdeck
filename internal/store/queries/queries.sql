@@ -1247,6 +1247,43 @@ WHERE board_id = $1 AND day = (now() AT TIME ZONE 'UTC')::date;
 -- ---------------------------------------------------------------- approvals --
 -- Gate keputusan manusia (ARCHITECTURE 3.13, 6.2.14).
 
+-- name: CreateComment :one
+-- 3.16 + DECISIONS §6: the author is either a user or an agent, never both and
+-- never neither (comments_author_chk). The service picks the branch; this
+-- statement takes the resolved pair so the CHECK can reject a caller that
+-- passes both.
+INSERT INTO comments (org_id, task_id, author_user_id, author_agent_id, body)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, org_id, task_id, author_user_id, author_agent_id, body, created_at;
+
+-- name: GetComment :one
+SELECT id, org_id, task_id, author_user_id, author_agent_id, body, created_at
+FROM comments
+WHERE id = $1 AND org_id = $2;
+
+-- name: ListTaskComments :many
+-- `id ASC` is the discussion order, and the index comments_task_idx is on
+-- (task_id, id) for exactly this read.
+SELECT id, org_id, task_id, author_user_id, author_agent_id, body, created_at
+FROM comments
+WHERE task_id = $1 AND org_id = $2
+ORDER BY id ASC;
+
+-- name: UpdateCommentBody :one
+-- Author-scoped in SQL, not only in Go: the predicate is the second line of
+-- defence, so a service that forgets to check ownership still cannot edit
+-- somebody else's comment. Zero rows means either "no such comment" or "not
+-- yours", and the service tells them apart by reading first.
+UPDATE comments
+SET body = $4
+WHERE id = $1 AND org_id = $2 AND author_user_id = $3
+RETURNING id, org_id, task_id, author_user_id, author_agent_id, body, created_at;
+
+-- name: DeleteComment :execrows
+-- Same author scoping as UpdateCommentBody.
+DELETE FROM comments
+WHERE id = $1 AND org_id = $2 AND author_user_id = $3;
+
 -- name: CreateApproval :one
 -- `expires_at` sengaja TIDAK dikirim pemanggil: N23 mematoknya 24 jam, dan
 -- membiarkan klien memilih tenggatnya berarti approval yang tidak pernah

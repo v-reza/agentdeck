@@ -52,6 +52,10 @@ type stubRunRepo struct {
 	boards map[string]bool
 	// approvals is the gate store (6.2.14), keyed by id.
 	approvals map[string]board.Approval
+	// comments is the task discussion (6.2.17). commentSeq hands out ids the way
+	// BIGSERIAL does, so a test can create two comments and tell them apart.
+	comments   []board.Comment
+	commentSeq int64
 }
 
 func (s *stubRunRepo) GetTask(_ context.Context, id, orgID string) (board.Task, error) {

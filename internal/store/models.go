@@ -111,6 +111,16 @@ type Board struct {
 	CreatedAt         pgtype.Timestamptz
 }
 
+type Comment struct {
+	ID            int64
+	OrgID         string
+	TaskID        string
+	AuthorUserID  *string
+	AuthorAgentID *string
+	Body          string
+	CreatedAt     pgtype.Timestamptz
+}
+
 type DailyBoardCost struct {
 	OrgID       string
 	BoardID     string

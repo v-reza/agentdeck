@@ -278,6 +278,27 @@ type Approval struct {
 	TaskTitle string
 }
 
+// Comment is one message in a task's discussion (ARCHITECTURE 3.16, US-AD42).
+//
+// The author is a user or an agent, never both — the table's comments_author_chk
+// enforces that, and this struct mirrors it with two fields rather than a string
+// kind so an invalid combination cannot be represented.
+type Comment struct {
+	ID            int64
+	OrgID         string
+	TaskID        string
+	AuthorUserID  string // empty when the author is an agent
+	AuthorAgentID string // empty when the author is a user
+	Body          string
+	CreatedAt     time.Time
+}
+
+// MaxCommentBody is the length US-AD42 AC3 refuses. The contract asks for a
+// limit without naming a number ("melebihi batas panjang"), so this is the
+// decision: 4096 characters. It lives here and only here — the column stays
+// TEXT, so raising it later is a one-line change rather than a migration.
+const MaxCommentBody = 4096
+
 type Event struct {
 	ID          int64
 	OrgID       string
@@ -604,6 +625,17 @@ type Repository interface {
 	// from "does not exist" without a second read here.
 	DecideApproval(ctx context.Context, id, orgID string, decision ApprovalDecision, decidedBy, reason string) (bool, error)
 	ExpireApprovals(ctx context.Context, orgID string) ([]Approval, error)
+
+	// ---- comments (6.2.17) ----------------------------------------------
+	//
+	// Update and delete are author-scoped in the SQL itself, so these take the
+	// author id and report zero rows rather than trusting the caller to have
+	// checked ownership first.
+	CreateComment(ctx context.Context, c Comment) (Comment, error)
+	GetComment(ctx context.Context, id int64, orgID string) (Comment, error)
+	ListTaskComments(ctx context.Context, taskID, orgID string) ([]Comment, error)
+	UpdateCommentBody(ctx context.Context, id int64, orgID, authorUserID, body string) (Comment, error)
+	DeleteComment(ctx context.Context, id int64, orgID, authorUserID string) (bool, error)
 
 	// ---- runs (M4) -------------------------------------------------------
 	CreateRun(ctx context.Context, r Run) (Run, error)

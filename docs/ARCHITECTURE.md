@@ -1898,10 +1898,10 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 #### 6.2.17 Comments (4 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/tasks/{id}/comments` | Session/Key | Viewer | Ya | ⬜ | List komentar diskusi pada task |
-| `POST` | `/api/v1/tasks/{id}/comments` | Session/Key | Member | Tidak | ⬜ | Kirim komentar baru (dari user atau agent) |
-| `PATCH` | `/api/v1/comments/{id}` | Session/Key | Member | Ya | ⬜ | Edit teks komentar milik sendiri |
-| `DELETE` | `/api/v1/comments/{id}` | Session/Key | Member | Ya | ⬜ | Hapus komentar |
+| `GET` | `/api/v1/tasks/{id}/comments` | Session/Key | Viewer | Ya | ✅ | List komentar diskusi pada task |
+| `POST` | `/api/v1/tasks/{id}/comments` | Session/Key | Member | Tidak | ✅ | Kirim komentar baru (dari user atau agent) |
+| `PATCH` | `/api/v1/comments/{id}` | Session/Key | Member | Ya | ✅ | Edit teks komentar milik sendiri |
+| `DELETE` | `/api/v1/comments/{id}` | Session/Key | Member | Ya | ✅ | Hapus komentar |
 
 #### 6.2.18 Webhooks & Deliveries (7 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |

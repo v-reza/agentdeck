@@ -49,6 +49,16 @@ func str(p *string) string {
 	return *p
 }
 
+// strPtr is the inverse of str. The empty domain string means "absent" for the
+// nullable author columns: comments_author_chk refuses a row where both authors
+// are set, and "" is a value, not an absence.
+func strPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 // ts converts a nullable Postgres timestamp to a pointer, the shape the domain
 // uses so "no value" is unambiguous instead of a zero time.
 // boolOf flattens the nullable generated column agents.has_provider_key into a
@@ -252,6 +262,96 @@ func (r *pgxRepository) ExpireApprovals(ctx context.Context, orgID string) ([]Ap
 		out = append(out, Approval{ID: row.ID, OrgID: orgID, TaskID: row.TaskID, RunID: row.RunID})
 	}
 	return out, nil
+}
+
+// ---- comments (6.2.17) --------------------------------------------------
+
+func commentRow(r store.Comment) Comment {
+	return Comment{
+		ID:            r.ID,
+		OrgID:         r.OrgID,
+		TaskID:        r.TaskID,
+		AuthorUserID:  str(r.AuthorUserID),
+		AuthorAgentID: str(r.AuthorAgentID),
+		Body:          r.Body,
+		CreatedAt:     r.CreatedAt.Time,
+	}
+}
+
+// The author pair is written as two nullable columns, so the empty string on the
+// domain side has to become NULL here — comments_author_chk refuses a row where
+// both are set, and the empty string is a value, not an absence.
+func commentAuthor(userID, agentID string) (*string, *string) {
+	return strPtr(userID), strPtr(agentID)
+}
+
+func (r *pgxRepository) CreateComment(ctx context.Context, c Comment) (Comment, error) {
+	userID, agentID := commentAuthor(c.AuthorUserID, c.AuthorAgentID)
+	row, err := r.q.CreateComment(ctx, store.CreateCommentParams{
+		OrgID:         c.OrgID,
+		TaskID:        c.TaskID,
+		AuthorUserID:  userID,
+		AuthorAgentID: agentID,
+		Body:          c.Body,
+	})
+	if err != nil {
+		return Comment{}, err
+	}
+	return commentRow(row), nil
+}
+
+func (r *pgxRepository) GetComment(ctx context.Context, id int64, orgID string) (Comment, error) {
+	row, err := r.q.GetComment(ctx, store.GetCommentParams{ID: id, OrgID: orgID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Comment{}, ErrNotFound
+	}
+	if err != nil {
+		return Comment{}, err
+	}
+	return commentRow(row), nil
+}
+
+func (r *pgxRepository) ListTaskComments(ctx context.Context, taskID, orgID string) ([]Comment, error) {
+	rows, err := r.q.ListTaskComments(ctx, store.ListTaskCommentsParams{TaskID: taskID, OrgID: orgID})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Comment, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, commentRow(row))
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) UpdateCommentBody(ctx context.Context, id int64, orgID, authorUserID, body string) (Comment, error) {
+	row, err := r.q.UpdateCommentBody(ctx, store.UpdateCommentBodyParams{
+		ID:           id,
+		OrgID:        orgID,
+		AuthorUserID: strPtr(authorUserID),
+		Body:         body,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Either the comment is not in this org, or it is not this user's. Both
+		// are "not yours to edit" and both answer 404 — telling them apart would
+		// leak the existence of another member's comment.
+		return Comment{}, ErrNotFound
+	}
+	if err != nil {
+		return Comment{}, err
+	}
+	return commentRow(row), nil
+}
+
+func (r *pgxRepository) DeleteComment(ctx context.Context, id int64, orgID, authorUserID string) (bool, error) {
+	n, err := r.q.DeleteComment(ctx, store.DeleteCommentParams{
+		ID:           id,
+		OrgID:        orgID,
+		AuthorUserID: strPtr(authorUserID),
+	})
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }
 
 func eventRow(r store.Event) Event {

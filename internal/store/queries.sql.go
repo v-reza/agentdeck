@@ -842,7 +842,6 @@ func (q *Queries) CreateAgentSkill(ctx context.Context, arg CreateAgentSkillPara
 }
 
 const createApproval = `-- name: CreateApproval :one
-
 INSERT INTO approvals (id, org_id, task_id, run_id, requested_by, gate_mode, preview_json, reason, expires_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + interval '24 hours')
 RETURNING id, org_id, task_id, run_id, requested_by, decided_by, decision, gate_mode,
@@ -860,8 +859,6 @@ type CreateApprovalParams struct {
 	Reason      *string
 }
 
-// ---------------------------------------------------------------- approvals --
-// Gate keputusan manusia (ARCHITECTURE 3.13, 6.2.14).
 // `expires_at` sengaja TIDAK dikirim pemanggil: N23 mematoknya 24 jam, dan
 // membiarkan klien memilih tenggatnya berarti approval yang tidak pernah
 // kedaluwarsa bisa dibuat dengan mengirim tanggal jauh di depan.
@@ -931,6 +928,48 @@ func (q *Queries) CreateBoard(ctx context.Context, arg CreateBoardParams) (Board
 		&i.Name,
 		&i.ColumnsJson,
 		&i.BudgetDailyMicros,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createComment = `-- name: CreateComment :one
+
+INSERT INTO comments (org_id, task_id, author_user_id, author_agent_id, body)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, org_id, task_id, author_user_id, author_agent_id, body, created_at
+`
+
+type CreateCommentParams struct {
+	OrgID         string
+	TaskID        string
+	AuthorUserID  *string
+	AuthorAgentID *string
+	Body          string
+}
+
+// ---------------------------------------------------------------- approvals --
+// Gate keputusan manusia (ARCHITECTURE 3.13, 6.2.14).
+// 3.16 + DECISIONS §6: the author is either a user or an agent, never both and
+// never neither (comments_author_chk). The service picks the branch; this
+// statement takes the resolved pair so the CHECK can reject a caller that
+// passes both.
+func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (Comment, error) {
+	row := q.db.QueryRow(ctx, createComment,
+		arg.OrgID,
+		arg.TaskID,
+		arg.AuthorUserID,
+		arg.AuthorAgentID,
+		arg.Body,
+	)
+	var i Comment
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TaskID,
+		&i.AuthorUserID,
+		&i.AuthorAgentID,
+		&i.Body,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -1583,6 +1622,26 @@ func (q *Queries) DeleteBoard(ctx context.Context, arg DeleteBoardParams) error 
 	return err
 }
 
+const deleteComment = `-- name: DeleteComment :execrows
+DELETE FROM comments
+WHERE id = $1 AND org_id = $2 AND author_user_id = $3
+`
+
+type DeleteCommentParams struct {
+	ID           int64
+	OrgID        string
+	AuthorUserID *string
+}
+
+// Same author scoping as UpdateCommentBody.
+func (q *Queries) DeleteComment(ctx context.Context, arg DeleteCommentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteComment, arg.ID, arg.OrgID, arg.AuthorUserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
 DELETE FROM sessions
 WHERE expires_at < now()
@@ -2105,6 +2164,32 @@ func (q *Queries) GetBoard(ctx context.Context, arg GetBoardParams) (Board, erro
 		&i.Name,
 		&i.ColumnsJson,
 		&i.BudgetDailyMicros,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getComment = `-- name: GetComment :one
+SELECT id, org_id, task_id, author_user_id, author_agent_id, body, created_at
+FROM comments
+WHERE id = $1 AND org_id = $2
+`
+
+type GetCommentParams struct {
+	ID    int64
+	OrgID string
+}
+
+func (q *Queries) GetComment(ctx context.Context, arg GetCommentParams) (Comment, error) {
+	row := q.db.QueryRow(ctx, getComment, arg.ID, arg.OrgID)
+	var i Comment
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TaskID,
+		&i.AuthorUserID,
+		&i.AuthorAgentID,
+		&i.Body,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -3980,6 +4065,48 @@ func (q *Queries) ListTaskChildren(ctx context.Context, parentID string) ([]List
 	return items, nil
 }
 
+const listTaskComments = `-- name: ListTaskComments :many
+SELECT id, org_id, task_id, author_user_id, author_agent_id, body, created_at
+FROM comments
+WHERE task_id = $1 AND org_id = $2
+ORDER BY id ASC
+`
+
+type ListTaskCommentsParams struct {
+	TaskID string
+	OrgID  string
+}
+
+// `id ASC` is the discussion order, and the index comments_task_idx is on
+// (task_id, id) for exactly this read.
+func (q *Queries) ListTaskComments(ctx context.Context, arg ListTaskCommentsParams) ([]Comment, error) {
+	rows, err := q.db.Query(ctx, listTaskComments, arg.TaskID, arg.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Comment
+	for rows.Next() {
+		var i Comment
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.TaskID,
+			&i.AuthorUserID,
+			&i.AuthorAgentID,
+			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTaskEvents = `-- name: ListTaskEvents :many
 SELECT id, org_id, board_id, task_id, run_id, kind, payload_json, created_at
 FROM events
@@ -4947,6 +5074,44 @@ type UpdateBoardNameParams struct {
 func (q *Queries) UpdateBoardName(ctx context.Context, arg UpdateBoardNameParams) error {
 	_, err := q.db.Exec(ctx, updateBoardName, arg.ID, arg.OrgID, arg.Name)
 	return err
+}
+
+const updateCommentBody = `-- name: UpdateCommentBody :one
+UPDATE comments
+SET body = $4
+WHERE id = $1 AND org_id = $2 AND author_user_id = $3
+RETURNING id, org_id, task_id, author_user_id, author_agent_id, body, created_at
+`
+
+type UpdateCommentBodyParams struct {
+	ID           int64
+	OrgID        string
+	AuthorUserID *string
+	Body         string
+}
+
+// Author-scoped in SQL, not only in Go: the predicate is the second line of
+// defence, so a service that forgets to check ownership still cannot edit
+// somebody else's comment. Zero rows means either "no such comment" or "not
+// yours", and the service tells them apart by reading first.
+func (q *Queries) UpdateCommentBody(ctx context.Context, arg UpdateCommentBodyParams) (Comment, error) {
+	row := q.db.QueryRow(ctx, updateCommentBody,
+		arg.ID,
+		arg.OrgID,
+		arg.AuthorUserID,
+		arg.Body,
+	)
+	var i Comment
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TaskID,
+		&i.AuthorUserID,
+		&i.AuthorAgentID,
+		&i.Body,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const updateMembershipRole = `-- name: UpdateMembershipRole :exec

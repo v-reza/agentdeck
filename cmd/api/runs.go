@@ -69,6 +69,14 @@ func registerRunRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, bAPI
 	// §6.2.14 names does not exist yet. `viewer` is refused, which is US-AD33 AC3.
 	boardRoute("POST /api/v1/tasks/{id}/approvals", http.HandlerFunc(boardAPI.requestApproval), auth.Member)
 
+	// Comments (6.2.17). Reading is Viewer, writing is Member (US-AD42 AC2).
+	// The two `/comments/{id}` routes carry no task id, so they resolve the
+	// tenant the same way the approval routes do.
+	boardRoute("GET /api/v1/tasks/{id}/comments", http.HandlerFunc(boardAPI.listComments), auth.Viewer)
+	boardRoute("POST /api/v1/tasks/{id}/comments", http.HandlerFunc(boardAPI.createComment), auth.Member)
+	boardRoute("PATCH /api/v1/comments/{id}", http.HandlerFunc(boardAPI.editComment), auth.Member)
+	boardRoute("DELETE /api/v1/comments/{id}", http.HandlerFunc(boardAPI.deleteComment), auth.Member)
+
 	// Trace.
 	boardRoute("GET /api/v1/runs/{id}/steps", http.HandlerFunc(boardAPI.listRunSteps), auth.Viewer)
 	boardRoute("POST /api/v1/runs/{id}/steps", http.HandlerFunc(boardAPI.createRunStep), auth.Member)
