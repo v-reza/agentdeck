@@ -41,6 +41,15 @@ type stubRunRepo struct {
 	ledger  []board.LedgerEntry
 	tasks   map[string]board.Task
 	endCall *board.RunSummary
+	// budgets is the daily_board_costs aggregate, keyed by board id. Kept
+	// separate from the board row because the cap and the spend live in
+	// different places, and the endpoint's job is to join them.
+	budgets map[string]board.BoardBudget
+	caps    map[string]int64
+	summary board.CostSummary
+	// boards is the set of ids that exist. The budget query joins boards, so a
+	// double without this would answer for any id and hide the 404.
+	boards map[string]bool
 }
 
 func (s *stubRunRepo) GetTask(_ context.Context, id, orgID string) (board.Task, error) {
@@ -229,7 +238,8 @@ func newRunAPI(t *testing.T) (*http.ServeMux, *stubRunRepo, rbacTestAPI) {
 	t.Helper()
 	scenario := newRBACTestAPI(t)
 	repo := &stubRunRepo{
-		runs: map[string]board.Run{},
+		boards: map[string]bool{"board-a": true},
+		runs:   map[string]board.Run{},
 		tasks: map[string]board.Task{
 			"task-1": {
 				ID: "task-1", OrgID: scenario.orgA, BoardID: "board-a", Title: "Run me",

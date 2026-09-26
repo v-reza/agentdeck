@@ -1877,11 +1877,11 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 #### 6.2.15 Cost Ledger & Budget (8 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/boards/{id}/budget` | Session/Key | Viewer | Ya | ⬜ | Realtime usage vs cap harian board (N16: $20/hari, N18: alert 80%) |
-| `PATCH` | `/api/v1/boards/{id}/budget` | Session/Key | Admin | Ya | ⬜ | Ubah `budget_daily_micros` board |
+| `GET` | `/api/v1/boards/{id}/budget` | Session/Key | Viewer | Ya | ✅ | Pemakaian vs cap harian (N16, N18): `{board_id, day, budget_daily_micros, spent_micros, run_count, tokens_{in,out}, threshold_crossed}`. Membaca agregat `daily_board_costs` — **baris yang sama yang dibaca gate biaya dispatcher**, jadi layar dan guardrail tidak bisa beda angka. `threshold_crossed` dikirim server, tidak dihitung ulang klien dari 0.8 hardcoded |
+| `PATCH` | `/api/v1/boards/{id}/budget` | Session/Key | Admin | Ya | ✅ | Body `{budget_daily_micros}` (wajib; **absen → 400**, karena nol itu nilai yang sah = "stop belanja") → `200` + budget setelah ditulis, dibaca ulang dari agregat supaya pemanggil melihat cap baru bersama pemakaian hari ini. Negatif → `400`. Menaikkan cap di atas pemakaian membersihkan status N18 |
 | `GET` | `/api/v1/boards/{id}/ledger` | Session/Key | Viewer | Ya | ✅ | Laporan rincian pemakaian token & mikro-USD. Mengembalikan `spend_today_micros` + `budget_micros` + baris terbaru — angka yang dibandingkan gate biaya (US-AD32) dan yang ditampilkan layar datang dari respons yang sama |
 | `GET` | `/api/v1/runs/{id}/ledger` | Session/Key | Viewer | Ya | ✅ | Ledger entry terperinci per LLM call di suatu run. `price_version` wajib (>0): biaya tanpa versi tidak bisa diturunkan ulang setelah tabel harga berubah |
-| `GET` | `/api/v1/orgs/{id}/cost-summary` | Session/Key | Admin | Ya | ⬜ | Total pengeluaran per model & board 30 hari |
+| `GET` | `/api/v1/orgs/{id}/cost-summary` | Session/Key | Admin | Ya | ✅ | `{total_micros, window_days, by_model[], by_board[]}` 30 hari menggelinding. Satu statement dengan `GROUPING SETS` (total/model/board), jadi totalnya **jumlah dari bagian-bagiannya**, bukan angka yang dihitung terpisah. Org tanpa pemakaian → laporan kosong bertotal nol (`[]`, bukan `null`), bukan 404 (US-AD32 AC3). Biaya board yang sudah dihapus tetap terhitung dengan `board_id`/`name` kosong |
 | `GET` | `/api/v1/model-prices` | Session/Key | Viewer | Ya | ✅ | Harga manual per model milik ruang kerja (tingkat 1 §6A.C) |
 | `PUT` | `/api/v1/model-prices/{model}` | Session/Key | Admin | Ya | ✅ | Set/ubah harga manual satu model (micro-USD per 1M token) |
 | `DELETE` | `/api/v1/model-prices/{model}` | Session/Key | Admin | Ya | ✅ | Hapus harga manual; model kembali ke katalog/pattern |

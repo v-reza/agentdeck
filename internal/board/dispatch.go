@@ -93,6 +93,11 @@ func (s *Service) BoardBudgetToday(ctx context.Context, orgID, boardID string) (
 	return s.repo.BoardBudgetToday(ctx, orgID, boardID)
 }
 
+// OrgCostSummary answers GET /orgs/{id}/cost-summary (US-AD32 reporting).
+func (s *Service) OrgCostSummary(ctx context.Context, orgID string) (CostSummary, error) {
+	return s.repo.OrgCostSummary(ctx, orgID)
+}
+
 // BumpDailyRunCount counts one run against the day, once per run rather than per
 // step.
 func (s *Service) BumpDailyRunCount(ctx context.Context, boardID string) error {
@@ -193,7 +198,40 @@ func (r *pgxRepository) BoardBudgetToday(ctx context.Context, orgID, boardID str
 		SpentTodayMicros: row.SpentToday,
 		RunCount:         int(row.RunCount),
 		Status:           row.BudgetStatus,
+		Day:              row.Day.Time.Format("2006-01-02"),
+		TokensIn:         row.TokensIn,
+		TokensOut:        row.TokensOut,
 	}, nil
+}
+
+// OrgCostSummary is the 30-day report (US-AD32). The three grouping sets arrive
+// as rows tagged by `scope`; they are folded into one value here so the handler
+// never has to know which shape a row is.
+func (r *pgxRepository) OrgCostSummary(ctx context.Context, orgID string) (CostSummary, error) {
+	rows, err := r.q.OrgCostSummary(ctx, orgID)
+	if err != nil {
+		return CostSummary{}, err
+	}
+	out := CostSummary{ByModel: []CostByModel{}, ByBoard: []CostByBoard{}}
+	for _, row := range rows {
+		switch row.Scope {
+		case "total":
+			out.TotalMicros = row.CostMicros
+		case "model":
+			out.ByModel = append(out.ByModel, CostByModel{
+				Model: row.Model, Provider: row.Provider,
+				CostMicros: row.CostMicros, TokensIn: row.TokensIn,
+				TokensOut: row.TokensOut, Runs: int(row.Runs),
+			})
+		case "board":
+			out.ByBoard = append(out.ByBoard, CostByBoard{
+				BoardID: row.BoardID, BoardName: row.BoardName,
+				CostMicros: row.CostMicros, TokensIn: row.TokensIn,
+				TokensOut: row.TokensOut, Runs: int(row.Runs),
+			})
+		}
+	}
+	return out, nil
 }
 
 func (r *pgxRepository) RecordRunUsage(ctx context.Context, runID string, micros, tokensIn, tokensOut int64) error {

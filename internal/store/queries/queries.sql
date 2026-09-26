@@ -1160,9 +1160,22 @@ SET total_micros = daily_board_costs.total_micros + EXCLUDED.total_micros,
 -- 4c versi tabel agregat: cap, terpakai hari ini, dan status ambang N18.
 -- COALESCE untuk board yang belum punya baris hari ini — cap tetap terbaca,
 -- terpakai nol, jadi guardrail-nya tidak bergantung pada ada-tidaknya baris.
+--
+-- Ini SATU-SATUNYA sumber angka biaya board. `BoardSpendToday` (jumlah
+-- ledger_entries) memakai tabel lain dan pernah dikomentari sebagai "yang dibaca
+-- gate biaya"; itu salah — gate-nya membaca baris ini. Dua sumber untuk satu
+-- angka adalah cara paling mudah membuat layar dan guardrail berbeda pendapat,
+-- jadi GET /boards/{id}/budget sengaja menyajikan baris ini juga.
+--
+-- `d.day` ikut dikembalikan supaya pemanggil tahu hari mana yang diukur; tanpa
+-- itu, respons yang bilang "terpakai 0" tidak bisa dibedakan dari "barisnya belum
+-- ada".
 SELECT b.budget_daily_micros AS cap, b.id AS board_id,
+       COALESCE(d.day, (now() AT TIME ZONE 'UTC')::date) AS day,
        COALESCE(d.total_micros, 0)::bigint AS spent_today,
        COALESCE(d.run_count, 0)::int AS run_count,
+       COALESCE(d.tokens_in, 0)::bigint AS tokens_in,
+       COALESCE(d.tokens_out, 0)::bigint AS tokens_out,
        CASE
          WHEN COALESCE(d.total_micros, 0) >= b.budget_daily_micros THEN 'exceeded'
          WHEN COALESCE(d.total_micros, 0) >= (b.budget_daily_micros * 0.8) THEN 'warning'
@@ -1172,6 +1185,59 @@ FROM boards b
 LEFT JOIN daily_board_costs d
   ON d.board_id = b.id AND d.day = (now() AT TIME ZONE 'UTC')::date
 WHERE b.id = $1 AND b.org_id = $2;
+
+-- name: OrgCostSummary :many
+-- GET /orgs/{id}/cost-summary (US-AD32 reporting): total 30 hari, dipecah per
+-- model dan per board. Satu query dengan dua GROUPING SETS, bukan dua query:
+-- totalnya harus jumlah dari bagian-bagiannya, dan dua perjalanan terpisah ke
+-- tabel yang sama bisa melihat dua snapshot yang berbeda.
+--
+-- 30 hari, bukan "bulan kalender": rentangnya menggelinding, jadi angkanya tidak
+-- mendadak kembali ke nol di awal bulan.
+--
+-- Board yang sudah dihapus tidak disaring: `boards` tidak punya penanda hapus
+-- (yang lunak di US-AD98 itu `orgs.deleted_at`, dan org-nya masih hidup di sini),
+-- jadi baris board yang hilang muncul dengan id/nama kosong dan biayanya tetap
+-- terhitung. Itu pilihan yang disengaja: totalnya harus tetap cocok dengan
+-- ledger, dan biaya yang benar-benar keluar tidak boleh menguap dari laporan
+-- hanya karena board-nya dibersihkan.
+--
+-- Baris dengan grouping set kosong (total keseluruhan) dibedakan dari baris
+-- per-model oleh `scope`; tanpa penanda itu pemanggil harus menebak dari
+-- `model IS NULL`, dan tebakan itu salah begitu ada baris model yang namanya
+-- kebetulan kosong.
+-- `GROUPING(l.model) = 1` saja TIDAK cukup untuk menandai total: grouping set
+-- board juga tidak memuat l.model, jadi baris board akan ikut berlabel 'total'
+-- dan seluruh laporan per-board hilang. Total itu satu-satunya set yang tidak
+-- memuat model MAUPUN board, jadi keduanya harus diperiksa.
+--
+-- SUM di-COALESCE: untuk set kosong Postgres tetap mengembalikan satu baris
+-- (dengan NULL), dan tanpa COALESCE pemanggilnya gagal scan — laporan "belum ada
+-- pengeluaran" jadi error, padahal US-AD32 AC3 minta nol.
+SELECT
+    CASE
+        WHEN GROUPING(l.model) = 0 THEN 'model'
+        WHEN GROUPING(b.id) = 0 THEN 'board'
+        ELSE 'total'
+    END AS scope,
+    COALESCE(l.model, '') AS model,
+    COALESCE(l.provider, '') AS provider,
+    COALESCE(b.id, '') AS board_id,
+    COALESCE(b.name, '') AS board_name,
+    COALESCE(SUM(l.cost_micros), 0)::bigint AS cost_micros,
+    COALESCE(SUM(l.tokens_in), 0)::bigint AS tokens_in,
+    COALESCE(SUM(l.tokens_out), 0)::bigint AS tokens_out,
+    COUNT(DISTINCT l.run_id)::int AS runs
+FROM ledger_entries l
+JOIN tasks t ON t.id = l.task_id
+LEFT JOIN boards b ON b.id = t.board_id
+WHERE l.org_id = $1 AND l.created_at >= now() - interval '30 days'
+GROUP BY GROUPING SETS (
+    (),
+    (l.model, l.provider),
+    (b.id, b.name)
+)
+ORDER BY scope, SUM(l.cost_micros) DESC;
 
 -- name: BumpDailyRunCount :exec
 -- run_count naik sekali per run, bukan per step; dipanggil saat run berakhir.

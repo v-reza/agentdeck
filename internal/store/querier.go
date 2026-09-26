@@ -27,6 +27,16 @@ type Querier interface {
 	// 4c versi tabel agregat: cap, terpakai hari ini, dan status ambang N18.
 	// COALESCE untuk board yang belum punya baris hari ini — cap tetap terbaca,
 	// terpakai nol, jadi guardrail-nya tidak bergantung pada ada-tidaknya baris.
+	//
+	// Ini SATU-SATUNYA sumber angka biaya board. `BoardSpendToday` (jumlah
+	// ledger_entries) memakai tabel lain dan pernah dikomentari sebagai "yang dibaca
+	// gate biaya"; itu salah — gate-nya membaca baris ini. Dua sumber untuk satu
+	// angka adalah cara paling mudah membuat layar dan guardrail berbeda pendapat,
+	// jadi GET /boards/{id}/budget sengaja menyajikan baris ini juga.
+	//
+	// `d.day` ikut dikembalikan supaya pemanggil tahu hari mana yang diukur; tanpa
+	// itu, respons yang bilang "terpakai 0" tidak bisa dibedakan dari "barisnya belum
+	// ada".
 	BoardBudgetToday(ctx context.Context, arg BoardBudgetTodayParams) (BoardBudgetTodayRow, error)
 	// US-AD32 cost gate reads this: spend for one board since local midnight.
 	BoardSpendToday(ctx context.Context, arg BoardSpendTodayParams) (int64, error)
@@ -367,6 +377,34 @@ type Querier interface {
 	ListTaskParents(ctx context.Context, childID string) ([]ListTaskParentsRow, error)
 	ListTaskRuns(ctx context.Context, arg ListTaskRunsParams) ([]ListTaskRunsRow, error)
 	NextRunAttempt(ctx context.Context, taskID string) (int32, error)
+	// GET /orgs/{id}/cost-summary (US-AD32 reporting): total 30 hari, dipecah per
+	// model dan per board. Satu query dengan dua GROUPING SETS, bukan dua query:
+	// totalnya harus jumlah dari bagian-bagiannya, dan dua perjalanan terpisah ke
+	// tabel yang sama bisa melihat dua snapshot yang berbeda.
+	//
+	// 30 hari, bukan "bulan kalender": rentangnya menggelinding, jadi angkanya tidak
+	// mendadak kembali ke nol di awal bulan.
+	//
+	// Board yang sudah dihapus tidak disaring: `boards` tidak punya penanda hapus
+	// (yang lunak di US-AD98 itu `orgs.deleted_at`, dan org-nya masih hidup di sini),
+	// jadi baris board yang hilang muncul dengan id/nama kosong dan biayanya tetap
+	// terhitung. Itu pilihan yang disengaja: totalnya harus tetap cocok dengan
+	// ledger, dan biaya yang benar-benar keluar tidak boleh menguap dari laporan
+	// hanya karena board-nya dibersihkan.
+	//
+	// Baris dengan grouping set kosong (total keseluruhan) dibedakan dari baris
+	// per-model oleh `scope`; tanpa penanda itu pemanggil harus menebak dari
+	// `model IS NULL`, dan tebakan itu salah begitu ada baris model yang namanya
+	// kebetulan kosong.
+	// `GROUPING(l.model) = 1` saja TIDAK cukup untuk menandai total: grouping set
+	// board juga tidak memuat l.model, jadi baris board akan ikut berlabel 'total'
+	// dan seluruh laporan per-board hilang. Total itu satu-satunya set yang tidak
+	// memuat model MAUPUN board, jadi keduanya harus diperiksa.
+	//
+	// SUM di-COALESCE: untuk set kosong Postgres tetap mengembalikan satu baris
+	// (dengan NULL), dan tanpa COALESCE pemanggilnya gagal scan — laporan "belum ada
+	// pengeluaran" jadi error, padahal US-AD32 AC3 minta nol.
+	OrgCostSummary(ctx context.Context, orgID string) ([]OrgCostSummaryRow, error)
 	// 4b: run 'running' tanpa heartbeat 15 menit (N8) di-reclaim dalam satu
 	// transaksi: run ditutup dengan outcome 'reclaimed', task dikembalikan ke
 	// 'ready' dengan consecutive_failures naik (§10.3). Task yang sudah melewati

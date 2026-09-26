@@ -61,6 +61,18 @@ func registerRunRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, bAPI
 	// Ledger (US-AD32 cost reporting).
 	boardRoute("GET /api/v1/runs/{id}/ledger", http.HandlerFunc(boardAPI.listRunLedger), auth.Viewer)
 	boardRoute("GET /api/v1/boards/{id}/ledger", http.HandlerFunc(boardAPI.listBoardLedger), auth.Viewer)
+
+	// Budget (6.2.15). Reading is Viewer — the cost rail is on every board screen
+	// and a viewer seeing the number is US-AD32 AC4. Raising the cap is Admin:
+	// it is the control that decides how much the workspace may spend.
+	boardRoute("GET /api/v1/boards/{id}/budget", http.HandlerFunc(boardAPI.getBoardBudget), auth.Viewer)
+	boardRoute("PATCH /api/v1/boards/{id}/budget", http.HandlerFunc(boardAPI.updateBoardBudget), auth.Admin)
+
+	// Cost summary. {id} di sini adalah id ORG, jadi middleware-nya yang membaca
+	// path parameter — bukan yang header. Route board di atas memakai
+	// orgHeaderContextMiddleware karena {id}-nya board.
+	mux.Handle("GET /api/v1/orgs/{id}/cost-summary",
+		api.orgContextMiddleware(api.requireRole(http.HandlerFunc(boardAPI.getCostSummary), auth.Admin)))
 }
 
 // writeJSONResponse is the encoder every run route uses. It exists because
@@ -564,6 +576,158 @@ func (a boardAPI) listBoardLedger(w http.ResponseWriter, r *http.Request) {
 		out.Entries = append(out.Entries, toLedgerResponse(e))
 	}
 	writeJSONResponse(w, http.StatusOK, out)
+}
+
+type costSummaryResponse struct {
+	TotalMicros int64                 `json:"total_micros"`
+	ByModel     []costByModelResponse `json:"by_model"`
+	ByBoard     []costByBoardResponse `json:"by_board"`
+	// WindowDays is stated rather than implied: "the last 30 days" is part of
+	// what the number means, and a client that hardcodes 30 would silently
+	// mislabel the figure if the window ever changes.
+	WindowDays int `json:"window_days"`
+}
+
+type costByModelResponse struct {
+	Model      string `json:"model"`
+	Provider   string `json:"provider"`
+	CostMicros int64  `json:"cost_micros"`
+	TokensIn   int64  `json:"tokens_in"`
+	TokensOut  int64  `json:"tokens_out"`
+	Runs       int    `json:"runs"`
+}
+
+type costByBoardResponse struct {
+	BoardID    string `json:"board_id"`
+	Name       string `json:"name"`
+	CostMicros int64  `json:"cost_micros"`
+	TokensIn   int64  `json:"tokens_in"`
+	TokensOut  int64  `json:"tokens_out"`
+	Runs       int    `json:"runs"`
+}
+
+// GET /api/v1/orgs/{id}/cost-summary — 30-day totals by model and board.
+//
+// US-AD32 reporting. Admin-gated per §6.2.15's Role Min column: this is the
+// workspace's whole spend history, not one board's running total.
+//
+// The empty case is an empty report with a zero total, never a 404 or an error:
+// an org that has not spent anything yet is a normal org, and the screen shows
+// its empty state from a well-formed answer (US-AD32 AC3's "nol, bukan error").
+func (a boardAPI) getCostSummary(w http.ResponseWriter, r *http.Request) {
+	summary, err := a.svc.OrgCostSummary(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	out := costSummaryResponse{
+		TotalMicros: summary.TotalMicros,
+		WindowDays:  30,
+		ByModel:     make([]costByModelResponse, 0, len(summary.ByModel)),
+		ByBoard:     make([]costByBoardResponse, 0, len(summary.ByBoard)),
+	}
+	for _, m := range summary.ByModel {
+		out.ByModel = append(out.ByModel, costByModelResponse{
+			Model: m.Model, Provider: m.Provider, CostMicros: m.CostMicros,
+			TokensIn: m.TokensIn, TokensOut: m.TokensOut, Runs: m.Runs,
+		})
+	}
+	for _, b := range summary.ByBoard {
+		out.ByBoard = append(out.ByBoard, costByBoardResponse{
+			BoardID: b.BoardID, Name: b.BoardName, CostMicros: b.CostMicros,
+			TokensIn: b.TokensIn, TokensOut: b.TokensOut, Runs: b.Runs,
+		})
+	}
+	writeJSONResponse(w, http.StatusOK, out)
+}
+
+// boardBudgetResponse is the shape the finops screen expects (frontend
+// src/lib/domain.ts `BoardBudget`): every money field is micro-USD, and
+// `threshold_crossed` is reported by the server rather than recomputed by each
+// client from a magic 0.8.
+type boardBudgetResponse struct {
+	BoardID           string `json:"board_id"`
+	Day               string `json:"day"`
+	BudgetDailyMicros int64  `json:"budget_daily_micros"`
+	SpentMicros       int64  `json:"spent_micros"`
+	RunCount          int    `json:"run_count"`
+	TokensIn          int64  `json:"tokens_in"`
+	TokensOut         int64  `json:"tokens_out"`
+	ThresholdCrossed  bool   `json:"threshold_crossed"`
+}
+
+func toBoardBudgetResponse(b board.BoardBudget) boardBudgetResponse {
+	return boardBudgetResponse{
+		BoardID:           b.BoardID,
+		Day:               b.Day,
+		BudgetDailyMicros: b.CapMicros,
+		SpentMicros:       b.SpentTodayMicros,
+		RunCount:          b.RunCount,
+		TokensIn:          b.TokensIn,
+		TokensOut:         b.TokensOut,
+		// N18: the 80% alert. `warning` is exactly "at or past 80%, not yet at
+		// the cap", so the flag is the status rather than a second threshold.
+		ThresholdCrossed: b.Status == "warning" || b.Status == "exceeded",
+	}
+}
+
+// GET /api/v1/boards/{id}/budget — realtime usage against the N16 daily cap.
+//
+// Reads the aggregate (daily_board_costs), which is the same row the dispatcher's
+// cost gate reads. The screen and the guardrail therefore cannot disagree about
+// whether the board is out of budget.
+func (a boardAPI) getBoardBudget(w http.ResponseWriter, r *http.Request) {
+	orgCtx, err := a.boardContext(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	budget, err := a.svc.BoardBudgetToday(r.Context(), orgCtx.workspace.ID, r.PathValue("id"))
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, toBoardBudgetResponse(budget))
+}
+
+type boardBudgetRequest struct {
+	BudgetDailyMicros *int64 `json:"budget_daily_micros"`
+}
+
+// PATCH /api/v1/boards/{id}/budget — set the daily cap (Admin, §6.2.15).
+//
+// A pointer, so "not sent" is a 400 rather than a silent zero. Zero is a
+// legitimate value (it means "stop spending"), and a request that omits the
+// field must not be indistinguishable from one that asks for it.
+//
+// The response is the budget after the write, read back from the aggregate, so
+// the caller sees the cap and today's spend together rather than having to
+// re-query to learn what the new cap applies to.
+func (a boardAPI) updateBoardBudget(w http.ResponseWriter, r *http.Request) {
+	orgCtx, err := a.boardContext(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	var req boardBudgetRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.BudgetDailyMicros == nil {
+		http.Error(w, "budget_daily_micros is required", http.StatusBadRequest)
+		return
+	}
+	if err := a.svc.UpdateBoardBudget(r.Context(), r.PathValue("id"), orgCtx.workspace.ID, *req.BudgetDailyMicros); err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	budget, err := a.svc.BoardBudgetToday(r.Context(), orgCtx.workspace.ID, r.PathValue("id"))
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, toBoardBudgetResponse(budget))
 }
 
 // POST /api/v1/tasks/{id}/claim — manual force claim (US-AD21). Claims the named

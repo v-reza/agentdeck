@@ -62,6 +62,18 @@ coret.
   **Belum diputuskan user.** Kalau AC3 yang diinginkan, yang berubah cuma satu
   cabang di `internal/auth/sessions.go:RevokeSession`.
 
+## Isu terbuka yang baru diverifikasi
+
+- **Dua definisi "hari ini" untuk biaya board.** `BoardSpendToday` (jumlah
+  `ledger_entries`) memakai `date_trunc('day', now())` — zona server.
+  `BoardBudgetToday` + `UpsertDailyBoardCost` memakai `(now() AT TIME ZONE 'UTC')::date`
+  — UTC. Di DB container sekarang (TZ=UTC) hasilnya identik, jadi ini laten, bukan
+  aktif. Begitu Postgres-nya bukan UTC, `GET /boards/{id}/ledger`
+  (`spend_today_micros`) dan `GET /boards/{id}/budget` (`spent_micros`) akan
+  menampilkan dua angka berbeda untuk hari yang sama. **Belum diperbaiki**:
+  menyentuh `BoardSpendToday` yang sudah ✅, dan memilih zona waktu itu keputusan
+  produk (UTC vs zona pengguna), bukan keputusan implementasi.
+
 ## Batasan yang diketahui (bukan bug)
 
 - **Gerbang peran tidak bisa dibuktikan lewat e2e** — fixture selalu owner. Cakupan

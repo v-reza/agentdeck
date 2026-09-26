@@ -314,6 +314,45 @@ type BoardBudget struct {
 	RunCount         int
 	// Status is ok | warning | exceeded (N18 alerts at 80%).
 	Status string
+	// Day is the UTC day the spend belongs to. Carried because "spent 0 today"
+	// and "there is no row for today" are different facts, and the response
+	// cannot tell them apart without the date it measured.
+	Day string
+	// TokensIn/TokensOut are the same aggregate's token totals. They come from
+	// daily_board_costs, which the dispatcher upserts next to the spend, so
+	// reporting them here costs no extra read.
+	TokensIn  int64
+	TokensOut int64
+}
+
+// CostSummary is the 30-day cost report behind GET /orgs/{id}/cost-summary
+// (US-AD32). Totals are sums of the two breakdowns, not independent figures:
+// they come from one statement, so the headline cannot disagree with the parts.
+type CostSummary struct {
+	TotalMicros int64
+	ByModel     []CostByModel
+	ByBoard     []CostByBoard
+}
+
+// CostByModel is one model's share of the last 30 days.
+type CostByModel struct {
+	Model      string
+	Provider   string
+	CostMicros int64
+	TokensIn   int64
+	TokensOut  int64
+	Runs       int
+}
+
+// CostByBoard is one board's share. BoardName is empty for spend whose board has
+// since been deleted: the money still counts, the name is simply gone.
+type CostByBoard struct {
+	BoardID    string
+	BoardName  string
+	CostMicros int64
+	TokensIn   int64
+	TokensOut  int64
+	Runs       int
 }
 
 // Exceeded reports whether spend has reached the cap, which is what stops a claim.
@@ -553,6 +592,8 @@ type Repository interface {
 	ListRunLedger(ctx context.Context, runID, orgID string) ([]LedgerEntry, error)
 	ListBoardLedger(ctx context.Context, boardID, orgID string, limit int) ([]LedgerEntry, error)
 	BoardSpendToday(ctx context.Context, boardID, orgID string) (int64, error)
+	// OrgCostSummary is the 30-day report (US-AD32 reporting).
+	OrgCostSummary(ctx context.Context, orgID string) (CostSummary, error)
 
 	// IncrementTaskFailures/ResetTaskFailures own the retry counter. It has to
 	// be a counter in the database rather than a value the caller passes: the

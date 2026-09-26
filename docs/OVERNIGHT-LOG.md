@@ -306,3 +306,56 @@ ringkasan §6.2.20 yang basi bikin gw salah kira. Isi brief-nya sendiri akurat.
    durasi negatif (skew jam) sama sekali tidak ada tesnya. Ditambahkan.
 
 **Fase berikutnya:** 6.2.15 Cost Ledger & Budget (3 endpoint).
+
+## F5 — 6.2.15 Cost Ledger & Budget (3 endpoint sisa)
+
+**Status:** selesai, ter-push.
+
+| Endpoint | Status | Bukti |
+|---|---|---|
+| `GET /api/v1/boards/{id}/budget` | ✅ | probe 34/34 · `TestPgBoardBudgetReportsTheAggregate` |
+| `PATCH /api/v1/boards/{id}/budget` | ✅ | `TestPgUpdateBoardBudgetChangesWhatTheGateReads` |
+| `GET /api/v1/orgs/{id}/cost-summary` | ✅ | `TestPgCostSummaryTotalsMatchTheirParts` |
+
+**Gate:** `tools/gate-overnight.cmd` rc=0 · `verify_suite.py` 0 FAIL
+(**92 ✅ / 37 ⬜**) · `go test ./internal/board/ ./cmd/api/ ./internal/auth/
+./internal/store/... ./internal/metrics/` hijau · probe `tools/probe-budget.py`
+**34/34** lawan API nyata · mutation **8/8 CAUGHT**.
+
+**Temuan**
+
+1. **`GET /boards/{id}/budget` harus membaca agregat, bukan ledger.** Ada dua
+   sumber angka biaya board: `daily_board_costs` (agregat, di-upsert dispatcher
+   tiap step selesai) dan `ledger_entries` (rincian per panggilan LLM).
+   `BoardSpendToday` — yang dikomentari di kode sebagai "the number the US-AD32
+   cost gate reads" — **salah**; gate-nya membaca `BoardBudgetToday`, yaitu
+   agregatnya. Komentar itu diperbaiki, dan endpoint ini sengaja menyajikan
+   agregat yang sama supaya layar finops dan guardrail tidak bisa beda angka.
+   (Di DB yang jalan sekarang keduanya kebetulan sama, tapi itu kebetulan yang
+   bergantung pada urutan penulisan, bukan jaminan.)
+
+2. **Dua definisi "hari ini" di repo ini.** `BoardSpendToday` memakai
+   `date_trunc('day', now())` (zona server), `BoardBudgetToday`/`UpsertDailyBoardCost`
+   memakai `(now() AT TIME ZONE 'UTC')::date`. Di DB container (TZ=UTC) keduanya
+   identik, jadi divergensinya laten — tapi begitu Postgres-nya bukan UTC, dua
+   angka di layar yang sama akan berbeda. **Belum diperbaiki** (menyentuh baris
+   yang sudah ✅ dan keputusan zona waktu itu milik user); dicatat di
+   `docs/OPEN-ISSUES.md`.
+
+3. **`GROUPING(l.model) = 1` bukan cara menandai baris total.** Grouping set
+   board juga tidak memuat `l.model`, jadi baris per-board ikut berlabel `total`
+   dan seluruh laporan per-board hilang. Ketahuan dari tes lawan Postgres, bukan
+   dari membaca SQL-nya. Total itu satu-satunya set yang tidak memuat model
+   maupun board.
+
+4. **`SUM(...)` mengembalikan NULL untuk nol baris, bukan 0.** Tanpa `COALESCE`,
+   org yang belum pernah belanja bikin `can't scan NULL into *int64` — laporan
+   "belum ada pengeluaran" jadi error 500, padahal US-AD32 AC3 minta nol.
+
+**Bentuk respons sengaja mengikuti `frontend/src/lib/domain.ts`.** Layar finops
+(`use-cost-rail.ts`, `CostOverview.tsx`, `finops.ts`) sudah ada sejak lama dan
+selama ini menampilkan empty state karena endpoint-nya 404. Nama field yang
+meleset sedikit pun akan membuat halaman itu kosong lagi **tanpa error** — jadi
+probe-nya memeriksa nama field satu per satu, bukan cuma status code.
+
+**Fase berikutnya:** 6.2.4 Orgs & Memberships (1 endpoint — `DELETE /orgs/{id}`).
