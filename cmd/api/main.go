@@ -380,6 +380,11 @@ func main() {
 
 	orgRoute("GET /api/v1/orgs/{id}", http.HandlerFunc(api.getOrg), auth.Viewer)
 	orgRoute("PATCH /api/v1/orgs/{id}", http.HandlerFunc(api.updateOrg), auth.Owner)
+	// DELETE is registered outside orgRoute: it must stay idempotent, and the
+	// org middleware filters closed workspaces, which would turn the second
+	// request into a 404. The handler does its own session + Owner check.
+	mux.HandleFunc("DELETE /api/v1/orgs/{id}", api.deleteOrg)
+
 	orgRoute("GET /api/v1/orgs/{id}/members", http.HandlerFunc(api.listMembers), auth.Viewer)
 	orgRoute("POST /api/v1/orgs/{id}/members", http.HandlerFunc(api.addMember), auth.Admin)
 	orgRoute("PATCH /api/v1/orgs/{id}/members/{user_id}", http.HandlerFunc(api.updateMember), auth.Admin)

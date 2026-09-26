@@ -1728,7 +1728,7 @@ wewenangnya dibatasi oleh kepemilikan run (`runs.agent_id` cocok dengan
 | `POST` | `/api/v1/orgs` | Session | Viewer | Ya (Key) | ✅ | Buat org baru `{name, slug}` → user jadi `owner` |
 | `GET` | `/api/v1/orgs/{id}` | Session/Key | Viewer | Ya | ✅ | Detail org `{id, slug, name, created_at}` |
 | `PATCH` | `/api/v1/orgs/{id}` | Session/Key | Owner | Ya | ✅ | Update nama/slug org |
-| `DELETE` | `/api/v1/orgs/{id}` | Session/Key | Owner | Ya | ⬜ | Soft/hard delete org + cascade seluruh data |
+| `DELETE` | `/api/v1/orgs/{id}` | Session/Key | Owner | Ya | ✅ | Menutup workspace → `204`. **Soft** (US-AD98 AC5: jendela pemulihan 30 hari), jadi barisnya tetap ada dengan `orgs.deleted_at` terisi dan cascade-nya tidak pernah jalan — setiap pembaca sudah menyaring `deleted_at IS NULL` (0016), jadi workspace berhenti resolve seketika sementara datanya selamat. **Idempoten**: request kedua `204`, bukan `404` — route-nya didaftarkan di luar `orgContextMiddleware`, karena middleware itu me-resolve lewat `GetOrgByID` yang menyaring baris tertutup. Owner saja (matriks 11.3: admin pun tidak); non-anggota `403`, id tak dikenal `404` |
 | `GET` | `/api/v1/orgs/{id}/members` | Session/Key | Viewer | Ya | ✅ | List user di org + role masing-masing |
 | `POST` | `/api/v1/orgs/{id}/members` | Session/Key | Admin | Ya | ✅ | Invite user `{email, role}` |
 | `PATCH` | `/api/v1/orgs/{id}/members/{user_id}` | Session/Key | Admin | Ya | Ubah role anggota `{role: "admin"|"member"| ✅ | "viewer"}` |

@@ -207,6 +207,28 @@ func (a authAPI) getOrg(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// DELETE /api/v1/orgs/{id} — close a workspace. Owner only (ARCHITECTURE 11.3).
+//
+// Registered without orgContextMiddleware on purpose. That middleware resolves
+// the tenant through GetOrgByID, which filters `deleted_at IS NULL`, so the
+// second DELETE of the same workspace would fail resolution and answer 404 —
+// for an org the same caller just closed, on a route the contract marks
+// idempotent. The handler resolves the caller from the session instead and lets
+// the store decide.
+func (a authAPI) deleteOrg(w http.ResponseWriter, r *http.Request) {
+	user, ok := currentUser(a.store, r)
+	if !ok {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	if err := a.store.DeleteWorkspace(r.Context(), r.PathValue("id"), user.Email); err != nil {
+		writeAuthError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // PATCH /api/v1/orgs/{id} — rename an org. Owner only (US-AD03 AC2).
 func (a authAPI) updateOrg(w http.ResponseWriter, r *http.Request) {
 	orgCtx, err := currentOrgContext(r)

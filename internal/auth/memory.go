@@ -171,6 +171,16 @@ func (m *memoryRepository) GetOrgByID(ctx context.Context, id string) (Workspace
 	return Workspace{}, ErrWorkspaceNotFound
 }
 
+func (m *memoryRepository) GetOrgByIDIncludingDeleted(ctx context.Context, id string) (Workspace, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if workspace, ok := m.orgs[id]; ok {
+		return workspace, nil
+	}
+	return Workspace{}, ErrWorkspaceNotFound
+}
+
 func (m *memoryRepository) UpdateOrgName(ctx context.Context, id, name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

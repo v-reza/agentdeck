@@ -86,6 +86,13 @@ type Repository interface {
 	// GetOrgByID loads one tenant by id; ErrWorkspaceNotFound if unknown.
 	GetOrgByID(ctx context.Context, id string) (Workspace, error)
 
+	// GetOrgByIDIncludingDeleted loads a tenant even when it is already closed,
+	// and reports DeletedAt. DeleteOrg needs both: the first so a repeated
+	// DELETE still finds the org it closed (the route is marked idempotent), the
+	// second so it can answer "already closed" without re-checking a role that
+	// no longer means anything.
+	GetOrgByIDIncludingDeleted(ctx context.Context, id string) (Workspace, error)
+
 	// UpdateOrgName renames a tenant. Slug collisions are ErrSlugTaken.
 	UpdateOrgName(ctx context.Context, id, name string) error
 

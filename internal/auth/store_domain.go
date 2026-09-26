@@ -631,6 +631,57 @@ func (s *Store) Authorize(ctx context.Context, workspaceID, email string, minimu
 	return err == nil
 }
 
+// OrgIncludingDeleted reads a workspace even after it is closed, and reports
+// DeletedAt. DeleteWorkspace needs it to stay idempotent; it is exported so the
+// API tests can assert that a DELETE was soft — the row survives with a
+// timestamp — rather than trusting the 204.
+func (s *Store) OrgIncludingDeleted(ctx context.Context, workspaceID string) (Workspace, error) {
+	return s.repo.GetOrgByIDIncludingDeleted(ctx, strings.TrimSpace(workspaceID))
+}
+
+// DeleteWorkspace implements DELETE /api/v1/orgs/{id} (US-AD03, ARCHITECTURE
+// 6.2.4). Owner only, per the RBAC matrix in 11.3: deleting a workspace is the
+// one action even an admin cannot take.
+//
+// Soft, not hard. US-AD98 AC5 gives account closure a 30-day recovery window,
+// and the same reasoning covers the workspace: a hard delete would make "the
+// operator can restore it" impossible to honour. It also means the cascade is
+// never exercised here — the rows stay, and every reader already filters on
+// `deleted_at IS NULL` (0016), so the workspace stops resolving immediately
+// while the data survives.
+//
+// Idempotent, which is why this resolves the org itself instead of going
+// through resolveAndAuthorize: GetOrgByID filters closed rows, so a second
+// DELETE would answer 404 for an org the same caller just closed. Here an
+// already-closed org is success — and it returns before the role check, because
+// the membership of a closed workspace is not a meaningful thing to re-verify.
+func (s *Store) DeleteWorkspace(ctx context.Context, workspaceID, actorEmail string) error {
+	workspace, err := s.repo.GetOrgByIDIncludingDeleted(ctx, strings.TrimSpace(workspaceID))
+	if err != nil {
+		return err
+	}
+	if workspace.DeletedAt != nil {
+		return nil
+	}
+
+	actor, err := s.repo.GetUserByEmail(ctx, strings.ToLower(strings.TrimSpace(actorEmail)))
+	if err != nil {
+		// An actor that cannot be resolved is not a member of anything.
+		return ErrForbidden
+	}
+	membership, err := s.repo.GetMembership(ctx, workspace.ID, actor.ID)
+	if err != nil {
+		// The org exists but this caller is not in it: 403, never 404, so the
+		// response cannot be used to confirm that an arbitrary id is real.
+		return ErrForbidden
+	}
+	if membership.Role != Owner {
+		return ErrForbidden
+	}
+
+	return s.repo.SoftDeleteOrg(ctx, workspace.ID)
+}
+
 // GetOrg is the read entry point for GET /api/v1/orgs/{id}: viewer and above.
 func (s *Store) GetOrg(ctx context.Context, workspaceID, actorEmail string) (Workspace, Role, error) {
 	return s.resolveAndAuthorize(ctx, workspaceID, actorEmail, Viewer)

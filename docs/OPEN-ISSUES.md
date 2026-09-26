@@ -20,14 +20,6 @@ coret.
 
 ## Belum dibangun / belum ada
 
-- **US-AD03**: `DELETE /api/v1/orgs/{id}` — nol route. Diverifikasi: hanya
-  `/orgs/{id}/members/{user_id}` yang terdaftar.
-- **`LICENSE`, `NOTICE`, `THIRD_PARTY` belum ada.** Plus konflik lisensi di design:
-  `09b-github.html` menulis Apache-2.0 sementara `05-landing.html` menulis MIT.
-  Repo ini publik, jadi ini utang yang kelihatan.
-- **`models_json` belum pernah dipakai backend** untuk memvalidasi `model` saat
-  registrasi agent. Validasi cuma hidup di UI; jalur API menerima apa pun yang
-  bentuknya benar.
 
 ## Bahasa & konsistensi
 

@@ -110,6 +110,10 @@ func (a authAPI) mux(t *testing.T) *http.ServeMux {
 	}
 	orgRoute("GET /api/v1/orgs/{id}", http.HandlerFunc(a.getOrg), auth.Viewer)
 	orgRoute("PATCH /api/v1/orgs/{id}", http.HandlerFunc(a.updateOrg), auth.Owner)
+	// DELETE berada di luar orgRoute: route-nya idempoten, dan middleware org
+	// menyaring workspace yang sudah ditutup — request kedua akan jadi 404.
+	mux.HandleFunc("DELETE /api/v1/orgs/{id}", a.deleteOrg)
+
 	orgRoute("GET /api/v1/orgs/{id}/members", http.HandlerFunc(a.listMembers), auth.Viewer)
 	orgRoute("POST /api/v1/orgs/{id}/members", http.HandlerFunc(a.addMember), auth.Admin)
 	orgRoute("PATCH /api/v1/orgs/{id}/members/{user_id}", http.HandlerFunc(a.updateMember), auth.Admin)

@@ -359,3 +359,61 @@ meleset sedikit pun akan membuat halaman itu kosong lagi **tanpa error** — jad
 probe-nya memeriksa nama field satu per satu, bukan cuma status code.
 
 **Fase berikutnya:** 6.2.4 Orgs & Memberships (1 endpoint — `DELETE /orgs/{id}`).
+
+## F6 — 6.2.4 Orgs & Memberships (1 endpoint sisa)
+
+**Status:** selesai, ter-push.
+
+| Endpoint | Status | Bukti |
+|---|---|---|
+| `DELETE /api/v1/orgs/{id}` | ✅ | `TestDeleteOrg*` (7) · `TestPgDeleteWorkspace*` (6) |
+
+**Gate:** `tools/gate-overnight.cmd` rc=0 · `verify_suite.py` 0 FAIL
+(**93 ✅ / 36 ⬜**) · `go test ./internal/auth/ ./cmd/api/ ./internal/board/`
+hijau · mutation **6/6 CAUGHT**.
+
+**Temuan**
+
+1. **`GetOrgByIDIncludingDeleted` sudah ada di DB sejak F3, nol pemanggil.**
+   Komentarnya menjelaskan persis kebutuhan endpoint ini: "dipakai jalur
+   tutup-akun: ia harus tahu ruang kerja yang SUDAH ditandai hapus, supaya
+   permintaan kedua tetap melihat ruang kerja yang sama." Query itu ditulis untuk
+   satu pemanggil yang tidak pernah datang — dan endpoint yang membutuhkannya
+   justru masih ⬜. Sekarang pemanggilnya ada.
+
+2. **Route ini tidak boleh lewat `orgContextMiddleware`.** Middleware itu
+   me-resolve tenant lewat `GetOrgByID`, yang menyaring `deleted_at IS NULL`.
+   Kontraknya bilang idempoten, jadi request kedua harus sukses — lewat
+   middleware itu, request kedua justru 404 untuk workspace yang baru saja
+   ditutup pemanggilnya sendiri. Handler-nya me-resolve pemanggil dari sesi dan
+   menyerahkan keputusannya ke store.
+
+3. **Soft delete itu kewajiban kontrak, bukan preferensi.** US-AD98 AC5 memberi
+   jendela pemulihan 30 hari; DELETE keras membuat AC itu mustahil dipenuhi.
+   Cascade FK `ON DELETE CASCADE` yang ada di seluruh skema karena itu **tidak
+   pernah jalan** di jalur ini — dan itu benar: baris di bawahnya harus selamat
+   supaya "pulihkan dalam 30 hari" berarti sesuatu. Diuji langsung ke tabel
+   `memberships`, bukan lewat status code.
+
+4. **Guard idempoten di service kelihatan redundan, ternyata tidak.** SQL-nya
+   sudah punya `AND deleted_at IS NULL`, jadi penulisan kedua memang no-op.
+   Yang membedakan adalah keanggotaan: org yang ditutup lalu dibersihkan
+   operator bisa kehilangan baris `memberships`-nya, dan tanpa guard itu DELETE
+   berikutnya jatuh ke pemeriksaan peran → **403 untuk workspace yang sudah
+   tertutup**. Ketahuan dari mutasi yang SURVIVED, bukan dari review; invariannya
+   sekarang dipatok tes tersendiri.
+
+**Catatan proses.** Dua mutasi pertama SURVIVED dan keduanya salah gw, bukan
+lubang tes: (a) mutasi pada `queries.sql` tidak berpengaruh karena `go test`
+memakai kode generated sqlc — mutasi harus mengenai `queries.sql.go`; (b) guard
+idempoten memang redundan terhadap SQL, jadi tidak ada tes yang bisa menangkapnya
+sampai invarian yang benar-benar membedakan (keanggotaan hilang) dipatok.
+
+**Satu hazard yang kena lagi:** harness mutasi gw memulihkan file dengan
+`pathlib.write_text`, yang di Windows menulis CRLF — `internal/store/queries.sql.go`
+jadi CRLF dan `gofmt -l .` menandainya. Dikonversi balik ke LF sebelum gate.
+Diff-nya nol, jadi tidak ada yang rusak, tapi ini kedua kalinya.
+
+**Fase berikutnya:** 6.2.3 Projects & Boards (1 endpoint), lalu 6.2.5 Agents (1),
+6.2.6 Agent Skills (2), 6.2.7 Providers (1) — sisanya modul besar (SSE, approvals,
+webhooks, api-keys) yang butuh tabel baru.

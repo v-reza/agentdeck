@@ -181,6 +181,14 @@ func (r *pgxRepository) GetOrgByID(ctx context.Context, id string) (Workspace, e
 	return orgGetRowToWorkspace(row), nil
 }
 
+func (r *pgxRepository) GetOrgByIDIncludingDeleted(ctx context.Context, id string) (Workspace, error) {
+	row, err := r.q.GetOrgByIDIncludingDeleted(ctx, id)
+	if err != nil {
+		return Workspace{}, mapNotFound(err, ErrWorkspaceNotFound)
+	}
+	return orgIncludingDeletedToWorkspace(row), nil
+}
+
 func (r *pgxRepository) UpdateOrgName(ctx context.Context, id, name string) error {
 	err := r.q.UpdateOrgName(ctx, store.UpdateOrgNameParams{ID: id, Name: name})
 	if err != nil {
@@ -536,13 +544,21 @@ func orgGetRowToWorkspace(row store.Org) Workspace {
 	}
 }
 
+// orgIncludingDeletedToWorkspace carries DeletedAt, unlike orgGetRowToWorkspace:
+// the whole point of the query behind it is to tell an org that is gone from one
+// that is merely closed.
 func orgIncludingDeletedToWorkspace(row store.Org) Workspace {
-	return Workspace{
+	workspace := Workspace{
 		ID:        row.ID,
 		Slug:      row.Slug,
 		Name:      row.Name,
 		CreatedAt: row.CreatedAt.Time,
 	}
+	if row.DeletedAt.Valid {
+		deletedAt := row.DeletedAt.Time
+		workspace.DeletedAt = &deletedAt
+	}
+	return workspace
 }
 
 func rowToUser(storeUser store.User) User {
