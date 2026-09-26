@@ -329,6 +329,32 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
    `cmd/api/tasks_archive_test.go` + probe API nyata. Kontrak yang bertabrakan: baris
    ARCHITECTURE untuk `/tasks/{id}/move` menulis floor `Member` tanpa menyebut pengecualian
    arsip — PRD AC4 yang dipakai, dan barisnya dikoreksi.
+4g. **Toolbar board tidak pernah ada, dan itu bukan cuma soal tampilan.**
+   `CreateTaskForm.tsx` ada sejak dulu tapi **tidak diimpor di mana pun**, jadi
+   dari UI tidak ada cara membuat task sama sekali — walau `POST
+   /boards/{id}/tasks` sudah ✅ dan mockup 21 menggambar modalnya lengkap.
+   Field `body` (US-AD11 AC1) juga tidak bisa diisi dari mana pun.
+   Sekarang: `BoardToolbar` satu komponen dipakai kanban + tabel (design
+   menggambar bar-nya sekali; search box-nya sudah drift sebelumnya), modal
+   "Buat Task Baru" ikut `AppShell` lewat pola `TaskCreateFormHost`.
+   Pelajarannya: **komponen ada ≠ fitur ada.** Gate mana pun tidak akan melihat
+   file yang tidak diimpor; yang melihat hanya orang yang mencoba memakai
+   layarnya.
+4h. **Kontrak §6.2.16 mengklaim filter `status, assignee, search` di
+   `GET /boards/{id}/tasks` dengan status ✅, tapi handler-nya nol query
+   param.** Filternya hanya ada di client (`TableView`), jadi `curl` dan app
+   tidak sepakat soal board yang sama. Sekarang tiga-tiganya di SQL lewat
+   `sqlc.narg`, dan `status` menerima pengulangan parameter karena chip
+   filter-nya multi-pilih — satu nilai saja akan diam-diam membuang chip kedua.
+   Dijaga `internal/board/task_filter_test.go` + `cmd/api/tasks_filter_test.go`
+   lawan Postgres nyata.
+4i. **Gate `verify_suite.py` cuma satu arah soal endpoint.** Arah "doc menjanjikan
+   ✅ tapi route tidak ada" dan "route ada tapi ditandai ⬜" sudah dijaga; arah
+   ketiga — **route ada tapi tidak tercatat sama sekali** — tidak. Itu bukan
+   celah teoretis: `GET /boards/{id}/assignable-agents` ditambahkan dengan nol
+   baris dokumen dan gate-nya hijau. Arah ketiga sekarang FAIL, dan langsung
+   menemukan `GET /users/{id}` yang sudah jalan sejak US-AD89 tanpa pernah masuk
+   tabel. Jumlah endpoint: **129** (dari 127).
 5. Belum ada `LICENSE`/`NOTICE`/`THIRD_PARTY`. Konflik lisensi di design
    (`09b-github.html` Apache-2.0 vs `05-landing.html` MIT).
 6. ~~Audit `livez`/`metrics` + tabel tanpa DDL~~ **SELESAI** — lihat
