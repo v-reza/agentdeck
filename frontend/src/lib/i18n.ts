@@ -281,6 +281,14 @@ export interface Dictionary {
   'task.create.markdownHint': string
   'task.create.assignee': string
   'task.create.assigneeNone': string
+  'task.create.assigneeHint': string
+  'task.create.priorityP0': string
+  'task.create.priorityP1': string
+  'task.create.priorityP2': string
+  'task.create.priorityP3': string
+  'task.create.initialStatus': string
+  'task.create.initialStatusHint': string
+  'task.create.target': string
   'task.create.submit': string
   'task.create.pending': string
   'task.create.failed': string
@@ -757,6 +765,15 @@ const en: Dictionary = {
   'task.create.markdownHint': 'Markdown supported',
   'task.create.assignee': 'Assignee agent (optional)',
   'task.create.assigneeNone': '— No agent (starts in Backlog) —',
+  'task.create.assigneeHint':
+    'A task with no agent is valid and starts in Backlog. A chosen agent receives the task and works on it directly.',
+  'task.create.priorityP0': 'P0 — Blocker',
+  'task.create.priorityP1': 'P1 — High',
+  'task.create.priorityP2': 'P2 — Medium',
+  'task.create.priorityP3': 'P3 — Low',
+  'task.create.initialStatus': 'Initial status',
+  'task.create.initialStatusHint': 'Ready is claimed by the dispatcher, so creation starts here.',
+  'task.create.target': 'Target:',
   'task.create.submit': 'Create task',
   'task.create.pending': 'Creating…',
   'task.create.failed': 'Could not create the task',
@@ -1238,6 +1255,15 @@ const id: Dictionary = {
   'task.create.markdownHint': 'Markdown didukung',
   'task.create.assignee': 'Assignee Agent (Opsional)',
   'task.create.assigneeNone': '— Tanpa agent (Masuk kolom Backlog) —',
+  'task.create.assigneeHint':
+    'Task tanpa agent tetap sah dan masuk kolom Backlog. Agent yang dipilih menerima task-nya dan langsung mengerjakannya.',
+  'task.create.priorityP0': 'P0 — Blocker',
+  'task.create.priorityP1': 'P1 — Tinggi',
+  'task.create.priorityP2': 'P2 — Sedang',
+  'task.create.priorityP3': 'P3 — Rendah',
+  'task.create.initialStatus': 'Status awal',
+  'task.create.initialStatusHint': 'Ready diklaim dispatcher, jadi pembuatan task selalu mulai di sini.',
+  'task.create.target': 'Target:',
   'task.create.submit': 'Buat Task',
   'task.create.pending': 'Membuat…',
   'task.create.failed': 'Gagal membuat task',

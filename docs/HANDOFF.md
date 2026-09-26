@@ -355,6 +355,29 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
    baris dokumen dan gate-nya hijau. Arah ketiga sekarang FAIL, dan langsung
    menemukan `GET /users/{id}` yang sudah jalan sejak US-AD89 tanpa pernah masuk
    tabel. Jumlah endpoint: **129** (dari 127).
+4j. **Modal `21-task-create` baru sekarang match design-nya.** Empat gap nyata,
+   dua di antaranya bukan kosmetik: (a) prioritas digambar sebagai **empat level
+   berlabel** `P0 — Blocker` … `P3 — Low`, implementasinya input angka mentah
+   `−10..10` — baris board bisa berbunyi "7"; sekarang Combobox 4 pilihan yang
+   memetakan ke 0..3. (b) **footer modal tidak ada sama sekali**: design menggambar
+   band `#f6f7f6` full-bleed berisi "Target: <board>" + Batal + tombol utama
+   berikon. Band itu pola modal design (juga di `22-column-editor` dan
+   `31-cost-export`), dan `Modal` tidak bisa menghasilkannya karena header-nya
+   sibling, bukan anak — jadi `footer=` sekarang membuat kartu ber-*section*
+   (header 20×14 bergaris, body ber-padding, footer `--color-surface-page`
+   20×12). Empat pemakai `footer=` lain tidak berubah: hanya modal kartu yang
+   sectioned, panel `placement="right"` tetap seperti sebelumnya. Dijaga e2e
+   yang **mengukur DOM** (lebar 560, radius 14, padding band, warna band, tinggi
+   tombol 32), bukan screenshot full-page.
+   (c) subjudul header + nama board di footer: dulu tidak ada konteks board sama
+   sekali. (d) penanda wajib `*` di label — sekarang `Field` punya prop
+   `required`; murni presentasional, `required` di input tetap yang memblokir.
+   **Dua hal design sengaja TIDAK diikuti:** field "Status Awal" (Backlog/Ready) —
+   `ready` itu yang diklaim dispatcher (DECISIONS §3) dan US-AD11 AC1/AC5 bilang
+   task baru mulai `backlog`; form yang bisa bikin `ready` = nyerahin kerjaan ke
+   runner yang belum pernah lihat task-nya. Dan kartu helper "AC5 …/AC1 …" —
+   itu jargon spec (`US-AD`, `AC`) di UI yang dirender, dilarang `.hermes.md`;
+   dua faktanya ditulis ulang pakai bahasa operator.
 5. Belum ada `LICENSE`/`NOTICE`/`THIRD_PARTY`. Konflik lisensi di design
    (`09b-github.html` Apache-2.0 vs `05-landing.html` MIT).
 6. ~~Audit `livez`/`metrics` + tabel tanpa DDL~~ **SELESAI** — lihat

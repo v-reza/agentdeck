@@ -59,7 +59,23 @@ export function FieldError({ children }: { children?: string | null }) {
  * Label + control wrapper. Every form field in the app uses it, so labels keep
  * the DESIGN.md `label` style (11px, 600, tracked) without repeating classes.
  */
-export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+export function Field({
+  label,
+  children,
+  hint,
+  required,
+}: {
+  label: string
+  children: ReactNode
+  hint?: string
+  /**
+   * Draws the design's required marker (a red asterisk after the label, screen
+   * 21-task-create). It is presentational only: the input itself still carries
+   * `required`, which is what actually blocks submission and what a screen
+   * reader announces — the marker must not be the only signal.
+   */
+  required?: boolean
+}) {
   return (
     <label className="flex flex-col gap-1">
       {/* The wrapper <label> is what associates the visible text with the
@@ -68,6 +84,7 @@ export function Field({ label, children, hint }: { label: string; children: Reac
           leave the input unlabelled. */}
       <span className="text-[11px] font-semibold tracking-[0.06em] text-[var(--color-tertiary)] uppercase">
         {label}
+        {required ? <span className="ml-1 text-[var(--color-danger)]">*</span> : null}
       </span>
       {children}
       {hint ? <span className="text-[11px] text-[var(--color-tertiary)]">{hint}</span> : null}

@@ -119,15 +119,22 @@ test.describe('board toolbar and the create-task modal', () => {
     await expect(dialog).toBeVisible()
     // The design's fields, not the old three-field inline form: a description
     // textarea (US-AD11 AC1's `body`) and the assignee picker.
-    await expect(dialog.getByLabel(/judul task|task title/i).first()).toBeVisible()
-    await expect(dialog.getByLabel(/deskripsi|description/i)).toBeVisible()
+    // Named by role rather than by label text: `Field` renders the hint inside
+    // the label wrapper, so the title field's own accessible name contains the
+    // word "deskripsi" and a label match resolves to two controls.
+    await expect(dialog.getByRole('textbox', { name: /judul task|task title/i })).toBeVisible()
+    await expect(dialog.getByRole('textbox', { name: /instruksi|instruction/i })).toBeVisible()
+
+    // The design's four labelled priority levels. A free number field used to sit
+    // here, which is how a board row ended up reading "7".
+    await dialog.getByRole('combobox', { name: /prioritas|priority/i }).click()
+    await expect(page.getByRole('option', { name: /p0 — blocker/i })).toBeVisible()
+    await expect(page.getByRole('option', { name: /p3 — (low|rendah)/i })).toBeVisible()
+    await page.getByRole('option', { name: /p1 — (high|tinggi)/i }).click()
 
     const title = `Toolbar task ${Date.now()}`
-    await dialog
-      .getByLabel(/judul task|task title/i)
-      .first()
-      .fill(title)
-    await dialog.getByLabel(/deskripsi|description/i).fill('Body typed from the modal')
+    await dialog.getByRole('textbox', { name: /judul task|task title/i }).fill(title)
+    await dialog.getByRole('textbox', { name: /instruksi|instruction/i }).fill('Body typed from the modal')
     await dialog.getByRole('button', { name: /buat task|create task/i }).click()
 
     // The dialog closes and the task is on the board.
@@ -140,13 +147,80 @@ test.describe('board toolbar and the create-task modal', () => {
     const stored = await page.evaluate(
       async ({ api, board }) => {
         const res = await fetch(`${api}/boards/${board}/tasks`, { credentials: 'include' })
-        return (await res.json()) as { title: string; body: string }[]
+        return (await res.json()) as { title: string; body: string; priority: number }[]
       },
       { api: API, board: boardID },
     )
     const written = stored.find((t) => t.title === title)
     expect(written, `task ${title} not in ${JSON.stringify(stored.map((t) => t.title))}`).toBeTruthy()
     expect(written!.body).toBe('Body typed from the modal')
+    // The chosen level is what the API stores (`P1` is 1), not the default.
+    expect(written!.priority).toBe(1)
+  })
+
+  test('the modal shows the design footer and states the initial status', async ({ page }) => {
+    await page.goto(`/app/${orgID}/boards/${boardID}`)
+    await page.getByRole('button', { name: /buat task|new task/i }).click()
+    const dialog = page.getByRole('dialog')
+
+    // The design's footer, which the old form did not have at all: the cancel
+    // and submit pair lives below the form, and the target board is named there.
+    await expect(dialog.getByRole('button', { name: /batal|cancel/i })).toBeVisible()
+    await expect(dialog.getByRole('button', { name: /buat task|create task/i })).toBeVisible()
+    await expect(dialog.getByText(/target:/i)).toBeVisible()
+
+    // The initial status is stated, not offered: `ready` belongs to the
+    // dispatcher (DECISIONS 3), so no control for it may be reachable here.
+    await expect(dialog.getByText(/status awal|initial status/i)).toBeVisible()
+    // Assignee and priority, and nothing else — a third combobox would be the
+    // status list coming back.
+    expect(await dialog.getByRole('combobox').count()).toBe(2)
+
+    // The design's required marker after the required field's label.
+    await expect(dialog.getByText('*')).toBeVisible()
+
+    // The picker's unassigned row is AC5's whole point: creating a task without
+    // an agent has to stay possible.
+    await dialog.getByRole('combobox', { name: /assignee/i }).click()
+    await expect(page.getByRole('option', { name: /tanpa agent|no agent/i })).toBeVisible()
+  })
+
+  test('the create-task card matches the design geometry', async ({ page }) => {
+    await page.goto(`/app/${orgID}/boards/${boardID}`)
+    await page.getByRole('button', { name: /buat task|new task/i }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+
+    // Screen 21-task-create: a 560px card at radius 14, a header band at 20x14
+    // and a footer band at 20x12 filled with the page colour. Measuring the DOM
+    // rather than eyeballing a screenshot — a full-page shot of a modal is
+    // unreliable to read, and these four numbers are what the design states.
+    const m = await dialog.evaluate((el) => {
+      const px = (v: string) => Math.round(parseFloat(v))
+      const card = getComputedStyle(el)
+      const header = el.firstElementChild as HTMLElement
+      const footer = el.lastElementChild as HTMLElement
+      const buttons = [...el.querySelectorAll('button')]
+      return {
+        width: Math.round(el.getBoundingClientRect().width),
+        radius: px(card.borderRadius),
+        headerPad: getComputedStyle(header).padding,
+        footerPad: getComputedStyle(footer).padding,
+        footerBg: getComputedStyle(footer).backgroundColor,
+        submitHeight: Math.round(buttons[buttons.length - 1].getBoundingClientRect().height),
+      }
+    })
+
+    // `max-w-[560px]` at a 1440px viewport; 4px of slack absorbs the scrollbar.
+    expect(m.width).toBeGreaterThanOrEqual(552)
+    expect(m.width).toBeLessThanOrEqual(560)
+    expect(m.radius).toBe(14)
+    expect(m.headerPad).toBe('14px 20px')
+    expect(m.footerPad).toBe('12px 20px')
+    // `--color-surface-page`, i.e. the page tint the design fills the band with.
+    expect(m.footerBg).toBe('rgb(246, 247, 246)')
+    // DESIGN.md's button height, not the browser default.
+    expect(m.submitHeight).toBe(32)
   })
 
   test('the list endpoint applies the filters the contract advertises', async ({ page }) => {

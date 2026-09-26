@@ -52,7 +52,12 @@ export function Modal({
 }: {
   open: boolean
   onClose: () => void
-  title: string
+  /**
+   * A node, not a string: screen 21-task-create draws a glyph beside the title
+   * (`Plus` in a tinted 24px square), and the alternative was an absolutely
+   * positioned addon that the header would have to be re-measured around.
+   */
+  title: ReactNode
   description?: string
   children: ReactNode
   footer?: ReactNode
@@ -147,6 +152,11 @@ export function Modal({
 
   const width = size === 'sm' ? 'w-[360px]' : size === 'lg' ? 'w-[560px]' : size === 'panel' ? 'w-[420px]' : 'w-[440px]'
   const right = placement === 'right'
+  // The design draws a modal footer as a full-bleed tinted band with its own top
+  // border (31-cost-export, 21-task-create, 22-column-editor), which the panel
+  // bodies below the header cannot produce — the header is a sibling, not a
+  // child, so negative margins would be guessing at the card's padding.
+  const sectioned = footer !== undefined
 
   return createPortal(
     <div
@@ -177,7 +187,10 @@ export function Modal({
           // usable when the viewport is narrower than the panel.
           right ? 'h-full max-h-full shrink-0 rounded-none' : 'max-h-[85vh] rounded-[14px]',
           'max-w-full',
-          'border border-[var(--color-border-standard)] bg-[var(--color-surface-elevated)] p-5 shadow-card',
+          'border border-[var(--color-border-standard)] bg-[var(--color-surface-elevated)] shadow-card',
+          // Sectioned cards pad their own header and footer; only the body keeps
+          // the card's padding.
+          sectioned ? 'p-0' : 'p-5',
           // The right-anchored panel fades only. `modal-in` carries a translateY,
           // and a transform on a full-height element leaves it briefly unstable —
           // a click that lands during the 140ms animation can miss its target.
@@ -185,7 +198,12 @@ export function Modal({
           width,
         )}
       >
-        <div className="mb-4 flex items-start justify-between gap-4">
+        <div
+          className={cn(
+            'flex items-start justify-between gap-4',
+            sectioned ? 'border-b border-[var(--color-border-subtle)] px-5 py-3.5' : 'mb-4',
+          )}
+        >
           <div className="min-w-0">
             <h2 id={titleID} className="text-[14px] font-semibold tracking-tight text-[var(--color-primary)]">
               {title}
@@ -202,10 +220,17 @@ export function Modal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        <div className={cn('min-h-0 flex-1 overflow-y-auto', sectioned && 'px-5 py-5')}>{children}</div>
 
         {footer ? (
-          <div className="mt-5 flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] pt-4">
+          <div
+            className={cn(
+              sectioned
+                ? 'border-t border-[var(--color-border-subtle)] bg-[var(--color-surface-page)] px-5 py-3'
+                : 'mt-5 border-t border-[var(--color-border-subtle)] pt-4',
+              'flex items-center justify-end gap-2',
+            )}
+          >
             {footer}
           </div>
         ) : null}
