@@ -1845,10 +1845,10 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 |---|---|---|---|:---:|---|
 | `GET` | `/api/v1/tasks/{task_id}/runs` | Session/Key | Viewer | Ya | ✅ | List seluruh run historis task ini (attempt 1..N). Task dibaca dulu supaya id dari workspace lain jadi 404, bukan array kosong |
 | `GET` | `/api/v1/runs/{id}` | Session/Key | Viewer | Ya | ✅ | Detail status run, outcome, total tokens, cost. `cost_micros`/`tokens_*` = jumlah dari `ledger_entries` run itu, dihitung di statement yang menutup run |
-| `POST` | `/api/v1/runs/{id}/cancel` | Session/Key | Member | Ya | ⬜ | Cancel run yang sedang `running` (abort context) |
+| `POST` | `/api/v1/runs/{id}/cancel` | Session/Key | Member | Ya | ✅ | Minta run berhenti → `200` + run (dengan `cancel_requested_at` terisi). Menulis `runs.cancel_requested_at`; dispatcher membacanya sebelum run jalan dan antar-step. Run yang sudah `ended` dikembalikan apa adanya, bukan `409` — state yang diminta sudah berlaku. `abort context` di tengah panggilan HTTP **belum** ada: cancel efektif sebelum panggilan provider pertama |
 | `POST` | `/api/v1/runs/{id}/heartbeat` | Internal/Key | Worker | Ya | ✅ | Worker kirim heartbeat `now()` (N7: 60 s, N8: 15 menit). Predikatnya `status='running'`: run yang sudah ditutup menjawab 404, dan itu sinyal "stop" buat worker yang di-reclaim |
 | `POST` | `/api/v1/runs/{id}/end` | Internal/Key | Worker | Ya | ✅ | Worker laporkan hasil akhir (`outcome, failure_kind, summary, error`). Status task berikutnya **diputuskan service** dari outcome, bukan dikirim worker: kalau worker bisa menamai status, dia bisa melompat ke `done` dan menghapus langkah review manusia |
-| `GET` | `/api/v1/runs/{id}/summary` | Session/Key | Viewer | Ya | ⬜ | Ringkasan teks hasil eksekusi run |
+| `GET` | `/api/v1/runs/{id}/summary` | Session/Key | Viewer | Ya | ✅ | Ringkasan run: `{run_id, task_id, attempt, status, outcome, failure_kind, duration_seconds, cost_micros, tokens_{in,out}, summary, error, started_at, ended_at}`. `duration_seconds` dihitung dari `started_at`/`ended_at` (US-AD41 AC1 minta "durasi"); run yang belum selesai diukur sampai sekarang, dan durasi negatif dijepit ke nol. Field lain sudah ada di `GET /runs/{id}` — durasinya alasan endpoint ini ada |
 
 #### 6.2.12 Steps (3 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |

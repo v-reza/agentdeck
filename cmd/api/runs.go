@@ -48,6 +48,10 @@ func registerRunRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, bAPI
 	boardRoute("GET /api/v1/runs/{id}", http.HandlerFunc(boardAPI.getRun), auth.Viewer)
 	boardRoute("POST /api/v1/runs/{id}/heartbeat", http.HandlerFunc(boardAPI.heartbeatRun), auth.Member)
 	boardRoute("POST /api/v1/runs/{id}/end", http.HandlerFunc(boardAPI.endRun), auth.Member)
+	// 6.2.11's two remaining routes. Cancelling a run is Member (it stops work
+	// the workspace is paying for); reading its summary is Viewer.
+	boardRoute("POST /api/v1/runs/{id}/cancel", http.HandlerFunc(boardAPI.cancelRun), auth.Member)
+	boardRoute("GET /api/v1/runs/{id}/summary", http.HandlerFunc(boardAPI.getRunSummary), auth.Viewer)
 
 	// Trace.
 	boardRoute("GET /api/v1/runs/{id}/steps", http.HandlerFunc(boardAPI.listRunSteps), auth.Viewer)
@@ -94,6 +98,11 @@ type runResponse struct {
 	Error           string `json:"error"`
 	StartedAt       string `json:"started_at"`
 	EndedAt         string `json:"ended_at"`
+	// CancelRequestedAt is "" when nobody has asked this run to stop. Exposed
+	// because it is the only way a caller can tell "cancellation requested but
+	// the executor has not stopped yet" from "nothing happened" — the run is
+	// still `running` in both cases.
+	CancelRequestedAt string `json:"cancel_requested_at"`
 }
 
 func toRunResponse(run board.Run) runResponse {
@@ -105,24 +114,29 @@ func toRunResponse(run board.Run) runResponse {
 	if run.EndedAt != nil {
 		ended = run.EndedAt.Format(time.RFC3339Nano)
 	}
+	cancelled := ""
+	if run.CancelRequestedAt != nil {
+		cancelled = run.CancelRequestedAt.Format(time.RFC3339Nano)
+	}
 	return runResponse{
-		ID:              run.ID,
-		OrgID:           run.OrgID,
-		TaskID:          run.TaskID,
-		AgentID:         run.AgentID,
-		Attempt:         run.Attempt,
-		Status:          string(run.Status),
-		Outcome:         run.Outcome,
-		FailureKind:     run.FailureKind,
-		LastHeartbeatAt: beat,
-		MaxRuntimeSecs:  run.MaxRuntimeSecs,
-		CostMicros:      run.CostMicros,
-		TokensIn:        run.TokensIn,
-		TokensOut:       run.TokensOut,
-		Summary:         run.Summary,
-		Error:           run.Error,
-		StartedAt:       run.StartedAt.Format(time.RFC3339Nano),
-		EndedAt:         ended,
+		ID:                run.ID,
+		OrgID:             run.OrgID,
+		TaskID:            run.TaskID,
+		AgentID:           run.AgentID,
+		Attempt:           run.Attempt,
+		Status:            string(run.Status),
+		Outcome:           run.Outcome,
+		FailureKind:       run.FailureKind,
+		LastHeartbeatAt:   beat,
+		MaxRuntimeSecs:    run.MaxRuntimeSecs,
+		CostMicros:        run.CostMicros,
+		TokensIn:          run.TokensIn,
+		TokensOut:         run.TokensOut,
+		Summary:           run.Summary,
+		Error:             run.Error,
+		StartedAt:         run.StartedAt.Format(time.RFC3339Nano),
+		EndedAt:           ended,
+		CancelRequestedAt: cancelled,
 	}
 }
 
@@ -296,6 +310,100 @@ func (a boardAPI) endRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSONResponse(w, http.StatusOK, toRunResponse(run))
+}
+
+// POST /api/v1/runs/{id}/cancel — stop a live run (ARCHITECTURE 6.2.11).
+//
+// The response is the run, not a bare 204, so the caller can see the
+// cancellation actually landed (`cancel_requested_at` set) rather than having to
+// poll and guess. A run that had already ended comes back unchanged and still
+// 200: the requested state holds.
+func (a boardAPI) cancelRun(w http.ResponseWriter, r *http.Request) {
+	orgCtx, err := a.boardContext(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	run, err := a.svc.CancelRun(r.Context(), r.PathValue("id"), orgCtx.workspace.ID)
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, toRunResponse(run))
+}
+
+type runSummaryResponse struct {
+	RunID       string `json:"run_id"`
+	TaskID      string `json:"task_id"`
+	Attempt     int    `json:"attempt"`
+	Status      string `json:"status"`
+	Outcome     string `json:"outcome"`
+	FailureKind string `json:"failure_kind"`
+	// DurationSeconds is computed from started_at/ended_at, which GET /runs/{id}
+	// already exposes. US-AD41 AC1 asks the run page to show "durasi", and the
+	// subtraction is a fact about the run rather than about this handler, so it
+	// is done once here instead of in every client. A live run reports the
+	// elapsed time so far.
+	DurationSeconds int64  `json:"duration_seconds"`
+	CostMicros      int64  `json:"cost_micros"`
+	TokensIn        int64  `json:"tokens_in"`
+	TokensOut       int64  `json:"tokens_out"`
+	Summary         string `json:"summary"`
+	Error           string `json:"error"`
+	StartedAt       string `json:"started_at"`
+	EndedAt         string `json:"ended_at"`
+}
+
+// GET /api/v1/runs/{id}/summary — US-AD41 AC1.
+func (a boardAPI) getRunSummary(w http.ResponseWriter, r *http.Request) {
+	orgCtx, err := a.boardContext(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	run, err := a.svc.GetRun(r.Context(), r.PathValue("id"), orgCtx.workspace.ID)
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+
+	// An unfinished run is measured against now(), not against zero: a page
+	// that shows "0s" for a run that has been going for ten minutes is worse
+	// than one that shows nothing.
+	end := time.Now()
+	if run.EndedAt != nil {
+		end = *run.EndedAt
+	}
+	duration := end.Sub(run.StartedAt)
+	if duration < 0 {
+		// Clock skew between the API and the database, or a started_at in the
+		// future. Report nothing rather than a negative duration.
+		duration = 0
+	}
+
+	writeJSONResponse(w, http.StatusOK, runSummaryResponse{
+		RunID:           run.ID,
+		TaskID:          run.TaskID,
+		Attempt:         run.Attempt,
+		Status:          string(run.Status),
+		Outcome:         run.Outcome,
+		FailureKind:     run.FailureKind,
+		DurationSeconds: int64(duration.Seconds()),
+		CostMicros:      run.CostMicros,
+		TokensIn:        run.TokensIn,
+		TokensOut:       run.TokensOut,
+		Summary:         run.Summary,
+		Error:           run.Error,
+		StartedAt:       run.StartedAt.Format(time.RFC3339Nano),
+		EndedAt:         endedAtString(run),
+	})
+}
+
+func endedAtString(run board.Run) string {
+	if run.EndedAt == nil {
+		return ""
+	}
+	return run.EndedAt.Format(time.RFC3339Nano)
 }
 
 // GET /api/v1/runs/{id}/steps — the trace, in `seq` order.

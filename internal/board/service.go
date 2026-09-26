@@ -763,6 +763,41 @@ func (s *Service) CancelTask(ctx context.Context, id, orgID string) (Task, error
 	return s.repo.UpdateTaskStatus(ctx, id, orgID, task.Status, StatusCancelled)
 }
 
+// CancelRun implements POST /runs/{id}/cancel (ARCHITECTURE 6.2.11).
+//
+// Distinct from CancelTask, and the difference is which resource the caller
+// named. CancelTask moves the TASK to `cancelled` and asks the run to stop as a
+// side effect; this stops the RUN and leaves the task's own status to the
+// dispatcher, which decides it from the run's outcome. A caller who wants the
+// task to end should use the task route — calling this one and expecting the
+// task to move would be a surprise, so it deliberately does not.
+//
+// Idempotent: a run that has already ended is returned as it is. There is
+// nothing left to abort, and answering 409 would make a retried request look
+// like a failure when the desired state already holds.
+func (s *Service) CancelRun(ctx context.Context, id, orgID string) (Run, error) {
+	run, err := s.repo.GetRun(ctx, id, orgID)
+	if err != nil {
+		return Run{}, err
+	}
+	if run.Status == RunEnded {
+		return run, nil
+	}
+
+	if _, err := s.repo.RequestRunCancel(ctx, id, orgID); err != nil {
+		// The run closed between the read and the write. Nothing was left to
+		// stop, which is the outcome the caller asked for.
+		if !errors.Is(err, ErrNotFound) {
+			return Run{}, err
+		}
+	}
+
+	// Re-read rather than returning the value from before the write: the point
+	// of the response is to show that the cancellation was recorded, and the
+	// pre-write copy cannot show it.
+	return s.repo.GetRun(ctx, id, orgID)
+}
+
 // RetryTask implements POST /tasks/{id}/retry.
 //
 // This is the operator's override, not the dispatcher's automatic retry (§10.2).

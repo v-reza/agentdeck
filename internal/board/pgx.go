@@ -920,6 +920,7 @@ type runRowShape struct {
 	Error             *string
 	StartedAt         pgtype.Timestamptz
 	EndedAt           pgtype.Timestamptz
+	CancelRequestedAt pgtype.Timestamptz
 }
 
 func runRow(r runRowShape) Run {
@@ -941,6 +942,10 @@ func runRow(r runRowShape) Run {
 		Error:           str(r.Error),
 		StartedAt:       r.StartedAt.Time,
 		EndedAt:         ts(r.EndedAt),
+		// Diisi di sini karena Run membawanya dan dispatcher membacanya lewat
+		// jalur yang sama. Sebelum ini field-nya selalu nil walau kolomnya
+		// terisi — nilai yang ada di DB tapi tidak pernah sampai ke pemanggil.
+		CancelRequestedAt: ts(r.CancelRequestedAt),
 	}
 }
 

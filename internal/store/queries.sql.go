@@ -1130,7 +1130,7 @@ INSERT INTO runs (id, org_id, task_id, agent_id, attempt, status, max_runtime_se
 VALUES ($1, $2, $3, $4, $5, 'running', $6::int, now(), $7, now() + make_interval(secs => $6::int))
 RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
           last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
-          summary, error, started_at, ended_at
+          summary, error, started_at, ended_at, cancel_requested_at
 `
 
 type CreateRunParams struct {
@@ -1161,6 +1161,7 @@ type CreateRunRow struct {
 	Error             *string
 	StartedAt         pgtype.Timestamptz
 	EndedAt           pgtype.Timestamptz
+	CancelRequestedAt pgtype.Timestamptz
 }
 
 // claim_lock dan claim_expires wajib diisi di sini, bukan opsional.
@@ -1201,6 +1202,7 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (CreateRun
 		&i.Error,
 		&i.StartedAt,
 		&i.EndedAt,
+		&i.CancelRequestedAt,
 	)
 	return i, err
 }
@@ -1599,7 +1601,7 @@ SET status      = 'ended',
 WHERE r.id = $1 AND r.org_id = $2 AND r.status = 'running'
 RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
           last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
-          summary, error, started_at, ended_at
+          summary, error, started_at, ended_at, cancel_requested_at
 `
 
 type EndRunParams struct {
@@ -1629,6 +1631,7 @@ type EndRunRow struct {
 	Error             *string
 	StartedAt         pgtype.Timestamptz
 	EndedAt           pgtype.Timestamptz
+	CancelRequestedAt pgtype.Timestamptz
 }
 
 // The cost rollup is computed from ledger_entries in the same statement that
@@ -1663,6 +1666,7 @@ func (q *Queries) EndRun(ctx context.Context, arg EndRunParams) (EndRunRow, erro
 		&i.Error,
 		&i.StartedAt,
 		&i.EndedAt,
+		&i.CancelRequestedAt,
 	)
 	return i, err
 }
@@ -1680,7 +1684,7 @@ SET status       = 'ended',
 WHERE r.id = $1 AND r.org_id = $2 AND r.status <> 'ended'
 RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
           last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
-          summary, error, started_at, ended_at
+          summary, error, started_at, ended_at, cancel_requested_at
 `
 
 type EndRunCancelledParams struct {
@@ -1707,6 +1711,7 @@ type EndRunCancelledRow struct {
 	Error             *string
 	StartedAt         pgtype.Timestamptz
 	EndedAt           pgtype.Timestamptz
+	CancelRequestedAt pgtype.Timestamptz
 }
 
 // Jalur akhir run yang dibatalkan manusia. Terpisah dari EndRun karena EndRun
@@ -1734,6 +1739,7 @@ func (q *Queries) EndRunCancelled(ctx context.Context, arg EndRunCancelledParams
 		&i.Error,
 		&i.StartedAt,
 		&i.EndedAt,
+		&i.CancelRequestedAt,
 	)
 	return i, err
 }
@@ -2142,7 +2148,7 @@ func (q *Queries) GetProviderKey(ctx context.Context, arg GetProviderKeyParams) 
 const getRun = `-- name: GetRun :one
 SELECT id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
        last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
-       summary, error, started_at, ended_at
+       summary, error, started_at, ended_at, cancel_requested_at
 FROM runs
 WHERE id = $1 AND org_id = $2
 `
@@ -2170,6 +2176,7 @@ type GetRunRow struct {
 	Error             *string
 	StartedAt         pgtype.Timestamptz
 	EndedAt           pgtype.Timestamptz
+	CancelRequestedAt pgtype.Timestamptz
 }
 
 func (q *Queries) GetRun(ctx context.Context, arg GetRunParams) (GetRunRow, error) {
@@ -2193,6 +2200,7 @@ func (q *Queries) GetRun(ctx context.Context, arg GetRunParams) (GetRunRow, erro
 		&i.Error,
 		&i.StartedAt,
 		&i.EndedAt,
+		&i.CancelRequestedAt,
 	)
 	return i, err
 }
@@ -2454,7 +2462,7 @@ SET last_heartbeat_at = now()
 WHERE id = $1 AND org_id = $2 AND status = 'running'
 RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
           last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
-          summary, error, started_at, ended_at
+          summary, error, started_at, ended_at, cancel_requested_at
 `
 
 type HeartbeatRunParams struct {
@@ -2480,6 +2488,7 @@ type HeartbeatRunRow struct {
 	Error             *string
 	StartedAt         pgtype.Timestamptz
 	EndedAt           pgtype.Timestamptz
+	CancelRequestedAt pgtype.Timestamptz
 }
 
 func (q *Queries) HeartbeatRun(ctx context.Context, arg HeartbeatRunParams) (HeartbeatRunRow, error) {
@@ -2503,6 +2512,7 @@ func (q *Queries) HeartbeatRun(ctx context.Context, arg HeartbeatRunParams) (Hea
 		&i.Error,
 		&i.StartedAt,
 		&i.EndedAt,
+		&i.CancelRequestedAt,
 	)
 	return i, err
 }
@@ -3744,7 +3754,7 @@ func (q *Queries) ListTaskParents(ctx context.Context, childID string) ([]ListTa
 const listTaskRuns = `-- name: ListTaskRuns :many
 SELECT id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
        last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
-       summary, error, started_at, ended_at
+       summary, error, started_at, ended_at, cancel_requested_at
 FROM runs
 WHERE task_id = $1 AND org_id = $2
 ORDER BY attempt DESC
@@ -3773,6 +3783,7 @@ type ListTaskRunsRow struct {
 	Error             *string
 	StartedAt         pgtype.Timestamptz
 	EndedAt           pgtype.Timestamptz
+	CancelRequestedAt pgtype.Timestamptz
 }
 
 func (q *Queries) ListTaskRuns(ctx context.Context, arg ListTaskRunsParams) ([]ListTaskRunsRow, error) {
@@ -3802,6 +3813,7 @@ func (q *Queries) ListTaskRuns(ctx context.Context, arg ListTaskRunsParams) ([]L
 			&i.Error,
 			&i.StartedAt,
 			&i.EndedAt,
+			&i.CancelRequestedAt,
 		); err != nil {
 			return nil, err
 		}

@@ -896,19 +896,19 @@ INSERT INTO runs (id, org_id, task_id, agent_id, attempt, status, max_runtime_se
 VALUES ($1, $2, $3, $4, $5, 'running', $6::int, now(), $7, now() + make_interval(secs => $6::int))
 RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
           last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
-          summary, error, started_at, ended_at;
+          summary, error, started_at, ended_at, cancel_requested_at;
 
 -- name: GetRun :one
 SELECT id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
        last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
-       summary, error, started_at, ended_at
+       summary, error, started_at, ended_at, cancel_requested_at
 FROM runs
 WHERE id = $1 AND org_id = $2;
 
 -- name: ListTaskRuns :many
 SELECT id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
        last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
-       summary, error, started_at, ended_at
+       summary, error, started_at, ended_at, cancel_requested_at
 FROM runs
 WHERE task_id = $1 AND org_id = $2
 ORDER BY attempt DESC;
@@ -922,7 +922,7 @@ SET last_heartbeat_at = now()
 WHERE id = $1 AND org_id = $2 AND status = 'running'
 RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
           last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
-          summary, error, started_at, ended_at;
+          summary, error, started_at, ended_at, cancel_requested_at;
 
 -- name: EndRun :one
 -- The cost rollup is computed from ledger_entries in the same statement that
@@ -942,7 +942,7 @@ SET status      = 'ended',
 WHERE r.id = $1 AND r.org_id = $2 AND r.status = 'running'
 RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
           last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
-          summary, error, started_at, ended_at;
+          summary, error, started_at, ended_at, cancel_requested_at;
 
 -- name: RequestRunCancel :one
 -- POST /tasks/{id}/cancel menulis di sini. Idempotent lewat COALESCE: permintaan
@@ -979,7 +979,7 @@ SET status       = 'ended',
 WHERE r.id = $1 AND r.org_id = $2 AND r.status <> 'ended'
 RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
           last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
-          summary, error, started_at, ended_at;
+          summary, error, started_at, ended_at, cancel_requested_at;
 
 -- name: RetryTask :one
 -- POST /tasks/{id}/retry. Satu statement, bukan tiga, karena `consecutive_failures`

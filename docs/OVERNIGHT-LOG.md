@@ -262,3 +262,47 @@ butuh jalur "cabut semua sesi user ini" yang belum ada di permukaan API key.
 Tidak dikerjakan di fase ini.
 
 **Fase berikutnya:** 6.2.12 Steps (3 endpoint).
+
+## F4 — 6.2.11 Runs (2 endpoint sisa)
+
+**Status:** selesai, ter-push.
+
+| Endpoint | Status | Bukti |
+|---|---|---|
+| `POST /api/v1/runs/{id}/cancel` | ✅ | probe 32/32 · `TestPgCancelRunRecordsAndReadsBackTheRequest` |
+| `GET /api/v1/runs/{id}/summary` | ✅ | `TestRunSummaryReportsDuration` |
+
+**Catatan urutan:** brief menaruh 6.2.11 di fase 3 dan 6.2.2 di fase 5. Sesi ini
+mengerjakan 6.2.2 lebih dulu (commit `f17e848`) karena 6.2.12 sudah ✅ semua —
+ringkasan §6.2.20 yang basi bikin gw salah kira. Isi brief-nya sendiri akurat.
+
+**Gate:** `tools/gate-overnight.cmd` rc=0 · `verify_suite.py` 0 FAIL
+(**89 ✅ / 40 ⬜**) · `go test ./internal/board/ ./cmd/api/ ./internal/auth/
+./internal/store/... ./internal/metrics/` hijau · probe
+`tools/probe-run-cancel.py` **32/32** lawan API nyata · mutation **5/5 CAUGHT**.
+
+**Temuan**
+
+1. **`Run.CancelRequestedAt` ada di domain sejak F2 tapi nol yang mengisinya.**
+   Kolomnya ditulis, tapi `runRowShape`/`runRow` tidak membawanya, jadi nilai itu
+   tersimpan di DB dan tidak pernah terlihat siapa pun yang membacanya lewat Go.
+   Kelas yang sama dengan `sessions.user_agent`/`ip` di F3. Diperbaiki: 6 klausa
+   SELECT/RETURNING diperluas + field-nya masuk row shape.
+
+2. **`POST /runs/{id}/cancel` tidak boleh menutup run-nya sendiri.** Cancel
+   menulis `cancel_requested_at`; yang mengakhiri run tetap dispatcher (§5.1:
+   dispatcher satu-satunya penulis state run). Kalau handler-nya yang menutup,
+   keputusan `outcome` pindah ke API dan §5.1 jadi tidak benar.
+
+3. **Cabang balapan `RequestRunCancel` → `ErrNotFound` tidak teruji.** Mutation
+   pertama SURVIVED: cabang itu hanya bisa terpicu kalau executor menutup run di
+   antara baca dan tulis. Gw bikin double yang selalu kehilangan balapan, jadi
+   cabangnya deterministik — dan mutasinya CAUGHT.
+
+4. **Dua lubang di tes gw sendiri, ketahuan dari mutation yang SURVIVED:**
+   `TestRunSummaryReportsDuration` menyetel `ended ≈ now()`, jadi "ukur pakai
+   `ended_at`" dan "ukur pakai `now()`" memberi hasil sama dan tesnya tidak bisa
+   membedakan. Digeser jadi berakhir 210 detik lalu. Yang kedua: penjepitan
+   durasi negatif (skew jam) sama sekali tidak ada tesnya. Ditambahkan.
+
+**Fase berikutnya:** 6.2.15 Cost Ledger & Budget (3 endpoint).
