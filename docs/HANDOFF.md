@@ -454,6 +454,19 @@ fase 2 tetap 5 endpoint, divergensi dicatat, dikerjakan pas runtime mulai dibang
    ("Multi-sort: klik header kolom untuk sorting asc/desc") — `TableView.tsx`
    merender tabelnya tapi header-nya tidak bisa diklik dan nol ikon sort. Status
    story itu **M5**, jadi ini bukan gap F3; pemiliknya M5.
+4n. **Gate audit jargon/`<select>` dimasukkan ke `verify_suite.py`.** Dua aturan
+   biner itu dulu hanya hidup di `design_audit.py --check`, dan tidak ada yang
+   memanggilnya: satu-satunya cara ia menahan sesuatu adalah kalau seseorang ingat
+   menjalankannya. Cara memanggilnya pun menipu — `design_audit.py --check | grep FAIL`
+   membaca exit code `grep`, bukan exit code gate-nya, jadi gate itu terlihat hijau
+   sementara ia gagal (jebakan yang sama pernah ketemu di sesi ini). Sekarang
+   `verify_suite.py` menjalankannya sebagai child process tanpa pipe, jadi exit
+   code-nya utuh dan menular ke `HASIL`. Cakupan sengaja dipersempit ke dua aturan
+   yang bisa digagalkan; sisa audit (jumlah ikon, skeleton, spacing) tetap
+   informatif dan tidak dinaikkan jadi FAIL.
+   Diuji: `<select>` disusupkan → `verify_suite` EXIT 1 dengan `FAIL AUDIT: SELECT:
+   components/ui/input.tsx`; jargon `US-AD54 AC2` disusupkan → EXIT 1; keduanya
+   dipulihkan → EXIT 0.
 5. Belum ada `LICENSE`/`NOTICE`/`THIRD_PARTY`. Konflik lisensi di design
    (`09b-github.html` Apache-2.0 vs `05-landing.html` MIT).
 6. ~~Audit `livez`/`metrics` + tabel tanpa DDL~~ **SELESAI** — lihat

@@ -417,6 +417,37 @@ def check_design():
         say("WARN", f"DESIGN: lint tidak dapat dijalankan ({e})")
 
 
+def check_design_audit():
+    """Audit jargon/<select> — dulu manual, sekarang bagian dari suite.
+
+    Kenapa ini dipindah ke dalam: `design_audit.py --check` adalah gate yang
+    mengembalikan 1, tapi tidak ada yang memanggilnya, jadi satu-satunya cara ia
+    menahan sesuatu adalah kalau seseorang ingat menjalankannya. Dan cara umum
+    memanggilnya — `python tools/design_audit.py --check | grep FAIL` — membaca
+    exit code `grep`, bukan exit code gate-nya, jadi gate itu tampak hijau
+    sementara ia gagal. Dijalankan di sini tanpa pipe, jadi exit code-nya utuh.
+
+    Cakupannya sengaja dipersempit ke dua aturan kontrak yang **biner dan bisa
+    digagalkan** (jargon bocor ke UI yang dirender, `<select>` bawaan). Sisa
+    audit tetap informatif — jumlah ikon, skeleton, spacing — dan tidak
+    dinaikkan jadi FAIL di sini.
+    """
+    try:
+        r = subprocess.run([sys.executable, os.path.join("tools", "design_audit.py"), "--check"],
+                           cwd=ROOT, capture_output=True, text=True, timeout=180)
+    except Exception as e:
+        say("WARN", f"AUDIT: design_audit.py tidak dapat dijalankan ({e})")
+        return
+
+    out = (r.stdout or "") + (r.stderr or "")
+    leaked = [line.strip() for line in out.splitlines() if line.startswith("FAIL")]
+    if r.returncode != 0:
+        for line in leaked or [f"exit {r.returncode} tanpa baris FAIL"]:
+            say("FAIL", f"AUDIT: {line[6:] if line.startswith('FAIL  ') else line}")
+    else:
+        say("ok", "AUDIT: nol jargon bocor ke UI, nol <select> bawaan")
+
+
 # ------------------------------------------------------------ C. KONTRAK ----
 def check_contract():
     dec = read("DECISIONS.md")
@@ -941,6 +972,8 @@ def main():
     check_supersessions()
     print()
     check_design()
+    print()
+    check_design_audit()
     print()
     check_contract()
     print()
