@@ -51,6 +51,7 @@
 | `US-AD106` | Must | M2 | Provider BYO (bring your own) | `26-agent-form` | ⬜ |
 | `US-AD107` | Should | M2 | Skill library per ruang kerja | `26b-agent-skills` | ⬜ |
 | `US-AD108` | Must | M2 | Estimasi biaya: label dan sumber harga | `26-agent-form` | ⬜ |
+| `US-AD109` | Must | M2 | Provider registry: daftar kredensial sekali pakai | `47-providers` | ⬜ |
 | `US-AD18` | Must | M2 | Dependency DAG antar task | *backend-only* | ⬜ |
 | `US-AD19` | Should | M2 | Visualisasi dependency di board | `18-kanban`, `24-dependency-view` | ⬜ |
 | `US-AD25` | Must | M2 | Menulis step (trace) dalam run | *backend-only* | ⬜ |
@@ -95,7 +96,7 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ⬜ |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ⬜ |
 
-**Total M0–M4: 88 story** (13 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (13 PASS, 1 ditunda)
 
 ## Progres per milestone
 
@@ -103,7 +104,7 @@
 |---|---|---|---|
 | M0 | 10 | 9 | 1 |
 | M1 | 32 | 4 | 28 |
-| M2 | 20 | 0 | 20 |
+| M2 | 21 | 0 | 21 |
 | M3 | 16 | 0 | 16 |
 | M4 | 10 | 0 | 10 |
 
@@ -112,7 +113,7 @@
 **backend PASS, UI sebagian.**
 
 - Sudah jalan: `PATCH /api/v1/agents/{id}` dengan `{"archived": true|false}`; guard 409 saat agent masih memegang run; guard 403 untuk member/viewer; `archived_at` dikembalikan di `GET`/list/`POST`; badge `DIARSIP` dan filter `DIARSIP` di registry; agent terarsip dikeluarkan dari hitungan siap-ditugaskan.
-- Belum: AC2 menuntut agent terarsip hilang dari **dropdown assign task** (`<select name="assigned_agent">`) di papan Kanban dan Table View. Query `ListAssignableAgents` SUDAH ter-generate di `internal/store`, tapi **tidak ada handler maupun endpoint yang memakainya** — jadi dropdown-nya belum punya sumber data. Klaim lama di catatan ini ('backend-nya ada') keliru dan sudah dikoreksi.
+- AC2 sudah punya sumber data: `GET /api/v1/boards/{board_id}/assignable-agents` memanggil `ListAssignableAgentsForBoard` (`cmd/api/boards.go`, `internal/board/pgx.go`), dan predikatnya mengecualikan agent terarsip. Catatan lama yang bilang "tidak ada handler maupun endpoint yang memakainya" sudah tidak benar dan dikoreksi di sini.
 - AC1 (task `running` tetap tuntas saat agent diarsip) baru bisa dibuktikan end-to-end setelah executor M4 ada.
 - Status PASS ditahan sampai kedua AC itu bisa dibuktikan — bukan karena gate merah.
 
@@ -126,9 +127,9 @@
 
 ### Catatan status — `US-AD108` (⬜)
 
-**label estimasi di UI selesai, ledger belum ada.**
+**label estimasi di UI selesai, penulis ledger baru ada.**
 
 - Sudah jalan: AC1 — setiap angka biaya di UI melewati `formatEstimatedMicroUSD`, yang menuliskan `(estimate)`. `GET /agent-catalog` mengirim `estimate: true` dan `disclaimer` dari server, jadi klien tidak bisa diam-diam menghapus labelnya.
-- Belum: AC2 dan AC3. Kolom `price_source` dan `pricing_model` ada di `internal/migrate/0008.up.sql` dan struct `store.LedgerEntry` ada, tetapi **nol query sqlc dan nol handler** menyentuh `ledger_entries` — tidak ada baris ledger yang ditulis, jadi tidak ada `price_source` yang dicatat.
+- AC2/AC3 sebagian: `ledger_entries` **sudah punya penulis** sejak M4 — `internal/board/runtime.go` + query `RecordLedgerEntry` menulis `price_source`, `price_version`, dan `pricing_model` per baris, dan itu dibuktikan lawan API nyata (`tools/probe-m5.py`: satu entri, `source=catalog`). Catatan lama yang bilang "nol query sqlc dan nol handler" sudah tidak benar. Yang masih perlu dibuktikan sebelum statusnya naik: jalur `manual` (harga tier-1 menimpa katalog) dan `pattern` ikut tercatat di baris ledger, bukan cuma di resolusi harga.
 - AC5 (5 komponen, `reasoning` tidak pernah disamakan dengan `output`) sudah terpenuhi di tabel harga: 271 entri membawa `ReasoningMicrosPer1M` terpisah dan gate `verify_suite.py` memeriksa blok rumusnya.
 

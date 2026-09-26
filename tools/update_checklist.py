@@ -91,12 +91,11 @@ NOTES = {
             "guard 409 saat agent masih memegang run; guard 403 untuk member/viewer; "
             "`archived_at` dikembalikan di `GET`/list/`POST`; badge `DIARSIP` dan filter "
             "`DIARSIP` di registry; agent terarsip dikeluarkan dari hitungan siap-ditugaskan.",
-            "Belum: AC2 menuntut agent terarsip hilang dari **dropdown assign task** "
-            "(`<select name=\"assigned_agent\">`) di papan Kanban dan Table View. "
-            "Query `ListAssignableAgents` SUDAH ter-generate di `internal/store`, tapi "
-            "**tidak ada handler maupun endpoint yang memakainya** — jadi dropdown-nya "
-            "belum punya sumber data. Klaim lama di catatan ini ('backend-nya ada') "
-            "keliru dan sudah dikoreksi.",
+            "AC2 sudah punya sumber data: `GET /api/v1/boards/{board_id}/assignable-agents` "
+            "memanggil `ListAssignableAgentsForBoard` (`cmd/api/boards.go`, `internal/board/pgx.go`), "
+            "dan predikatnya mengecualikan agent terarsip. Catatan lama yang bilang "
+            "\"tidak ada handler maupun endpoint yang memakainya\" sudah tidak benar dan "
+            "dikoreksi di sini.",
             "AC1 (task `running` tetap tuntas saat agent diarsip) baru bisa dibuktikan "
             "end-to-end setelah executor M4 ada.",
             "Status PASS ditahan sampai kedua AC itu bisa dibuktikan — bukan karena "
@@ -120,16 +119,20 @@ NOTES = {
     ),
     "US-AD108": (
         "todo",
-        "label estimasi di UI selesai, ledger belum ada",
+        "label estimasi di UI selesai, penulis ledger baru ada",
         [
             "Sudah jalan: AC1 — setiap angka biaya di UI melewati "
             "`formatEstimatedMicroUSD`, yang menuliskan `(estimate)`. "
             "`GET /agent-catalog` mengirim `estimate: true` dan `disclaimer` dari server, "
             "jadi klien tidak bisa diam-diam menghapus labelnya.",
-            "Belum: AC2 dan AC3. Kolom `price_source` dan `pricing_model` ada di "
-            "`internal/migrate/0008.up.sql` dan struct `store.LedgerEntry` ada, tetapi "
-            "**nol query sqlc dan nol handler** menyentuh `ledger_entries` — tidak ada "
-            "baris ledger yang ditulis, jadi tidak ada `price_source` yang dicatat.",
+            "AC2/AC3 sebagian: `ledger_entries` **sudah punya penulis** sejak M4 — "
+            "`internal/board/runtime.go` + query `RecordLedgerEntry` menulis "
+            "`price_source`, `price_version`, dan `pricing_model` per baris, dan itu "
+            "dibuktikan lawan API nyata (`tools/probe-m5.py`: satu entri, "
+            "`source=catalog`). Catatan lama yang bilang \"nol query sqlc dan nol handler\" "
+            "sudah tidak benar. Yang masih perlu dibuktikan sebelum statusnya naik: "
+            "jalur `manual` (harga tier-1 menimpa katalog) dan `pattern` ikut tercatat "
+            "di baris ledger, bukan cuma di resolusi harga.",
             "AC5 (5 komponen, `reasoning` tidak pernah disamakan dengan `output`) sudah "
             "terpenuhi di tabel harga: 271 entri membawa `ReasoningMicrosPer1M` terpisah "
             "dan gate `verify_suite.py` memeriksa blok rumusnya.",

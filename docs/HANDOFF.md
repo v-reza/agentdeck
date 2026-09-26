@@ -2,6 +2,15 @@
 
 Buat session baru. Baca `.hermes.md` + `docs/DECISIONS.md` dulu, terus file ini.
 
+> **Run unattended (overnight / `/goal`):** kontraknya di `docs/OVERNIGHT-BRIEF.md`,
+> jejaknya di `docs/OVERNIGHT-LOG.md`. File ini tetap ringkasan status; brief yang
+> memegang objective + urutan fase + gate run malam.
+>
+> **Angka endpoint: pakai tabel detail §6.2.1–§6.2.19, jangan §6.2.20.** Ringkasan
+> per modul di §6.2.20 **basi** (bilang Runs 0/6 padahal detailnya 4 ✅ / 2 ⬜,
+> dan totalnya 127/129 padahal 128). Hitungan yang benar: **77 ✅ / 51 ⬜**. Yang
+> dijaga gate dua arah adalah kolom `Status` di tabel detail, bukan ringkasannya.
+
 ---
 
 ## Kerjaan yang sedang jalan: Provider Registry
