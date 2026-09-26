@@ -49,7 +49,9 @@ sebelum yang lama ter-push.
 5. `go test` paket yang kesentuh (manual — **nggak masuk gate**, lihat §4).
 6. Mutation kalau menyentuh security/business rule.
 7. Rebuild container + probe lawan API nyata kalau ada endpoint baru.
-8. Update `docs/ARCHITECTURE.md` baris ⬜ → ✅ **di commit yang sama** + angka §6.2.20.
+8. Update `docs/ARCHITECTURE.md` **baris detail §6.2.N** ⬜ → ✅ **di commit yang
+   sama**. Jangan ngurusin angka ringkasan §6.2.20 — itu basi dan gate nggak
+   menjaganya; yang dijaga dua arah adalah kolom `Status` di tabel detail.
 9. `tools\gate-overnight.cmd` → harus EXIT 0.
 10. Commit + push + tulis hasilnya di `docs/OVERNIGHT-LOG.md`.
 
