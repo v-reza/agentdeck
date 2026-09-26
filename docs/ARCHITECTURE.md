@@ -2830,7 +2830,7 @@ frontend/
 │   │   │   │   └── BoardSettings.tsx
 │   │   │   ├── approvals/ApprovalInbox.tsx    # diff payload + 1-klik keputusan
 │   │   │   ├── agents/{AgentRegistry,AgentDetail}.tsx
-│   │   │   ├── finops/{CostOverview,LedgerExplorer}.tsx
+│   │   │   ├── finops/CostOverview.tsx
 │   │   │   └── settings/{Members,ApiKeys,Webhooks,Providers}.tsx
 │   ├── store/                                 # Redux Toolkit
 │   │   ├── index.ts                           # configureStore + listenerMiddleware
@@ -2847,7 +2847,7 @@ frontend/
 │   ├── components/
 │   │   ├── ui/                                # shadcn primitives (ref as prop)
 │   │   ├── kanban/                            # Column, TaskCard, DragOverlay
-│   │   ├── approvals/                         # DiffViewer, RiskBadge, ActionButtons
+│   │   ├── approvals/                         # DiffViewer (preview aksi, layar 35)
 │   │   ├── terminal/                          # SSE log reader, StepTimeline
 │   │   └── layout/                            # Sidebar, Header, LangToggle (EN/ID)
 │   ├── hooks/

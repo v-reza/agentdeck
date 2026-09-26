@@ -273,7 +273,6 @@ REQUIRED_PATHS = (
     "routes/dashboard/agents/AgentRegistry.tsx",
     "routes/dashboard/agents/AgentDetail.tsx",
     "routes/dashboard/finops/CostOverview.tsx",
-    "routes/dashboard/finops/LedgerExplorer.tsx",
     "routes/dashboard/settings/Members.tsx",
     "routes/dashboard/settings/ApiKeys.tsx",
     "routes/dashboard/settings/Webhooks.tsx",

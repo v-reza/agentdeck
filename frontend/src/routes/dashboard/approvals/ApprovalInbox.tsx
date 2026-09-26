@@ -4,6 +4,7 @@ import { useListApprovalsQuery, useApproveApprovalMutation, useRejectApprovalMut
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { EmptyState, Panel } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { DiffViewer } from '@/components/approvals/DiffViewer'
 import { SkeletonRows } from '@/components/ui/skeleton'
 import { useCanAct } from '@/hooks/use-orgs'
 import { formatDuration, shortID } from '@/lib/formatters'
@@ -107,11 +108,11 @@ function ApprovalRow({
 
       {approval.reason ? <p className="mt-2 text-[12px] text-[var(--color-secondary)]">{approval.reason}</p> : null}
 
-      {approval.preview_json ? (
-        <pre className="mt-2 max-h-[160px] overflow-auto rounded-[6px] bg-[var(--color-surface-sunken)] p-2 font-mono text-[10px] leading-relaxed text-[var(--color-primary)]">
-          {approval.preview_json}
-        </pre>
-      ) : null}
+      {/* The design's "Preview Aksi" card. The payload used to be a bare <pre>
+          here, which dropped the card's header — the label naming what kind of
+          action is gated — and the border that separates the proposal from the
+          decision buttons under it. */}
+      {approval.preview_json ? <DiffViewer preview={approval.preview_json} className="mt-2" /> : null}
 
       {canDecide ? (
         <div className="mt-3 flex gap-2">

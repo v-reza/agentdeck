@@ -80,8 +80,19 @@ test.describe('approval inbox — US-AD37', () => {
     const card = page.getByText('Deletes 3 stale replicas in the staging namespace.')
     await expect(card).toBeVisible({ timeout: 15_000 })
 
-    // The preview is the payload the agent proposed, rendered verbatim.
-    await expect(page.getByText('"drop_stale_replicas"')).toBeVisible()
+    // The preview is the design's "Preview Aksi" card, and the payload inside it
+    // is rendered **verbatim**: the mockup's card header names the gated action,
+    // and re-formatting the body would hide the difference between what the
+    // agent sent and what the operator approves.
+    const preview = page.getByTestId('approval-preview')
+    await expect(preview).toBeVisible()
+    await expect(preview).toContainText(/preview aksi berisiko/i)
+    // The header label is derived from the payload's own `action` key.
+    await expect(preview).toContainText('action: drop_stale_replicas')
+    // Verbatim means byte-for-byte: the fixture is single-line JSON, so a
+    // pretty-printer would introduce a newline right after the opening brace.
+    const raw = await preview.locator('pre').textContent()
+    expect(raw).toBe('{"action":"drop_stale_replicas","count":3}')
 
     // AC2's "waktu tersisa" — a deadline counting down, not a creation stamp.
     const remaining = page.getByTestId('approval-remaining')
