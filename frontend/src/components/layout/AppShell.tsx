@@ -4,6 +4,7 @@ import { IconRail } from './IconRail'
 import { WorkspaceSidebar } from './WorkspaceSidebar'
 import { CostRail } from './CostRail'
 import { TaskDrawerHost } from '@/routes/dashboard/boards/TaskDrawerHost'
+import { TaskCreateHost } from '@/routes/dashboard/boards/TaskCreateForm'
 import { useBoardHealth } from '@/hooks/use-board-health'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { closeTask } from '@/store/slices/uiSlice'
@@ -49,6 +50,7 @@ export function AppShell({ children, withCostRail = true }: AppShellProps) {
       <div className="flex min-w-0 flex-1 flex-col">{activeOrgID ? children : <NoWorkspace />}</div>
 
       <TaskDrawerHost />
+      <TaskCreateHost />
 
       {withCostRail ? <CostRail /> : null}
     </div>

@@ -17,6 +17,8 @@ export interface UiState {
   search: string
   /** Task detail drawer: the open task id, or null when closed. */
   openTaskID: string | null
+  /** Board the create-task modal was opened for, or null when closed. */
+  createTaskBoardID: string | null
   /** Column the drag started from, for the optimistic overlay. */
   draggingFrom: ColumnKey | null
   /** Command palette (screen 14) visibility. */
@@ -42,6 +44,7 @@ const initialState: UiState = {
   assigneeFilter: null,
   search: '',
   openTaskID: null,
+  createTaskBoardID: null,
   draggingFrom: null,
   commandPaletteOpen: false,
   directorySearch: '',
@@ -72,6 +75,12 @@ const uiSlice = createSlice({
     },
     closeTask(state) {
       state.openTaskID = null
+    },
+    openCreateTask(state, action: PayloadAction<string>) {
+      state.createTaskBoardID = action.payload
+    },
+    closeCreateTask(state) {
+      state.createTaskBoardID = null
     },
     setDraggingFrom(state, action: PayloadAction<ColumnKey | null>) {
       state.draggingFrom = action.payload
@@ -109,6 +118,8 @@ export const {
   setSearch,
   openTask,
   closeTask,
+  openCreateTask,
+  closeCreateTask,
   setDraggingFrom,
   toggleCommandPalette,
   setDirectorySearch,

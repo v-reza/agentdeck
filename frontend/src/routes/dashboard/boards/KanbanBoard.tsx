@@ -2,10 +2,10 @@ import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } f
 import { useParams } from 'react-router-dom'
 import { useGetBoardQuery, useListTasksQuery, useMoveTaskMutation } from '@/store/api/boards'
 import { useOptimisticCards, groupByColumn } from '@/hooks/use-optimistic-card'
-import { useAppDispatch } from '@/store/hooks'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { openTask } from '@/store/slices/uiSlice'
-import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
 import { Column } from '@/components/kanban/Column'
+import { BoardToolbar } from '@/components/kanban/BoardToolbar'
 import { COLUMN_ORDER, isTaskStatus } from '@/lib/domain'
 import { SkeletonRows } from '@/components/ui/skeleton'
 
@@ -21,7 +21,14 @@ export function KanbanBoard() {
   const { boardID } = useParams<{ boardID: string }>()
   const dispatch = useAppDispatch()
   const { data: board } = useGetBoardQuery(boardID ?? '', { skip: !boardID })
-  const { data, isLoading } = useListTasksQuery(boardID ?? '', { skip: !boardID })
+  // The filter is part of the query, not a `.filter()` over the response: the
+  // server applies it in SQL (§6.2.16), so the two views and `curl` agree.
+  const statusFilter = useAppSelector((state) => state.ui.statusFilter)
+  const search = useAppSelector((state) => state.ui.search)
+  const { data, isLoading } = useListTasksQuery(
+    { boardID: boardID ?? '', statuses: statusFilter, search: search || undefined },
+    { skip: !boardID },
+  )
   const [moveTask] = useMoveTaskMutation()
   const { tasks, moveCard } = useOptimisticCards(data ?? [])
 
@@ -47,7 +54,7 @@ export function KanbanBoard() {
 
   return (
     <>
-      <WorkspaceTopbar title={board?.name ?? 'Board'} subtitle={board?.slug} />
+      <BoardToolbar boardName={board?.name} taskCount={tasks.length} />
       <div className="flex min-h-0 flex-1 gap-2.5 overflow-x-auto p-4">
         {isLoading ? (
           <SkeletonRows rows={5} columns={4} />

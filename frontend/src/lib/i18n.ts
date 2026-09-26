@@ -261,6 +261,29 @@ export interface Dictionary {
   'boards.createFirst': string
   'boards.noProjects': string
   'boards.noProjectsHint': string
+  'boards.search': string
+  'boards.filter': string
+  'boards.filterActive': string
+  'boards.clearFilter': string
+  'task.create.subtitle': string
+  'task.create.titlePlaceholder': string
+  'task.create.bodyPlaceholder': string
+  'boards.viewBoard': string
+  'boards.viewTable': string
+  'boards.taskCount': string
+  'boards.newTask': string
+  'boards.noTasksMatch': string
+  'boards.noTasksMatchHint': string
+  'task.create.title': string
+  'task.create.fieldTitle': string
+  'task.create.fieldTitleHint': string
+  'task.create.description': string
+  'task.create.markdownHint': string
+  'task.create.assignee': string
+  'task.create.assigneeNone': string
+  'task.create.submit': string
+  'task.create.pending': string
+  'task.create.failed': string
   // Agent registry (25-agent-registry, 26-agent-form) — US-AD20.
   'agents.title': string
   'agents.new': string
@@ -714,6 +737,29 @@ const en: Dictionary = {
   'boards.createFirst': 'Create your first board',
   'boards.noProjects': 'No projects yet',
   'boards.noProjectsHint': 'A board lives inside a project. Create one on the Projects page first.',
+  'boards.search': 'Search tasks',
+  'boards.filter': 'Filter',
+  'boards.filterActive': 'Filter active',
+  'boards.clearFilter': 'Clear',
+  'task.create.subtitle': 'The task is created in the active workspace.',
+  'task.create.titlePlaceholder': 'Fix flaky reclaim',
+  'task.create.bodyPlaceholder': 'What should the agent do?',
+  'boards.viewBoard': 'Board',
+  'boards.viewTable': 'Table',
+  'boards.taskCount': '{0} tasks',
+  'boards.newTask': 'New task',
+  'boards.noTasksMatch': 'No tasks match',
+  'boards.noTasksMatchHint': 'Clear a filter or add a task to this board.',
+  'task.create.title': 'New task',
+  'task.create.fieldTitle': 'Task title',
+  'task.create.fieldTitleHint': 'Use a short, action-oriented description.',
+  'task.create.description': 'Description & execution instructions',
+  'task.create.markdownHint': 'Markdown supported',
+  'task.create.assignee': 'Assignee agent (optional)',
+  'task.create.assigneeNone': '— No agent (starts in Backlog) —',
+  'task.create.submit': 'Create task',
+  'task.create.pending': 'Creating…',
+  'task.create.failed': 'Could not create the task',
   'agents.title': 'Agent Registry',
   'agents.new': 'Register agent',
   'agents.search': 'Search agent, model, or skill...',
@@ -1172,6 +1218,29 @@ const id: Dictionary = {
   'boards.createFirst': 'Buat board pertama Anda',
   'boards.noProjects': 'Belum ada project',
   'boards.noProjectsHint': 'Board berada di dalam project. Buat project dulu di halaman Projects.',
+  'boards.search': 'Cari task',
+  'boards.filter': 'Filter',
+  'boards.filterActive': 'Filter aktif',
+  'boards.clearFilter': 'Hapus',
+  'task.create.subtitle': 'Task dibuat di ruang kerja yang sedang aktif.',
+  'task.create.titlePlaceholder': 'Perbaiki reclaim yang flaky',
+  'task.create.bodyPlaceholder': 'Apa yang harus dilakukan agent?',
+  'boards.viewBoard': 'Board',
+  'boards.viewTable': 'Tabel',
+  'boards.taskCount': '{0} task',
+  'boards.newTask': 'Buat Task',
+  'boards.noTasksMatch': 'Tidak ada task yang cocok',
+  'boards.noTasksMatchHint': 'Hapus filter atau tambah task ke board ini.',
+  'task.create.title': 'Buat Task Baru',
+  'task.create.fieldTitle': 'Judul Task',
+  'task.create.fieldTitleHint': 'Gunakan deskripsi ringkas berorientasi tindakan.',
+  'task.create.description': 'Deskripsi & Instruksi Eksekusi',
+  'task.create.markdownHint': 'Markdown didukung',
+  'task.create.assignee': 'Assignee Agent (Opsional)',
+  'task.create.assigneeNone': '— Tanpa agent (Masuk kolom Backlog) —',
+  'task.create.submit': 'Buat Task',
+  'task.create.pending': 'Membuat…',
+  'task.create.failed': 'Gagal membuat task',
   'agents.title': 'Agent Registry',
   'agents.new': 'Daftarkan agent',
   'agents.search': 'Cari agent, model, atau skill...',

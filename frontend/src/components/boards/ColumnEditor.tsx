@@ -34,7 +34,7 @@ import type { Column, Task } from '@/lib/domain'
  */
 export function ColumnEditor({ boardID, onClose }: { boardID: string; onClose: () => void }) {
   const { data: board } = useGetBoardQuery(boardID, { skip: !boardID })
-  const { data: tasks } = useListTasksQuery(boardID, { skip: !boardID })
+  const { data: tasks } = useListTasksQuery({ boardID }, { skip: !boardID })
   const [updateColumns] = useUpdateBoardColumnsMutation()
 
   // The working copy. The layout is edited locally (rename, reorder, remove) and

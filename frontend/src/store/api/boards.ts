@@ -1,5 +1,6 @@
 import { baseApi } from './base'
 import type { Column, Task, TaskStatus, TaskLink, TaskEvent, Project, Board } from '@/lib/domain'
+import type { AssignableAgent } from './agents'
 
 /**
  * Board-domain server state (ARCHITECTURE 18.2: `store/api/boards.ts`, tags
@@ -42,12 +43,23 @@ export interface UpdateBoardColumnsArgs {
   columns: Column[]
 }
 
+/** The board listing's query. Filters mirror §6.2.16; all are optional. */
+export interface ListTasksArgs {
+  boardID: string
+  /** Repeated as `?status=a&status=b`; the API takes the whole set. */
+  statuses?: string[]
+  assignee?: string
+  search?: string
+}
+
 export interface CreateTaskArgs {
   boardID: string
   title: string
   body?: string
   priority?: number
   status?: TaskStatus
+  /** US-AD11 AC1. Omitted or empty = unassigned, which is valid (AC5). */
+  assignee_agent_id?: string
 }
 
 export interface UpdateTaskArgs {
@@ -151,9 +163,24 @@ export const boardsApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { boardID }) => [{ type: 'Board', id: boardID }],
     }),
 
-    listTasks: build.query<Task[], string>({
-      query: (boardID) => `boards/${boardID}/tasks`,
-      providesTags: (result, _e, boardID) =>
+    /**
+     * One board's tasks. The three filters travel as query parameters because
+     * §6.2.16 advertises them and the server applies them in SQL — filtering the
+     * response here would make the app and `curl` disagree about the same board.
+     *
+     * The cache key is `boardID + filter`, so switching a filter is a new cache
+     * entry rather than a refetch that could race the previous one.
+     */
+    listTasks: build.query<Task[], ListTasksArgs>({
+      query: ({ boardID, statuses, assignee, search }) => {
+        const params = new URLSearchParams()
+        for (const status of statuses ?? []) params.append('status', status)
+        if (assignee) params.set('assignee', assignee)
+        if (search) params.set('search', search)
+        const qs = params.toString()
+        return `boards/${boardID}/tasks${qs ? `?${qs}` : ''}`
+      },
+      providesTags: (result, _e, { boardID }) =>
         result
           ? [
               ...result.map((t) => ({ type: 'Task' as const, id: t.id })),
@@ -167,11 +194,24 @@ export const boardsApi = baseApi.injectEndpoints({
       providesTags: (_r, _e, id) => [{ type: 'Task', id }],
     }),
 
+    /**
+     * The create-task modal's picker (US-AD11 AC1). Same shape and same server
+     * query as the `picker` inside `getAgentTasks`, so the two screens cannot
+     * disagree about who is assignable.
+     */
+    listAssignableAgents: build.query<AssignableAgent[], string>({
+      query: (boardID) => `boards/${boardID}/assignable-agents`,
+      providesTags: (_r, _e, boardID) => [{ type: 'Agent' as const, id: `ASSIGNABLE-${boardID}` }],
+    }),
+
     createTask: build.mutation<Task, CreateTaskArgs>({
-      query: ({ boardID, ...body }) => ({
+      query: ({ boardID, assignee_agent_id, ...body }) => ({
         url: `boards/${boardID}/tasks`,
         method: 'POST',
-        body,
+        // The picker's "no agent" row yields an empty string, which is dropped
+        // rather than sent: US-AD11 AC5's case is the *absent* field, and the
+        // server stores an unassigned task as NULL, never ''.
+        body: assignee_agent_id ? { ...body, assignee_agent_id } : body,
       }),
       invalidatesTags: (_r, _e, { boardID }) => [
         { type: 'Task', id: `BOARD-${boardID}` },
@@ -267,6 +307,7 @@ export const {
   useUpdateBoardColumnsMutation,
   useDeleteBoardMutation,
   useListTasksQuery,
+  useListAssignableAgentsQuery,
   useGetTaskQuery,
   useCreateTaskMutation,
   useUpdateTaskMutation,

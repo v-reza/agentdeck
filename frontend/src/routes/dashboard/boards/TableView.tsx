@@ -1,9 +1,9 @@
 import { useParams } from 'react-router-dom'
 import { useGetBoardQuery, useListTasksQuery } from '@/store/api/boards'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
-import { openTask, setSearch, toggleStatusFilter } from '@/store/slices/uiSlice'
-import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
+import { openTask, toggleStatusFilter } from '@/store/slices/uiSlice'
 import { EmptyState } from '@/components/ui/card'
+import { BoardToolbar } from '@/components/kanban/BoardToolbar'
 import { TASK_STATUSES, statusColorVar } from '@/lib/domain'
 import { formatEstimatedMicroUSD, formatTokens, shortID } from '@/lib/formatters'
 import { cn } from '@/lib/cn'
@@ -18,30 +18,19 @@ export function TableView() {
   const { boardID } = useParams<{ boardID: string }>()
   const dispatch = useAppDispatch()
   const { data: board } = useGetBoardQuery(boardID ?? '', { skip: !boardID })
-  const { data, isLoading } = useListTasksQuery(boardID ?? '', { skip: !boardID })
   const statusFilter = useAppSelector((state) => state.ui.statusFilter)
   const search = useAppSelector((state) => state.ui.search)
-
-  const tasks = (data ?? []).filter((task) => {
-    if (statusFilter.length > 0 && !statusFilter.includes(task.status)) return false
-    if (search && !task.title.toLowerCase().includes(search.toLowerCase())) return false
-    return true
-  })
+  // The filters are the server's (§6.2.16), not a pass over the response: this
+  // view used to hide rows the API still counted, so the two disagreed.
+  const { data, isLoading } = useListTasksQuery(
+    { boardID: boardID ?? '', statuses: statusFilter, search: search || undefined },
+    { skip: !boardID },
+  )
+  const tasks = data ?? []
 
   return (
     <>
-      <WorkspaceTopbar
-        title={board?.name ?? 'Board'}
-        subtitle={`${tasks.length} tasks`}
-        right={
-          <input
-            value={search}
-            onChange={(event) => dispatch(setSearch(event.target.value))}
-            placeholder="Search tasks"
-            className="h-8 w-[180px] rounded-[6px] border border-[var(--color-border-subtle)] bg-[var(--color-surface-page)] px-2.5 text-[12px] text-[var(--color-primary)] outline-none placeholder:text-[var(--color-quaternary)] focus:border-[var(--color-accent)]"
-          />
-        }
-      />
+      <BoardToolbar boardName={board?.name} taskCount={tasks.length} />
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4">
         <div className="flex flex-wrap gap-1">

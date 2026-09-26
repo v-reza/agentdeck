@@ -7,7 +7,7 @@ import type { Board, Task } from '@/lib/domain'
 /**
  * The project directory's data, one query per row.
  *
- * `useListBoardsQuery(projectID)` and `useListTasksQuery(boardID)` are called by
+ * `useListBoardsQuery(projectID)` and `useListTasksQuery({ boardID })` are called by
  * the row components themselves — never in a loop — because RTK Query ships no
  * `useQueries` (verified against @reduxjs/toolkit 2.12: the export does not
  * exist). A hook called inside `map()` would also break the rules of hooks.
@@ -52,7 +52,7 @@ export function useBoardTasks(boardID: string): {
 } {
   const dispatch = useAppDispatch()
   const enabled = boardID !== ''
-  const { data, isUninitialized, isLoading } = useListTasksQuery(boardID, { skip: !enabled })
+  const { data, isUninitialized, isLoading } = useListTasksQuery({ boardID }, { skip: !enabled })
   const tasks = data ?? []
   const isUnresolved = enabled && (isUninitialized || isLoading)
   const running = tasks.filter((task) => task.status === 'running').length
