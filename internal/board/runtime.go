@@ -224,6 +224,34 @@ func (s *Service) EndRun(ctx context.Context, runID, orgID string, summary RunSu
 // the third is incremented here — before this, `tasks.consecutive_failures` had
 // no writer at all, so the ceiling was compared against a number that never
 // moved and a failing task would have retried forever.
+// RunCancelRequested is the dispatcher's read of the durable cancel flag. It is
+// exposed on Service so the dispatcher depends on one object rather than on the
+// repository directly — the dispatcher's Store interface is satisfied by Service.
+func (s *Service) RunCancelRequested(ctx context.Context, runID string) (bool, error) {
+	return s.repo.RunCancelRequested(ctx, runID)
+}
+
+// EndRunCancelled closes a run as `cancelled`. It does not apply the task
+// transition: the dispatcher does that through ApplyOutcome so both cancel
+// routes (before the first call, and during) leave identical state.
+func (s *Service) EndRunCancelled(ctx context.Context, runID, orgID, summary string) (Run, error) {
+	return s.repo.EndRunCancelled(ctx, runID, orgID, summary)
+}
+
+// ClearTaskCurrentRun releases the claim binding. Exported for the dispatcher's
+// cancel path, which closes a run the API asked to stop and must leave the task
+// claimable again — the same release the normal end-of-run path performs.
+func (s *Service) ClearTaskCurrentRun(ctx context.Context, taskID, orgID string) error {
+	return s.repo.ClearTaskCurrentRun(ctx, taskID, orgID)
+}
+
+// ApplyOutcome is applyOutcome for callers outside this package — the dispatcher's
+// cancel path needs the same task transitions as the normal end-of-run path, and
+// a second copy of them would be a second place to get `cancelled` wrong.
+func (s *Service) ApplyOutcome(ctx context.Context, task Task, run Run) error {
+	return s.applyOutcome(ctx, task, run)
+}
+
 func (s *Service) applyOutcome(ctx context.Context, task Task, run Run) error {
 	switch run.Outcome {
 	case "succeeded":

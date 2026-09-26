@@ -612,6 +612,7 @@ CREATE TABLE runs (
     summary              TEXT,                                     -- ringkasan hasil Run, diisi executor sebelum selesai
     error                TEXT,                                     -- error message terakhir, dipotong 1 KB
     metadata_json        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    cancel_requested_at  TIMESTAMPTZ,                              -- diisi POST /tasks/{id}/cancel; NULL = tidak ada permintaan
     started_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     ended_at             TIMESTAMPTZ,
     CONSTRAINT runs_pk               PRIMARY KEY (id),
@@ -1827,9 +1828,9 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | `POST` | `/api/v1/tasks/{id}/move` | Session/Key | Member | Ya | ✅ | Geser task ke kolom/status lain. Satu route dua floor: perpindahan biasa Member, sedangkan `{"from":...,"to":"archived"}` butuh owner/admin (US-AD59 AC4), dan hanya dari status terminal (AC2) |
 | `POST` | `/api/v1/tasks/{id}/assign` | Session/Key | Member | Ya | ✅ | Assign/unassign agent (`{agent_id: "..."}`) |
 | `POST` | `/api/v1/tasks/{id}/claim` | Session/Key | Member | Ya | ✅ | Manual force claim (bypass loop dispatcher). Klaim **satu** task yang ditunjuk dan langsung buka run attempt `N+1`; guard `status='ready' AND current_run_id IS NULL` ada di `WHERE`, jadi dua claimer bersamaan menang satu. Task tanpa agent → 400, task tidak `ready` → 409 |
-| `POST` | `/api/v1/tasks/{id}/cancel` | Session/Key | Member | Ya | ⬜ | Batalkan task & abort active run jika ada |
-| `POST` | `/api/v1/tasks/{id}/retry` | Session/Key | Member | Ya | ⬜ | Reset failure count, pindah status ke `ready` |
-| `POST` | `/api/v1/tasks/{id}/archive` | Session/Key | Admin | Ya | ⬜ | Set status ke `archived`, sembunyikan dari view board. **Admin, bukan Member**: US-AD59 AC4 menetapkan minimal `admin`, dan baris ini dulu menulis Member — kontradiksi yang tidak pernah ketahuan karena nol test menyentuh arsip task |
+| `POST` | `/api/v1/tasks/{id}/cancel` | Session/Key | Member | Ya | ✅ | Batalkan task & abort active run jika ada |
+| `POST` | `/api/v1/tasks/{id}/retry` | Session/Key | Member | Ya | ✅ | Reset failure count, pindah status ke `ready` |
+| `POST` | `/api/v1/tasks/{id}/archive` | Session/Key | Admin | Ya | ✅ | Set status ke `archived`, sembunyikan dari view board. **Admin, bukan Member**: US-AD59 AC4 menetapkan minimal `admin`, dan baris ini dulu menulis Member — kontradiksi yang tidak pernah ketahuan karena nol test menyentuh arsip task |
 
 #### 6.2.10 Task Links / Dependencies (4 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |

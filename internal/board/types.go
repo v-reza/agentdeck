@@ -280,6 +280,11 @@ type Run struct {
 	Error          string
 	StartedAt      time.Time
 	EndedAt        *time.Time
+	// CancelRequestedAt is when a human asked for this run to stop, or nil when
+	// nobody has. It is set by POST /tasks/{id}/cancel and read by the
+	// dispatcher, which is what makes the cancel survive the API and the
+	// dispatcher being different processes (§66's `-role=api|dispatcher`).
+	CancelRequestedAt *time.Time
 }
 
 // ResolvedAgent is an agent plus what only the runtime needs: its endpoint and a
@@ -524,6 +529,19 @@ type Repository interface {
 	// worker whose run was reclaimed hears "stop" instead of writing further.
 	HeartbeatRun(ctx context.Context, id, orgID string) (Run, error)
 	EndRun(ctx context.Context, id, orgID string, summary RunSummary) (Run, error)
+	// RequestRunCancel and RunCancelRequested are POST /tasks/{id}/cancel's
+	// durable half. A cancel held only in process memory is a cancel that
+	// silently does nothing when the API and the dispatcher are separate
+	// processes — which §66's `-role=api|dispatcher` explicitly allows.
+	// RequestRunCancel returns the effective cancellation time: the first
+	// request's stamp, unchanged by repeats. That is what makes "since when" a
+	// fact rather than whatever the last caller happened to send.
+	RequestRunCancel(ctx context.Context, id, orgID string) (time.Time, error)
+	RunCancelRequested(ctx context.Context, runID string) (bool, error)
+	EndRunCancelled(ctx context.Context, id, orgID, summary string) (Run, error)
+	// RetryTask moves a task back to `ready` and clears its failure counter in
+	// one statement, refusing while a run still holds the task.
+	RetryTask(ctx context.Context, id, orgID string) (Task, error)
 
 	// ---- steps (M4) ------------------------------------------------------
 	CreateStep(ctx context.Context, s Step) (Step, error)

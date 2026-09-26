@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"agentdeck/internal/board"
 )
@@ -426,6 +427,9 @@ type fakeBoardRepo struct {
 	// what was persisted without a database. Postgres itself owns the generated
 	// has_provider_key column; the fake mirrors it in Set/Clear below.
 	providerKeys map[string][]byte
+	// runs backs the cancel path. The fixture only needs the fields the handlers
+	// read back; Postgres owns the rest.
+	runs map[string]board.Run
 }
 
 func newFakeBoardRepo() *fakeBoardRepo {
@@ -646,4 +650,58 @@ func (r *fakeBoardRepo) UpdateTaskStatus(_ context.Context, id, orgID string, fr
 	task.Status = to
 	r.tasks[id] = task
 	return task, nil
+}
+
+// RetryTask mirrors the real statement: the guard is `status <> 'running'`, the
+// counter resets in the same write, and zero rows means the guard refused.
+func (r *fakeBoardRepo) RetryTask(_ context.Context, id, orgID string) (board.Task, error) {
+	// The double used to collapse "no such task" and "task is running" into the
+	// same error, which is what the real statement does. The service now reads
+	// first, so the double has to distinguish them the same way or it hides the
+	// bug it exists to catch.
+	task, err := r.GetTask(context.Background(), id, orgID)
+	if err != nil {
+		return board.Task{}, err
+	}
+	if task.Status == board.StatusRunning {
+		return board.Task{}, board.ErrConflict
+	}
+	task.Status = board.StatusReady
+	task.ConsecutiveFailures = 0
+	r.tasks[id] = task
+	return task, nil
+}
+
+// RequestRunCancel records the request the way the real UPDATE does, including
+// its idempotence: the second call does not move the timestamp.
+func (r *fakeBoardRepo) RequestRunCancel(_ context.Context, id, orgID string) (time.Time, error) {
+	run, ok := r.runs[id]
+	if !ok || run.OrgID != orgID || run.Status != board.RunRunning {
+		return time.Time{}, board.ErrNotFound
+	}
+	if run.CancelRequestedAt == nil {
+		now := time.Now().UTC()
+		run.CancelRequestedAt = &now
+		r.runs[id] = run
+	}
+	return *run.CancelRequestedAt, nil
+}
+
+func (r *fakeBoardRepo) RunCancelRequested(_ context.Context, runID string) (bool, error) {
+	run, ok := r.runs[runID]
+	if !ok {
+		return false, board.ErrNotFound
+	}
+	return run.CancelRequestedAt != nil, nil
+}
+
+func (r *fakeBoardRepo) EndRunCancelled(_ context.Context, id, orgID, _ string) (board.Run, error) {
+	run, ok := r.runs[id]
+	if !ok || run.OrgID != orgID || run.Status == board.RunEnded {
+		return board.Run{}, board.ErrNotFound
+	}
+	run.Status = board.RunEnded
+	run.Outcome = "cancelled"
+	r.runs[id] = run
+	return run, nil
 }

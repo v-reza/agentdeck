@@ -1633,6 +1633,77 @@ func (q *Queries) EndRun(ctx context.Context, arg EndRunParams) (EndRunRow, erro
 	return i, err
 }
 
+const endRunCancelled = `-- name: EndRunCancelled :one
+UPDATE runs r
+SET status       = 'ended',
+    outcome      = 'cancelled',
+    failure_kind = NULL,
+    summary      = $3,
+    ended_at     = now(),
+    cost_micros  = COALESCE((SELECT SUM(cost_micros) FROM ledger_entries WHERE run_id = r.id), 0),
+    tokens_in    = COALESCE((SELECT SUM(tokens_in)   FROM ledger_entries WHERE run_id = r.id), 0),
+    tokens_out   = COALESCE((SELECT SUM(tokens_out)  FROM ledger_entries WHERE run_id = r.id), 0)
+WHERE r.id = $1 AND r.org_id = $2 AND r.status <> 'ended'
+RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
+          last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
+          summary, error, started_at, ended_at
+`
+
+type EndRunCancelledParams struct {
+	ID      string
+	OrgID   string
+	Summary *string
+}
+
+type EndRunCancelledRow struct {
+	ID                string
+	OrgID             string
+	TaskID            string
+	AgentID           string
+	Attempt           int16
+	Status            string
+	Outcome           *string
+	FailureKind       *string
+	LastHeartbeatAt   pgtype.Timestamptz
+	MaxRuntimeSeconds int32
+	CostMicros        int64
+	TokensIn          int64
+	TokensOut         int64
+	Summary           *string
+	Error             *string
+	StartedAt         pgtype.Timestamptz
+	EndedAt           pgtype.Timestamptz
+}
+
+// Jalur akhir run yang dibatalkan manusia. Terpisah dari EndRun karena EndRun
+// menuntut `status = 'running'` sebagai guard-nya, dan run yang dibatalkan bisa
+// saja sudah `ended` duluan (balapan dengan executor yang menutupnya sendiri) —
+// dalam hal itu nol baris berarti "sudah ditutup", bukan kegagalan.
+func (q *Queries) EndRunCancelled(ctx context.Context, arg EndRunCancelledParams) (EndRunCancelledRow, error) {
+	row := q.db.QueryRow(ctx, endRunCancelled, arg.ID, arg.OrgID, arg.Summary)
+	var i EndRunCancelledRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TaskID,
+		&i.AgentID,
+		&i.Attempt,
+		&i.Status,
+		&i.Outcome,
+		&i.FailureKind,
+		&i.LastHeartbeatAt,
+		&i.MaxRuntimeSeconds,
+		&i.CostMicros,
+		&i.TokensIn,
+		&i.TokensOut,
+		&i.Summary,
+		&i.Error,
+		&i.StartedAt,
+		&i.EndedAt,
+	)
+	return i, err
+}
+
 const finishStep = `-- name: FinishStep :one
 UPDATE steps
 SET status      = $4,
@@ -3707,6 +3778,30 @@ func (q *Queries) RenameOrgWithAudit(ctx context.Context, arg RenameOrgWithAudit
 	return err
 }
 
+const requestRunCancel = `-- name: RequestRunCancel :one
+UPDATE runs
+SET cancel_requested_at = COALESCE(cancel_requested_at, now())
+WHERE id = $1 AND org_id = $2 AND status = 'running'
+RETURNING cancel_requested_at
+`
+
+type RequestRunCancelParams struct {
+	ID    string
+	OrgID string
+}
+
+// POST /tasks/{id}/cancel menulis di sini. Idempotent lewat COALESCE: permintaan
+// kedua tidak memindahkan stempel waktu, jadi pemanggil yang mengulang tidak
+// mengubah arti "sejak kapan batal diminta". `status = 'running'` adalah
+// guard-nya — run yang sudah `ended` tidak bisa dibatalkan, dan pemanggilnya
+// memperlakukan nol baris sebagai "sudah selesai", bukan sebagai error.
+func (q *Queries) RequestRunCancel(ctx context.Context, arg RequestRunCancelParams) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, requestRunCancel, arg.ID, arg.OrgID)
+	var cancel_requested_at pgtype.Timestamptz
+	err := row.Scan(&cancel_requested_at)
+	return cancel_requested_at, err
+}
+
 const resetTaskFailures = `-- name: ResetTaskFailures :exec
 UPDATE tasks
 SET consecutive_failures = 0
@@ -3721,6 +3816,79 @@ type ResetTaskFailuresParams struct {
 func (q *Queries) ResetTaskFailures(ctx context.Context, arg ResetTaskFailuresParams) error {
 	_, err := q.db.Exec(ctx, resetTaskFailures, arg.ID, arg.OrgID)
 	return err
+}
+
+const retryTask = `-- name: RetryTask :one
+UPDATE tasks
+SET status = 'ready', consecutive_failures = 0
+WHERE id = $1 AND org_id = $2 AND status <> 'running'
+RETURNING id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
+          idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
+          branch_name, completion_contract, goal_mode, goal_max_turns, current_run_id,
+          cost_micros, tokens_in, tokens_out, created_at, started_at, completed_at, archived_at
+`
+
+type RetryTaskParams struct {
+	ID    string
+	OrgID string
+}
+
+// POST /tasks/{id}/retry. Satu statement, bukan tiga, karena `consecutive_failures`
+// dan `status` harus bergerak bersamaan: task yang kembali `ready` dengan counter
+// yang masih penuh akan langsung menyentuh plafon max_attempts lagi di kegagalan
+// berikutnya, dan retry manual yang tidak mereset counter itu retry yang tidak
+// melakukan apa yang dikatakannya.
+//
+// Guard `status <> 'running'` di WHERE, bukan di handler: task yang sedang jalan
+// punya run aktif, dan memindahkannya ke `ready` membuatnya bisa diklaim lagi
+// sementara run lama masih menulis. Nol baris = 409.
+func (q *Queries) RetryTask(ctx context.Context, arg RetryTaskParams) (Task, error) {
+	row := q.db.QueryRow(ctx, retryTask, arg.ID, arg.OrgID)
+	var i Task
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.BoardID,
+		&i.Title,
+		&i.Body,
+		&i.Status,
+		&i.Priority,
+		&i.AssigneeAgentID,
+		&i.CreatedBy,
+		&i.IdempotencyKey,
+		&i.BlockKind,
+		&i.ConsecutiveFailures,
+		&i.WorkspaceKind,
+		&i.WorkspacePath,
+		&i.BranchName,
+		&i.CompletionContract,
+		&i.GoalMode,
+		&i.GoalMaxTurns,
+		&i.CurrentRunID,
+		&i.CostMicros,
+		&i.TokensIn,
+		&i.TokensOut,
+		&i.CreatedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
+const runCancelRequested = `-- name: RunCancelRequested :one
+SELECT (cancel_requested_at IS NOT NULL)::boolean AS requested
+FROM runs WHERE id = $1
+`
+
+// Dibaca dispatcher sebelum menjalankan run dan di antara step. Mengembalikan
+// satu baris (bukan bool) supaya "run-nya tidak ada" dan "belum diminta batal"
+// tidak bisa tertukar: yang pertama harus melempar, yang kedua tidak.
+func (q *Queries) RunCancelRequested(ctx context.Context, id string) (bool, error) {
+	row := q.db.QueryRow(ctx, runCancelRequested, id)
+	var requested bool
+	err := row.Scan(&requested)
+	return requested, err
 }
 
 const setAgentProviderKey = `-- name: SetAgentProviderKey :one

@@ -847,6 +847,61 @@ RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
           last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
           summary, error, started_at, ended_at;
 
+-- name: RequestRunCancel :one
+-- POST /tasks/{id}/cancel menulis di sini. Idempotent lewat COALESCE: permintaan
+-- kedua tidak memindahkan stempel waktu, jadi pemanggil yang mengulang tidak
+-- mengubah arti "sejak kapan batal diminta". `status = 'running'` adalah
+-- guard-nya — run yang sudah `ended` tidak bisa dibatalkan, dan pemanggilnya
+-- memperlakukan nol baris sebagai "sudah selesai", bukan sebagai error.
+UPDATE runs
+SET cancel_requested_at = COALESCE(cancel_requested_at, now())
+WHERE id = $1 AND org_id = $2 AND status = 'running'
+RETURNING cancel_requested_at;
+
+-- name: RunCancelRequested :one
+-- Dibaca dispatcher sebelum menjalankan run dan di antara step. Mengembalikan
+-- satu baris (bukan bool) supaya "run-nya tidak ada" dan "belum diminta batal"
+-- tidak bisa tertukar: yang pertama harus melempar, yang kedua tidak.
+SELECT (cancel_requested_at IS NOT NULL)::boolean AS requested
+FROM runs WHERE id = $1;
+
+-- name: EndRunCancelled :one
+-- Jalur akhir run yang dibatalkan manusia. Terpisah dari EndRun karena EndRun
+-- menuntut `status = 'running'` sebagai guard-nya, dan run yang dibatalkan bisa
+-- saja sudah `ended` duluan (balapan dengan executor yang menutupnya sendiri) —
+-- dalam hal itu nol baris berarti "sudah ditutup", bukan kegagalan.
+UPDATE runs r
+SET status       = 'ended',
+    outcome      = 'cancelled',
+    failure_kind = NULL,
+    summary      = $3,
+    ended_at     = now(),
+    cost_micros  = COALESCE((SELECT SUM(cost_micros) FROM ledger_entries WHERE run_id = r.id), 0),
+    tokens_in    = COALESCE((SELECT SUM(tokens_in)   FROM ledger_entries WHERE run_id = r.id), 0),
+    tokens_out   = COALESCE((SELECT SUM(tokens_out)  FROM ledger_entries WHERE run_id = r.id), 0)
+WHERE r.id = $1 AND r.org_id = $2 AND r.status <> 'ended'
+RETURNING id, org_id, task_id, agent_id, attempt, status, outcome, failure_kind,
+          last_heartbeat_at, max_runtime_seconds, cost_micros, tokens_in, tokens_out,
+          summary, error, started_at, ended_at;
+
+-- name: RetryTask :one
+-- POST /tasks/{id}/retry. Satu statement, bukan tiga, karena `consecutive_failures`
+-- dan `status` harus bergerak bersamaan: task yang kembali `ready` dengan counter
+-- yang masih penuh akan langsung menyentuh plafon max_attempts lagi di kegagalan
+-- berikutnya, dan retry manual yang tidak mereset counter itu retry yang tidak
+-- melakukan apa yang dikatakannya.
+--
+-- Guard `status <> 'running'` di WHERE, bukan di handler: task yang sedang jalan
+-- punya run aktif, dan memindahkannya ke `ready` membuatnya bisa diklaim lagi
+-- sementara run lama masih menulis. Nol baris = 409.
+UPDATE tasks
+SET status = 'ready', consecutive_failures = 0
+WHERE id = $1 AND org_id = $2 AND status <> 'running'
+RETURNING id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
+          idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
+          branch_name, completion_contract, goal_mode, goal_max_turns, current_run_id,
+          cost_micros, tokens_in, tokens_out, created_at, started_at, completed_at, archived_at;
+
 -- name: CreateStep :one
 INSERT INTO steps (org_id, run_id, seq, kind, name, status, payload_json)
 VALUES ($1, $2, $3, $4, $5, $6, $7)

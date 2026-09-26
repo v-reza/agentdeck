@@ -391,7 +391,11 @@ func (r *pgxRepository) CreateTask(ctx context.Context, t Task) (Task, error) {
 func (r *pgxRepository) GetTask(ctx context.Context, id, orgID string) (Task, error) {
 	row, err := r.q.GetTask(ctx, store.GetTaskParams{ID: id, OrgID: orgID})
 	if err != nil {
-		return Task{}, err
+		// Same mapping as GetBoard and GetAgent. Returning the raw pgx error made
+		// a task that does not exist — or belongs to another tenant — a 500
+		// instead of a 404, which is both the wrong status and an existence
+		// oracle: the two cases were distinguishable from the outside.
+		return Task{}, noRowsError(err)
 	}
 	return taskRow(row), nil
 }
@@ -999,7 +1003,9 @@ func (r *pgxRepository) CreateRun(ctx context.Context, run Run) (Run, error) {
 func (r *pgxRepository) GetRun(ctx context.Context, id, orgID string) (Run, error) {
 	row, err := r.q.GetRun(ctx, store.GetRunParams{ID: id, OrgID: orgID})
 	if err != nil {
-		return Run{}, err
+		// Same mapping as GetTask: an unknown run is a 404, not a 500, and the
+		// two must be indistinguishable from another tenant.
+		return Run{}, noRowsError(err)
 	}
 	return runRow(runRowShape(row)), nil
 }
@@ -1045,6 +1051,65 @@ func (r *pgxRepository) EndRun(ctx context.Context, id, orgID string, s RunSumma
 		return Run{}, err
 	}
 	return runRow(runRowShape(row)), nil
+}
+
+// RequestRunCancel writes the durable half of POST /tasks/{id}/cancel.
+//
+// The dispatcher owns ending the run — it is the only writer of run state (§5.1)
+// — so this records the request and returns. The run it points at may already be
+// gone (the executor finished between the caller's read and this write), and the
+// zero-row case is reported as ErrNotFound so the handler can distinguish
+// "nothing to cancel" from "cancelled".
+func (r *pgxRepository) RequestRunCancel(ctx context.Context, id, orgID string) (time.Time, error) {
+	at, err := r.q.RequestRunCancel(ctx, store.RequestRunCancelParams{ID: id, OrgID: orgID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return time.Time{}, ErrNotFound
+		}
+		return time.Time{}, err
+	}
+	return at.Time, nil
+}
+
+// RunCancelRequested is the dispatcher's read. It answers about one run id, so
+// it deliberately takes no org: the dispatcher already resolved the run from the
+// task it claimed, and a tenant check here would be a second, weaker copy of the
+// guard that claim already applied.
+func (r *pgxRepository) RunCancelRequested(ctx context.Context, runID string) (bool, error) {
+	return r.q.RunCancelRequested(ctx, runID)
+}
+
+// EndRunCancelled closes a run as `cancelled`. Separate from EndRun because
+// EndRun requires `status = 'running'`, while a cancelled run may already have
+// been closed by the executor. Zero rows is reported as ErrNotFound — "there was
+// no open run" — rather than swallowed, because the distinction is real: a
+// caller that gets it knows the race happened, and the dispatcher treats it as
+// the expected outcome rather than as a failure.
+func (r *pgxRepository) EndRunCancelled(ctx context.Context, id, orgID, summary string) (Run, error) {
+	row, err := r.q.EndRunCancelled(ctx, store.EndRunCancelledParams{
+		ID: id, OrgID: orgID, Summary: nullString(summary),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Run{}, ErrNotFound
+		}
+		return Run{}, err
+	}
+	return runRow(runRowShape(row)), nil
+}
+
+// RetryTask is POST /tasks/{id}/retry. Zero rows means the guard in the WHERE
+// refused — the task is `running` and a live run still holds it — which is a
+// conflict rather than a missing row: the task exists, its state is the problem.
+func (r *pgxRepository) RetryTask(ctx context.Context, id, orgID string) (Task, error) {
+	row, err := r.q.RetryTask(ctx, store.RetryTaskParams{ID: id, OrgID: orgID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Task{}, ErrConflict
+		}
+		return Task{}, err
+	}
+	return taskRow(row), nil
 }
 
 func (r *pgxRepository) CreateStep(ctx context.Context, s Step) (Step, error) {

@@ -717,6 +717,78 @@ func (s *Service) MoveTask(ctx context.Context, id, orgID string, from, to TaskS
 	return s.repo.UpdateTaskStatus(ctx, id, orgID, from, to)
 }
 
+// CancelTask implements POST /tasks/{id}/cancel.
+//
+// Two halves, in this order, and the order matters:
+//
+//  1. Record the cancel against the live run, durably. This is what the
+//     dispatcher reads. A cancel written only into this process's memory would
+//     be a cancel that silently does nothing whenever the API and the dispatcher
+//     run as different processes — which §66's `-role=api|dispatcher` allows.
+//  2. Move the task to `cancelled`.
+//
+// When the task is already `cancelled`, step 2 is skipped: US-AD59 AC3's
+// reasoning applies here too — asking to cancel something already cancelled is
+// the caller's request already satisfied, not a conflict. When the task is
+// terminal in another way (`done`, `failed`, `archived`), it is refused rather
+// than silently overwritten: cancelling finished work would rewrite history.
+func (s *Service) CancelTask(ctx context.Context, id, orgID string) (Task, error) {
+	task, err := s.repo.GetTask(ctx, id, orgID)
+	if err != nil {
+		return Task{}, err
+	}
+	if task.Status == StatusCancelled {
+		return task, nil
+	}
+	if task.Status.IsTerminal() {
+		return Task{}, ErrConflict
+	}
+
+	// No live run is not a problem: a `backlog` or `blocked` task has nothing to
+	// abort, and cancelling it is still meaningful. Only the task row moves.
+	if task.CurrentRunID != "" {
+		// The returned timestamp is deliberately discarded: the API reports the
+		// task, not the run, because the run's outcome is the dispatcher's to
+		// decide. Keeping the value would invite reporting it as if this handler
+		// had observed the run end.
+		if _, err := s.repo.RequestRunCancel(ctx, task.CurrentRunID, orgID); err != nil {
+			// The run was closed between the read above and this write. The task
+			// is still ours to cancel and the executor will not pick it up again,
+			// so this is not a failure — it just means there was nothing to stop.
+			if !errors.Is(err, ErrNotFound) {
+				return Task{}, err
+			}
+		}
+	}
+	return s.repo.UpdateTaskStatus(ctx, id, orgID, task.Status, StatusCancelled)
+}
+
+// RetryTask implements POST /tasks/{id}/retry.
+//
+// This is the operator's override, not the dispatcher's automatic retry (§10.2).
+// The distinction is the whole point of the endpoint: §10.1 sends `capability`
+// and `policy` failures to "No-Retry" because retrying them unchanged spends
+// money to learn nothing. But the human who has just fixed the credential or
+// registered the missing tool is holding information the taxonomy does not have,
+// and without this endpoint their only path is to move the task to `backlog` and
+// back by hand.
+//
+// It therefore accepts any non-running status. `running` is refused: a live run
+// holds the task, and returning it to `ready` would let it be claimed again
+// while the first run is still writing steps.
+func (s *Service) RetryTask(ctx context.Context, id, orgID string) (Task, error) {
+	// The existence check is not redundant with the UPDATE's own WHERE clause.
+	// The statement's guard refuses a `running` task by matching zero rows, so
+	// without this a task that does not exist and a task that is mid-run are
+	// indistinguishable — both would be a 409. That is an existence oracle: the
+	// caller learns which ids exist from the status code. Read first, then act,
+	// so 404 means "no such task here" and 409 means "this one is busy".
+	if _, err := s.repo.GetTask(ctx, id, orgID); err != nil {
+		return Task{}, err
+	}
+	return s.repo.RetryTask(ctx, id, orgID)
+}
+
 // AssignTask sets the agent that will run the task. An empty agent id clears
 // the assignment.
 func (s *Service) AssignTask(ctx context.Context, id, orgID, agentID string) (Task, error) {

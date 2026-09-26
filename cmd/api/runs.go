@@ -37,6 +37,13 @@ func registerRunRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, bAPI
 	// US-AD21 manual force claim: the entry point that starts a run without the
 	// (not yet built) dispatcher loop.
 	boardRoute("POST /api/v1/tasks/{id}/claim", http.HandlerFunc(boardAPI.claimTask), auth.Member)
+	// ARCHITECTURE 6.2.9's last three task routes. cancel and retry are Member;
+	// archive is Admin because US-AD59 AC4 sets that floor, and it lives here
+	// rather than in the board routes above so the task-lifecycle writes are
+	// declared in one place.
+	boardRoute("POST /api/v1/tasks/{id}/cancel", http.HandlerFunc(boardAPI.cancelTask), auth.Member)
+	boardRoute("POST /api/v1/tasks/{id}/retry", http.HandlerFunc(boardAPI.retryTask), auth.Member)
+	boardRoute("POST /api/v1/tasks/{id}/archive", http.HandlerFunc(boardAPI.archiveTask), auth.Admin)
 	boardRoute("GET /api/v1/tasks/{id}/runs", http.HandlerFunc(boardAPI.listTaskRuns), auth.Viewer)
 	boardRoute("GET /api/v1/runs/{id}", http.HandlerFunc(boardAPI.getRun), auth.Viewer)
 	boardRoute("POST /api/v1/runs/{id}/heartbeat", http.HandlerFunc(boardAPI.heartbeatRun), auth.Member)
@@ -466,4 +473,70 @@ func (a boardAPI) claimTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSONResponse(w, http.StatusCreated, toRunResponse(run))
+}
+
+// POST /api/v1/tasks/{id}/cancel — stop a task and abort its run if one is live.
+//
+// The cancel is recorded durably and the dispatcher applies it: the API never
+// writes run state itself (§5.1 makes the dispatcher the only writer). That is
+// why this returns 200 with the task rather than a run — the run's outcome is
+// the dispatcher's to decide, and reporting it here would be reporting something
+// this handler did not observe.
+func (a boardAPI) cancelTask(w http.ResponseWriter, r *http.Request) {
+	orgCtx, err := a.boardContext(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	task, err := a.svc.CancelTask(r.Context(), r.PathValue("id"), orgCtx.workspace.ID)
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, toTaskResponse(task))
+}
+
+// POST /api/v1/tasks/{id}/retry — the operator's override of the retry policy.
+// Resets the failure counter and returns the task to `ready`; 409 while a run
+// still holds it.
+func (a boardAPI) retryTask(w http.ResponseWriter, r *http.Request) {
+	orgCtx, err := a.boardContext(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	task, err := a.svc.RetryTask(r.Context(), r.PathValue("id"), orgCtx.workspace.ID)
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, toTaskResponse(task))
+}
+
+// POST /api/v1/tasks/{id}/archive — US-AD59.
+//
+// Delegates to the same MoveTask the board's drag-and-drop uses rather than
+// writing the status here: the terminal-only rule (AC2) and the idempotent
+// re-archive (AC3) already live there, and a second path to `archived` would be
+// a second place for those rules to drift. The role floor (AC4) is this route's
+// gate, which is why the endpoint exists at all — the board route accepts the
+// archive target too, and one of the two had to be the enforced one.
+func (a boardAPI) archiveTask(w http.ResponseWriter, r *http.Request) {
+	orgCtx, err := a.boardContext(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	id := r.PathValue("id")
+	task, err := a.svc.GetTask(r.Context(), id, orgCtx.workspace.ID)
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	task, err = a.svc.MoveTask(r.Context(), id, orgCtx.workspace.ID, task.Status, board.StatusArchived)
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	writeJSONResponse(w, http.StatusOK, toTaskResponse(task))
 }

@@ -111,6 +111,15 @@ func (d *Dispatcher) spawn(ctx context.Context, b board.Board, task board.Task, 
 		return
 	}
 
+	// A cancel that landed between the claim and this line must not spend money:
+	// the provider call is the expensive part, and there is no point making it
+	// for work someone has already stopped. The run is closed as `cancelled`
+	// without ever calling out.
+	if d.cancelRequested(ctx, runID) {
+		d.closeCancelled(ctx, task, runID)
+		return
+	}
+
 	d.workers.Add(1)
 	go func() {
 		defer d.workers.Done()

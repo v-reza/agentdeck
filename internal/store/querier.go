@@ -6,6 +6,8 @@ package store
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -177,6 +179,11 @@ type Querier interface {
 	// summarises. A rollup maintained by the executor in a separate UPDATE would
 	// drift the moment a run ends without one.
 	EndRun(ctx context.Context, arg EndRunParams) (EndRunRow, error)
+	// Jalur akhir run yang dibatalkan manusia. Terpisah dari EndRun karena EndRun
+	// menuntut `status = 'running'` sebagai guard-nya, dan run yang dibatalkan bisa
+	// saja sudah `ended` duluan (balapan dengan executor yang menutupnya sendiri) —
+	// dalam hal itu nol baris berarti "sudah ditutup", bukan kegagalan.
+	EndRunCancelled(ctx context.Context, arg EndRunCancelledParams) (EndRunCancelledRow, error)
 	FinishStep(ctx context.Context, arg FinishStepParams) (Step, error)
 	GetAgent(ctx context.Context, arg GetAgentParams) (GetAgentRow, error)
 	// The ONLY reader of the ciphertext column. Returns it alone so the sealed bytes
@@ -349,7 +356,27 @@ type Querier interface {
 	// Keep the rename and its audit row in one statement: if the INSERT fails, the
 	// data-modifying CTE is rolled back too (US-AD77 fail-closed).
 	RenameOrgWithAudit(ctx context.Context, arg RenameOrgWithAuditParams) error
+	// POST /tasks/{id}/cancel menulis di sini. Idempotent lewat COALESCE: permintaan
+	// kedua tidak memindahkan stempel waktu, jadi pemanggil yang mengulang tidak
+	// mengubah arti "sejak kapan batal diminta". `status = 'running'` adalah
+	// guard-nya — run yang sudah `ended` tidak bisa dibatalkan, dan pemanggilnya
+	// memperlakukan nol baris sebagai "sudah selesai", bukan sebagai error.
+	RequestRunCancel(ctx context.Context, arg RequestRunCancelParams) (pgtype.Timestamptz, error)
 	ResetTaskFailures(ctx context.Context, arg ResetTaskFailuresParams) error
+	// POST /tasks/{id}/retry. Satu statement, bukan tiga, karena `consecutive_failures`
+	// dan `status` harus bergerak bersamaan: task yang kembali `ready` dengan counter
+	// yang masih penuh akan langsung menyentuh plafon max_attempts lagi di kegagalan
+	// berikutnya, dan retry manual yang tidak mereset counter itu retry yang tidak
+	// melakukan apa yang dikatakannya.
+	//
+	// Guard `status <> 'running'` di WHERE, bukan di handler: task yang sedang jalan
+	// punya run aktif, dan memindahkannya ke `ready` membuatnya bisa diklaim lagi
+	// sementara run lama masih menulis. Nol baris = 409.
+	RetryTask(ctx context.Context, arg RetryTaskParams) (Task, error)
+	// Dibaca dispatcher sebelum menjalankan run dan di antara step. Mengembalikan
+	// satu baris (bukan bool) supaya "run-nya tidak ada" dan "belum diminta batal"
+	// tidak bisa tertukar: yang pertama harus melempar, yang kedua tidak.
+	RunCancelRequested(ctx context.Context, id string) (bool, error)
 	// US-AD86: store the sealed credential. Encryption/decryption lives in
 	// internal/crypto; this statement only ever sees ciphertext, so a DB dump alone
 	// cannot recover a provider key. Returning the derived flag lets the handler

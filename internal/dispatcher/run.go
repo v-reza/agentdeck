@@ -12,6 +12,12 @@ import (
 // §10.2 routes `budget` to `blocked` so a human decides whether to raise the cap.
 var errBudgetReached = errors.New("board daily budget reached")
 
+// errRunCancelled ends a run a human asked to stop. Deliberately NOT
+// errBudgetReached: §5.5 gives "cancelled" its own outcome, and §5.3 routes it to
+// the task's `cancelled` status. Reusing the budget error would report a
+// cancelled run as `budget_exceeded` and block the task on a budget that is fine.
+var errRunCancelled = errors.New("run cancelled by request")
+
 // stepSink records each step the executor reports. It is the only place that
 // turns executor output into rows, which keeps the storage decisions out of the
 // executor (5.3).
@@ -20,8 +26,13 @@ type stepSink struct {
 	ctx   context.Context
 	runID string
 	task  board.Task
-	// cancelled is set when this step pushed the board past its daily cap, so the
-	// run ends as budget_exceeded rather than as a plain success.
+	// budgetExceeded is set when this step pushed the board past its daily cap,
+	// so the run ends as budget_exceeded rather than as a plain success.
+	budgetExceeded bool
+	// cancelled is set when a human asked for this run to stop, either because
+	// the guard above fired or because the check before the run found it already
+	// requested. It is separate from budgetExceeded because the two produce
+	// different outcomes and different task states.
 	cancelled bool
 }
 
@@ -31,6 +42,16 @@ type stepSink struct {
 // loses the only record of the spend.
 func (s *stepSink) Step(seq int, kind, status string, usage board.LedgerUsage,
 	costMicros int64, priceVersion int, priceSource, pricingModel string, payload any) error {
+
+	// Cancellation is checked here, not only before the run starts: the executor
+	// makes its provider call before reporting the step, so by the time this runs
+	// the money is spent. What this protects is everything after — a run whose
+	// first step lands after a cancel must not keep emitting steps, and must end
+	// as `cancelled` rather than as a success.
+	if s.d.cancelRequested(s.ctx, s.runID) {
+		s.cancelled = true
+		return errRunCancelled
+	}
 
 	if _, err := s.d.store.StartStep(s.ctx, s.task.OrgID, s.runID, board.Step{
 		RunID: s.runID, Seq: seq, Kind: kind, Status: "running",
@@ -91,7 +112,7 @@ func (s *stepSink) checkRunBudget() error {
 		return err
 	}
 	if budget.Exceeded() {
-		s.cancelled = true
+		s.budgetExceeded = true
 		s.d.markCancelled(s.runID)
 		return errBudgetReached
 	}
@@ -103,14 +124,23 @@ func (d *Dispatcher) runOne(ctx context.Context, b board.Board, task board.Task,
 	sink := &stepSink{d: d, ctx: ctx, runID: runID, task: task}
 
 	output, failureKind := d.runner.Run(ctx, task, agent, runID, sink)
+	// Re-check at the end: the executor emits one step, so a cancel that lands
+	// after that step would otherwise never be noticed.
+	cancelled := d.cancelRequested(ctx, runID)
 
 	summary := board.RunSummary{Summary: output}
 	switch {
-	case sink.cancelled || d.wasCancelled(runID):
+	case sink.budgetExceeded || d.wasCancelled(runID):
 		// J5 step 3 / N17: the cap was reached. `budget_exceeded` is its own
 		// outcome because §10.2 routes it to `blocked`, not to a retry.
 		summary.Outcome = "budget_exceeded"
 		summary.FailureKind = "budget"
+	case cancelled:
+		// A human asked for this. Checked BEFORE the budget branch because a run
+		// can be cancelled while the board is also over its cap, and the human's
+		// reason is the true one — `budget_exceeded` would block the task on a
+		// budget that is not the problem.
+		summary.Outcome = "cancelled"
 	case failureKind != "":
 		summary.Outcome = "failed"
 		summary.FailureKind = failureKind
@@ -142,6 +172,44 @@ func (d *Dispatcher) runOne(ctx context.Context, b board.Board, task board.Task,
 		if err := d.store.WakeDependents(ctx, task.ID); err != nil {
 			d.log.Warn("dispatcher: waking dependents", "task", task.ID, "error", err)
 		}
+	}
+}
+
+// cancelRequested reads the durable cancel flag written by
+// POST /tasks/{id}/cancel. It fails open: a read error reports "not cancelled",
+// because the alternative is aborting runs whenever the database hiccups, and
+// the budget guard (which fails closed) is the one that protects money.
+func (d *Dispatcher) cancelRequested(ctx context.Context, runID string) bool {
+	requested, err := d.store.RunCancelRequested(ctx, runID)
+	if err != nil {
+		d.log.Warn("dispatcher: cancel check", "run", runID, "error", err)
+		return false
+	}
+	return requested
+}
+
+// closeCancelled ends a run that was cancelled before it made any call, and
+// moves its task to `cancelled`.
+//
+// EndRunCancelled is used rather than EndRun because the cancel may have raced
+// the executor to closing the run; zero rows then means "already closed", which
+// is the outcome the caller wanted either way. The task transition runs on the
+// same path as a cancelled run that did start, so both routes to `cancelled`
+// leave the same state behind.
+func (d *Dispatcher) closeCancelled(ctx context.Context, task board.Task, runID string) {
+	run, err := d.store.EndRunCancelled(ctx, runID, task.OrgID, "cancelled before the first provider call")
+	if err != nil && !errors.Is(err, board.ErrNotFound) {
+		// ErrNotFound is the expected race: the executor closed the run between
+		// the cancel being recorded and this line. Everything else is a real
+		// failure worth a log.
+		d.log.Warn("dispatcher: closing cancelled run", "run", runID, "error", err)
+	}
+	if err := d.store.ClearTaskCurrentRun(ctx, task.ID, task.OrgID); err != nil {
+		d.log.Warn("dispatcher: releasing cancelled task", "task", task.ID, "error", err)
+		return
+	}
+	if err := d.store.ApplyOutcome(ctx, task, run); err != nil {
+		d.log.Warn("dispatcher: applying cancelled outcome", "task", task.ID, "error", err)
 	}
 }
 

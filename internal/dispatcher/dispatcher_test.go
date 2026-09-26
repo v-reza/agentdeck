@@ -16,14 +16,17 @@ type fakeStore struct {
 	budget    board.BoardBudget
 	budgetErr error
 
-	blockedDeps int64
-	claimed     int
-	claimRunIDs [][]string
-	started     []string
-	ended       map[string]board.RunSummary
-	released    []string
-	woken       []string
-	startRunErr error
+	blockedDeps     int64
+	claimed         int
+	claimRunIDs     [][]string
+	started         []string
+	ended           map[string]board.RunSummary
+	released        []string
+	woken           []string
+	startRunErr     error
+	cancelRequested bool
+	cancelSummary   string
+	applied         []string
 }
 
 func newFakeStore() *fakeStore {
@@ -85,6 +88,28 @@ func (f *fakeStore) RecordRunUsage(context.Context, string, int64, int64, int64)
 func (f *fakeStore) EndRun(_ context.Context, runID, _ string, s board.RunSummary) (board.Run, error) {
 	f.ended[runID] = s
 	return board.Run{ID: runID, Status: board.RunEnded, Outcome: s.Outcome}, nil
+}
+
+// RunCancelRequested reports whatever the test set. The default is false, which
+// is the state of a run nobody asked to stop.
+func (f *fakeStore) RunCancelRequested(context.Context, string) (bool, error) {
+	return f.cancelRequested, nil
+}
+
+// EndRunCancelled mirrors EndRun but without the `status = 'running'` guard, the
+// way the SQL does.
+func (f *fakeStore) EndRunCancelled(_ context.Context, runID, _ string, summary string) (board.Run, error) {
+	f.cancelSummary = summary
+	return board.Run{ID: runID, Status: board.RunEnded, Outcome: "cancelled"}, nil
+}
+
+func (f *fakeStore) ClearTaskCurrentRun(context.Context, string, string) error { return nil }
+
+// ApplyOutcome records the transition instead of performing it: the task state
+// machine is board's, and a second copy here would test the copy.
+func (f *fakeStore) ApplyOutcome(_ context.Context, task board.Task, run board.Run) error {
+	f.applied = append(f.applied, run.Outcome+"->"+string(task.ID))
+	return nil
 }
 
 func (f *fakeStore) HeartbeatOwned(context.Context, string) error { return nil }
@@ -295,5 +320,51 @@ func TestCredentialComesFromTheProviderNotTheAgent(t *testing.T) {
 	}
 	if key != "" {
 		t.Errorf("key = %q, want empty for an agent with no stored credential", key)
+	}
+}
+
+// TestCancelledRunNeverCallsTheProvider is the money guard. A cancel recorded
+// between the claim and the start must close the run without making the provider
+// call — the call is the expensive part, and paying for work someone has already
+// stopped is the failure this ordering exists to prevent.
+func TestCancelledRunNeverCallsTheProvider(t *testing.T) {
+	store := newFakeStore()
+	store.cancelRequested = true
+	runner := &fakeRunner{}
+	d := newTestDispatcher(store, runner)
+
+	d.tickBoard(context.Background(), board.Board{ID: "b1", OrgID: "o1"})
+	// runOne executes on a worker goroutine; the cancel path closes the run
+	// synchronously in spawn, but waiting keeps the two assertions below honest.
+	d.workers.Wait()
+
+	if runner.steps != 0 {
+		t.Errorf("provider was called %d times for a cancelled run, want 0", runner.steps)
+	}
+	if len(store.cancelSummary) == 0 {
+		t.Error("run was not closed through the cancel path")
+	}
+	if len(store.applied) == 0 {
+		t.Error("task outcome was not applied for the cancelled run")
+	}
+}
+
+// TestRunningRunIsNotAffectedByTheCancelCheck: the guard must not abort runs
+// nobody asked to stop.
+func TestRunningRunIsNotAffectedByTheCancelCheck(t *testing.T) {
+	store := newFakeStore()
+	runner := &fakeRunner{}
+	d := newTestDispatcher(store, runner)
+
+	d.tickBoard(context.Background(), board.Board{ID: "b1", OrgID: "o1"})
+	// spawn runs runOne in a goroutine, so the step count is only settled once
+	// the worker returns.
+	d.workers.Wait()
+
+	if runner.steps == 0 {
+		t.Error("a run nobody cancelled was never started")
+	}
+	if store.cancelSummary != "" {
+		t.Errorf("uncancelled run closed as %q", store.cancelSummary)
 	}
 }

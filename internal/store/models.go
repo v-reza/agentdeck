@@ -225,6 +225,7 @@ type Run struct {
 	MetadataJson      []byte
 	StartedAt         pgtype.Timestamptz
 	EndedAt           pgtype.Timestamptz
+	CancelRequestedAt pgtype.Timestamptz
 }
 
 type Session struct {

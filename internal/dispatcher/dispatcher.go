@@ -55,6 +55,18 @@ type Store interface {
 	BumpDailyRunCount(ctx context.Context, boardID string) error
 	RecordRunUsage(ctx context.Context, runID string, micros, tokensIn, tokensOut int64) error
 	EndRun(ctx context.Context, runID, orgID string, summary board.RunSummary) (board.Run, error)
+	// RunCancelRequested is the durable half of POST /tasks/{id}/cancel. The
+	// dispatcher is the only writer of run state (§5.1), so the API records the
+	// request and this reads it — the API never ends a run itself.
+	RunCancelRequested(ctx context.Context, runID string) (bool, error)
+	// EndRunCancelled closes a run as `cancelled` without requiring it to still
+	// be `running`: the cancel can race the executor to the close, and either
+	// order leaves the state the caller asked for.
+	EndRunCancelled(ctx context.Context, runID, orgID, summary string) (board.Run, error)
+	ClearTaskCurrentRun(ctx context.Context, taskID, orgID string) error
+	// ApplyOutcome is 5.3's updateTaskAfterRun, exposed so the cancel path lands
+	// on exactly the same task transitions as the normal end-of-run path.
+	ApplyOutcome(ctx context.Context, task board.Task, run board.Run) error
 	HeartbeatOwned(ctx context.Context, orgID string) error
 	ReclaimStale(ctx context.Context, orgID string, limit, maxAttempts int) ([]board.Task, error)
 	ReleaseClaim(ctx context.Context, taskID, orgID, runID, failureKind, detail string) error
