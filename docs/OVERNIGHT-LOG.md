@@ -370,7 +370,13 @@ probe-nya memeriksa nama field satu per satu, bukan cuma status code.
 
 **Gate:** `tools/gate-overnight.cmd` rc=0 · `verify_suite.py` 0 FAIL
 (**93 ✅ / 36 ⬜**) · `go test ./internal/auth/ ./cmd/api/ ./internal/board/`
-hijau · mutation **6/6 CAUGHT**.
+hijau · mutation **6/6 CAUGHT** · probe `tools/probe-delete-org.py` **14/14**
+lawan API nyata (termasuk pembacaan `orgs.deleted_at` langsung ke Postgres —
+soft delete tidak bisa dibuktikan dari status code saja).
+
+**Catatan proses:** probe ini ditulis setelah commit F6 ter-push, jadi buktinya
+masuk sebagai commit susulan. Untuk fase berikutnya urutannya dibalik: probe
+dulu, verifikasi lawan container yang sudah di-rebuild, baru commit.
 
 **Temuan**
 
