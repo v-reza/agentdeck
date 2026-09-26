@@ -28,7 +28,7 @@ func TestStoreConcurrentAccess(t *testing.T) {
 
 			for i := 0; i < iterations; i++ {
 				email := "user" + strconv.Itoa(index) + "@example.com"
-				_, _, token, err := store.Register(ctx, email, "password1", "", "")
+				_, _, token, err := store.Register(ctx, email, "password1", "", "", SessionMeta{})
 				if err == nil && token != "" {
 					if _, ok := store.Authenticate(ctx, token); !ok {
 						t.Errorf("worker %d: fresh session did not authenticate", index)
@@ -46,7 +46,7 @@ func TestStoreConcurrentAccess(t *testing.T) {
 
 			for i := 0; i < iterations; i++ {
 				email := "user" + strconv.Itoa(index) + "@example.com"
-				if _, err := store.Login(ctx, email, "password1"); err == nil &&
+				if _, err := store.Login(ctx, email, "password1", SessionMeta{}); err == nil &&
 					!store.Authorize(ctx, "ws-"+email, email, Owner) {
 					t.Errorf("worker %d: owner authorization failed", index)
 				}

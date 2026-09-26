@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -100,7 +101,11 @@ func (m *memoryRepository) GetUserByEmail(ctx context.Context, email string) (Us
 	defer m.mu.RUnlock()
 
 	if id, ok := m.byEmail[email]; ok {
-		return m.users[id], nil
+		// Sama seperti `deleted_at IS NULL` di SQL: akun yang sudah ditutup
+		// (US-AD98) tidak resolve, jadi login dan Authenticate menolaknya.
+		if user := m.users[id]; user.DeletedAt == nil {
+			return user, nil
+		}
 	}
 	return User{}, ErrUserNotFound
 }
@@ -109,7 +114,7 @@ func (m *memoryRepository) GetUserByID(ctx context.Context, id string) (User, er
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if user, ok := m.users[id]; ok {
+	if user, ok := m.users[id]; ok && user.DeletedAt == nil {
 		return user, nil
 	}
 	return User{}, ErrUserNotFound
@@ -160,7 +165,7 @@ func (m *memoryRepository) GetOrgByID(ctx context.Context, id string) (Workspace
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if workspace, ok := m.orgs[id]; ok {
+	if workspace, ok := m.orgs[id]; ok && workspace.DeletedAt == nil {
 		return workspace, nil
 	}
 	return Workspace{}, ErrWorkspaceNotFound
@@ -279,7 +284,9 @@ func (m *memoryRepository) ListOrgsForUser(ctx context.Context, userID string) (
 			continue
 		}
 		workspace, ok := m.orgs[orgID]
-		if !ok {
+		if !ok || workspace.DeletedAt != nil {
+			// Ruang kerja yang ditutup bersama akun pemiliknya (US-AD98 AC2)
+			// berhenti muncul di switcher, sama seperti penyaring di SQL.
 			continue
 		}
 		rows = append(rows, OrgMembershipRow{
@@ -359,6 +366,164 @@ func (m *memoryRepository) CountOrgOwners(ctx context.Context, orgID string) (in
 	return owners, nil
 }
 
+// CountOrgMembers mirrors the SQL's join on live users: an account that has
+// been closed is not still in the workspace (US-AD98 AC2).
+func (m *memoryRepository) CountOrgMembers(ctx context.Context, orgID string) (int, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	members, exists := m.memberships[orgID]
+	if !exists {
+		return 0, ErrWorkspaceNotFound
+	}
+	count := 0
+	for userID := range members {
+		if user, ok := m.users[userID]; ok && user.DeletedAt == nil {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (m *memoryRepository) SoftDeleteOrg(ctx context.Context, orgID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	org, ok := m.orgs[orgID]
+	if !ok {
+		return ErrWorkspaceNotFound
+	}
+	now := time.Now()
+	org.DeletedAt = &now
+	m.orgs[orgID] = org
+	return nil
+}
+
+func (m *memoryRepository) SoftDeleteUser(ctx context.Context, userID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	user, ok := m.users[userID]
+	if !ok {
+		return ErrUserNotFound
+	}
+	now := time.Now()
+	user.DeletedAt = &now
+	m.users[userID] = user
+	return nil
+}
+
+// findSessionLocked resolves a session by its row id. The map is keyed by
+// token_hash — that is the only lookup the login path needs — so id lookups
+// scan. Callers must hold at least a read lock.
+func (m *memoryRepository) findSessionLocked(id string) (Session, string, bool) {
+	for key, sess := range m.sessions {
+		if sess.ID == id {
+			return sess, key, true
+		}
+	}
+	return Session{}, "", false
+}
+
+func (m *memoryRepository) ListSessionsForUser(ctx context.Context, userID string) ([]SessionInfo, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	now := time.Now()
+	out := []SessionInfo{}
+	for _, sess := range m.sessions {
+		if sess.UserID != userID || sess.DeletedAt != nil || !sess.ExpiresAt.After(now) {
+			continue
+		}
+		out = append(out, SessionInfo{
+			ID: sess.ID, UserID: sess.UserID, UserAgent: sess.UserAgent, IP: sess.IP,
+			LastSeenAt: sess.LastSeenAt, CreatedAt: sess.CreatedAt,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].LastSeenAt.After(out[j].LastSeenAt) })
+	return out, nil
+}
+
+func (m *memoryRepository) GetSessionByID(ctx context.Context, id, userID string) (SessionInfo, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	sess, _, ok := m.findSessionLocked(id)
+	if !ok || sess.UserID != userID || sess.DeletedAt != nil {
+		return SessionInfo{}, ErrSessionNotFound
+	}
+	return SessionInfo{
+		ID: sess.ID, UserID: sess.UserID, UserAgent: sess.UserAgent, IP: sess.IP,
+		LastSeenAt: sess.LastSeenAt, CreatedAt: sess.CreatedAt,
+	}, nil
+}
+
+func (m *memoryRepository) GetSessionAnyUser(ctx context.Context, id string) (SessionInfo, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	sess, _, ok := m.findSessionLocked(id)
+	if !ok || sess.DeletedAt != nil || !sess.ExpiresAt.After(time.Now()) {
+		return SessionInfo{}, ErrSessionNotFound
+	}
+	return SessionInfo{
+		ID: sess.ID, UserID: sess.UserID, UserAgent: sess.UserAgent, IP: sess.IP,
+		LastSeenAt: sess.LastSeenAt, CreatedAt: sess.CreatedAt,
+	}, nil
+}
+
+func (m *memoryRepository) RevokeSessionByID(ctx context.Context, id, userID string) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sess, key, ok := m.findSessionLocked(id)
+	if !ok || sess.UserID != userID || sess.DeletedAt != nil {
+		return false, nil
+	}
+	now := time.Now()
+	sess.DeletedAt = &now
+	m.sessions[key] = sess
+	return true, nil
+}
+
+func (m *memoryRepository) RevokeOtherSessions(ctx context.Context, userID, keepID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	now := time.Now()
+	for key, sess := range m.sessions {
+		if sess.UserID != userID || sess.ID == keepID || sess.DeletedAt != nil {
+			continue
+		}
+		sess.DeletedAt = &now
+		m.sessions[key] = sess
+	}
+	return nil
+}
+
+func (m *memoryRepository) IsOrgMember(ctx context.Context, orgID, userID string) (bool, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	members, exists := m.memberships[orgID]
+	if !exists {
+		return false, nil
+	}
+	_, ok := members[userID]
+	return ok, nil
+}
+
+func (m *memoryRepository) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	user, ok := m.users[userID]
+	if !ok || user.DeletedAt != nil {
+		return ErrUserNotFound
+	}
+	user.PasswordHash = passwordHash
+	m.users[userID] = user
+	return nil
+}
+
 func (m *memoryRepository) CreateSession(ctx context.Context, sess Session) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -376,6 +541,13 @@ func (m *memoryRepository) GetSessionByTokenHash(ctx context.Context, tokenHash 
 
 	session, exists := m.sessions[tokenHash]
 	if !exists {
+		return Session{}, ErrSessionNotFound
+	}
+	// Sesi yang dicabut (US-AD90 AC4, US-AD98 AC2) adalah sesi mati, sama
+	// seperti `deleted_at IS NULL` di SQL. Tanpa cek ini, pencabutan hanya
+	// menghapus baris dari DAFTAR sementara tokennya tetap bisa dipakai —
+	// endpoint yang melaporkan sukses tapi tidak mengubah apa pun.
+	if session.DeletedAt != nil {
 		return Session{}, ErrSessionNotFound
 	}
 	now := time.Now()

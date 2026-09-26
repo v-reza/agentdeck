@@ -9,7 +9,7 @@ import (
 func TestUpdateWorkspaceRecordsAuditAndFailsClosed(t *testing.T) {
 	repo := newMemoryRepository()
 	store := NewStore(repo)
-	user, workspace, _, err := store.Register(context.Background(), "owner@example.com", "password1", "Owner", "Workspace")
+	user, workspace, _, err := store.Register(context.Background(), "owner@example.com", "password1", "Owner", "Workspace", SessionMeta{})
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}

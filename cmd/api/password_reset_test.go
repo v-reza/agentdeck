@@ -59,7 +59,7 @@ func postJSON(handler http.HandlerFunc, path, body string) *httptest.ResponseRec
 // token. The link points at the web app's reset screen.
 func TestRequestPasswordResetHandlerSendsLink(t *testing.T) {
 	api, store, mailer := newResetAPI(t)
-	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", ""); err != nil {
+	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", "", auth.SessionMeta{}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 
@@ -111,7 +111,7 @@ func TestRequestPasswordResetHandlerToleratesMalformedBody(t *testing.T) {
 // AC2 — a valid token returns 200 and the new password works.
 func TestResetPasswordHandlerSucceeds(t *testing.T) {
 	api, store, _ := newResetAPI(t)
-	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", ""); err != nil {
+	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", "", auth.SessionMeta{}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	token, err := store.RequestPasswordReset(context.Background(), "ada@example.com")
@@ -124,7 +124,7 @@ func TestResetPasswordHandlerSucceeds(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (body: %s)", recorder.Code, recorder.Body.String())
 	}
-	if _, err := store.Login(context.Background(), "ada@example.com", "password2"); err != nil {
+	if _, err := store.Login(context.Background(), "ada@example.com", "password2", auth.SessionMeta{}); err != nil {
 		t.Fatalf("new password rejected: %v", err)
 	}
 }
@@ -133,7 +133,7 @@ func TestResetPasswordHandlerSucceeds(t *testing.T) {
 // three are indistinguishable.
 func TestResetPasswordHandlerAnswers410ForBadTokens(t *testing.T) {
 	api, store, _ := newResetAPI(t)
-	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", ""); err != nil {
+	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", "", auth.SessionMeta{}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	token, err := store.RequestPasswordReset(context.Background(), "ada@example.com")
@@ -158,7 +158,7 @@ func TestResetPasswordHandlerAnswers410ForBadTokens(t *testing.T) {
 // AC2 — a short password is 400 and does not consume the token.
 func TestResetPasswordHandlerRejectsShortPassword(t *testing.T) {
 	api, store, _ := newResetAPI(t)
-	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", ""); err != nil {
+	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", "", auth.SessionMeta{}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	token, err := store.RequestPasswordReset(context.Background(), "ada@example.com")
@@ -171,7 +171,7 @@ func TestResetPasswordHandlerRejectsShortPassword(t *testing.T) {
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", recorder.Code)
 	}
-	if _, err := store.Login(context.Background(), "ada@example.com", "password1"); err != nil {
+	if _, err := store.Login(context.Background(), "ada@example.com", "password1", auth.SessionMeta{}); err != nil {
 		t.Fatalf("the original password must still work: %v", err)
 	}
 }
@@ -181,7 +181,7 @@ func TestResetPasswordHandlerRejectsShortPassword(t *testing.T) {
 func TestRequestPasswordResetHandlerSurvivesMailFailure(t *testing.T) {
 	api, store, mailer := newResetAPI(t)
 	mailer.err = errors.New("relay down")
-	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", ""); err != nil {
+	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", "", auth.SessionMeta{}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 
@@ -194,7 +194,7 @@ func TestRequestPasswordResetHandlerSurvivesMailFailure(t *testing.T) {
 // AC4 — both endpoints are public. Neither handler may consult the session.
 func TestResetEndpointsArePublic(t *testing.T) {
 	api, store, _ := newResetAPI(t)
-	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", ""); err != nil {
+	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", "", auth.SessionMeta{}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	token, err := store.RequestPasswordReset(context.Background(), "ada@example.com")
@@ -223,7 +223,7 @@ func TestResetEndpointsArePublic(t *testing.T) {
 func TestRequestPasswordResetHandlerWithoutMailer(t *testing.T) {
 	store := auth.NewStore(auth.NewMemoryRepository())
 	api := authAPI{store: store}
-	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", ""); err != nil {
+	if _, _, _, err := store.Register(context.Background(), "ada@example.com", "password1", "", "", auth.SessionMeta{}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 

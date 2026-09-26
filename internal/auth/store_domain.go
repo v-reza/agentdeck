@@ -73,7 +73,7 @@ func IsShadow(hash string) bool { return hash == shadowPasswordHash }
 // an org form (AC5). An absent name falls back to the email local part (AC6).
 // Validation failures return ErrInvalidInput so the API answers 400, while a
 // taken email returns ErrEmailExists for 409 (AC2/AC4).
-func (s *Store) Register(ctx context.Context, email, password, name, orgName string) (User, Workspace, string, error) {
+func (s *Store) Register(ctx context.Context, email, password, name, orgName string, meta SessionMeta) (User, Workspace, string, error) {
 	normalized, err := validateRegistration(email, password)
 	if err != nil {
 		return User{}, Workspace{}, "", err
@@ -154,14 +154,14 @@ func (s *Store) Register(ctx context.Context, email, password, name, orgName str
 	if err != nil {
 		return User{}, Workspace{}, "", err
 	}
-	if err := s.saveSession(ctx, existing.ID, sessionToken); err != nil {
+	if err := s.saveSession(ctx, existing.ID, sessionToken, meta); err != nil {
 		return User{}, Workspace{}, "", err
 	}
 
 	return existing, workspace, sessionToken, nil
 }
 
-func (s *Store) saveSession(ctx context.Context, userID, sessionToken string) error {
+func (s *Store) saveSession(ctx context.Context, userID, sessionToken string, meta SessionMeta) error {
 	now := time.Now()
 	return s.repo.CreateSession(ctx, Session{
 		ID:         ulid.Must(),
@@ -169,13 +169,15 @@ func (s *Store) saveSession(ctx context.Context, userID, sessionToken string) er
 		TokenHash:  tokenHash(sessionToken),
 		ExpiresAt:  now.Add(sessionDuration),
 		LastSeenAt: now,
+		UserAgent:  meta.UserAgent,
+		IP:         meta.IP,
 	})
 }
 
 // Login implements US-AD02. Five consecutive failures lock the account for
 // 15 minutes (AC2); a locked account reports ErrAccountLocked so the API can
 // surface the remaining lock time instead of a generic credential error.
-func (s *Store) Login(ctx context.Context, email, password string) (string, error) {
+func (s *Store) Login(ctx context.Context, email, password string, meta SessionMeta) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(email))
 
 	s.mu.Lock()
@@ -213,7 +215,7 @@ func (s *Store) Login(ctx context.Context, email, password string) (string, erro
 	if err != nil {
 		return "", err
 	}
-	if err := s.saveSession(ctx, user.ID, sessionToken); err != nil {
+	if err := s.saveSession(ctx, user.ID, sessionToken, meta); err != nil {
 		return "", err
 	}
 	return sessionToken, nil
@@ -257,6 +259,20 @@ func (s *Store) LockedUntil(email string) time.Time {
 
 func (s *Store) Logout(ctx context.Context, sessionToken string) error {
 	return s.repo.DeleteSessionByTokenHash(ctx, tokenHash(sessionToken))
+}
+
+// SessionIDForToken resolves a raw session token to the session row's id.
+//
+// Needed because the session list's "this device" marker and US-AD90 AC1's
+// "revoke the others, keep this one" both require the CALLER's session id, and
+// Authenticate deliberately returns only the user. A token that does not resolve
+// reports ErrSessionNotFound.
+func (s *Store) SessionIDForToken(ctx context.Context, sessionToken string) (string, error) {
+	session, err := s.repo.GetSessionByTokenHash(ctx, tokenHash(sessionToken))
+	if err != nil {
+		return "", ErrSessionNotFound
+	}
+	return session.ID, nil
 }
 
 // Authenticate validates an opaque session token and applies the US-AD02 AC4

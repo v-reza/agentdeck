@@ -50,6 +50,11 @@ type orgContext struct {
 	workspace auth.Workspace
 	role      auth.Role
 	resolved  bool
+	// sessionID is the caller's own session row. US-AD90 AC1 needs it to keep
+	// this session alive while revoking the others, and the session list needs it
+	// for the "this device" marker (AC2). Resolved in the middleware because the
+	// raw token is only available there.
+	sessionID string
 }
 
 // orgContextMiddleware authenticates the request and resolves the active org.
@@ -93,12 +98,17 @@ func (a authAPI) contextMiddleware(next http.Handler, pathID bool) http.Handler 
 			return
 		}
 
+		// A session id that cannot be resolved is not fatal here: a bearer API
+		// key authenticates without a session row, and those callers simply have
+		// no session to keep or mark. The handlers that require one answer 401.
+		sessionID, _ := a.store.SessionIDForToken(r.Context(), sessionToken(r))
 		ctx := withOrgContext(r.Context(), orgContext{
 			email:     user.Email,
 			userID:    user.ID,
 			workspace: workspace,
 			role:      role,
 			resolved:  true,
+			sessionID: sessionID,
 		})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

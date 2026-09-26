@@ -7,6 +7,7 @@ package store
 
 import (
 	"context"
+	"net/netip"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -623,6 +624,23 @@ func (q *Queries) CountBoardsInProject(ctx context.Context, arg CountBoardsInPro
 	return column_1, err
 }
 
+const countOrgMembers = `-- name: CountOrgMembers :one
+SELECT count(*)::int
+FROM memberships m
+JOIN users u ON u.id = m.user_id
+WHERE m.org_id = $1 AND u.deleted_at IS NULL
+`
+
+// Menghitung anggota ruang kerja. `deleted_at IS NULL` pada users bukan detail:
+// anggota yang akunnya sudah ditutup tidak lagi "ada di ruang kerja", jadi
+// ruang kerja yang hanya berisi mereka boleh ikut ditutup (US-AD98 AC2).
+func (q *Queries) CountOrgMembers(ctx context.Context, orgID string) (int32, error) {
+	row := q.db.QueryRow(ctx, countOrgMembers, orgID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countOrgOwners = `-- name: CountOrgOwners :one
 SELECT count(*)::int
 FROM memberships
@@ -984,9 +1002,16 @@ type CreateOrgParams struct {
 	Name string
 }
 
-func (q *Queries) CreateOrg(ctx context.Context, arg CreateOrgParams) (Org, error) {
+type CreateOrgRow struct {
+	ID        string
+	Slug      string
+	Name      string
+	CreatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) CreateOrg(ctx context.Context, arg CreateOrgParams) (CreateOrgRow, error) {
 	row := q.db.QueryRow(ctx, createOrg, arg.ID, arg.Slug, arg.Name)
-	var i Org
+	var i CreateOrgRow
 	err := row.Scan(
 		&i.ID,
 		&i.Slug,
@@ -1181,8 +1206,8 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (CreateRun
 }
 
 const createSession = `-- name: CreateSession :exec
-INSERT INTO sessions (id, user_id, token_hash, expires_at, last_seen_at, created_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO sessions (id, user_id, token_hash, user_agent, ip, expires_at, last_seen_at, created_at)
+VALUES ($1, $2, $3, NULLIF($7::text, ''), NULLIF($8::text, '')::inet, $4, $5, $6)
 `
 
 type CreateSessionParams struct {
@@ -1192,10 +1217,17 @@ type CreateSessionParams struct {
 	ExpiresAt  pgtype.Timestamptz
 	LastSeenAt pgtype.Timestamptz
 	CreatedAt  pgtype.Timestamptz
+	UserAgent  string
+	Ip         string
 }
 
 // token_hash is SHA-256 of the 64-byte raw token; the raw token only ever
 // exists in the Set-Cookie (ARCHITECTURE 3.19).
+// user_agent dan ip diambil di sini karena US-AD90 AC2 menampilkan keduanya di
+// daftar sesi ("perangkat/user agent, IP"), dan tabelnya sudah punya kolom itu
+// sejak awal — yang belum ada cuma penulisnya. Dikosongkan sebagai NULL, bukan
+// string kosong: "tidak diketahui" dan "klien mengirim header kosong" adalah dua
+// hal berbeda, dan daftar sesi yang menampilkan baris kosong menyamakan keduanya.
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
 	_, err := q.db.Exec(ctx, createSession,
 		arg.ID,
@@ -1204,6 +1236,8 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 		arg.ExpiresAt,
 		arg.LastSeenAt,
 		arg.CreatedAt,
+		arg.UserAgent,
+		arg.Ip,
 	)
 	return err
 }
@@ -1946,11 +1980,14 @@ func (q *Queries) GetModelPrice(ctx context.Context, arg GetModelPriceParams) (A
 }
 
 const getOrgByID = `-- name: GetOrgByID :one
-SELECT id, slug, name, created_at
+SELECT id, slug, name, created_at, deleted_at
 FROM orgs
-WHERE id = $1
+WHERE id = $1 AND deleted_at IS NULL
 `
 
+// `deleted_at IS NULL` adalah inti US-AD98 AC2: ruang kerja yang ikut ditutup
+// bersama akun pemiliknya berhenti resolve. Tanpa penyaring ini, ruang kerja
+// yang "dihapus" masih bisa dibaca dan masih muncul di switcher.
 func (q *Queries) GetOrgByID(ctx context.Context, id string) (Org, error) {
 	row := q.db.QueryRow(ctx, getOrgByID, id)
 	var i Org
@@ -1959,6 +1996,30 @@ func (q *Queries) GetOrgByID(ctx context.Context, id string) (Org, error) {
 		&i.Slug,
 		&i.Name,
 		&i.CreatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const getOrgByIDIncludingDeleted = `-- name: GetOrgByIDIncludingDeleted :one
+SELECT id, slug, name, created_at, deleted_at
+FROM orgs
+WHERE id = $1
+`
+
+// Dipakai jalur tutup-akun: ia harus tahu ruang kerja yang SUDAH ditandai hapus,
+// supaya permintaan kedua tetap melihat ruang kerja yang sama. GetOrgByID
+// menyaring baris hidup, jadi ia akan melaporkan "tidak ada" untuk ruang kerja
+// yang baru saja ditutup pemanggil itu sendiri.
+func (q *Queries) GetOrgByIDIncludingDeleted(ctx context.Context, id string) (Org, error) {
+	row := q.db.QueryRow(ctx, getOrgByIDIncludingDeleted, id)
+	var i Org
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.CreatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -1976,13 +2037,20 @@ WHERE k.kind = 'registration'
   )
 `
 
+type GetPersonalWorkspaceRow struct {
+	ID        string
+	Slug      string
+	Name      string
+	CreatedAt pgtype.Timestamptz
+}
+
 // The registration-kind org where THIS user is the owner: that is the only
 // shape that means "my personal workspace". Membership alone is not enough —
 // an invitee is a member of someone else's registration-kind org, and
 // resolving it here would hand them a workspace that is not theirs.
-func (q *Queries) GetPersonalWorkspace(ctx context.Context, userID string) (Org, error) {
+func (q *Queries) GetPersonalWorkspace(ctx context.Context, userID string) (GetPersonalWorkspaceRow, error) {
 	row := q.db.QueryRow(ctx, getPersonalWorkspace, userID)
-	var i Org
+	var i GetPersonalWorkspaceRow
 	err := row.Scan(
 		&i.ID,
 		&i.Slug,
@@ -2125,6 +2193,81 @@ func (q *Queries) GetRun(ctx context.Context, arg GetRunParams) (GetRunRow, erro
 		&i.Error,
 		&i.StartedAt,
 		&i.EndedAt,
+	)
+	return i, err
+}
+
+const getSessionAnyUser = `-- name: GetSessionAnyUser :one
+SELECT id, user_id, user_agent, ip, last_seen_at, expires_at, created_at
+FROM sessions
+WHERE id = $1 AND deleted_at IS NULL AND expires_at > now()
+`
+
+type GetSessionAnyUserRow struct {
+	ID         string
+	UserID     string
+	UserAgent  *string
+	Ip         *netip.Addr
+	LastSeenAt pgtype.Timestamptz
+	ExpiresAt  pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+}
+
+// Sesi tanpa dibatasi pemiliknya. Dipakai jalur pencabutan oleh owner/admin
+// (US-AD05 AC2): mereka perlu tahu sesi itu milik siapa dulu sebelum boleh
+// memutuskan. Penyaring `expires_at > now()` sama dengan daftar sesi — sesi yang
+// sudah kedaluwarsa tidak perlu dicabut, dan melaporkannya sebagai "ada" akan
+// membuat endpoint ini menghidupkan kembali sesuatu yang sudah mati.
+func (q *Queries) GetSessionAnyUser(ctx context.Context, id string) (GetSessionAnyUserRow, error) {
+	row := q.db.QueryRow(ctx, getSessionAnyUser, id)
+	var i GetSessionAnyUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.UserAgent,
+		&i.Ip,
+		&i.LastSeenAt,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getSessionByID = `-- name: GetSessionByID :one
+SELECT id, user_id, user_agent, ip, last_seen_at, expires_at, created_at
+FROM sessions
+WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+`
+
+type GetSessionByIDParams struct {
+	ID     string
+	UserID string
+}
+
+type GetSessionByIDRow struct {
+	ID         string
+	UserID     string
+	UserAgent  *string
+	Ip         *netip.Addr
+	LastSeenAt pgtype.Timestamptz
+	ExpiresAt  pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+}
+
+// Sesi milik satu user. `user_id` ikut di WHERE supaya id sesi user lain tidak
+// bisa dipakai untuk membacanya — dan supaya nol baris berarti "tidak ada di
+// sini", bukan "ada tapi bukan milikmu".
+func (q *Queries) GetSessionByID(ctx context.Context, arg GetSessionByIDParams) (GetSessionByIDRow, error) {
+	row := q.db.QueryRow(ctx, getSessionByID, arg.ID, arg.UserID)
+	var i GetSessionByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.UserAgent,
+		&i.Ip,
+		&i.LastSeenAt,
+		&i.ExpiresAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -2384,6 +2527,27 @@ func (q *Queries) IncrementTaskFailures(ctx context.Context, arg IncrementTaskFa
 	var consecutive_failures int16
 	err := row.Scan(&consecutive_failures)
 	return consecutive_failures, err
+}
+
+const isOrgMember = `-- name: IsOrgMember :one
+SELECT EXISTS (
+    SELECT 1 FROM memberships WHERE org_id = $1 AND user_id = $2
+)::boolean AS is_member
+`
+
+type IsOrgMemberParams struct {
+	OrgID  string
+	UserID string
+}
+
+// Batas tenant untuk pencabutan sesi milik orang lain (US-AD05 AC2): seorang
+// admin hanya boleh mencabut sesi anggota ruang kerjanya, bukan sesi siapa pun
+// di instalasi itu. Tanpa cek ini, "admin" berarti admin mana pun atas siapa pun.
+func (q *Queries) IsOrgMember(ctx context.Context, arg IsOrgMemberParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isOrgMember, arg.OrgID, arg.UserID)
+	var is_member bool
+	err := row.Scan(&is_member)
+	return is_member, err
 }
 
 const listAgentSkillsWithUsage = `-- name: ListAgentSkillsWithUsage :many
@@ -3149,7 +3313,7 @@ SELECT m.org_id, o.slug, o.name, k.kind, m.role
 FROM memberships m
 JOIN orgs o ON o.id = m.org_id
 LEFT JOIN org_kinds k ON k.org_id = m.org_id
-WHERE m.user_id = $1
+WHERE m.user_id = $1 AND o.deleted_at IS NULL
 ORDER BY m.created_at
 `
 
@@ -3352,6 +3516,53 @@ func (q *Queries) ListRunSteps(ctx context.Context, arg ListRunStepsParams) ([]S
 			&i.StartedAt,
 			&i.EndedAt,
 			&i.PayloadJson,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSessionsForUser = `-- name: ListSessionsForUser :many
+SELECT id, user_id, user_agent, ip, last_seen_at, created_at
+FROM sessions
+WHERE user_id = $1 AND deleted_at IS NULL AND expires_at > now()
+ORDER BY last_seen_at DESC
+`
+
+type ListSessionsForUserRow struct {
+	ID         string
+	UserID     string
+	UserAgent  *string
+	Ip         *netip.Addr
+	LastSeenAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+}
+
+// US-AD90 AC2. `deleted_at IS NULL` menyembunyikan sesi yang sudah dicabut, dan
+// `expires_at > now()` menyembunyikan yang sudah kedaluwarsa tapi belum
+// dibersihkan — daftar perangkat yang menampilkan sesi mati akan menyesatkan
+// tepat pada layar yang gunanya memeriksa sesi tidak dikenal.
+func (q *Queries) ListSessionsForUser(ctx context.Context, userID string) ([]ListSessionsForUserRow, error) {
+	rows, err := q.db.Query(ctx, listSessionsForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSessionsForUserRow
+	for rows.Next() {
+		var i ListSessionsForUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.UserAgent,
+			&i.Ip,
+			&i.LastSeenAt,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -3876,6 +4087,52 @@ func (q *Queries) RetryTask(ctx context.Context, arg RetryTaskParams) (Task, err
 	return i, err
 }
 
+const revokeOtherSessions = `-- name: RevokeOtherSessions :exec
+
+UPDATE sessions
+SET deleted_at = now()
+WHERE user_id = $1 AND id <> $2 AND deleted_at IS NULL
+`
+
+type RevokeOtherSessionsParams struct {
+	UserID string
+	ID     string
+}
+
+// Sesi yang dicabut SEMUA (US-AD98 AC2 tutup akun) memakai DeleteUserSessions
+// di password_reset.sql — satu statement yang sama, dan jalur kedua untuk hal
+// yang sama adalah tempat kedua untuk melenceng.
+// Mencabut semua sesi KECUALI yang sedang dipakai (US-AD90 AC1: "seluruh sesi
+// LAIN dicabut, sesi saat ini tetap aktif"). Satu statement, bukan "cabut semua
+// lalu hidupkan lagi": versi dua langkah punya jendela di mana sesi pemanggil
+// sendiri sudah mati, dan kegagalan di antaranya meninggalkan user tanpa sesi.
+func (q *Queries) RevokeOtherSessions(ctx context.Context, arg RevokeOtherSessionsParams) error {
+	_, err := q.db.Exec(ctx, revokeOtherSessions, arg.UserID, arg.ID)
+	return err
+}
+
+const revokeSessionByID = `-- name: RevokeSessionByID :execrows
+UPDATE sessions
+SET deleted_at = now()
+WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+`
+
+type RevokeSessionByIDParams struct {
+	ID     string
+	UserID string
+}
+
+// Mencabut satu sesi. `deleted_at IS NULL` membuat pencabutan kedua nol baris,
+// yang oleh pemanggil diperlakukan sebagai "sudah dicabut" (idempoten), bukan
+// sebagai kegagalan.
+func (q *Queries) RevokeSessionByID(ctx context.Context, arg RevokeSessionByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeSessionByID, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const runCancelRequested = `-- name: RunCancelRequested :one
 SELECT (cancel_requested_at IS NOT NULL)::boolean AS requested
 FROM runs WHERE id = $1
@@ -4012,6 +4269,32 @@ func (q *Queries) SetTaskCurrentRun(ctx context.Context, arg SetTaskCurrentRunPa
 		&i.ArchivedAt,
 	)
 	return i, err
+}
+
+const softDeleteOrg = `-- name: SoftDeleteOrg :exec
+UPDATE orgs
+SET deleted_at = now()
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+func (q *Queries) SoftDeleteOrg(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, softDeleteOrg, id)
+	return err
+}
+
+const softDeleteUser = `-- name: SoftDeleteUser :exec
+UPDATE users
+SET deleted_at = now()
+WHERE id = $1 AND deleted_at IS NULL
+`
+
+// Menutup akun. Semua sesi dicabut di statement terpisah (RevokeAllSessions),
+// karena sesi yang masih hidup untuk akun yang sudah ditutup adalah sesi yang
+// akan ditolak Authenticate pada request berikutnya — tapi mencabutnya lebih
+// jelas daripada membiarkannya menggantung sampai kedaluwarsa.
+func (q *Queries) SoftDeleteUser(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, softDeleteUser, id)
+	return err
 }
 
 const touchSession = `-- name: TouchSession :exec

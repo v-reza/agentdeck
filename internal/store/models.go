@@ -165,6 +165,7 @@ type Org struct {
 	Slug      string
 	Name      string
 	CreatedAt pgtype.Timestamptz
+	DeletedAt pgtype.Timestamptz
 }
 
 type OrgKind struct {

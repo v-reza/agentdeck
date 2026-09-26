@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -116,8 +117,15 @@ func writeAuthError(w http.ResponseWriter, err error) {
 	case errors.Is(err, auth.ErrAccountLocked):
 		w.Header().Set("Retry-After", "900")
 		http.Error(w, err.Error(), http.StatusTooManyRequests)
-	case errors.Is(err, auth.ErrInvalidCredentials):
+	case errors.Is(err, auth.ErrInvalidCredentials), errors.Is(err, auth.ErrWrongPassword):
 		http.Error(w, err.Error(), http.StatusUnauthorized)
+	// US-AD98 AC1: konfirmasi email yang salah adalah input pemanggil, bukan
+	// state server — 400, dan tidak mengubah apa pun.
+	case errors.Is(err, auth.ErrAccountClosureConfirm):
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	// US-AD90 AC4 / US-AD05: sesi yang tidak ada atau bukan milik pemanggil.
+	case errors.Is(err, auth.ErrSessionNotFound):
+		http.Error(w, err.Error(), http.StatusNotFound)
 	case errors.Is(err, auth.ErrForbidden), errors.Is(err, auth.ErrLastOwner):
 		http.Error(w, err.Error(), http.StatusForbidden)
 	case errors.Is(err, auth.ErrMemberNotFound), errors.Is(err, auth.ErrWorkspaceNotFound):
@@ -144,6 +152,7 @@ func (a authAPI) register(w http.ResponseWriter, r *http.Request) {
 		input.Password,
 		input.Name,
 		input.OrgName,
+		sessionMeta(r),
 	)
 	if err != nil {
 		writeAuthError(w, err)
@@ -170,7 +179,7 @@ func (a authAPI) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionToken, err := a.store.Login(r.Context(), input.Email, input.Password)
+	sessionToken, err := a.store.Login(r.Context(), input.Email, input.Password, sessionMeta(r))
 	if err != nil {
 		writeAuthError(w, err)
 		return
@@ -189,6 +198,24 @@ func currentUser(store *auth.Store, r *http.Request) (auth.User, bool) {
 		return auth.User{}, false
 	}
 	return store.Authenticate(r.Context(), token)
+}
+
+// sessionMeta is the client context recorded with a new session (US-AD90 AC2).
+//
+// The IP is taken from RemoteAddr, not from X-Forwarded-For: that header is
+// caller-supplied, and a session list that can be made to show an arbitrary
+// address is worse than one that shows the address we actually saw. Behind a
+// trusted proxy this needs a configured allowlist to be correct; the seam is
+// here and the current behaviour is the conservative one.
+func sessionMeta(r *http.Request) auth.SessionMeta {
+	ip := r.RemoteAddr
+	if host, _, err := net.SplitHostPort(ip); err == nil {
+		ip = host
+	}
+	return auth.SessionMeta{
+		UserAgent: r.UserAgent(),
+		IP:        ip,
+	}
 }
 
 // sessionToken reads the opaque token from the cookie or the
@@ -310,6 +337,27 @@ func main() {
 	mux.HandleFunc("GET /api/v1/users/{id}", api.userProfile)
 	// US-AD88: both reset endpoints are public (AC4) — a locked-out operator
 	// has no session to authenticate with.
+	// Sesi aktif dan tutup akun (US-AD90, US-AD98).
+	//
+	// orgHeaderContextMiddleware, BUKAN orgContextMiddleware: middleware yang
+	// path-id membaca `{id}` sebagai id organisasi, dan di
+	// /auth/sessions/{id} parameter itu adalah id SESI. Salah pasang = setiap
+	// pencabutan menjawab "workspace not found".
+	//
+	// Lantainya Viewer di keempatnya. Mencabut sesi sendiri dan menutup akun
+	// sendiri itu aksi self-service yang tidak disebut perannya di AC mana pun;
+	// batas owner/admin untuk sesi ORANG LAIN ditegakkan di service, tempat
+	// pemilik sesinya sudah diketahui — gerbang peran di route akan mengunci
+	// user dari daftar sesinya sendiri.
+	mux.Handle("GET /api/v1/auth/sessions",
+		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.listSessions), auth.Viewer)))
+	mux.Handle("DELETE /api/v1/auth/sessions/{id}",
+		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.revokeSession), auth.Viewer)))
+	mux.Handle("POST /api/v1/auth/password/change",
+		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.changePassword), auth.Viewer)))
+	mux.Handle("DELETE /api/v1/auth/me",
+		api.orgHeaderContextMiddleware(api.requireRole(http.HandlerFunc(api.closeAccount), auth.Viewer)))
+
 	mux.HandleFunc("POST /api/v1/auth/password/reset-request", api.requestPasswordReset)
 	mux.HandleFunc("POST /api/v1/auth/password/reset", api.resetPassword)
 

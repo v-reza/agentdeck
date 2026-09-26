@@ -47,6 +47,21 @@ coret.
 - Dua gap ikon `05-landing` (check bergaris vs terisi, `→` teks vs `ArrowRight`)
   **sudah dibetulin** — commit `5100e22`.
 
+## Konflik kontrak yang masih berdiri
+
+- **US-AD05 AC3 vs US-AD90 AC4 — mencabut sesi sendiri.** AC3 (US-AD05, "Session
+  logout paksa", `Could` · M5) bilang mencabut sesi sendiri lewat endpoint cabut
+  paksa **harus ditolak** ("gunakan logout biasa"). AC4 (US-AD90) bilang pengguna
+  **dapat** mencabut sesinya sendiri dari daftar perangkat. Dua-duanya mengatur
+  endpoint yang sama, `DELETE /api/v1/auth/sessions/{id}`.
+  **Arah operasional:** baris §6.2.2 ARCHITECTURE memilih AC4, dan itu yang
+  diimplementasikan (F3) — daftar sesi yang barisnya sendiri tidak bisa dihapus
+  adalah daftar dengan tombol yang tidak melakukan apa-apa. AC3 tetap berlaku
+  untuk `DELETE /api/v1/auth/me` (tutup akun), yang memang menutup akun, bukan
+  "cabut paksa sesi sendiri lalu pakai logout".
+  **Belum diputuskan user.** Kalau AC3 yang diinginkan, yang berubah cuma satu
+  cabang di `internal/auth/sessions.go:RevokeSession`.
+
 ## Batasan yang diketahui (bukan bug)
 
 - **Gerbang peran tidak bisa dibuktikan lewat e2e** — fixture selalu owner. Cakupan

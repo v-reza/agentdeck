@@ -28,6 +28,13 @@ var (
 	// three, so a probe cannot use the response to tell a real token from a
 	// guess or learn that a link was already redeemed.
 	ErrResetTokenInvalid = errors.New("reset token invalid")
+	// ErrWrongPassword is US-AD90 AC3: the old password did not match. Separate
+	// from ErrInvalidCredentials because the caller is already authenticated —
+	// this is not a login failure, and answering 401 with "invalid credentials"
+	// would tell a signed-in user their session died.
+	ErrWrongPassword = errors.New("current password is incorrect")
+	// ErrAccountClosureConfirm is US-AD98 AC1: the typed email did not match.
+	ErrAccountClosureConfirm = errors.New("email confirmation does not match")
 )
 
 const minPasswordLength = 8

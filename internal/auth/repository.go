@@ -35,6 +35,50 @@ type Repository interface {
 	// unknown id is ErrUserNotFound — 404, never 403 (AC4).
 	UpdateUserProfile(ctx context.Context, id, name, email, avatarURL string) (User, error)
 
+	// ---- sessions (US-AD90, US-AD05) -------------------------------------
+
+	// ListSessionsForUser returns the caller's live sessions, most recently used
+	// first (US-AD90 AC2). Revoked and expired rows are excluded: the screen
+	// exists to spot a device you do not recognise, and dead rows on it are
+	// noise exactly where the signal matters.
+	ListSessionsForUser(ctx context.Context, userID string) ([]SessionInfo, error)
+
+	// GetSessionByID loads one live session owned by userID. Scoping by user is
+	// what makes a foreign session id a 404 rather than a read.
+	GetSessionByID(ctx context.Context, id, userID string) (SessionInfo, error)
+
+	// GetSessionAnyUser loads one live session without an owner filter. Only the
+	// owner/admin revocation path (US-AD05 AC2) may use it, and it exists so the
+	// membership check can happen before any decision about the session.
+	GetSessionAnyUser(ctx context.Context, id string) (SessionInfo, error)
+
+	// RevokeSessionByID revokes one session. It reports whether a row changed, so
+	// a repeat request is "already revoked" rather than a failure.
+	RevokeSessionByID(ctx context.Context, id, userID string) (bool, error)
+
+	// RevokeOtherSessions revokes every session of userID except keepID — the
+	// caller's own (US-AD90 AC1). One statement, so there is no window in which
+	// the caller has no session at all.
+	RevokeOtherSessions(ctx context.Context, userID, keepID string) error
+
+	// IsOrgMember reports whether userID belongs to orgID. It is the tenant bound
+	// on revoking someone else's session: an admin of one workspace is not an
+	// admin of the installation.
+	IsOrgMember(ctx context.Context, orgID, userID string) (bool, error)
+
+	// SoftDeleteOrg and SoftDeleteUser are US-AD98 AC5's soft closure. Hard
+	// deletes would make the 30-day recovery window impossible to honour.
+	SoftDeleteOrg(ctx context.Context, orgID string) error
+	SoftDeleteUser(ctx context.Context, userID string) error
+
+	// CountOrgMembers answers US-AD98 AC3's "workspace that still has other
+	// people". CountOrgOwners already exists above.
+	CountOrgMembers(ctx context.Context, orgID string) (int, error)
+
+	// UpdatePassword replaces the stored hash (US-AD90 AC1). It is one statement
+	// with `deleted_at IS NULL`, so a closed account cannot rotate its password.
+	UpdatePassword(ctx context.Context, userID, passwordHash string) error
+
 	// CreateOrg persists a tenant and records its kind. The personal workspace
 	// of a registering user is kind 'personal'; every other org is 'manual'.
 	CreateOrg(ctx context.Context, id, slug, name, kind string) (Workspace, error)

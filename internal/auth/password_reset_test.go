@@ -19,7 +19,7 @@ func newResetStore() *Store { return NewStore(NewMemoryRepository()) }
 // registerForReset creates a real account and returns its id.
 func registerForReset(t *testing.T, s *Store, email, password string) User {
 	t.Helper()
-	user, _, _, err := s.Register(context.Background(), email, password, "Reset Tester", "")
+	user, _, _, err := s.Register(context.Background(), email, password, "Reset Tester", "", SessionMeta{})
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -80,11 +80,11 @@ func TestResetPasswordUpdatesHashAndRevokesSessions(t *testing.T) {
 	user := registerForReset(t, s, "ada@example.com", "password1")
 
 	// Two live sessions: the reset must revoke both.
-	first, err := s.Login(context.Background(), "ada@example.com", "password1")
+	first, err := s.Login(context.Background(), "ada@example.com", "password1", SessionMeta{})
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
-	second, err := s.Login(context.Background(), "ada@example.com", "password1")
+	second, err := s.Login(context.Background(), "ada@example.com", "password1", SessionMeta{})
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -98,10 +98,10 @@ func TestResetPasswordUpdatesHashAndRevokesSessions(t *testing.T) {
 	}
 
 	// The old password no longer works and the new one does.
-	if _, err := s.Login(context.Background(), "ada@example.com", "password1"); !errors.Is(err, ErrInvalidCredentials) {
+	if _, err := s.Login(context.Background(), "ada@example.com", "password1", SessionMeta{}); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("AC2: old password still accepted, got %v", err)
 	}
-	if _, err := s.Login(context.Background(), "ada@example.com", "password2"); err != nil {
+	if _, err := s.Login(context.Background(), "ada@example.com", "password2", SessionMeta{}); err != nil {
 		t.Fatalf("AC2: new password rejected: %v", err)
 	}
 
@@ -162,7 +162,7 @@ func TestResetPasswordRejectsExpiredToken(t *testing.T) {
 	if err := s.ResetPassword(context.Background(), token, "password2"); !errors.Is(err, ErrResetTokenInvalid) {
 		t.Fatalf("AC3: expired token got %v, want ErrResetTokenInvalid", err)
 	}
-	if _, err := s.Login(context.Background(), "ada@example.com", "password1"); err != nil {
+	if _, err := s.Login(context.Background(), "ada@example.com", "password1", SessionMeta{}); err != nil {
 		t.Fatalf("AC3: password changed despite the expired token: %v", err)
 	}
 }
@@ -183,7 +183,7 @@ func TestResetPasswordRejectsReusedToken(t *testing.T) {
 	if err := s.ResetPassword(context.Background(), token, "password3"); !errors.Is(err, ErrResetTokenInvalid) {
 		t.Fatalf("AC3: reused token got %v, want ErrResetTokenInvalid", err)
 	}
-	if _, err := s.Login(context.Background(), "ada@example.com", "password2"); err != nil {
+	if _, err := s.Login(context.Background(), "ada@example.com", "password2", SessionMeta{}); err != nil {
 		t.Fatalf("AC3: the first reset's password was overwritten: %v", err)
 	}
 }

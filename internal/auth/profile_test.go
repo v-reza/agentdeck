@@ -52,7 +52,7 @@ func TestAvatarForDerivesMonogram(t *testing.T) {
 func TestUpdateProfileChangesName(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(NewMemoryRepository())
-	user, _, _, err := store.Register(ctx, "reza@example.com", "password1", "Reza", "")
+	user, _, _, err := store.Register(ctx, "reza@example.com", "password1", "Reza", "", SessionMeta{})
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -83,11 +83,11 @@ func TestUpdateProfileChangesName(t *testing.T) {
 func TestUpdateProfileRejectsTakenEmail(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(NewMemoryRepository())
-	first, _, _, err := store.Register(ctx, "ada@example.com", "password1", "Ada", "")
+	first, _, _, err := store.Register(ctx, "ada@example.com", "password1", "Ada", "", SessionMeta{})
 	if err != nil {
 		t.Fatalf("register first: %v", err)
 	}
-	second, _, _, err := store.Register(ctx, "grace@example.com", "password1", "Grace", "")
+	second, _, _, err := store.Register(ctx, "grace@example.com", "password1", "Grace", "", SessionMeta{})
 	if err != nil {
 		t.Fatalf("register second: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestUpdateProfileRejectsTakenEmail(t *testing.T) {
 func TestUpdateProfileScopesToOwnAccount(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(NewMemoryRepository())
-	user, _, _, err := store.Register(ctx, "ada@example.com", "password1", "Ada", "")
+	user, _, _, err := store.Register(ctx, "ada@example.com", "password1", "Ada", "", SessionMeta{})
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestUpdateProfileScopesToOwnAccount(t *testing.T) {
 func TestUpdateProfileRejectsInvalidInput(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore(NewMemoryRepository())
-	user, _, _, err := store.Register(ctx, "ada@example.com", "password1", "Ada", "")
+	user, _, _, err := store.Register(ctx, "ada@example.com", "password1", "Ada", "", SessionMeta{})
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}

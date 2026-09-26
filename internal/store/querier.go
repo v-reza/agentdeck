@@ -87,6 +87,10 @@ type Querier interface {
 	// `✕ 1 agent diarsip disembunyikan` line.
 	CountArchivedAgents(ctx context.Context, orgID string) (int64, error)
 	CountBoardsInProject(ctx context.Context, arg CountBoardsInProjectParams) (int32, error)
+	// Menghitung anggota ruang kerja. `deleted_at IS NULL` pada users bukan detail:
+	// anggota yang akunnya sudah ditutup tidak lagi "ada di ruang kerja", jadi
+	// ruang kerja yang hanya berisi mereka boleh ikut ditutup (US-AD98 AC2).
+	CountOrgMembers(ctx context.Context, orgID string) (int32, error)
 	// Guards the last-owner rule: an org must never be left without an owner.
 	CountOrgOwners(ctx context.Context, orgID string) (int32, error)
 	// Decides whether a provider being created becomes the workspace default: the
@@ -115,7 +119,7 @@ type Querier interface {
 	CreateEvent(ctx context.Context, arg CreateEventParams) (Event, error)
 	CreateLedgerEntry(ctx context.Context, arg CreateLedgerEntryParams) (LedgerEntry, error)
 	CreateMembership(ctx context.Context, arg CreateMembershipParams) error
-	CreateOrg(ctx context.Context, arg CreateOrgParams) (Org, error)
+	CreateOrg(ctx context.Context, arg CreateOrgParams) (CreateOrgRow, error)
 	CreateOrgKind(ctx context.Context, arg CreateOrgKindParams) error
 	// M0 — password reset (US-AD88).
 	//
@@ -150,6 +154,11 @@ type Querier interface {
 	CreateRun(ctx context.Context, arg CreateRunParams) (CreateRunRow, error)
 	// token_hash is SHA-256 of the 64-byte raw token; the raw token only ever
 	// exists in the Set-Cookie (ARCHITECTURE 3.19).
+	// user_agent dan ip diambil di sini karena US-AD90 AC2 menampilkan keduanya di
+	// daftar sesi ("perangkat/user agent, IP"), dan tabelnya sudah punya kolom itu
+	// sejak awal — yang belum ada cuma penulisnya. Dikosongkan sebagai NULL, bukan
+	// string kosong: "tidak diketahui" dan "klien mengirim header kosong" adalah dua
+	// hal berbeda, dan daftar sesi yang menampilkan baris kosong menyamakan keduanya.
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
 	CreateStep(ctx context.Context, arg CreateStepParams) (Step, error)
 	// Tasks. created_by is the acting user; assignee_agent_id is nullable.
@@ -196,13 +205,21 @@ type Querier interface {
 	// there is no second code path that could forget the org_id scope.
 	GetMembership(ctx context.Context, arg GetMembershipParams) (Membership, error)
 	GetModelPrice(ctx context.Context, arg GetModelPriceParams) (AgentModelPrice, error)
+	// `deleted_at IS NULL` adalah inti US-AD98 AC2: ruang kerja yang ikut ditutup
+	// bersama akun pemiliknya berhenti resolve. Tanpa penyaring ini, ruang kerja
+	// yang "dihapus" masih bisa dibaca dan masih muncul di switcher.
 	GetOrgByID(ctx context.Context, id string) (Org, error)
+	// Dipakai jalur tutup-akun: ia harus tahu ruang kerja yang SUDAH ditandai hapus,
+	// supaya permintaan kedua tetap melihat ruang kerja yang sama. GetOrgByID
+	// menyaring baris hidup, jadi ia akan melaporkan "tidak ada" untuk ruang kerja
+	// yang baru saja ditutup pemanggil itu sendiri.
+	GetOrgByIDIncludingDeleted(ctx context.Context, id string) (Org, error)
 	GetPasswordReset(ctx context.Context, tokenHash string) (PasswordReset, error)
 	// The registration-kind org where THIS user is the owner: that is the only
 	// shape that means "my personal workspace". Membership alone is not enough —
 	// an invitee is a member of someone else's registration-kind org, and
 	// resolving it here would hand them a workspace that is not theirs.
-	GetPersonalWorkspace(ctx context.Context, userID string) (Org, error)
+	GetPersonalWorkspace(ctx context.Context, userID string) (GetPersonalWorkspaceRow, error)
 	GetProject(ctx context.Context, arg GetProjectParams) (Project, error)
 	// Returns api_key_enc because the handler layer is what decrypts, and it needs
 	// the sealed bytes to do so. Nothing in this file puts them in a response.
@@ -215,6 +232,16 @@ type Querier interface {
 	// scans into a nil []byte rather than an error.
 	GetProviderKey(ctx context.Context, arg GetProviderKeyParams) ([]byte, error)
 	GetRun(ctx context.Context, arg GetRunParams) (GetRunRow, error)
+	// Sesi tanpa dibatasi pemiliknya. Dipakai jalur pencabutan oleh owner/admin
+	// (US-AD05 AC2): mereka perlu tahu sesi itu milik siapa dulu sebelum boleh
+	// memutuskan. Penyaring `expires_at > now()` sama dengan daftar sesi — sesi yang
+	// sudah kedaluwarsa tidak perlu dicabut, dan melaporkannya sebagai "ada" akan
+	// membuat endpoint ini menghidupkan kembali sesuatu yang sudah mati.
+	GetSessionAnyUser(ctx context.Context, id string) (GetSessionAnyUserRow, error)
+	// Sesi milik satu user. `user_id` ikut di WHERE supaya id sesi user lain tidak
+	// bisa dipakai untuk membacanya — dan supaya nol baris berarti "tidak ada di
+	// sini", bukan "ada tapi bukan milikmu".
+	GetSessionByID(ctx context.Context, arg GetSessionByIDParams) (GetSessionByIDRow, error)
 	// Sliding idle window (US-AD02 AC4): a session that has been idle longer than
 	// the idle timeout is rejected, so last_seen_at is bumped on every use.
 	GetSessionByTokenHash(ctx context.Context, arg GetSessionByTokenHashParams) (GetSessionByTokenHashRow, error)
@@ -234,6 +261,10 @@ type Querier interface {
 	// from this column, so without an increment a failing task retries forever:
 	// the ceiling would be compared against a number that never moves.
 	IncrementTaskFailures(ctx context.Context, arg IncrementTaskFailuresParams) (int16, error)
+	// Batas tenant untuk pencabutan sesi milik orang lain (US-AD05 AC2): seorang
+	// admin hanya boleh mencabut sesi anggota ruang kerjanya, bukan sesi siapa pun
+	// di instalasi itu. Tanpa cek ini, "admin" berarti admin mana pun atas siapa pun.
+	IsOrgMember(ctx context.Context, arg IsOrgMemberParams) (bool, error)
 	// The list needs "dipakai N agent" on every row, so usage is resolved in the
 	// same round trip: a per-row query would be N+1 against a table the user scrolls.
 	// `?` is jsonb containment for a top-level array element, i.e. the slug is in
@@ -308,6 +339,11 @@ type Querier interface {
 	ListProviders(ctx context.Context, orgID string) ([]Provider, error)
 	ListRunLedger(ctx context.Context, arg ListRunLedgerParams) ([]LedgerEntry, error)
 	ListRunSteps(ctx context.Context, arg ListRunStepsParams) ([]Step, error)
+	// US-AD90 AC2. `deleted_at IS NULL` menyembunyikan sesi yang sudah dicabut, dan
+	// `expires_at > now()` menyembunyikan yang sudah kedaluwarsa tapi belum
+	// dibersihkan — daftar perangkat yang menampilkan sesi mati akan menyesatkan
+	// tepat pada layar yang gunanya memeriksa sesi tidak dikenal.
+	ListSessionsForUser(ctx context.Context, userID string) ([]ListSessionsForUserRow, error)
 	// AC7's automatic half. This is the ONE provider query deliberately not scoped by
 	// org_id: the background refresher has no tenant in hand — it walks every
 	// workspace — so a `WHERE org_id = $1` here would make it impossible to write.
@@ -373,6 +409,18 @@ type Querier interface {
 	// punya run aktif, dan memindahkannya ke `ready` membuatnya bisa diklaim lagi
 	// sementara run lama masih menulis. Nol baris = 409.
 	RetryTask(ctx context.Context, arg RetryTaskParams) (Task, error)
+	// Sesi yang dicabut SEMUA (US-AD98 AC2 tutup akun) memakai DeleteUserSessions
+	// di password_reset.sql — satu statement yang sama, dan jalur kedua untuk hal
+	// yang sama adalah tempat kedua untuk melenceng.
+	// Mencabut semua sesi KECUALI yang sedang dipakai (US-AD90 AC1: "seluruh sesi
+	// LAIN dicabut, sesi saat ini tetap aktif"). Satu statement, bukan "cabut semua
+	// lalu hidupkan lagi": versi dua langkah punya jendela di mana sesi pemanggil
+	// sendiri sudah mati, dan kegagalan di antaranya meninggalkan user tanpa sesi.
+	RevokeOtherSessions(ctx context.Context, arg RevokeOtherSessionsParams) error
+	// Mencabut satu sesi. `deleted_at IS NULL` membuat pencabutan kedua nol baris,
+	// yang oleh pemanggil diperlakukan sebagai "sudah dicabut" (idempoten), bukan
+	// sebagai kegagalan.
+	RevokeSessionByID(ctx context.Context, arg RevokeSessionByIDParams) (int64, error)
 	// Dibaca dispatcher sebelum menjalankan run dan di antara step. Mengembalikan
 	// satu baris (bukan bool) supaya "run-nya tidak ada" dan "belum diminta batal"
 	// tidak bisa tertukar: yang pertama harus melempar, yang kedua tidak.
@@ -391,6 +439,12 @@ type Querier interface {
 	// Claiming sets tasks.current_run_id (there is no UPDATE for it anywhere else),
 	// so this is what StartRun uses to bind a run to its task.
 	SetTaskCurrentRun(ctx context.Context, arg SetTaskCurrentRunParams) (Task, error)
+	SoftDeleteOrg(ctx context.Context, id string) error
+	// Menutup akun. Semua sesi dicabut di statement terpisah (RevokeAllSessions),
+	// karena sesi yang masih hidup untuk akun yang sudah ditutup adalah sesi yang
+	// akan ditolak Authenticate pada request berikutnya — tapi mencabutnya lebih
+	// jelas daripada membiarkannya menggantung sampai kedaluwarsa.
+	SoftDeleteUser(ctx context.Context, id string) error
 	TouchSession(ctx context.Context, tokenHash string) error
 	UnarchiveAgent(ctx context.Context, arg UnarchiveAgentParams) (UnarchiveAgentRow, error)
 	// US-AD96: the edit form replaces every mutable field at once, so this is a

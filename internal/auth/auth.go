@@ -58,6 +58,10 @@ type User struct {
 	AvatarURL string
 	IsShadow  bool
 	CreatedAt time.Time
+	// DeletedAt is US-AD98's soft closure: nil means live. The column has always
+	// existed and every user query filters on it; the domain value did not carry
+	// it, so nothing in Go could tell a closed account from an open one.
+	DeletedAt *time.Time
 }
 
 type Workspace struct {
@@ -66,6 +70,9 @@ type Workspace struct {
 	Slug      string
 	Kind      string
 	CreatedAt time.Time
+	// DeletedAt is the org side of US-AD98 AC2/AC5: a workspace closed with its
+	// owner's account keeps its rows for 30 days but stops resolving.
+	DeletedAt *time.Time
 }
 
 type Session struct {
@@ -74,6 +81,38 @@ type Session struct {
 	TokenHash  string
 	ExpiresAt  time.Time
 	LastSeenAt time.Time
+	// UserAgent and IP are what the session list shows (US-AD90 AC2: "perangkat,
+	// IP"). Empty means the client sent nothing — the column is NULL, and the
+	// difference between "unknown" and "sent an empty header" is kept.
+	UserAgent string
+	IP        string
+	CreatedAt time.Time
+	// DeletedAt is a revoked session (the row is kept, so a revoked token is
+	// distinguishable from a token that never existed).
+	DeletedAt *time.Time
+}
+
+// SessionInfo is one row of the session list (US-AD90 AC2): what a user needs
+// to recognise a device, and nothing about the token. TokenHash is deliberately
+// absent — a screen that lists sessions has no use for a credential, and a
+// struct that carries one is a struct that can leak it.
+type SessionInfo struct {
+	ID         string
+	UserID     string
+	UserAgent  string
+	IP         string
+	LastSeenAt time.Time
+	CreatedAt  time.Time
+}
+
+// SessionMeta is the client context recorded when a session is created
+// (US-AD90 AC2 shows it back as "perangkat, IP"). A struct rather than two
+// adjacent string parameters, because Register and Login both take it and two
+// same-typed neighbours are the kind of pair a call site swaps without the
+// compiler noticing.
+type SessionMeta struct {
+	UserAgent string
+	IP        string
 }
 
 // Membership is one row of a user's org roster (the workspace switcher and

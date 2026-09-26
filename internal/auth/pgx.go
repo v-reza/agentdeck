@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/netip"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -155,12 +156,29 @@ func (r *pgxRepository) PersonalWorkspace(ctx context.Context, userID string) (W
 	}, nil
 }
 
+// CountOrgOwners and CountOrgMembers back US-AD98 AC3. CountOrgMembers counts
+// live users only: an account that is already closed is not "still in" the
+// workspace, so a workspace whose only other member has themselves left is one
+// this user may close.
+func (r *pgxRepository) CountOrgMembers(ctx context.Context, orgID string) (int, error) {
+	n, err := r.q.CountOrgMembers(ctx, orgID)
+	return int(n), err
+}
+
+func (r *pgxRepository) SoftDeleteOrg(ctx context.Context, orgID string) error {
+	return r.q.SoftDeleteOrg(ctx, orgID)
+}
+
+func (r *pgxRepository) SoftDeleteUser(ctx context.Context, userID string) error {
+	return r.q.SoftDeleteUser(ctx, userID)
+}
+
 func (r *pgxRepository) GetOrgByID(ctx context.Context, id string) (Workspace, error) {
 	row, err := r.q.GetOrgByID(ctx, id)
 	if err != nil {
 		return Workspace{}, mapNotFound(err, ErrWorkspaceNotFound)
 	}
-	return orgRowToWorkspace(row), nil
+	return orgGetRowToWorkspace(row), nil
 }
 
 func (r *pgxRepository) UpdateOrgName(ctx context.Context, id, name string) error {
@@ -308,6 +326,72 @@ func (r *pgxRepository) CountOrgOwners(ctx context.Context, orgID string) (int, 
 	return int(count), nil
 }
 
+// ListSessionsForUser backs US-AD90 AC2. user_agent and ip are nullable in the
+// DDL, so they are flattened to "" here: the screen shows "unknown device"
+// rather than a literal "<nil>", and the distinction between "no header" and
+// "empty header" does not survive to the UI anyway.
+func (r *pgxRepository) ListSessionsForUser(ctx context.Context, userID string) ([]SessionInfo, error) {
+	rows, err := r.q.ListSessionsForUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]SessionInfo, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, sessionInfo(row.ID, row.UserID, row.UserAgent, row.Ip, row.LastSeenAt, row.CreatedAt))
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) GetSessionByID(ctx context.Context, id, userID string) (SessionInfo, error) {
+	row, err := r.q.GetSessionByID(ctx, store.GetSessionByIDParams{ID: id, UserID: userID})
+	if err != nil {
+		return SessionInfo{}, mapNotFound(err, ErrSessionNotFound)
+	}
+	return sessionInfo(row.ID, row.UserID, row.UserAgent, row.Ip, row.LastSeenAt, row.CreatedAt), nil
+}
+
+func (r *pgxRepository) GetSessionAnyUser(ctx context.Context, id string) (SessionInfo, error) {
+	row, err := r.q.GetSessionAnyUser(ctx, id)
+	if err != nil {
+		return SessionInfo{}, mapNotFound(err, ErrSessionNotFound)
+	}
+	return sessionInfo(row.ID, row.UserID, row.UserAgent, row.Ip, row.LastSeenAt, row.CreatedAt), nil
+}
+
+func (r *pgxRepository) RevokeSessionByID(ctx context.Context, id, userID string) (bool, error) {
+	n, err := r.q.RevokeSessionByID(ctx, store.RevokeSessionByIDParams{ID: id, UserID: userID})
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
+func (r *pgxRepository) RevokeOtherSessions(ctx context.Context, userID, keepID string) error {
+	return r.q.RevokeOtherSessions(ctx, store.RevokeOtherSessionsParams{UserID: userID, ID: keepID})
+}
+
+func (r *pgxRepository) IsOrgMember(ctx context.Context, orgID, userID string) (bool, error) {
+	return r.q.IsOrgMember(ctx, store.IsOrgMemberParams{OrgID: orgID, UserID: userID})
+}
+
+func (r *pgxRepository) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
+	return mapPgError(r.q.UpdateUserPassword(ctx, store.UpdateUserPasswordParams{ID: userID, PasswordHash: passwordHash}))
+}
+
+// sessionInfo flattens the nullable wire columns. ip is a netip.Addr in the
+// generated row because the column is inet; a NULL arrives as the zero value,
+// which is what the IsValid check rejects.
+func sessionInfo(id, userID string, agent *string, ip *netip.Addr, lastSeen, created pgtype.Timestamptz) SessionInfo {
+	info := SessionInfo{ID: id, UserID: userID, LastSeenAt: lastSeen.Time, CreatedAt: created.Time}
+	if agent != nil {
+		info.UserAgent = *agent
+	}
+	if ip != nil && ip.IsValid() {
+		info.IP = ip.String()
+	}
+	return info
+}
+
 func (r *pgxRepository) CreateSession(ctx context.Context, sess Session) error {
 	err := r.q.CreateSession(ctx, store.CreateSessionParams{
 		ID:         sess.ID,
@@ -316,7 +400,14 @@ func (r *pgxRepository) CreateSession(ctx context.Context, sess Session) error {
 		ExpiresAt:  pgTimestamptz(sess.ExpiresAt),
 		LastSeenAt: pgTimestamptz(sess.LastSeenAt),
 		CreatedAt:  pgTimestamptz(timeNow()),
+		UserAgent:  sess.UserAgent,
+		Ip:         sess.IP,
 	})
+	// Catatan: kolomnya nullable dan query memakai NULLIF, jadi string kosong
+	// tersimpan sebagai NULL. IPv6 punya bentuk panjang (::ffff:127.0.0.1) dan
+	// ditolak ::inet; nilai yang tidak valid disimpan sebagai NULL, bukan
+	// menggagalkan pembuatan sesi — sesi yang tidak bisa dibuat berarti login
+	// gagal, dan itu jauh lebih buruk daripada kolom IP yang kosong.
 	if err != nil {
 		return mapPgError(err)
 	}
@@ -428,6 +519,24 @@ func (r *pgxRepository) DeleteUserSessions(ctx context.Context, userID string) e
 // Workspace. kind comes from the separate org_kinds table; callers that need
 // it join it in the read path (ListOrgsForUser) rather than denormalizing.
 func orgRowToWorkspace(row store.Org) Workspace {
+	return Workspace{
+		ID:        row.ID,
+		Slug:      row.Slug,
+		Name:      row.Name,
+		CreatedAt: row.CreatedAt.Time,
+	}
+}
+
+func orgGetRowToWorkspace(row store.Org) Workspace {
+	return Workspace{
+		ID:        row.ID,
+		Slug:      row.Slug,
+		Name:      row.Name,
+		CreatedAt: row.CreatedAt.Time,
+	}
+}
+
+func orgIncludingDeletedToWorkspace(row store.Org) Workspace {
 	return Workspace{
 		ID:        row.ID,
 		Slug:      row.Slug,

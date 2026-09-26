@@ -189,3 +189,76 @@ kedua untuk menghentikan. Membatalkan di tengah panggilan HTTP butuh
 `context.CancelFunc` per run — seam-nya jelas (executor sudah membuat ctx
 per-run), tapi itu perubahan yang lebih besar daripada satu endpoint dan tidak
 dikerjakan di fase ini. Dicatat sebagai kandidat F2b.
+
+## F3 — 6.2.2 Auth & Sessions (4 endpoint sisa)
+
+**Status:** selesai, ter-push.
+
+| Endpoint | Status | Bukti |
+|---|---|---|
+| `DELETE /api/v1/auth/me` (US-AD98) | ✅ | probe 26/26 · `TestPgCloseAccountRemovesWorkspaceAndSessions` |
+| `POST /api/v1/auth/password/change` (US-AD90 AC1/AC3) | ✅ | `TestPgChangePasswordKeepsOnlyTheCallersSession` |
+| `GET /api/v1/auth/sessions` (US-AD90 AC2) | ✅ | `TestPgSessionsListShowsRecordedClientContext` |
+| `DELETE /api/v1/auth/sessions/{id}` (US-AD90 AC4, US-AD05) | ✅ | `TestPgCrossTenantSessionRevokeDenied` |
+
+**Migrasi:** `0016.up.sql` — `orgs.deleted_at` + index parsial. Tanpa ini US-AD98
+AC2/AC5 mustahil: AC2 bilang workspace ikut ditutup, AC5 bilang penutupannya
+lunak. Dua-duanya cuma bisa benar bersamaan kalau org punya penanda hapus.
+
+**Gate:** `tools/gate-overnight.cmd` rc=0 · `verify_suite.py` 0 FAIL
+(**87 ✅ / 42 ⬜**) · `go test ./internal/auth/ ./internal/store/... ./cmd/api/`
+hijau · probe `tools/probe-sessions.py` **26/26** lawan API nyata.
+
+**Mutation (7/7 CAUGHT):** lantai pemilik-sesi dibalik · gerbang admin dibalik ·
+cek keanggotaan tenant dibalik · AC3 last-owner dibalik · AC2 hanya-anggota-sendiri
+dibalik · verifikasi password lama dibalik · lantai panjang password dihapus.
+
+**Temuan yang menentukan bentuk fase ini**
+
+1. **`sessions.user_agent` dan `sessions.ip` sudah ada sejak awal, tapi tidak
+   pernah ada penulisnya.** US-AD90 AC2 ("perangkat/user agent, IP") karena itu
+   mustahil dipenuhi — endpoint-nya bisa mengembalikan daftar dengan kolom kosong.
+   Penulisnya ditambahkan di `CreateSession`; `sessionMeta(r)` membacanya dari
+   request. IP dari `RemoteAddr`, **bukan** `X-Forwarded-For`: header itu diisi
+   pemanggil, dan daftar sesi yang bisa disuruh menampilkan alamat sembarang itu
+   lebih buruk daripada daftar yang menampilkan alamat yang benar-benar terlihat.
+
+2. **`GetSessionByTokenHash` (dan fake-nya) tidak menyaring sesi yang dicabut.**
+   Akibatnya `DELETE /auth/sessions/{id}` melaporkan 204 sambil token itu tetap
+   bisa dipakai: pencabutan hanya menghapus baris dari DAFTAR, bukan mematikan
+   tokennya. Ini kelas bug yang sama dengan F2 — aksi yang melaporkan sukses tapi
+   tidak mengubah apa pun. Fake-nya juga lebih permisif dari SQL (SQL sudah
+   menyaring `deleted_at IS NULL`); ketidaksamaan itu yang bikin tes unit hijau.
+
+3. **Route `DELETE /auth/sessions/{id}` salah middleware.** Middleware path-id
+   membaca `{id}` sebagai id **organisasi**, jadi setiap pencabutan menjawab
+   `404 workspace not found`. Diperbaiki ke `orgHeaderContextMiddleware`; id
+   sesinya datang dari `PathValue("id")` di handler.
+
+4. **Fake `memoryRepository` lebih permisif dari SQL di tiga tempat** — akun yang
+   sudah ditutup tetap bisa login, org yang sudah ditutup tetap resolve, dan
+   `ListOrgsForUser` tidak menyaring org mati. Ketiganya disamakan. Kelas bug ini
+   berulang di F2 dan F3: **fake adalah double, bukan implementasi kedua dari
+   kontrak**, dan tiap kali SQL berubah, fake-nya harus ikut.
+
+5. **Satu assertion tes gw tidak mengukur apa yang dia klaim.** "Workspace ikut
+   hilang" diuji lewat `ResolveWorkspace`, yang gagal untuk akun tertutup
+   **baik org-nya ditandai maupun tidak** — jadi tesnya hijau walau AC2 tidak
+   dikerjakan. Ketahuan dari mutation yang SURVIVED, bukan dari review. Diganti
+   jadi pembacaan langsung `orgs.deleted_at`.
+
+**Konflik kontrak yang diselesaikan:** US-AD05 AC3 bilang mencabut sesi SENDIRI
+lewat endpoint cabut paksa harus ditolak ("pakai logout biasa"); US-AD90 AC4
+bilang pengguna **dapat** mencabut sesinya sendiri. Baris §6.2.2 ARCHITECTURE
+memilih AC4, dan itu yang diimplementasikan — daftar sesi yang barisnya sendiri
+tidak bisa dihapus adalah daftar dengan tombol yang tidak melakukan apa-apa.
+Dicatat di `docs/OPEN-ISSUES.md`.
+
+**Batasan yang jujur:** ganti password dan tutup akun tidak bisa dipakai pemanggil
+API key (nol baris `sessions`) dan menjawab 401. Untuk ganti password itu
+konsekuensi AC1 ("sesi ini tetap aktif" tidak punya arti tanpa sesi); untuk tutup
+akun itu pilihan yang lebih sempit dari yang mungkin — seharusnya bisa, tapi
+butuh jalur "cabut semua sesi user ini" yang belum ada di permukaan API key.
+Tidak dikerjakan di fase ini.
+
+**Fase berikutnya:** 6.2.12 Steps (3 endpoint).

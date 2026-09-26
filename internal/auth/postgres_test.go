@@ -119,7 +119,7 @@ func TestPgRegisterCreatesSessionAndPersonalWorkspace(t *testing.T) {
 	ctx := context.Background()
 	email := uniqueEmail(t, "ada@example.com")
 
-	user, workspace, token, err := store.Register(ctx, email, "password123", "", "")
+	user, workspace, token, err := store.Register(ctx, email, "password123", "", "", SessionMeta{})
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -174,14 +174,14 @@ func TestPgRegisterDuplicateEmailRejected(t *testing.T) {
 	ctx := context.Background()
 	email := uniqueEmail(t, "dupe@example.com")
 
-	if _, _, _, err := store.Register(ctx, email, "password123", "Dupe", ""); err != nil {
+	if _, _, _, err := store.Register(ctx, email, "password123", "Dupe", "", SessionMeta{}); err != nil {
 		t.Fatalf("first register: %v", err)
 	}
-	_, _, _, err := store.Register(ctx, email, "password123", "Dupe", "")
+	_, _, _, err := store.Register(ctx, email, "password123", "Dupe", "", SessionMeta{})
 	if !errors.Is(err, ErrEmailExists) {
 		t.Fatalf("second register err = %v, want ErrEmailExists", err)
 	}
-	_, _, _, err = store.Register(ctx, strings.ToUpper(email), "password123", "Dupe", "")
+	_, _, _, err = store.Register(ctx, strings.ToUpper(email), "password123", "Dupe", "", SessionMeta{})
 	if !errors.Is(err, ErrEmailExists) {
 		t.Fatalf("case-variant register err = %v, want ErrEmailExists", err)
 	}
@@ -195,7 +195,7 @@ func TestPgLoginLogoutAndRevocation(t *testing.T) {
 	ctx := context.Background()
 	email := uniqueEmail(t, "lobe@example.com")
 
-	_, _, regToken, err := store.Register(ctx, email, "password123", "Lobe", "")
+	_, _, regToken, err := store.Register(ctx, email, "password123", "Lobe", "", SessionMeta{})
 	if err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestPgLoginLogoutAndRevocation(t *testing.T) {
 		t.Fatal("registration session does not authenticate")
 	}
 
-	token, err := store.Login(ctx, email, "password123")
+	token, err := store.Login(ctx, email, "password123", SessionMeta{})
 	if err != nil {
 		t.Fatalf("login: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestPgLoginLogoutAndRevocation(t *testing.T) {
 		t.Error("logout revoked a session it should not have touched")
 	}
 	// A shadow user can never log in, so a pending invite is not a backdoor.
-	if _, err := store.Login(ctx, email, "wrong-password"); !errors.Is(err, ErrInvalidCredentials) {
+	if _, err := store.Login(ctx, email, "wrong-password", SessionMeta{}); !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("bad password err = %v, want ErrInvalidCredentials", err)
 	}
 }
@@ -236,11 +236,11 @@ func TestPgCrossTenantDenied(t *testing.T) {
 	store := pgTestStore(t)
 	ctx := context.Background()
 
-	alice, wsA, regToken, err := store.Register(ctx, uniqueEmail(t, "alice@example.com"), "password123", "Alice", "")
+	alice, wsA, regToken, err := store.Register(ctx, uniqueEmail(t, "alice@example.com"), "password123", "Alice", "", SessionMeta{})
 	if err != nil {
 		t.Fatalf("register A: %v", err)
 	}
-	_, wsB, _, err := store.Register(ctx, uniqueEmail(t, "bob@example.com"), "password123", "Bob", "")
+	_, wsB, _, err := store.Register(ctx, uniqueEmail(t, "bob@example.com"), "password123", "Bob", "", SessionMeta{})
 	if err != nil {
 		t.Fatalf("register B: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestPgRoleMatrix(t *testing.T) {
 	ctx := context.Background()
 	ownerEmail := uniqueEmail(t, "owner@example.com")
 
-	_, ws, _, err := store.Register(ctx, ownerEmail, "password123", "Owner", "")
+	_, ws, _, err := store.Register(ctx, ownerEmail, "password123", "Owner", "", SessionMeta{})
 	if err != nil {
 		t.Fatalf("register owner: %v", err)
 	}
@@ -296,7 +296,7 @@ func TestPgRoleMatrix(t *testing.T) {
 		}
 		emails[c.role] = invitee
 		// Claiming the shadow row must keep the invited role (US-AD04 AC1).
-		if _, _, _, err := store.Register(ctx, invitee, "password123", string(c.role), ""); err != nil {
+		if _, _, _, err := store.Register(ctx, invitee, "password123", string(c.role), "", SessionMeta{}); err != nil {
 			t.Fatalf("register invited %s: %v", c.role, err)
 		}
 	}

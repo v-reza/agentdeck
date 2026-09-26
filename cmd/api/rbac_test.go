@@ -103,12 +103,25 @@ func (a authAPI) mux(t *testing.T) *http.ServeMux {
 	orgRoute := func(pattern string, handler http.Handler, minimum auth.Role) {
 		mux.Handle(pattern, a.orgContextMiddleware(a.requireRole(handler, minimum)))
 	}
+	// headerRoute adalah pasangan orgRoute untuk route yang {id}-nya bukan
+	// organisasi — lihat komentar di main.go.
+	headerRoute := func(pattern string, handler http.Handler, minimum auth.Role) {
+		mux.Handle(pattern, a.orgHeaderContextMiddleware(a.requireRole(handler, minimum)))
+	}
 	orgRoute("GET /api/v1/orgs/{id}", http.HandlerFunc(a.getOrg), auth.Viewer)
 	orgRoute("PATCH /api/v1/orgs/{id}", http.HandlerFunc(a.updateOrg), auth.Owner)
 	orgRoute("GET /api/v1/orgs/{id}/members", http.HandlerFunc(a.listMembers), auth.Viewer)
 	orgRoute("POST /api/v1/orgs/{id}/members", http.HandlerFunc(a.addMember), auth.Admin)
 	orgRoute("PATCH /api/v1/orgs/{id}/members/{user_id}", http.HandlerFunc(a.updateMember), auth.Admin)
 	orgRoute("DELETE /api/v1/orgs/{id}/members/{user_id}", http.HandlerFunc(a.removeMember), auth.Admin)
+
+	// US-AD90 / US-AD98 / US-AD05. Sesi sendiri adalah urusan Viewer; batas
+	// owner/admin untuk sesi orang lain ditegakkan di service, tempat pemilik
+	// sesinya sudah diketahui — lihat komentar di main.go.
+	headerRoute("GET /api/v1/auth/sessions", http.HandlerFunc(a.listSessions), auth.Viewer)
+	headerRoute("DELETE /api/v1/auth/sessions/{id}", http.HandlerFunc(a.revokeSession), auth.Viewer)
+	headerRoute("POST /api/v1/auth/password/change", http.HandlerFunc(a.changePassword), auth.Viewer)
+	headerRoute("DELETE /api/v1/auth/me", http.HandlerFunc(a.closeAccount), auth.Viewer)
 
 	return mux
 }

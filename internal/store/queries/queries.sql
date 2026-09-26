@@ -42,9 +42,12 @@ VALUES ($1, $2, $3)
 RETURNING id, slug, name, created_at;
 
 -- name: GetOrgByID :one
-SELECT id, slug, name, created_at
+-- `deleted_at IS NULL` adalah inti US-AD98 AC2: ruang kerja yang ikut ditutup
+-- bersama akun pemiliknya berhenti resolve. Tanpa penyaring ini, ruang kerja
+-- yang "dihapus" masih bisa dibaca dan masih muncul di switcher.
+SELECT id, slug, name, created_at, deleted_at
 FROM orgs
-WHERE id = $1;
+WHERE id = $1 AND deleted_at IS NULL;
 
 -- name: UpdateOrgName :exec
 UPDATE orgs
@@ -106,7 +109,7 @@ SELECT m.org_id, o.slug, o.name, k.kind, m.role
 FROM memberships m
 JOIN orgs o ON o.id = m.org_id
 LEFT JOIN org_kinds k ON k.org_id = m.org_id
-WHERE m.user_id = $1
+WHERE m.user_id = $1 AND o.deleted_at IS NULL
 ORDER BY m.created_at;
 
 -- name: ListMembers :many
@@ -133,9 +136,14 @@ WHERE org_id = $1 AND role = 'owner';
 
 -- token_hash is SHA-256 of the 64-byte raw token; the raw token only ever
 -- exists in the Set-Cookie (ARCHITECTURE 3.19).
+-- user_agent dan ip diambil di sini karena US-AD90 AC2 menampilkan keduanya di
+-- daftar sesi ("perangkat/user agent, IP"), dan tabelnya sudah punya kolom itu
+-- sejak awal — yang belum ada cuma penulisnya. Dikosongkan sebagai NULL, bukan
+-- string kosong: "tidak diketahui" dan "klien mengirim header kosong" adalah dua
+-- hal berbeda, dan daftar sesi yang menampilkan baris kosong menyamakan keduanya.
 -- name: CreateSession :exec
-INSERT INTO sessions (id, user_id, token_hash, expires_at, last_seen_at, created_at)
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO sessions (id, user_id, token_hash, user_agent, ip, expires_at, last_seen_at, created_at)
+VALUES ($1, $2, $3, NULLIF(sqlc.arg(user_agent)::text, ''), NULLIF(sqlc.arg(ip)::text, '')::inet, $4, $5, $6);
 
 -- Sliding idle window (US-AD02 AC4): a session that has been idle longer than
 -- the idle timeout is rejected, so last_seen_at is bumped on every use.
@@ -160,6 +168,95 @@ WHERE token_hash = $1 AND deleted_at IS NULL;
 -- name: DeleteExpiredSessions :exec
 DELETE FROM sessions
 WHERE expires_at < now();
+
+-- name: GetOrgByIDIncludingDeleted :one
+-- Dipakai jalur tutup-akun: ia harus tahu ruang kerja yang SUDAH ditandai hapus,
+-- supaya permintaan kedua tetap melihat ruang kerja yang sama. GetOrgByID
+-- menyaring baris hidup, jadi ia akan melaporkan "tidak ada" untuk ruang kerja
+-- yang baru saja ditutup pemanggil itu sendiri.
+SELECT id, slug, name, created_at, deleted_at
+FROM orgs
+WHERE id = $1;
+
+-- name: CountOrgMembers :one
+-- Menghitung anggota ruang kerja. `deleted_at IS NULL` pada users bukan detail:
+-- anggota yang akunnya sudah ditutup tidak lagi "ada di ruang kerja", jadi
+-- ruang kerja yang hanya berisi mereka boleh ikut ditutup (US-AD98 AC2).
+SELECT count(*)::int
+FROM memberships m
+JOIN users u ON u.id = m.user_id
+WHERE m.org_id = $1 AND u.deleted_at IS NULL;
+
+-- name: SoftDeleteOrg :exec
+UPDATE orgs
+SET deleted_at = now()
+WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: SoftDeleteUser :exec
+-- Menutup akun. Semua sesi dicabut di statement terpisah (RevokeAllSessions),
+-- karena sesi yang masih hidup untuk akun yang sudah ditutup adalah sesi yang
+-- akan ditolak Authenticate pada request berikutnya — tapi mencabutnya lebih
+-- jelas daripada membiarkannya menggantung sampai kedaluwarsa.
+UPDATE users
+SET deleted_at = now()
+WHERE id = $1 AND deleted_at IS NULL;
+
+-- Sesi yang dicabut SEMUA (US-AD98 AC2 tutup akun) memakai DeleteUserSessions
+-- di password_reset.sql — satu statement yang sama, dan jalur kedua untuk hal
+-- yang sama adalah tempat kedua untuk melenceng.
+
+-- name: RevokeOtherSessions :exec
+-- Mencabut semua sesi KECUALI yang sedang dipakai (US-AD90 AC1: "seluruh sesi
+-- LAIN dicabut, sesi saat ini tetap aktif"). Satu statement, bukan "cabut semua
+-- lalu hidupkan lagi": versi dua langkah punya jendela di mana sesi pemanggil
+-- sendiri sudah mati, dan kegagalan di antaranya meninggalkan user tanpa sesi.
+UPDATE sessions
+SET deleted_at = now()
+WHERE user_id = $1 AND id <> $2 AND deleted_at IS NULL;
+
+-- name: ListSessionsForUser :many
+-- US-AD90 AC2. `deleted_at IS NULL` menyembunyikan sesi yang sudah dicabut, dan
+-- `expires_at > now()` menyembunyikan yang sudah kedaluwarsa tapi belum
+-- dibersihkan — daftar perangkat yang menampilkan sesi mati akan menyesatkan
+-- tepat pada layar yang gunanya memeriksa sesi tidak dikenal.
+SELECT id, user_id, user_agent, ip, last_seen_at, created_at
+FROM sessions
+WHERE user_id = $1 AND deleted_at IS NULL AND expires_at > now()
+ORDER BY last_seen_at DESC;
+
+-- name: GetSessionByID :one
+-- Sesi milik satu user. `user_id` ikut di WHERE supaya id sesi user lain tidak
+-- bisa dipakai untuk membacanya — dan supaya nol baris berarti "tidak ada di
+-- sini", bukan "ada tapi bukan milikmu".
+SELECT id, user_id, user_agent, ip, last_seen_at, expires_at, created_at
+FROM sessions
+WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL;
+
+-- name: GetSessionAnyUser :one
+-- Sesi tanpa dibatasi pemiliknya. Dipakai jalur pencabutan oleh owner/admin
+-- (US-AD05 AC2): mereka perlu tahu sesi itu milik siapa dulu sebelum boleh
+-- memutuskan. Penyaring `expires_at > now()` sama dengan daftar sesi — sesi yang
+-- sudah kedaluwarsa tidak perlu dicabut, dan melaporkannya sebagai "ada" akan
+-- membuat endpoint ini menghidupkan kembali sesuatu yang sudah mati.
+SELECT id, user_id, user_agent, ip, last_seen_at, expires_at, created_at
+FROM sessions
+WHERE id = $1 AND deleted_at IS NULL AND expires_at > now();
+
+-- name: IsOrgMember :one
+-- Batas tenant untuk pencabutan sesi milik orang lain (US-AD05 AC2): seorang
+-- admin hanya boleh mencabut sesi anggota ruang kerjanya, bukan sesi siapa pun
+-- di instalasi itu. Tanpa cek ini, "admin" berarti admin mana pun atas siapa pun.
+SELECT EXISTS (
+    SELECT 1 FROM memberships WHERE org_id = $1 AND user_id = $2
+)::boolean AS is_member;
+
+-- name: RevokeSessionByID :execrows
+-- Mencabut satu sesi. `deleted_at IS NULL` membuat pencabutan kedua nol baris,
+-- yang oleh pemanggil diperlakukan sebagai "sudah dicabut" (idempoten), bukan
+-- sebagai kegagalan.
+UPDATE sessions
+SET deleted_at = now()
+WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL;
 
 -- ============================================================================
 -- M1 — projects, boards, agents, tasks, task_links, events
