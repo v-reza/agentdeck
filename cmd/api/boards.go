@@ -77,6 +77,15 @@ func writeBoardError(w http.ResponseWriter, err error) {
 		errors.Is(err, board.ErrNoProviderKey),
 		errors.Is(err, board.ErrProviderNotProbeable):
 		http.Error(w, err.Error(), http.StatusBadRequest)
+	// US-AD34 AC2 / US-AD35 AC3: a gate that is no longer pending cannot be
+	// decided. 409, not 400 — the payload is well-formed and the state is what
+	// refuses it. Same shape as ErrArchiveRequiresTerminal above.
+	case errors.Is(err, board.ErrApprovalDecided):
+		http.Error(w, err.Error(), http.StatusConflict)
+	// US-AD33 AC2: a gate without a preview asks a human to approve something
+	// they cannot see. The fix is to send one, so it is a 400.
+	case errors.Is(err, board.ErrApprovalPreviewRequired):
+		http.Error(w, err.Error(), http.StatusBadRequest)
 	// The upstream provider refused us (US-AD86 validate). 502, not 500: our
 	// service is fine, the thing we called is not.
 	case errors.Is(err, board.ErrProviderHandshakeFailed):

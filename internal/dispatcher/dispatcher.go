@@ -71,6 +71,11 @@ type Store interface {
 	ReclaimStale(ctx context.Context, orgID string, limit, maxAttempts int) ([]board.Task, error)
 	ReleaseClaim(ctx context.Context, taskID, orgID, runID, failureKind, detail string) error
 	WakeDependents(ctx context.Context, taskID string) error
+	// ExpireDueApprovals is the N23 sweep (8.3). It belongs to the tick because
+	// nothing else runs periodically: an approval that nobody answers must close
+	// itself, or the task sits in `awaiting_approval` forever and the board shows
+	// work that is actually waiting on nobody.
+	ExpireDueApprovals(ctx context.Context, orgID string) ([]board.Approval, error)
 	GetAgent(ctx context.Context, id, orgID string) (board.Agent, error)
 	ProviderAddress(ctx context.Context, orgID, id string) (string, error)
 	ProviderCredential(ctx context.Context, orgID, id string) (string, error)

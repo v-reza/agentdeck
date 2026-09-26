@@ -1868,11 +1868,11 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 #### 6.2.14 Approvals (5 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/approvals` | Session/Key | Member | Ya | ⬜ | Inbox daftar approval berstatus `pending` |
-| `GET` | `/api/v1/approvals/{id}` | Session/Key | Member | Ya | ⬜ | Detail diff preview proposal agent (`preview_json`) |
-| `POST` | `/api/v1/approvals/{id}/approve` | Session/Key | Member | Ya | ⬜ | Setujui aksi agent → task kembali ke `ready` |
-| `POST` | `/api/v1/approvals/{id}/reject` | Session/Key | Member | Ya | ⬜ | Tolak proposal `{reason}` → task jadi `blocked` |
-| `POST` | `/api/v1/tasks/{id}/approvals` | Internal/Key | Worker | Ya | ⬜ | Worker meminta approval gate baru |
+| `GET` | `/api/v1/approvals` | Session/Key | Member | Ya | ✅ | Inbox daftar approval berstatus `pending` |
+| `GET` | `/api/v1/approvals/{id}` | Session/Key | Member | Ya | ✅ | Detail diff preview proposal agent (`preview_json`) |
+| `POST` | `/api/v1/approvals/{id}/approve` | Session/Key | Member | Ya | ✅ | Setujui aksi agent → task kembali ke `ready` |
+| `POST` | `/api/v1/approvals/{id}/reject` | Session/Key | Member | Ya | ✅ | Tolak proposal `{reason}` → task jadi `blocked` |
+| `POST` | `/api/v1/tasks/{id}/approvals` | Internal/Key | Worker | Ya | ✅ | Worker meminta approval gate baru |
 
 #### 6.2.15 Cost Ledger & Budget (8 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |

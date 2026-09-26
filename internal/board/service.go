@@ -35,6 +35,14 @@ var (
 	// count is read from the caller's own board before this is returned.
 	ErrColumnHasTasks = errors.New("column still holds tasks; move them before removing it")
 	ErrBudgetInvalid  = errors.New("budget must be zero or positive")
+	// ErrApprovalDecided is US-AD34 AC2 / US-AD35 AC3: a gate that is no longer
+	// pending cannot be decided again. 409, not 400 — the payload is fine and the
+	// state is what refuses it. It covers approved, rejected, AND expired, which
+	// is why it is one error: from the approver's side all three mean "too late".
+	ErrApprovalDecided = errors.New("approval has already been decided")
+	// ErrApprovalPreviewRequired is US-AD33 AC2: a gate without a preview asks a
+	// human to approve an action they cannot see.
+	ErrApprovalPreviewRequired = errors.New("preview_json is required")
 	// ErrAgentNameTaken is US-AD20 AC3: an agent name is unique inside one
 	// project (the DDL enforces it with agents_project_name_key), so a second
 	// "agent-backend" is a 409 rather than a 500 from the constraint.

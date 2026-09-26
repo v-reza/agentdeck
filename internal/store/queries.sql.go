@@ -841,6 +841,60 @@ func (q *Queries) CreateAgentSkill(ctx context.Context, arg CreateAgentSkillPara
 	return i, err
 }
 
+const createApproval = `-- name: CreateApproval :one
+
+INSERT INTO approvals (id, org_id, task_id, run_id, requested_by, gate_mode, preview_json, reason, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + interval '24 hours')
+RETURNING id, org_id, task_id, run_id, requested_by, decided_by, decision, gate_mode,
+          reason, preview_json, expires_at, decided_at, created_at
+`
+
+type CreateApprovalParams struct {
+	ID          string
+	OrgID       string
+	TaskID      string
+	RunID       string
+	RequestedBy string
+	GateMode    string
+	PreviewJson []byte
+	Reason      *string
+}
+
+// ---------------------------------------------------------------- approvals --
+// Gate keputusan manusia (ARCHITECTURE 3.13, 6.2.14).
+// `expires_at` sengaja TIDAK dikirim pemanggil: N23 mematoknya 24 jam, dan
+// membiarkan klien memilih tenggatnya berarti approval yang tidak pernah
+// kedaluwarsa bisa dibuat dengan mengirim tanggal jauh di depan.
+func (q *Queries) CreateApproval(ctx context.Context, arg CreateApprovalParams) (Approval, error) {
+	row := q.db.QueryRow(ctx, createApproval,
+		arg.ID,
+		arg.OrgID,
+		arg.TaskID,
+		arg.RunID,
+		arg.RequestedBy,
+		arg.GateMode,
+		arg.PreviewJson,
+		arg.Reason,
+	)
+	var i Approval
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TaskID,
+		&i.RunID,
+		&i.RequestedBy,
+		&i.DecidedBy,
+		&i.Decision,
+		&i.GateMode,
+		&i.Reason,
+		&i.PreviewJson,
+		&i.ExpiresAt,
+		&i.DecidedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createBoard = `-- name: CreateBoard :one
 INSERT INTO boards (id, org_id, project_id, slug, name, columns_json, budget_daily_micros)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -1449,6 +1503,41 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
+const decideApproval = `-- name: DecideApproval :execrows
+UPDATE approvals
+SET decision = $3, decided_by = $4, decided_at = now(), reason = COALESCE($5, reason)
+WHERE id = $1 AND org_id = $2 AND decision = 'pending'
+`
+
+type DecideApprovalParams struct {
+	ID        string
+	OrgID     string
+	Decision  string
+	DecidedBy *string
+	Reason    *string
+}
+
+// Transisi tunggal (8.4): `decision` hanya boleh bergerak dari 'pending' ke
+// nilai terminal. Predikatnya ada DI DALAM UPDATE, bukan di cek-lalu-tulis,
+// supaya dua approver yang menekan bersamaan menghasilkan satu pemenang dan
+// satu nol-baris — bukan dua 'approved' yang saling menimpa.
+//
+// Nol baris karena itu berarti "sudah diputuskan", dan pemanggilnya membedakan
+// itu dari "tidak ada" lewat GetApproval yang dijalankan lebih dulu.
+func (q *Queries) DecideApproval(ctx context.Context, arg DecideApprovalParams) (int64, error) {
+	result, err := q.db.Exec(ctx, decideApproval,
+		arg.ID,
+		arg.OrgID,
+		arg.Decision,
+		arg.DecidedBy,
+		arg.Reason,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteAgent = `-- name: DeleteAgent :exec
 DELETE FROM agents WHERE id = $1 AND org_id = $2
 `
@@ -1763,6 +1852,46 @@ func (q *Queries) EndRunCancelled(ctx context.Context, arg EndRunCancelledParams
 	return i, err
 }
 
+const expireApprovals = `-- name: ExpireApprovals :many
+UPDATE approvals
+SET decision = 'expired', decided_at = now(), reason = 'Auto-expired after 24h'
+WHERE org_id = $1 AND decision = 'pending' AND expires_at < now()
+RETURNING id, task_id, run_id
+`
+
+type ExpireApprovalsRow struct {
+	ID     string
+	TaskID string
+	RunID  string
+}
+
+// Sapu tenggat N23. Dijalankan tick dispatcher (8.3): pending yang lewat
+// `expires_at` jadi 'expired'. `RETURNING` membawa task_id-nya supaya pemanggil
+// bisa memindahkan task-nya tanpa membaca ulang, dan `run_id` supaya run yang
+// menggantung bisa ditutup dengan outcome yang jujur.
+//
+// Tidak ada `ORDER BY` + `LIMIT`: yang kedaluwarsa harus habis dalam satu tick,
+// bukan menetes sedikit-sedikit.
+func (q *Queries) ExpireApprovals(ctx context.Context, orgID string) ([]ExpireApprovalsRow, error) {
+	rows, err := q.db.Query(ctx, expireApprovals, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExpireApprovalsRow
+	for rows.Next() {
+		var i ExpireApprovalsRow
+		if err := rows.Scan(&i.ID, &i.TaskID, &i.RunID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const finishStep = `-- name: FinishStep :one
 UPDATE steps
 SET status      = $4,
@@ -1915,6 +2044,41 @@ func (q *Queries) GetAgentSkill(ctx context.Context, arg GetAgentSkillParams) (A
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getApproval = `-- name: GetApproval :one
+SELECT id, org_id, task_id, run_id, requested_by, decided_by, decision, gate_mode,
+       reason, preview_json, expires_at, decided_at, created_at
+FROM approvals
+WHERE id = $1 AND org_id = $2
+`
+
+type GetApprovalParams struct {
+	ID    string
+	OrgID string
+}
+
+// Dibatasi org_id seperti setiap pembacaan runtime lain (11.4): approval tenant
+// lain harus tak terbedakan dari yang tidak ada.
+func (q *Queries) GetApproval(ctx context.Context, arg GetApprovalParams) (Approval, error) {
+	row := q.db.QueryRow(ctx, getApproval, arg.ID, arg.OrgID)
+	var i Approval
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TaskID,
+		&i.RunID,
+		&i.RequestedBy,
+		&i.DecidedBy,
+		&i.Decision,
+		&i.GateMode,
+		&i.Reason,
+		&i.PreviewJson,
+		&i.ExpiresAt,
+		&i.DecidedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -3383,6 +3547,73 @@ func (q *Queries) ListOrgsForUser(ctx context.Context, userID string) ([]ListOrg
 	return items, nil
 }
 
+const listPendingApprovals = `-- name: ListPendingApprovals :many
+SELECT a.id, a.org_id, a.task_id, a.run_id, a.requested_by, a.decided_by,
+       a.decision, a.gate_mode, a.reason, a.preview_json, a.expires_at,
+       a.decided_at, a.created_at,
+       t.title AS task_title
+FROM approvals a
+JOIN tasks t ON t.id = a.task_id
+WHERE a.org_id = $1 AND a.decision = 'pending' AND a.expires_at > now()
+ORDER BY a.created_at ASC
+`
+
+type ListPendingApprovalsRow struct {
+	ID          string
+	OrgID       string
+	TaskID      string
+	RunID       string
+	RequestedBy string
+	DecidedBy   *string
+	Decision    string
+	GateMode    string
+	Reason      *string
+	PreviewJson []byte
+	ExpiresAt   pgtype.Timestamptz
+	DecidedAt   pgtype.Timestamptz
+	CreatedAt   pgtype.Timestamptz
+	TaskTitle   string
+}
+
+// Inbox: hanya `pending`, dan hanya yang belum lewat tenggat. Yang sudah
+// kedaluwarsa tapi belum disapu tick bukan urusan layar ini — ia menunggu
+// `ExpireApprovals`, dan menampilkannya di sini akan memberi approver tombol
+// untuk memutuskan sesuatu yang sudah tidak berlaku.
+func (q *Queries) ListPendingApprovals(ctx context.Context, orgID string) ([]ListPendingApprovalsRow, error) {
+	rows, err := q.db.Query(ctx, listPendingApprovals, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPendingApprovalsRow
+	for rows.Next() {
+		var i ListPendingApprovalsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.TaskID,
+			&i.RunID,
+			&i.RequestedBy,
+			&i.DecidedBy,
+			&i.Decision,
+			&i.GateMode,
+			&i.Reason,
+			&i.PreviewJson,
+			&i.ExpiresAt,
+			&i.DecidedAt,
+			&i.CreatedAt,
+			&i.TaskTitle,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProjects = `-- name: ListProjects :many
 SELECT id, org_id, slug, name, created_at
 FROM projects
@@ -3654,6 +3885,55 @@ func (q *Queries) ListStaleProviderModels(ctx context.Context, arg ListStaleProv
 			&i.ModelsFetchedAt,
 			&i.LastVerifiedAt,
 			&i.IsDefault,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTaskApprovals = `-- name: ListTaskApprovals :many
+SELECT id, org_id, task_id, run_id, requested_by, decided_by, decision, gate_mode,
+       reason, preview_json, expires_at, decided_at, created_at
+FROM approvals
+WHERE task_id = $1 AND org_id = $2
+ORDER BY created_at DESC
+`
+
+type ListTaskApprovalsParams struct {
+	TaskID string
+	OrgID  string
+}
+
+// Riwayat keputusan satu task, terbaru dulu — dipakai layar trace dan oleh
+// pemeriksaan "sudah ada gate pending?" sebelum membuat gate baru.
+func (q *Queries) ListTaskApprovals(ctx context.Context, arg ListTaskApprovalsParams) ([]Approval, error) {
+	rows, err := q.db.Query(ctx, listTaskApprovals, arg.TaskID, arg.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Approval
+	for rows.Next() {
+		var i Approval
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.TaskID,
+			&i.RunID,
+			&i.RequestedBy,
+			&i.DecidedBy,
+			&i.Decision,
+			&i.GateMode,
+			&i.Reason,
+			&i.PreviewJson,
+			&i.ExpiresAt,
+			&i.DecidedAt,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

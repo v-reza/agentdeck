@@ -53,6 +53,22 @@ func registerRunRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, bAPI
 	boardRoute("POST /api/v1/runs/{id}/cancel", http.HandlerFunc(boardAPI.cancelRun), auth.Member)
 	boardRoute("GET /api/v1/runs/{id}/summary", http.HandlerFunc(boardAPI.getRunSummary), auth.Viewer)
 
+	// Approvals (6.2.14) — the human gate the dispatcher raises and a person
+	// clears. Declared here, with the other task-lifecycle writes.
+	//
+	// 11.3: reading is Viewer, deciding is Admin. Reject's floor is Admin in both
+	// documents (US-AD35 AC4 and the matrix); approve follows the matrix, not
+	// US-AD34 AC3 — a Member who can both raise a gate and clear it has not been
+	// gated at all.
+	boardRoute("GET /api/v1/approvals", http.HandlerFunc(boardAPI.listApprovals), auth.Viewer)
+	boardRoute("GET /api/v1/approvals/{id}", http.HandlerFunc(boardAPI.getApproval), auth.Viewer)
+	boardRoute("POST /api/v1/approvals/{id}/approve", http.HandlerFunc(boardAPI.approveApproval), auth.Admin)
+	boardRoute("POST /api/v1/approvals/{id}/reject", http.HandlerFunc(boardAPI.rejectApproval), auth.Admin)
+	// Raising a gate is the worker's move, and workers are Member-or-above here
+	// for the same reason `/runs/{id}/heartbeat` is: the `api_keys` credential
+	// §6.2.14 names does not exist yet. `viewer` is refused, which is US-AD33 AC3.
+	boardRoute("POST /api/v1/tasks/{id}/approvals", http.HandlerFunc(boardAPI.requestApproval), auth.Member)
+
 	// Trace.
 	boardRoute("GET /api/v1/runs/{id}/steps", http.HandlerFunc(boardAPI.listRunSteps), auth.Viewer)
 	boardRoute("POST /api/v1/runs/{id}/steps", http.HandlerFunc(boardAPI.createRunStep), auth.Member)

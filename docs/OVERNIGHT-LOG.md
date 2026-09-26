@@ -423,3 +423,76 @@ Diff-nya nol, jadi tidak ada yang rusak, tapi ini kedua kalinya.
 **Fase berikutnya:** 6.2.3 Projects & Boards (1 endpoint), lalu 6.2.5 Agents (1),
 6.2.6 Agent Skills (2), 6.2.7 Providers (1) — sisanya modul besar (SSE, approvals,
 webhooks, api-keys) yang butuh tabel baru.
+## F7 — 6.2.14 Approvals (5 endpoint)
+
+**Status:** selesai, ter-push. 98 ✅ / 31 ⬜ (naik dari 93/36).
+
+**Endpoint:** `GET /approvals` (Viewer) · `GET /approvals/{id}` (Viewer) ·
+`POST /approvals/{id}/approve` (Admin) · `POST /approvals/{id}/reject` (Admin) ·
+`POST /tasks/{id}/approvals` (Member).
+
+**Konflik kontrak — tiga, semuanya diputuskan sendiri dan dicatat di
+`docs/OPEN-ISSUES.md`:**
+
+1. **Ke mana task pergi setelah diputuskan.** PRD (US-AD34 AC1 / US-AD35 AC1)
+   bilang approve → `running`, reject → `blocked(needs_input)`. Tabel §5.3 dan
+   baris §6.2.14 bilang `ready` dan `blocked(policy)`. Dipakai **`ready` +
+   `policy`**: `running` tidak bisa dipenuhi jujur (run-nya sudah ditutup saat
+   gate dipasang, jadi "kembali ke running" = mengarang run baru), dan
+   `needs_input` salah makna — di sini manusia yang menolak, bukan agen yang
+   butuh pertanyaan dijawab.
+2. **Gerbang peran.** PRD membolehkan Member memutuskan; matriks §11.3 bilang
+   Admin. Dipakai **Admin**. Kalau Member boleh membuat *dan* memutuskan gate,
+   gate itu tidak menghalangi apa pun — tinggal tekan approve sendiri.
+3. **`POST /tasks/{id}/approvals` terdaftar Member, kontraknya Worker
+   (`Internal/Key`).** Mekanisme `api_keys` belum ada, dan endpoint Worker lain
+   yang sudah ✅ (`/runs/{id}/heartbeat`, `/end`, `/steps`) menghadapi hal yang
+   sama dan diregistrasi `auth.Member` sejak awal. Diikuti supaya tidak
+   menciptakan jalur autentikasi tandingan.
+
+**Temuan utama — tiga bug nyata, ketiganya ketahuan dari probe, bukan dari
+suite:**
+
+- **Task yang disetujui tidak akan pernah diklaim lagi.** Predikat klaim adalah
+  `current_run_id IS NULL` (§4b), dan satu-satunya yang melepasnya adalah
+  `Service.EndRun`. Jalur gate pertama gw mengakhiri run lewat `repo.EndRun` —
+  melewati pelepasan itu. Hasilnya: approve → task `ready` → dispatcher tidak
+  pernah mengambilnya. **Kegagalan senyap**, tidak ada error di mana pun.
+- **Urutan parkir-vs-tutup-run salah, dua kali.** Menutup run dulu berarti
+  `applyOutcome` memindahkan task lebih dulu (dengan `failed`+`policy` → ia
+  jatuh ke `blocked(policy)` sebelum gate terpasang). Akhirnya: **jalur approval
+  tidak lewat `applyOutcome` sama sekali** — tujuan task-nya adalah gate, bukan
+  tabel outcome, jadi membiarkan `applyOutcome` memilih dulu berarti bertarung
+  dengan keputusan itu. Dipakai `repo.EndRun` + parkir eksplisit.
+- **Gate kedua pada task yang sudah terparkir.** Task `awaiting_approval` tidak
+  punya run hidup, dan `approvals.run_id` NOT NULL — jadi gate kedua **tidak
+  bisa** disimpan. Ditolak 400 dengan pesan yang menyebut masalah sebenarnya,
+  bukan gagal lewat `GetRun("")` yang membaca sebagai 404 "task tidak ada".
+
+**Bug di verifikasi gw sendiri, dua, dan yang kedua serius:**
+
+- Probe gw menulis header lalu membaca `call()` yang sudah diubah jadi
+  mengembalikan teks → `AttributeError`. Bug probe, bukan kode.
+- **Harness mutasi gw menjalankan filter tes yang tidak mencocokkan apa pun,
+  lalu `exit 0` dibaca sebagai SURVIVED.** Lebih buruk lagi: dua tes nyata
+  terhapus oleh rewrite gw sendiri (penanda `index()` yang salah), jadi
+  suite-nya hijau karena tesnya sudah tidak ada. Harness diperbaiki: **nol tes
+  yang jalan = INVALID, bukan SURVIVED.** Dua tes dipulihkan.
+
+**Mutation: 13 CAUGHT, 0 SURVIVED, 0 INVALID** (setelah harness diperbaiki).
+Dua di antaranya membuktikan invarian yang tadinya tidak diuji: predikat
+`decision = 'pending'` di dalam `UPDATE` (balapan dua approver, §8.4) dan
+syarat `expires_at < now()` di sapuan (tanpa itu, tick 2 detik menutup **semua**
+gate yang masih terbuka).
+
+**Tes:** `internal/board` 64 hijau · `cmd/api` hijau · `internal/dispatcher`
+hijau. Gate `tools/gate-overnight.cmd` rc=0. `verify_suite.py` 0 FAIL.
+Probe `tools/probe-approvals.py` **42/42** lawan API nyata (termasuk 401 di
+kelima route, gerbang peran, preview utuh lewat JSONB, dan isolasi lintas
+tenant).
+
+**Catatan jujur:** `EndRun` dengan outcome `budget_exceeded` untuk run yang
+dijeda gate. Pilihannya sengaja — `failed` akan dibaca sebagai "kerjanya rusak"
+oleh siapa pun yang melihat `runs.outcome`, dan mereka tidak bisa melihat
+gate-nya dari sana. Kalau ada konsumen yang memfilter `outcome='budget_exceeded'`
+sebagai "kena cap biaya", ia akan salah baca gate ini.

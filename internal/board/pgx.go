@@ -144,6 +144,116 @@ func taskRow(r store.Task) Task {
 	}
 }
 
+// approvalRow maps the stored gate. `DecidedAt` becomes nil rather than the
+// zero time so the JSON is `null` and not year 1 — a client that renders a
+// decision timestamp for a gate nobody has decided would be showing a date that
+// never happened.
+func approvalRow(r store.Approval) Approval {
+	out := Approval{
+		ID:          r.ID,
+		OrgID:       r.OrgID,
+		TaskID:      r.TaskID,
+		RunID:       r.RunID,
+		RequestedBy: r.RequestedBy,
+		DecidedBy:   str(r.DecidedBy),
+		Decision:    ApprovalDecision(r.Decision),
+		GateMode:    r.GateMode,
+		Reason:      str(r.Reason),
+		PreviewJSON: r.PreviewJson,
+		ExpiresAt:   r.ExpiresAt.Time,
+		CreatedAt:   r.CreatedAt.Time,
+	}
+	if r.DecidedAt.Valid {
+		decidedAt := r.DecidedAt.Time
+		out.DecidedAt = &decidedAt
+	}
+	return out
+}
+
+// ---- approvals (6.2.14) ------------------------------------------------------
+
+func (r *pgxRepository) CreateApproval(ctx context.Context, a Approval) (Approval, error) {
+	row, err := r.q.CreateApproval(ctx, store.CreateApprovalParams{
+		ID:          a.ID,
+		OrgID:       a.OrgID,
+		TaskID:      a.TaskID,
+		RunID:       a.RunID,
+		RequestedBy: a.RequestedBy,
+		GateMode:    a.GateMode,
+		PreviewJson: a.PreviewJSON,
+		Reason:      nullString(a.Reason),
+	})
+	if err != nil {
+		return Approval{}, err
+	}
+	return approvalRow(row), nil
+}
+
+func (r *pgxRepository) GetApproval(ctx context.Context, id, orgID string) (Approval, error) {
+	row, err := r.q.GetApproval(ctx, store.GetApprovalParams{ID: id, OrgID: orgID})
+	if err != nil {
+		return Approval{}, noRowsError(err)
+	}
+	return approvalRow(row), nil
+}
+
+func (r *pgxRepository) ListPendingApprovals(ctx context.Context, orgID string) ([]Approval, error) {
+	rows, err := r.q.ListPendingApprovals(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Approval, 0, len(rows))
+	for _, row := range rows {
+		approval := approvalRow(store.Approval{
+			ID: row.ID, OrgID: row.OrgID, TaskID: row.TaskID, RunID: row.RunID,
+			RequestedBy: row.RequestedBy, DecidedBy: row.DecidedBy,
+			Decision: row.Decision, GateMode: row.GateMode, Reason: row.Reason,
+			PreviewJson: row.PreviewJson, ExpiresAt: row.ExpiresAt,
+			DecidedAt: row.DecidedAt, CreatedAt: row.CreatedAt,
+		})
+		approval.TaskTitle = row.TaskTitle
+		out = append(out, approval)
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) ListTaskApprovals(ctx context.Context, taskID, orgID string) ([]Approval, error) {
+	rows, err := r.q.ListTaskApprovals(ctx, store.ListTaskApprovalsParams{TaskID: taskID, OrgID: orgID})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Approval, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, approvalRow(row))
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) DecideApproval(ctx context.Context, id, orgID string, decision ApprovalDecision, decidedBy, reason string) (bool, error) {
+	moved, err := r.q.DecideApproval(ctx, store.DecideApprovalParams{
+		ID: id, OrgID: orgID, Decision: string(decision),
+		DecidedBy: nullString(decidedBy), Reason: nullString(reason),
+	})
+	if err != nil {
+		return false, err
+	}
+	return moved > 0, nil
+}
+
+func (r *pgxRepository) ExpireApprovals(ctx context.Context, orgID string) ([]Approval, error) {
+	rows, err := r.q.ExpireApprovals(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Approval, 0, len(rows))
+	for _, row := range rows {
+		// The sweep returns only what the caller needs to move the task; the full
+		// row is not read back because nobody renders it.
+		out = append(out, Approval{ID: row.ID, OrgID: orgID, TaskID: row.TaskID, RunID: row.RunID})
+	}
+	return out, nil
+}
+
 func eventRow(r store.Event) Event {
 	return Event{
 		ID:          r.ID,

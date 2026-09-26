@@ -44,6 +44,27 @@ func (d *Dispatcher) tickOnce(ctx context.Context) {
 		d.log.Warn("dispatcher: heartbeat failed", "error", err)
 	}
 
+	// 8.3: close gates whose 24 h window (N23) has passed. Done per distinct org
+	// rather than per board because the sweep is org-scoped and a board list
+	// repeats the org for every board on it — sweeping per board would run the
+	// same UPDATE once per board and log the same expiry several times.
+	seen := make(map[string]bool, len(boards))
+	for _, b := range boards {
+		if seen[b.OrgID] {
+			continue
+		}
+		seen[b.OrgID] = true
+		expired, err := d.store.ExpireDueApprovals(ctx, b.OrgID)
+		if err != nil {
+			d.log.Error("dispatcher: expiring approvals", "org", b.OrgID, "error", err)
+			continue
+		}
+		for _, approval := range expired {
+			d.log.Info("dispatcher: approval expired",
+				"org", b.OrgID, "approval", approval.ID, "task", approval.TaskID)
+		}
+	}
+
 	// Reclaim is off-tick (every 30 s, 4b) because it is a scan over ended runs and
 	// the 2 s tick is for claiming.
 	if time.Since(d.lastReclaim) >= ReclaimInterval {

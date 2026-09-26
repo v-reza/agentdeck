@@ -1244,6 +1244,74 @@ ORDER BY scope, SUM(l.cost_micros) DESC;
 UPDATE daily_board_costs SET run_count = run_count + 1, updated_at = now()
 WHERE board_id = $1 AND day = (now() AT TIME ZONE 'UTC')::date;
 
+-- ---------------------------------------------------------------- approvals --
+-- Gate keputusan manusia (ARCHITECTURE 3.13, 6.2.14).
+
+-- name: CreateApproval :one
+-- `expires_at` sengaja TIDAK dikirim pemanggil: N23 mematoknya 24 jam, dan
+-- membiarkan klien memilih tenggatnya berarti approval yang tidak pernah
+-- kedaluwarsa bisa dibuat dengan mengirim tanggal jauh di depan.
+INSERT INTO approvals (id, org_id, task_id, run_id, requested_by, gate_mode, preview_json, reason, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + interval '24 hours')
+RETURNING id, org_id, task_id, run_id, requested_by, decided_by, decision, gate_mode,
+          reason, preview_json, expires_at, decided_at, created_at;
+
+-- name: GetApproval :one
+-- Dibatasi org_id seperti setiap pembacaan runtime lain (11.4): approval tenant
+-- lain harus tak terbedakan dari yang tidak ada.
+SELECT id, org_id, task_id, run_id, requested_by, decided_by, decision, gate_mode,
+       reason, preview_json, expires_at, decided_at, created_at
+FROM approvals
+WHERE id = $1 AND org_id = $2;
+
+-- name: ListPendingApprovals :many
+-- Inbox: hanya `pending`, dan hanya yang belum lewat tenggat. Yang sudah
+-- kedaluwarsa tapi belum disapu tick bukan urusan layar ini — ia menunggu
+-- `ExpireApprovals`, dan menampilkannya di sini akan memberi approver tombol
+-- untuk memutuskan sesuatu yang sudah tidak berlaku.
+SELECT a.id, a.org_id, a.task_id, a.run_id, a.requested_by, a.decided_by,
+       a.decision, a.gate_mode, a.reason, a.preview_json, a.expires_at,
+       a.decided_at, a.created_at,
+       t.title AS task_title
+FROM approvals a
+JOIN tasks t ON t.id = a.task_id
+WHERE a.org_id = $1 AND a.decision = 'pending' AND a.expires_at > now()
+ORDER BY a.created_at ASC;
+
+-- name: ListTaskApprovals :many
+-- Riwayat keputusan satu task, terbaru dulu — dipakai layar trace dan oleh
+-- pemeriksaan "sudah ada gate pending?" sebelum membuat gate baru.
+SELECT id, org_id, task_id, run_id, requested_by, decided_by, decision, gate_mode,
+       reason, preview_json, expires_at, decided_at, created_at
+FROM approvals
+WHERE task_id = $1 AND org_id = $2
+ORDER BY created_at DESC;
+
+-- name: DecideApproval :execrows
+-- Transisi tunggal (8.4): `decision` hanya boleh bergerak dari 'pending' ke
+-- nilai terminal. Predikatnya ada DI DALAM UPDATE, bukan di cek-lalu-tulis,
+-- supaya dua approver yang menekan bersamaan menghasilkan satu pemenang dan
+-- satu nol-baris — bukan dua 'approved' yang saling menimpa.
+--
+-- Nol baris karena itu berarti "sudah diputuskan", dan pemanggilnya membedakan
+-- itu dari "tidak ada" lewat GetApproval yang dijalankan lebih dulu.
+UPDATE approvals
+SET decision = $3, decided_by = $4, decided_at = now(), reason = COALESCE($5, reason)
+WHERE id = $1 AND org_id = $2 AND decision = 'pending';
+
+-- name: ExpireApprovals :many
+-- Sapu tenggat N23. Dijalankan tick dispatcher (8.3): pending yang lewat
+-- `expires_at` jadi 'expired'. `RETURNING` membawa task_id-nya supaya pemanggil
+-- bisa memindahkan task-nya tanpa membaca ulang, dan `run_id` supaya run yang
+-- menggantung bisa ditutup dengan outcome yang jujur.
+--
+-- Tidak ada `ORDER BY` + `LIMIT`: yang kedaluwarsa harus habis dalam satu tick,
+-- bukan menetes sedikit-sedikit.
+UPDATE approvals
+SET decision = 'expired', decided_at = now(), reason = 'Auto-expired after 24h'
+WHERE org_id = $1 AND decision = 'pending' AND expires_at < now()
+RETURNING id, task_id, run_id;
+
 -- name: ReclaimStaleRuns :many
 -- 4b: run 'running' tanpa heartbeat 15 menit (N8) di-reclaim dalam satu
 -- transaksi: run ditutup dengan outcome 'reclaimed', task dikembalikan ke

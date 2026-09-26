@@ -243,6 +243,41 @@ type TaskLink struct {
 
 // Event is one append-only row of the board timeline (ARCHITECTURE 3.12). No
 // code path may UPDATE or DELETE an event; the only writer is CreateEvent.
+// ApprovalDecision mirrors the approvals.decision CHECK (DECISIONS 4).
+type ApprovalDecision string
+
+const (
+	ApprovalPending  ApprovalDecision = "pending"
+	ApprovalApproved ApprovalDecision = "approved"
+	ApprovalRejected ApprovalDecision = "rejected"
+	ApprovalExpired  ApprovalDecision = "expired"
+)
+
+// Approval is one human gate (ARCHITECTURE 3.13). `GateMode` is copied from the
+// policy when the gate is created, never re-read at decision time: changing the
+// policy must not change the meaning of a gate that is already queued.
+type Approval struct {
+	ID          string
+	OrgID       string
+	TaskID      string
+	RunID       string
+	RequestedBy string
+	DecidedBy   string
+	Decision    ApprovalDecision
+	GateMode    string
+	Reason      string
+	// PreviewJSON is the proposed action, as the worker sent it. Stored raw
+	// because the API returns it verbatim: a server that reshapes a diff preview
+	// is a server that can show the approver something the worker did not propose.
+	PreviewJSON []byte
+	ExpiresAt   time.Time
+	DecidedAt   *time.Time
+	CreatedAt   time.Time
+	// TaskTitle is joined in by the inbox query so the approval list does not
+	// need a second round-trip per row to say what it is about.
+	TaskTitle string
+}
+
 type Event struct {
 	ID          int64
 	OrgID       string
@@ -558,6 +593,17 @@ type Repository interface {
 	CreateEvent(ctx context.Context, e Event) (Event, error)
 	ListTaskEvents(ctx context.Context, taskID string) ([]Event, error)
 	ListBoardEventsAfter(ctx context.Context, boardID, orgID string, afterID int64, limit int) ([]Event, error)
+
+	// ---- approvals (6.2.14) ----------------------------------------------
+	CreateApproval(ctx context.Context, a Approval) (Approval, error)
+	GetApproval(ctx context.Context, id, orgID string) (Approval, error)
+	ListPendingApprovals(ctx context.Context, orgID string) ([]Approval, error)
+	ListTaskApprovals(ctx context.Context, taskID, orgID string) ([]Approval, error)
+	// DecideApproval reports whether the row moved. Zero rows means "not
+	// pending" — the caller already read it, so it can tell "already decided"
+	// from "does not exist" without a second read here.
+	DecideApproval(ctx context.Context, id, orgID string, decision ApprovalDecision, decidedBy, reason string) (bool, error)
+	ExpireApprovals(ctx context.Context, orgID string) ([]Approval, error)
 
 	// ---- runs (M4) -------------------------------------------------------
 	CreateRun(ctx context.Context, r Run) (Run, error)

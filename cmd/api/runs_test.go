@@ -50,6 +50,8 @@ type stubRunRepo struct {
 	// boards is the set of ids that exist. The budget query joins boards, so a
 	// double without this would answer for any id and hide the 404.
 	boards map[string]bool
+	// approvals is the gate store (6.2.14), keyed by id.
+	approvals map[string]board.Approval
 }
 
 func (s *stubRunRepo) GetTask(_ context.Context, id, orgID string) (board.Task, error) {

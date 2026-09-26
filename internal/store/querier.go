@@ -123,6 +123,12 @@ type Querier interface {
 	// markdown, agents only read it. Nothing here exposes a write path an agent
 	// could reach, and every query carries org_id explicitly.
 	CreateAgentSkill(ctx context.Context, arg CreateAgentSkillParams) (AgentSkill, error)
+	// ---------------------------------------------------------------- approvals --
+	// Gate keputusan manusia (ARCHITECTURE 3.13, 6.2.14).
+	// `expires_at` sengaja TIDAK dikirim pemanggil: N23 mematoknya 24 jam, dan
+	// membiarkan klien memilih tenggatnya berarti approval yang tidak pernah
+	// kedaluwarsa bisa dibuat dengan mengirim tanggal jauh di depan.
+	CreateApproval(ctx context.Context, arg CreateApprovalParams) (Approval, error)
 	// Boards. columns_json is the board's view of status, never a new status.
 	CreateBoard(ctx context.Context, arg CreateBoardParams) (Board, error)
 	// Append-only event log. No UPDATE or DELETE is ever issued against events.
@@ -177,6 +183,14 @@ type Querier interface {
 	// rejects cycles before insert.
 	CreateTaskLink(ctx context.Context, arg CreateTaskLinkParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
+	// Transisi tunggal (8.4): `decision` hanya boleh bergerak dari 'pending' ke
+	// nilai terminal. Predikatnya ada DI DALAM UPDATE, bukan di cek-lalu-tulis,
+	// supaya dua approver yang menekan bersamaan menghasilkan satu pemenang dan
+	// satu nol-baris — bukan dua 'approved' yang saling menimpa.
+	//
+	// Nol baris karena itu berarti "sudah diputuskan", dan pemanggilnya membedakan
+	// itu dari "tidak ada" lewat GetApproval yang dijalankan lebih dulu.
+	DecideApproval(ctx context.Context, arg DecideApprovalParams) (int64, error)
 	DeleteAgent(ctx context.Context, arg DeleteAgentParams) error
 	// System skills are not deletable: they are the baseline every workspace starts
 	// from, and removing one would silently strip capability from existing agents.
@@ -203,12 +217,23 @@ type Querier interface {
 	// saja sudah `ended` duluan (balapan dengan executor yang menutupnya sendiri) —
 	// dalam hal itu nol baris berarti "sudah ditutup", bukan kegagalan.
 	EndRunCancelled(ctx context.Context, arg EndRunCancelledParams) (EndRunCancelledRow, error)
+	// Sapu tenggat N23. Dijalankan tick dispatcher (8.3): pending yang lewat
+	// `expires_at` jadi 'expired'. `RETURNING` membawa task_id-nya supaya pemanggil
+	// bisa memindahkan task-nya tanpa membaca ulang, dan `run_id` supaya run yang
+	// menggantung bisa ditutup dengan outcome yang jujur.
+	//
+	// Tidak ada `ORDER BY` + `LIMIT`: yang kedaluwarsa harus habis dalam satu tick,
+	// bukan menetes sedikit-sedikit.
+	ExpireApprovals(ctx context.Context, orgID string) ([]ExpireApprovalsRow, error)
 	FinishStep(ctx context.Context, arg FinishStepParams) (Step, error)
 	GetAgent(ctx context.Context, arg GetAgentParams) (GetAgentRow, error)
 	// The ONLY reader of the ciphertext column. Returns it alone so the sealed bytes
 	// never travel inside a struct that gets logged, cached, or serialised.
 	GetAgentProviderKey(ctx context.Context, arg GetAgentProviderKeyParams) ([]byte, error)
 	GetAgentSkill(ctx context.Context, arg GetAgentSkillParams) (AgentSkill, error)
+	// Dibatasi org_id seperti setiap pembacaan runtime lain (11.4): approval tenant
+	// lain harus tak terbedakan dari yang tidak ada.
+	GetApproval(ctx context.Context, arg GetApprovalParams) (Approval, error)
 	GetBoard(ctx context.Context, arg GetBoardParams) (Board, error)
 	// The single membership row that answers "is this user in this org, and as
 	// what". Every org-scoped handler resolves its tenant through this query, so
@@ -344,6 +369,11 @@ type Querier interface {
 	// by membership, not by the caller's guess of an org id, so this cannot
 	// leak a tenant the user is not part of (tenant isolation, ARCHITECTURE 17).
 	ListOrgsForUser(ctx context.Context, userID string) ([]ListOrgsForUserRow, error)
+	// Inbox: hanya `pending`, dan hanya yang belum lewat tenggat. Yang sudah
+	// kedaluwarsa tapi belum disapu tick bukan urusan layar ini — ia menunggu
+	// `ExpireApprovals`, dan menampilkannya di sini akan memberi approver tombol
+	// untuk memutuskan sesuatu yang sudah tidak berlaku.
+	ListPendingApprovals(ctx context.Context, orgID string) ([]ListPendingApprovalsRow, error)
 	ListProjects(ctx context.Context, orgID string) ([]Project, error)
 	// The default sorts first because it is what the agent form preselects (AC9).
 	ListProviders(ctx context.Context, orgID string) ([]Provider, error)
@@ -372,6 +402,9 @@ type Querier interface {
 	// needs a last_attempt_at column; add it if a provider is ever observed never
 	// getting its turn.
 	ListStaleProviderModels(ctx context.Context, arg ListStaleProviderModelsParams) ([]Provider, error)
+	// Riwayat keputusan satu task, terbaru dulu — dipakai layar trace dan oleh
+	// pemeriksaan "sudah ada gate pending?" sebelum membuat gate baru.
+	ListTaskApprovals(ctx context.Context, arg ListTaskApprovalsParams) ([]Approval, error)
 	ListTaskChildren(ctx context.Context, parentID string) ([]ListTaskChildrenRow, error)
 	ListTaskEvents(ctx context.Context, taskID *string) ([]Event, error)
 	ListTaskParents(ctx context.Context, childID string) ([]ListTaskParentsRow, error)

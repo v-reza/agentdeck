@@ -23,6 +23,8 @@ type fakeStore struct {
 	ended           map[string]board.RunSummary
 	released        []string
 	woken           []string
+	expiredOrgs     []string
+	expiredByOrg    map[string][]board.Approval
 	startRunErr     error
 	cancelRequested bool
 	cancelSummary   string
@@ -119,6 +121,13 @@ func (f *fakeStore) ReclaimStale(context.Context, string, int, int) ([]board.Tas
 func (f *fakeStore) WakeDependents(_ context.Context, taskID string) error {
 	f.woken = append(f.woken, taskID)
 	return nil
+}
+
+// ExpireDueApprovals is the N23 sweep. The fake records which orgs it was asked
+// about, so a tick that forgets to sweep at all is visible.
+func (f *fakeStore) ExpireDueApprovals(_ context.Context, orgID string) ([]board.Approval, error) {
+	f.expiredOrgs = append(f.expiredOrgs, orgID)
+	return f.expiredByOrg[orgID], nil
 }
 func (f *fakeStore) ReleaseClaim(_ context.Context, taskID, _, _, kind, _ string) error {
 	f.released = append(f.released, taskID+":"+kind)
@@ -366,5 +375,44 @@ func TestRunningRunIsNotAffectedByTheCancelCheck(t *testing.T) {
 	}
 	if store.cancelSummary != "" {
 		t.Errorf("uncancelled run closed as %q", store.cancelSummary)
+	}
+}
+
+// TestTickExpiresApprovalsOncePerOrg — N23.
+//
+// Sapuan tenggat dijalankan dari tick, dan tick berjalan per BOARD. Organisasi
+// dengan lima board akan menjalankan UPDATE yang sama lima kali kalau tidak
+// di-deduplikasi, jadi yang diuji di sini dua hal: sapuannya benar-benar jalan,
+// dan sekali per org — bukan sekali per board.
+func TestTickExpiresApprovalsOncePerOrg(t *testing.T) {
+	store := newFakeStore()
+	// Tiga board di org yang sama, satu board di org lain.
+	store.boards = []board.Board{
+		{ID: "b1", OrgID: "o1"},
+		{ID: "b2", OrgID: "o1"},
+		{ID: "b3", OrgID: "o1"},
+		{ID: "b4", OrgID: "o2"},
+	}
+	store.expiredByOrg = map[string][]board.Approval{
+		"o1": {{ID: "ap-1", TaskID: "t1", OrgID: "o1"}},
+	}
+	d := newTestDispatcher(store, &fakeRunner{})
+	// tickOnce, bukan tickBoard: sapuan tenggat ada di loop per-tick (8.3), dan
+	// yang diuji justru deduplikasi org-nya di sana.
+	d.tickOnce(context.Background())
+	d.workers.Wait()
+
+	if len(store.expiredOrgs) != 2 {
+		t.Fatalf("sweep dijalankan untuk %v, want o1 dan o2 sekali masing-masing", store.expiredOrgs)
+	}
+	seen := map[string]int{}
+	for _, org := range store.expiredOrgs {
+		seen[org]++
+	}
+	if seen["o1"] != 1 {
+		t.Fatalf("o1 disapu %d kali, want 1 (tick jalan per board)", seen["o1"])
+	}
+	if seen["o2"] != 1 {
+		t.Fatalf("o2 disapu %d kali, want 1", seen["o2"])
 	}
 }

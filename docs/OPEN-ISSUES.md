@@ -54,6 +54,40 @@ coret.
   **Belum diputuskan user.** Kalau AC3 yang diinginkan, yang berubah cuma satu
   cabang di `internal/auth/sessions.go:RevokeSession`.
 
+- **Approval gate: US-AD34 AC1 / US-AD35 AC1 vs ARCHITECTURE §5.3 — ke mana task
+  pergi setelah diputuskan.** PRD bilang approve mengembalikan task ke `running`
+  dan reject memblokirnya dengan `needs_input`. Tabel transisi §5.3 dan baris
+  tabel §6.2.14 bilang `ready` dan `blocked(policy)`.
+  **Arah operasional:** `ready` + `blocked(policy)` (F7). Kontrak yang lebih
+  spesifik menang, dan `running` tidak bisa dipenuhi jujur: run-nya sudah
+  ditutup saat gate dipasang (task tidak boleh menahan run hidup sementara
+  tidak ada yang menjalankannya), jadi "kembali ke running" hanya bisa berarti
+  mengarang run baru. `needs_input` juga salah makna — `needs_input` berarti
+  agen butuh pertanyaan dijawab; di sini **manusia** yang menolak, dan
+  `policy` itu namanya.
+  **Belum diputuskan user.** Yang berubah kalau PRD menang: dua nilai status di
+  `internal/board/approval.go` (`ApprovalDecision` → status tujuan).
+
+- **Approval gate: PRD US-AD33/34/35 (Member) vs ARCHITECTURE §11.3 (Admin).**
+  PRD membolehkan Member membuat **dan** memutuskan gate; matriks RBAC §11.3
+  memberi Admin untuk approve/reject.
+  **Arah operasional:** buat gate = Member (US-AD33 AC3 memang melarang Viewer,
+  dan worker yang meminta gate bukan Admin), putuskan gate = Admin (§11.3).
+  Alasannya satu baris: Member yang boleh membuat gate sekaligus memutuskan
+  gate-nya sendiri berarti gate itu tidak menghalangi apa pun — ia tinggal
+  menekan approve. Itu membatalkan alasan fitur ini ada.
+  **Belum diputuskan user.** Yang berubah: satu argumen role di
+  `cmd/api/approvals.go` (dua route).
+
+- **`POST /tasks/{id}/approvals` terdaftar sebagai Member, kontraknya Worker.**
+  §6.2.14 + §1684 bilang endpoint ini `Auth: Internal/Key`, aktor `Worker`
+  (`api_keys`, `adk_...`). Mekanisme itu **belum ada** (`api_keys` belum
+  dibuat), dan endpoint Worker lain yang sudah ✅ (`runs/{id}/heartbeat`,
+  `/end`, `/steps`) menghadapi hal yang sama dan diregistrasi `auth.Member`
+  sejak awal. F7 mengikuti preseden itu supaya tidak menciptakan jalur
+  autentikasi tandingan. **Yang menahan ini:** begitu `api_keys` dibangun,
+  keempat route Worker itu harus pindah bersama-sama, bukan satu-satu.
+
 ## Isu terbuka yang baru diverifikasi
 
 - **Dua definisi "hari ini" untuk biaya board.** `BoardSpendToday` (jumlah
