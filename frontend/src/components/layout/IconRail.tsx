@@ -1,4 +1,4 @@
-import { LayoutGrid, Folder, ListChecks, Bot, DollarSign, Settings, type LucideIcon } from 'lucide-react'
+import { LayoutGrid, Folder, ListChecks, Bell, Bot, DollarSign, Settings, type LucideIcon } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { AccountMenu } from '@/components/layout/AccountMenu'
 import { cn } from '@/lib/cn'
@@ -36,6 +36,7 @@ export function IconRail({ daemonConnected }: IconRailProps) {
         <RailItem to={`${base}/boards`} icon={LayoutGrid} label="Boards" />
         <RailItem to={`${base}/projects`} icon={Folder} label="Projects" />
         <RailItem to={`${base}/approvals`} icon={ListChecks} label="Approvals" />
+        <RailItem to={`${base}/notifications`} icon={Bell} label="Notifications" />
         <RailItem to={`${base}/agents`} icon={Bot} label="Agents" />
         <RailItem to={`${base}/cost`} icon={DollarSign} label="Cost & Usage" />
       </div>

@@ -64,7 +64,7 @@ Maka urutannya:
 | 3 | ✅ **SELESAI** (`F3`) — **Approvals tab** di drawer | US-AD34, US-AD35 | `stream.ts` sudah punya `listApprovals`/`approveApproval`/`rejectApproval`. |
 | 4 | ✅ **SELESAI** (`F4`) — **Approval detail** `36-approval-detail` | US-AD34, US-AD35 | Layar belum ada; datanya sudah. |
 | 5 | ✅ **SELESAI** (`F5`) — **Run detail** `32-run-detail` | US-AD41 | `GET /runs/{id}` + `/summary` ada. |
-| 6 | **Notifications** `13-notifications` | US-AD61 | Backend notifikasi ada sejak F9. |
+| 6 | ✅ **SELESAI** (`F6`) — **Notifications** `13-notifications` | US-AD61 | Backend notifikasi ada sejak F9. |
 | 7 | **Webhooks tab** (isi stub) | US-AD52, US-AD53 | Backend 7 endpoint jalan sejak F12. Admin-only; secret tampil sekali. |
 | 8 | **API Keys tab** (isi stub) | US-AD06 | Backend 5 endpoint jalan sejak F10. Key penuh tampil sekali. |
 | 9 | **Dashboard** `42-dashboard` | US-AD76 | — |

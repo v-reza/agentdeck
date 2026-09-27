@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (143 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (146 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 91 |
+| `<svg>` | 111 | 93 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -17,10 +17,10 @@ sementara implementasi mendeklarasikan komponennya sekali lalu merendernya
 di dalam `.map()`. Jadi rasio mentahnya selalu terlihat lebih buruk daripada
 kenyataan, dan satu-satunya cara membacanya adalah per jenis icon di layar
 yang punya file impl — lihat §3.
-| blok skeleton (abu berukuran) | 323 | 28 |
+| blok skeleton (abu berukuran) | 323 | 29 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 30 |
+| file memakai `lucide-react` | 0 | 32 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -156,7 +156,7 @@ Nol.
 | 10-board-list | `/boards` | `BoardList.tsx`, `CreateBoardForm.tsx`, `ProjectDetail.tsx` | 9/2 | 0 | 2 |
 | 11-project-list | `/projects` | `CostRail.tsx`, `WorkspaceSidebar.tsx`, `WorkspaceTopbar.tsx`, `CreateProjectForm.tsx`, `ProjectDirectory.tsx`, `ProjectList.tsx`, `ProjectSummary.tsx` | 6/12 | 0 | 2 |
 | 12-onboarding | `/onboarding` | — | 0/0 | 0 | 0 |
-| 13-notifications | `/notifications` | — | 0/0 | 0 | 0 |
+| 13-notifications | `/notifications` | `Notifications.tsx` | 0/1 | 0 | 1 |
 | 14-command-palette | `(overlay)` | — | 0/0 | 0 | 0 |
 | 15-profile | `/settings/profile` | `Profile.tsx` | 0/7 | 0 | 1 |
 | 16-security | `/settings/security` | — | 0/0 | 0 | 0 |
@@ -195,7 +195,7 @@ Nol.
 
 ## 10. File tanpa layar (shell & komponen bersama)
 
-82 file tidak dipetakan ke satu layar. Ini wajar untuk
+84 file tidak dipetakan ke satu layar. Ini wajar untuk
 layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 
 - `App.tsx`
@@ -226,6 +226,7 @@ layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 - `components/layout/AppShell.tsx`
 - `components/layout/IconRail.tsx`
 - `components/layout/LangToggle.tsx`
+- `components/layout/NotificationBell.tsx`
 - `components/ui/avatar.tsx`
 - `components/ui/button.tsx`
 - `components/ui/card.tsx`
@@ -264,6 +265,7 @@ layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 - `store/api/base.ts`
 - `store/api/boards.ts`
 - `store/api/finops.ts`
+- `store/api/notifications.ts`
 - `store/api/providers.ts`
 - `store/api/releases.ts`
 - `store/api/runs.ts`

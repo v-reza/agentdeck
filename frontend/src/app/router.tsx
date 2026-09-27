@@ -57,6 +57,9 @@ const RunDetail = lazy(() => import('@/routes/dashboard/runs/RunDetail').then((m
 const ApprovalDetail = lazy(() =>
   import('@/routes/dashboard/approvals/ApprovalDetail').then((m) => ({ default: m.ApprovalDetail })),
 )
+const Notifications = lazy(() =>
+  import('@/routes/dashboard/notifications/Notifications').then((m) => ({ default: m.Notifications })),
+)
 const CostOverview = lazy(() =>
   import('@/routes/dashboard/finops/CostOverview').then((m) => ({ default: m.CostOverview })),
 )
@@ -83,6 +86,8 @@ function dashboardRoutes() {
       <Route path="agents" element={<AgentRegistry />} />
       <Route path="agents/:agentID" element={<AgentDetail />} />
       <Route path="approvals" element={<ApprovalInbox />} />
+      {/* US-AD61: the notification centre. */}
+      <Route path="notifications" element={<Notifications />} />
       <Route path="approvals/:approvalID" element={<ApprovalDetail />} />
       <Route path="runs/:runID" element={<RunDetail />} />
       <Route path="cost" element={<CostOverview />} />

@@ -5,6 +5,7 @@ import { baseApi } from '@/store/api/base'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useT } from '@/hooks/use-t'
 import { LangToggle } from './LangToggle'
+import { NotificationBell } from './NotificationBell'
 import { Combobox } from '@/components/ui/combobox'
 
 /**
@@ -61,6 +62,10 @@ export function WorkspaceTopbar({ title, path, subtitle, right }: WorkspaceTopba
 
       <div className="flex shrink-0 items-center gap-2">
         {right}
+        {/* AC1 puts the bell in the topbar's right corner. It sits before the
+            workspace switcher so the switcher stays the last control, which is
+            where it has always been. */}
+        <NotificationBell />
         {canSwitch ? (
           // The repo has one dropdown component, and this is it. It used to be a
           // native `<select>` with its own border, radius and 10px type — the

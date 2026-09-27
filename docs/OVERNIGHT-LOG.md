@@ -1566,3 +1566,57 @@ CLI dari luar.
 
 Verifikasi setelahnya: `/goal gate list` harus menampilkan gate itu tanpa
 "✗ failing".
+
+### Fase 6 — Pusat notifikasi (US-AD61)
+
+**Keputusan yang gw ambil:**
+
+- **Filter mengikuti kind yang benar-benar ada, bukan yang digambar.** Design
+  meminta chip "Sukses"; `notifications_kind_chk` (migrasi 0018) hanya
+  mengizinkan `approval.requested`, `budget.warning`, `run.failed`,
+  `credential.invalid`. Chip "Sukses" akan jadi tombol yang tidak bisa cocok
+  dengan baris mana pun, jadi filternya empat kind itu. Severity tidak dikarang.
+- **Tombol dismiss per baris tidak dibangun.** Tidak ada endpoint hapus;
+  `POST /notifications/read` satu-satunya penulisan. "Tandai terbaca" nyata,
+  "close" tidak.
+- **Badge memakai `unread_count` server, bukan panjang daftar.** Daftarnya
+  dipotong LIMIT, hitungannya tidak — badge dari daftar akan berhenti diam-diam
+  di plafon.
+- **AC2: `task` target butuh fetch, dua lainnya tidak.** Server mengirim
+  `target_type` (`task`|`run`|`board`) + id. `run` dan `board` punya alamat
+  langsung; `task` membuka drawer yang harus hidup di dalam board, dan
+  notifikasinya tidak membawa `board_id` — jadi task-nya diambil lalu board-nya
+  dibaca dari situ. Target yang tidak punya alamat tetap teks biasa: link ke 404
+  lebih buruk daripada tidak ada link.
+- **Baris e2e ditulis langsung ke Postgres, bukan di-stub.** AC3 berbunyi
+  "notifikasi tetap tersimpan saat kanal putus", dan itu hanya bisa diuji kalau
+  barisnya benar-benar tersimpan. Tidak ada endpoint create dan dispatcher tidak
+  punya route tick, jadi menulis ke tabel adalah satu-satunya cara menyemai tanpa
+  memalsukan jawaban server. Barisnya dihapus lagi per tes (via `user_id` unik)
+  supaya database dev tidak menumpuk.
+
+**TEMUAN BESAR — Vite tidak menginvalidasi file yang DIUBAH di bind mount
+Windows.** Bind mount-nya jalan (container melihat tulisan host), tapi file
+watching-nya tidak, jadi Vite menyajikan hasil transform basi. Efeknya:
+mutation testing jadi bohong — mutan yang tidak pernah dirender = app jalan
+seperti kode asli = tes lolos = dilaporkan SURVIVED. Di fase ini **tiga dari
+empat mutan dilaporkan SURVIVED padahal semuanya CAUGHT** setelah `docker compose
+restart web`.
+
+Gw tidak menganggap itu gap yang jujur begitu saja — gw uji dulu apakah cache-nya
+sekadar lambat (tunggu 8 detik, tetap basi), baru menemukan penyebabnya. Karena
+cache basi hanya bisa menghasilkan SURVIVED palsu dan **tidak bisa** menghasilkan
+CAUGHT palsu, semua hasil "N CAUGHT" sebelumnya tetap sah; **Fase 5 gw ulang
+penuh** dengan restart per mutan (3 CAUGHT / 0 SURVIVED), dan guard
+`crypto.subtle` Fase 1b diuji ulang dengan cara sama (tetap SURVIVED, kali ini
+karena sebab yang benar).
+
+**Bukti:**
+
+- **e2e `notifications.spec.ts` 4/4** — badge menghitung baris belum dibaca,
+  navigasi ke target, tahan kanal putus (baris nyata di Postgres), dan isolasi
+  tenant (notifikasi pengguna lain tidak muncul).
+- **Full e2e diulang dengan `restart web` dulu: 147 passed / 2 skipped / 0
+  failed.**
+- **Mutasi 4 CAUGHT / 0 SURVIVED** (dengan restart per mutan).
+- Gate rc=0 · tsc rc=0 · vitest 80/80 · prettier bersih.

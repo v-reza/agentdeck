@@ -16,6 +16,20 @@ export interface Dictionary {
   'nav.agents': string
   'nav.finops': string
   'nav.approvals': string
+  'nav.notifications': string
+  'notifications.title': string
+  'notifications.unread': string
+  'notifications.unreadChip': string
+  'notifications.markAll': string
+  'notifications.markRead': string
+  'notifications.none': string
+  'notifications.noneHint': string
+  'notifications.filter': string
+  'notifications.all': string
+  'notifications.kind.approval.requested': string
+  'notifications.kind.budget.warning': string
+  'notifications.kind.run.failed': string
+  'notifications.kind.credential.invalid': string
   'nav.settings': string
   'action.newProject': string
   'action.create': string
@@ -587,6 +601,21 @@ const en: Dictionary = {
   'nav.agents': 'Agents',
   'nav.finops': 'Cost & Usage',
   'nav.approvals': 'Approvals',
+  'nav.notifications': 'Notifications',
+  'notifications.title': 'Notifications',
+  'notifications.unread': '{count} unread',
+  'notifications.unreadChip': 'new',
+  'notifications.markAll': 'Mark all read',
+  'notifications.markRead': 'Mark read',
+  'notifications.none': 'Nothing has happened yet',
+  'notifications.noneHint':
+    'Notifications appear when a run fails, a budget crosses its threshold, or an approval is waiting on you.',
+  'notifications.filter': 'Filter by kind',
+  'notifications.all': 'All',
+  'notifications.kind.approval.requested': 'Approval',
+  'notifications.kind.budget.warning': 'Budget',
+  'notifications.kind.run.failed': 'Run failed',
+  'notifications.kind.credential.invalid': 'Credential',
   'nav.settings': 'Settings',
   'action.newProject': 'New project',
   'action.create': 'Create',
@@ -1152,6 +1181,21 @@ const id: Dictionary = {
   'nav.agents': 'Agent',
   'nav.finops': 'Biaya & Pemakaian',
   'nav.approvals': 'Persetujuan',
+  'nav.notifications': 'Notifikasi',
+  'notifications.title': 'Notifikasi',
+  'notifications.unread': '{count} belum dibaca',
+  'notifications.unreadChip': 'baru',
+  'notifications.markAll': 'Tandai semua terbaca',
+  'notifications.markRead': 'Tandai terbaca',
+  'notifications.none': 'Belum ada kejadian',
+  'notifications.noneHint':
+    'Notifikasi muncul saat run gagal, anggaran melewati ambang, atau ada approval menunggu Anda.',
+  'notifications.filter': 'Saring berdasarkan jenis',
+  'notifications.all': 'Semua',
+  'notifications.kind.approval.requested': 'Persetujuan',
+  'notifications.kind.budget.warning': 'Anggaran',
+  'notifications.kind.run.failed': 'Run gagal',
+  'notifications.kind.credential.invalid': 'Kredensial',
   'nav.settings': 'Pengaturan',
   'action.newProject': 'Project baru',
   'action.create': 'Buat',

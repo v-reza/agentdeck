@@ -223,6 +223,46 @@ tangan — ubah sidecar-nya).
 - **Definisi "PASS" di CHECKLIST**: file layar ada DAN komponennya dirender.
   **Bukan** design match. Untuk layout ketat, ukur elemennya (`DESIGN-INVENTORY.md`).
 
+### Vite tidak menginvalidasi file yang DIUBAH di bawah bind mount Windows
+
+Temuan yang membatalkan satu putaran bukti. Container `agentdeck-web` me-mount
+`frontend/src` sebagai bind mount, dan **bind mount-nya jalan** (container
+langsung melihat tulisan dari host). Yang tidak jalan adalah **file watching**-nya:
+event inotify tidak menyeberang dari filesystem Windows ke container Linux, jadi
+Vite menyajikan hasil transform yang sudah basi.
+
+Bentuk salahnya menipu:
+
+- Mengubah file -> Vite **tetap menyajikan versi lama** (byte-identik, menunggu
+  15 detik pun tidak berubah).
+- File **baru** tetap terbaca (request pertama 404 -> Vite membaca ulang), jadi
+  e2e yang menambah berkas baru tetap sah.
+- **Mutation testing jadi bohong.** Mutan yang tidak pernah dirender = app jalan
+  seperti kode asli = tes lolos = dilaporkan SURVIVED. Di Fase 6, tiga dari empat
+  mutan dilaporkan SURVIVED padahal semuanya CAUGHT setelah `docker compose
+  restart web`.
+
+Arah amannya satu arah: cache basi membuat kode tampak **lebih benar** daripada
+dirinya, jadi ia bisa memproduksi SURVIVED palsu tapi **tidak bisa** memproduksi
+CAUGHT palsu. Hasil "N CAUGHT" tetap sah; hanya SURVIVED yang wajib dicurigai.
+
+**Aturan:** setiap mutasi wajib `docker compose restart web` sebelum tes, dan
+verifikasi mutan benar-benar tersaji (bukan sekadar tersimpan) sebelum
+menyimpulkan apa pun. Fase 5 diulang penuh dengan cara ini: 3 CAUGHT / 0 SURVIVED.
+Guard `crypto.subtle` di Fase 1b diuji ulang dengan cara ini dan **tetap**
+SURVIVED -- kali ini karena sebabnya benar (Chromium selalu punya WebCrypto).
+
+### Notifikasi: design meminta dua hal yang API tidak punya
+
+- **Filter "Sukses".** `notifications_kind_chk` (migrasi 0018) hanya mengizinkan
+  empat kind: `approval.requested`, `budget.warning`, `run.failed`,
+  `credential.invalid`. Tidak ada yang berarti sukses. Chip "Sukses" akan selalu
+  kosong, jadi filter yang dibangun adalah empat kind yang benar-benar bisa
+  disimpan.
+- **Tombol dismiss per baris.** Tidak ada endpoint hapus; `POST
+  /notifications/read` satu-satunya penulisan. "Tandai terbaca" nyata, "close"
+  tidak.
+
 ### US-AD41 AC2: tiga dari lima tab tidak punya endpoint per-RUN
 
 AC2 minta tab **Steps, Logs, Approvals, Artifacts, Ledger** di layar run. Yang
