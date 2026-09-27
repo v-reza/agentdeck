@@ -171,6 +171,38 @@ export interface Dictionary {
   // API keys and webhooks tabs. Both screens are placeholders until their
   // endpoints land, but the sidebar names them, so the copy must exist.
   'apiKeys.title': string
+  'apiKeys.needsMember': string
+  'apiKeys.count': string
+  'apiKeys.create': string
+  'apiKeys.onceTitle': string
+  'apiKeys.onceBody': string
+  'apiKeys.scopeNote': string
+  'apiKeys.emptyTitle': string
+  'apiKeys.emptyHint': string
+  'apiKeys.tableTitle': string
+  'apiKeys.activeCount': string
+  'apiKeys.colName': string
+  'apiKeys.colPrefix': string
+  'apiKeys.colLastUsed': string
+  'apiKeys.colStatus': string
+  'apiKeys.colActions': string
+  'apiKeys.statusActive': string
+  'apiKeys.statusRevoked': string
+  'apiKeys.neverUsed': string
+  'apiKeys.revoke': string
+  'apiKeys.delete': string
+  'apiKeys.namePlaceholder': string
+  'apiKeys.nameInvalid': string
+  'apiKeys.createHint': string
+  'apiKeys.createFailed': string
+  'apiKeys.createdTitle': string
+  'apiKeys.createdBody': string
+  'apiKeys.createdWarning': string
+  'apiKeys.copy': string
+  'apiKeys.copied': string
+  'apiKeys.done': string
+  'apiKeys.deleteTitle': string
+  'apiKeys.deleteBody': string
   'webhooks.title': string
   // Settings → Providers (US-AD109). The per-workspace credential registry.
   'providers.title': string
@@ -777,6 +809,42 @@ const en: Dictionary = {
   'sidebar.accountGroup': 'Account & team',
   'sidebar.integrationsGroup': 'Integrations & credentials',
   'apiKeys.title': 'API keys',
+  'apiKeys.needsMember':
+    'API keys are personal to the account that created them. Your role in this workspace is view-only, so there is nothing here for you to change.',
+  'apiKeys.count': '{count} keys',
+  'apiKeys.create': 'Create API key',
+  'apiKeys.onceTitle': 'The token is shown once',
+  'apiKeys.onceBody':
+    'The full token is returned when you create it and never again. Only its 8-character prefix is kept for identification.',
+  'apiKeys.scopeNote':
+    'This list is yours: the endpoint returns the keys you created in this workspace, not every key in it.',
+  'apiKeys.emptyTitle': 'No API keys yet',
+  'apiKeys.emptyHint': 'Create one to let a program authenticate as you in this workspace.',
+  'apiKeys.tableTitle': 'Your access keys',
+  'apiKeys.activeCount': '{count} active',
+  'apiKeys.colName': 'Name',
+  'apiKeys.colPrefix': 'Prefix',
+  'apiKeys.colLastUsed': 'Last used',
+  'apiKeys.colStatus': 'Status',
+  'apiKeys.colActions': 'Actions',
+  'apiKeys.statusActive': 'Active',
+  'apiKeys.statusRevoked': 'Revoked',
+  'apiKeys.neverUsed': 'Never',
+  'apiKeys.revoke': 'Revoke',
+  'apiKeys.delete': 'Delete',
+  'apiKeys.namePlaceholder': 'e.g. ci-pipeline',
+  'apiKeys.nameInvalid': 'Name must be 1-64 characters.',
+  'apiKeys.createHint': 'Name it after what will use it, so revoking later is obvious.',
+  'apiKeys.createFailed': 'Could not create the key.',
+  'apiKeys.createdTitle': 'Copy your key now',
+  'apiKeys.createdBody': 'This is the only time the full token is visible.',
+  'apiKeys.createdWarning': 'Closing this dialog discards it. If you lose it, revoke the key and create a new one.',
+  'apiKeys.copy': 'Copy',
+  'apiKeys.copied': 'Copied',
+  'apiKeys.done': 'Done',
+  'apiKeys.deleteTitle': 'Delete this key?',
+  'apiKeys.deleteBody':
+    'Delete removes the key entirely. Revoke keeps it in the list, marked revoked. If you want a record, revoke instead.',
   'webhooks.title': 'Webhooks',
   // Settings → Providers (US-AD109).
   'providers.title': 'LLM providers',
@@ -1389,6 +1457,42 @@ const id: Dictionary = {
   'sidebar.accountGroup': 'Pengaturan Akun & Tim',
   'sidebar.integrationsGroup': 'Integrasi & Kredensial',
   'apiKeys.title': 'API Keys',
+  'apiKeys.needsMember':
+    'API key itu milik pribadi akun yang membuatnya. Peran Anda di workspace ini hanya melihat, jadi tidak ada yang bisa Anda ubah di sini.',
+  'apiKeys.count': '{count} key',
+  'apiKeys.create': 'Buat API key',
+  'apiKeys.onceTitle': 'Token hanya tampil sekali',
+  'apiKeys.onceBody':
+    'Token penuh hanya dikembalikan saat dibuat, tidak pernah lagi. Yang disimpan hanya prefix 8 karakter untuk identifikasi.',
+  'apiKeys.scopeNote':
+    'Daftar ini milik Anda: endpoint mengembalikan key yang Anda buat di workspace ini, bukan semua key di dalamnya.',
+  'apiKeys.emptyTitle': 'Belum ada API key',
+  'apiKeys.emptyHint': 'Buat satu supaya program bisa terautentikasi sebagai Anda di workspace ini.',
+  'apiKeys.tableTitle': 'Kunci akses Anda',
+  'apiKeys.activeCount': '{count} aktif',
+  'apiKeys.colName': 'Nama',
+  'apiKeys.colPrefix': 'Prefix',
+  'apiKeys.colLastUsed': 'Terakhir dipakai',
+  'apiKeys.colStatus': 'Status',
+  'apiKeys.colActions': 'Aksi',
+  'apiKeys.statusActive': 'Aktif',
+  'apiKeys.statusRevoked': 'Dicabut',
+  'apiKeys.neverUsed': 'Belum pernah',
+  'apiKeys.revoke': 'Cabut',
+  'apiKeys.delete': 'Hapus',
+  'apiKeys.namePlaceholder': 'mis. ci-pipeline',
+  'apiKeys.nameInvalid': 'Nama harus 1-64 karakter.',
+  'apiKeys.createHint': 'Beri nama sesuai yang akan memakainya, supaya pencabutan nanti jelas.',
+  'apiKeys.createFailed': 'Gagal membuat key.',
+  'apiKeys.createdTitle': 'Salin key Anda sekarang',
+  'apiKeys.createdBody': 'Ini satu-satunya kesempatan token penuh terlihat.',
+  'apiKeys.createdWarning': 'Menutup dialog ini membuangnya. Kalau hilang, cabut key-nya lalu buat yang baru.',
+  'apiKeys.copy': 'Salin',
+  'apiKeys.copied': 'Tersalin',
+  'apiKeys.done': 'Selesai',
+  'apiKeys.deleteTitle': 'Hapus key ini?',
+  'apiKeys.deleteBody':
+    'Hapus membuang key sepenuhnya. Cabut menyimpannya di daftar dengan tanda dicabut. Kalau ingin ada jejak, cabut saja.',
   'webhooks.title': 'Webhooks',
   // Settings → Providers (US-AD109).
   'providers.title': 'Provider LLM',

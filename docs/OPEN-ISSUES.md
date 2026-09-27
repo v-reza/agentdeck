@@ -287,6 +287,39 @@ Tambahan yang tidak diklaim: mockup menulis "Exponential Backoff (3x)" sebagai
 protokol pengiriman. Ambang retry milik worker, bukan kontrak API — UI menampilkan
 `attempts` + `status` apa adanya, bukan janji yang tidak bisa diverifikasi layar.
 
+### US-AD06 AC2 tidak ada di kode: nol limit key aktif
+
+AC2 minta `409` saat batas maksimum key aktif per org tercapai. Yang ada:
+`CreateAPIKey` (`internal/auth/apikey.go`) hanya memvalidasi nama 1–64 karakter
+setelah trim, lalu membuat key. Tidak ada hitungan, tidak ada konstanta batas,
+tidak ada cabang 409 di `writeAPIKeyError`. Jadi AC ini tidak bisa diklaim dari
+UI — dan tidak dibuatkan batas di klien, karena batas yang hanya ada di klien
+bukan batas.
+
+### API key: tiga kolom design tidak punya data
+
+`design/stitch-output/v2/39-api-keys.html` menggambar tabel dengan HASH
+(`sha256:7f4d...31e2`), ROLE / SCOPE (`admin:write`), dan BIAYA HARI INI
+(`$3.140`). Tidak satu pun bisa dibangun dari kontrak yang ada:
+
+- `apiKeyResponse` (`cmd/api/api_keys.go`) hanya memuat id, name, prefix,
+  last_used_at, revoked_at, created_at. Hash **sengaja** tidak dikembalikan.
+- Key tidak punya scope per-key.
+- `ledger_entries` (migrasi 0008) tidak punya kolom yang menunjuk API key, jadi
+  tidak ada jalur biaya per-key. Dicek ke migrasi dan `queries.sql`, bukan
+  diasumsikan.
+
+Layarnya dibangun tanpa tiga kolom itu. `data-status` dipakai untuk status
+(struktural) supaya label yang diterjemahkan tidak jadi kontrak tes.
+
+### API key ter-scope ke pemilik, bukan ke workspace
+
+Design menyebut tabelnya "Daftar Kunci Akses Workspace" dan menampilkan key milik
+agent lain. Yang benar: `APIKeys(ctx, orgID, userID)` memfilter ke pembuatnya, dan
+`GET /api-keys/{id}` menjawab 404 untuk key milik anggota lain — bukan 403,
+karena keberadaannya bukan urusan pemanggil. Ini perilaku isolasi yang benar
+(US-AD07); yang salah adalah judul design-nya. Layar menyebut scope-nya eksplisit.
+
 ### US-AD41 AC2: tiga dari lima tab tidak punya endpoint per-RUN
 
 AC2 minta tab **Steps, Logs, Approvals, Artifacts, Ledger** di layar run. Yang

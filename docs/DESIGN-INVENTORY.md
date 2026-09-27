@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (147 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (148 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 96 |
+| `<svg>` | 111 | 102 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -17,10 +17,10 @@ sementara implementasi mendeklarasikan komponennya sekali lalu merendernya
 di dalam `.map()`. Jadi rasio mentahnya selalu terlihat lebih buruk daripada
 kenyataan, dan satu-satunya cara membacanya adalah per jenis icon di layar
 yang punya file impl — lihat §3.
-| blok skeleton (abu berukuran) | 323 | 31 |
+| blok skeleton (abu berukuran) | 323 | 32 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 33 |
+| file memakai `lucide-react` | 0 | 34 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -125,7 +125,7 @@ Dideklarasikan: 6. Nol dipakai: 0.
 
 | penanda | design | impl |
 |---|---|---|
-| `line-through` | 6 | 2 |
+| `line-through` | 6 | 3 |
 | `opacity-*` | 37 | 16 |
 
 ## 8. Jargon yang bocor ke UI yang dirender
@@ -183,7 +183,7 @@ Nol.
 | 36-approval-detail | `/approvals/:id` | `ApprovalDetail.tsx` | 0/4 | 0 | 1 |
 | 37-workspace-settings | `/settings/workspace` | `WorkspaceSettings.tsx` | 0/8 | 0 | 1 |
 | 38-members | `/settings/members` | `role-badge.tsx`, `Members.tsx`, `members-actions.tsx` | 0/1 | 0 | 1 |
-| 39-api-keys | `/settings/api-keys` | `ApiKeys.tsx` | 7/0 | 0 | 0 |
+| 39-api-keys | `/settings/api-keys` | `ApiKeys.tsx` | 7/6 | 0 | 1 |
 | 40-webhooks | `/settings/webhooks` | `Webhooks.tsx` | 1/3 | 0 | 2 |
 | 41-audit-log | `/settings/audit` | — | 2/0 | 0 | 0 |
 | 42-dashboard | `/dashboard` | — | 0/0 | 0 | 0 |
@@ -195,7 +195,7 @@ Nol.
 
 ## 10. File tanpa layar (shell & komponen bersama)
 
-85 file tidak dipetakan ke satu layar. Ini wajar untuk
+86 file tidak dipetakan ke satu layar. Ini wajar untuk
 layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 
 - `App.tsx`
@@ -261,6 +261,7 @@ layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 - `routes/public/NotFoundPage.tsx`
 - `routes/public/SupportPage.tsx`
 - `store/api/agents.ts`
+- `store/api/api-keys.ts`
 - `store/api/artifacts.ts`
 - `store/api/base.ts`
 - `store/api/boards.ts`

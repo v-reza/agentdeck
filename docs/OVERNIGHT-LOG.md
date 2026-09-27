@@ -1701,3 +1701,61 @@ dengan `Failed to fetch` di `signUp`. Itu **infra, bukan regresi** — dibuktika
 dengan memeriksa daemon (`docker info` gagal), menyalakan ulang, dan mengulang
 suite. `docker compose up -d` juga nol efek di sini; yang bekerja `docker start`
 per container setelah daemon hidup.
+
+### Fase 8 — API Keys (US-AD06)
+
+**Temuan: stub kedua yang berbohong.** `settings/ApiKeys.tsx` bilang "API keys are not
+available yet" — padahal lima endpoint (`cmd/api/api_keys.go`) hidup sejak F10, dan
+item nav-nya sudah ada di sidebar sejak dulu. Kalimat itu menghalangi layar yang
+tinggal disambungkan. Komentar lamanya juga salah satu hal: "creating a key whose
+plaintext the UI cannot show once would be worse than not offering it" — padahal
+`POST /api-keys` memang mengembalikan token penuh **sekali**, jadi justru layar yang
+tidak ada itu yang bikin fitur ini tidak terpakai.
+
+**Tiga kolom design yang dibuang, karena API-nya tidak punya datanya:**
+
+- **HASH** (`sha256:7f4d...31e2`). `apiKeyResponse` tidak pernah memuat hash, dan
+  komentar handler-nya menyebut alasannya: menyimpannya di respons berarti
+  menyimpannya. Tidak ada cara menampilkan kolom ini dari sini.
+- **ROLE / SCOPE** (`admin:write`, `agent:exec`). Key tidak punya scope per-key;
+  `apiKeyResponse` hanya id, name, prefix, last_used_at, revoked_at, created_at.
+- **BIAYA HARI INI** (`$3.140`). Dicek ke migrasi + `queries.sql`: `ledger_entries`
+  tidak punya kolom yang menunjuk API key. Tidak ada jalur biaya per-key sama sekali.
+
+**Scope key itu PEMILIKNYA, bukan workspace** — dan itu beda dari yang design
+gambarkan ("Daftar Kunci Akses Workspace", dengan key milik agent lain di dalamnya).
+`APIKeys(ctx, orgID, userID)` memfilter ke pembuatnya. Ini konsekuensi isolasi
+(US-AD07), jadi ditulis sebagai catatan di layar, bukan dibiarkan menyesatkan.
+
+**AC2 tidak diklaim.** "Membuat key saat batas maksimum tercapai mengembalikan 409"
+tidak ada di kode: nol limit, nol jalur 409. `CreateAPIKey` hanya memvalidasi nama
+1–64 karakter setelah trim. Tidak dibuatkan limit sendiri — itu perubahan kontrak.
+
+**Bug asli yang ketemu justru dari mutasi, bukan dari baca kode.** Guard peran
+(`useCanAct('member')`, karena endpoint-nya Member-gated, bukan Admin) hanya
+dipasang di tombol topbar. Tombol di **empty state** tidak ikut digerbangi, jadi
+`viewer` di workspace kosong tetap bisa membuka dialog buat key. Mutan
+`empty-cta-unguarded` **CAUGHT** — tapi setelah gw betulin bug-nya dulu; sebelumnya
+baseline-nya merah dan itu yang membongkarnya.
+
+**Dua mutan SURVIVED pertama juga ditutup, bukan dilaporkan sebagai celah jujur.**
+Keduanya cacat tes, bukan cabang tak terjangkau:
+- `revoked-counts-active`: chip "N aktif" tidak pernah dibuktikan bergerak. Tes
+  sekarang mencabut satu key dan mengasert angkanya turun.
+- `empty-cta-unguarded`: asert `toHaveCount(0)` dijalankan sementara query masih
+  loading, jadi yang diukur adalah loading, bukan guard. Sekarang empty state
+  ditunggu muncul lebih dulu.
+
+**Kontrak yang dipegang:** `apiKeyResponse` tidak punya `key`/`hash` (test kedua
+mengunci itu — kalau ada yang menambahkannya ke `GET`, layar akan tampak lebih
+lengkap sambil membocorkan kredensial); prefix = 8 karakter pertama token
+(`APIKeyPrefixLen`); `adk_` + 4 hex + `_` + 32 hex; revoke idempoten, delete hard
+delete — dua aksi berbeda, ditampilkan sebagai dua aksi.
+
+**Bukti:** e2e 4/4 · mutasi **6 CAUGHT / 0 SURVIVED** · gate rc=0 · tsc rc=0 ·
+vitest 80/80 · prettier bersih · `verify_suite.py` 0 FAIL.
+
+**Catatan lingkungan (bukan kode):** Docker Desktop mati di tengah fase ini
+(container `Exited 3 hours ago`), yang membuat 9 tes shard-2 gagal di `signUp`
+dengan `Failed to fetch`. Setelah daemon + container dinyalakan ulang, shard itu
+hijau tanpa perubahan kode. Kegagalan itu lingkungan, bukan regresi.
