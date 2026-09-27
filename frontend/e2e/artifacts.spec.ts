@@ -214,11 +214,62 @@ test.describe('the artifacts tab', () => {
  */
 test.describe('the artifacts tab against the storage it is pointed at', () => {
   let orgID: string
+  let projectID: string
   let boardID: string
 
   test.beforeEach(async ({ page }) => {
     orgID = await signUp(page)
-    boardID = (await createBoard(page, orgID)).boardID
+    ;({ projectID, boardID } = await createBoard(page, orgID))
+  })
+
+  test('a file picked in the browser lands in storage and appears in the list', async ({ page }) => {
+    // Jalur upload tiga langkah: `upload-url` -> PUT langsung ke object storage
+    // -> `register`. Yang diuji di sini adalah bagian yang TIDAK terlihat dari
+    // API: byte-nya benar-benar berangkat dari input file browser, CORS-nya
+    // mengizinkan, dan hash yang dihitung klien cocok dengan yang diverifikasi
+    // server terhadap objek yang mendarat.
+    const { taskID, storageOff } = await seedRun(page, orgID, projectID, boardID, 'Terima berkas')
+    // Tanpa object storage, kontrol unggahnya memang tidak dirender — API
+    // menjawab 503 sebelum soal byte pernah muncul. Melewatinya adalah jawaban
+    // yang benar: menjalankannya akan menunggu selamanya sebuah input yang
+    // tidak akan ada, dan gagalnya bukan kabar tentang fitur ini.
+    test.skip(storageOff, 'object storage not configured on this API')
+
+    await page.goto(`/app/${orgID}/boards/${boardID}`)
+    const card = page.getByText('Terima berkas').first()
+    await expect(card).toBeVisible({ timeout: 30_000 })
+    await card.click()
+
+    const drawer = page.getByRole('complementary', { name: 'Task Detail Drawer' })
+    await drawer.getByRole('tab', { name: /^(Artifacts|Artefak)$/ }).click()
+
+    // `setInputFiles` menulis ke input file yang sama dengan yang dipakai
+    // operator; file-nya dibikin di sini supaya isinya diketahui pasti.
+    const body = 'isi berkas untuk round-trip unggah\n'
+    await drawer.locator('input[type="file"]').setInputFiles({
+      name: 'catatan.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from(body),
+    })
+
+    // Baris baru muncul dari invalidasi tag, bukan dari state lokal.
+    await expect(drawer.getByText('catatan.txt').first()).toBeVisible({ timeout: 30_000 })
+
+    // Dan yang mendarat di storage memang byte yang sama: unduh ulang lewat API
+    // dan bandingkan.
+    const listed = await page.request.get(`${API}/tasks/${taskID}/artifacts`, {
+      headers: { 'X-Org-ID': orgID },
+    })
+    expect(listed.status(), await listed.text()).toBe(200)
+    const rows = (await listed.json()) as { id: string; filename: string; size: number }[]
+    const row = rows.find((r) => r.filename === 'catatan.txt')
+    expect(row, `artifact tidak terdaftar: ${JSON.stringify(rows)}`).toBeTruthy()
+    expect(row?.size).toBe(Buffer.byteLength(body))
+
+    const redirect = await page.request.get(`${API}/artifacts/${row?.id}/download`, { maxRedirects: 0 })
+    expect(redirect.status()).toBe(302)
+    const bytes = await page.request.get(redirect.headers()['location'] ?? '')
+    expect(Buffer.from(await bytes.body())).toEqual(Buffer.from(body))
   })
 
   test('the tab tells the operator which of the two empty states they are in', async ({ page }) => {
@@ -250,5 +301,12 @@ test.describe('the artifacts tab against the storage it is pointed at', () => {
       ? /belum dikonfigurasi|not configured/i
       : /belum menghasilkan artefak|has produced no artifacts/i
     await expect(drawer.getByText(expected)).toBeVisible()
+
+    // Task ini tidak pernah di-claim, jadi belum punya run — dan `run_id` wajib
+    // di server (`artifacts_run_fk`). Kontrol unggahnya harus MENGATAKAN itu,
+    // bukan menampilkan pemilih berkas yang setiap kali berakhir 400.
+    if (!storageOff) {
+      await expect(drawer.getByText(/belum punya run|has no run/i)).toBeVisible()
+    }
   })
 })

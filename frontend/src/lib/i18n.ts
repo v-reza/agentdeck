@@ -278,6 +278,11 @@ export interface Dictionary {
   'drawer.tab.approvals': string
   'artifacts.empty': string
   'artifacts.notConfigured': string
+  'artifacts.upload': string
+  'artifacts.uploading': string
+  'artifacts.uploadFailed': string
+  'artifacts.noRun': string
+  'artifacts.noCrypto': string
   'logs.loadFailed': string
   'logs.noRuns': string
   'logs.stepsFailed': string
@@ -783,6 +788,11 @@ const en: Dictionary = {
   'drawer.tab.approvals': 'Approvals',
   'artifacts.empty': 'This task has produced no artifacts yet.',
   'artifacts.notConfigured': 'Object storage is not configured, so artifacts cannot be listed.',
+  'artifacts.upload': 'Upload file',
+  'artifacts.uploading': 'Uploading…',
+  'artifacts.uploadFailed': 'Object storage refused the upload',
+  'artifacts.noRun': 'This task has no run yet, so it cannot take an artifact.',
+  'artifacts.noCrypto': 'This browser cannot compute the digest the API verifies, so uploading is unavailable.',
   'logs.loadFailed': "Could not load this task's runs.",
   'logs.noRuns': 'This task has not been run yet.',
   'logs.stepsFailed': 'Could not load the steps of this run.',
@@ -1294,6 +1304,11 @@ const id: Dictionary = {
   'drawer.tab.approvals': 'Persetujuan',
   'artifacts.empty': 'Task ini belum menghasilkan artefak.',
   'artifacts.notConfigured': 'Object storage belum dikonfigurasi, jadi artefak tidak bisa didaftar.',
+  'artifacts.upload': 'Unggah berkas',
+  'artifacts.uploading': 'Mengunggah…',
+  'artifacts.uploadFailed': 'Object storage menolak unggahan',
+  'artifacts.noRun': 'Task ini belum punya run, jadi belum bisa menerima artefak.',
+  'artifacts.noCrypto': 'Browser ini tidak bisa menghitung digest yang diverifikasi API, jadi unggah tidak tersedia.',
   'logs.loadFailed': 'Run task ini tidak bisa dimuat.',
   'logs.noRuns': 'Task ini belum pernah dijalankan.',
   'logs.stepsFailed': 'Step pada run ini tidak bisa dimuat.',

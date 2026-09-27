@@ -1342,3 +1342,56 @@ tengah setelah menerapkan 3 edit; karena `write_text` baru jalan di akhir,
 ketiga edit itu tidak pernah tersimpan dan gw menemukannya dari kegagalan test
 berikutnya (`write_file` ter-render dengan status `running`). Verifikasi edit
 sebelum menjalankan test itu lebih murah daripada membaca log test.
+
+### Fase 1b — Unggah artifact dari browser (US-AD46)
+
+**Keputusan yang gw ambil:**
+
+- **Rantai tiga panggilan dipertahankan apa adanya:** `upload-url` -> PUT →
+  object storage -> `register`. Yang menentukan bentuk UI-nya adalah di mana
+  byte-nya lewat: kalau lewat API, satu file 25 MB mendarat di heap Go. Jadi
+  PUT-nya `fetch(ticket.upload_url)` langsung dari browser, **tanpa header
+  Authorization** — URL-nya sudah ditandatangani, dan menambahkan kredensial di
+  situ berarti menyerahkannya ke pihak ketiga tanpa alasan.
+- **`sha256Hex(file)` bukan pembukuan.** Server meng-hash ulang objek yang
+  benar-benar mendarat dan menolak barisnya kalau digest tidak cocok
+  (`internal/artifact/service.go:299`). Hash yang dihitung klien adalah KLAIM
+  yang diperiksa server — itu sebabnya mutan "hash dari string kosong" CAUGHT.
+- **`run_id` diambil dari run terakhir**, bukan dipilih. Kontrak §6.2.16 cuma
+  menyebut `(filename, size)`, tapi DDL §3.15 menaruh `run_id` di key dan
+  `artifacts_run_fk` menegakkannya (keputusan F13). Picker run akan jadi UI
+  yang bertanya hal yang jawabannya sudah jelas: artefak diproduksi oleh run
+  terakhir.
+- **Tiga penolakan ditampilkan, bukan didiamkan:** belum ada run, bukan Member,
+  dan browser tanpa `crypto.subtle`. Masing-masing menggantikan bentuk gagal
+  yang tidak berbunyi — form yang tampil lalu 400, tombol mati tanpa alasan.
+
+**Bukti:**
+
+- **e2e lawan rig MinIO (:5174 + API host):** `artifacts.spec.ts` **3/3**.
+  Test barunya menempuh jalur penuh: `setInputFiles` ke input file yang sama
+  dengan yang dipakai operator -> PUT ke MinIO **melewati CORS** -> `register`
+  -> baris muncul dari invalidasi tag -> unduh ulang lewat API dan bandingkan
+  byte-nya.
+- **Full e2e: 135 passed / 2 skipped / 0 failed.** Dua yang skipped adalah tes
+  yang butuh object storage; di container `S3_*` kosong, jadi API menjawab 503
+  sebelum soal byte muncul. Keduanya di-skip dengan alasan terulis, bukan
+  dibiarkan gagal — kegagalannya bukan kabar tentang fitur ini.
+- **Mutasi: 3 CAUGHT / 1 SURVIVED.** CAUGHT: hash bukan dari isi file, PUT
+  dihapus, `invalidatesTags` dibuang, tag di-invalidate ke id lain.
+  **SURVIVED: guard `crypto.subtle`** — Chromium selalu punya WebCrypto, jadi
+  cabang itu tidak bisa dijangkau e2e. Ia tetap benar sebagai penjaga, tapi
+  **tidak terverifikasi**; dicatat di `docs/OPEN-ISSUES.md`.
+- Gate rc=0 · tsc rc=0 · vitest 80/80 · prettier bersih.
+
+**Pelajaran harness mutasi (gw sendiri yang kena):** versi pertama skrip mutasi
+memulihkan file **setelah loop**, jadi begitu sel itu crash di tengah, mutant
+terakhir **tetap di disk**. Sesi berikutnya membaca `if (false) {` di komponen
+dan bakal menghabiskan waktu mengejar "bug" yang tidak pernah ada. Sekarang
+restore-nya per-mutan di dalam `finally`, dan baseline wajib rc=0 sebelum mutan
+pertama jalan — kalau baseline merah, hasilnya dibuang.
+
+**Catatan lingkungan:** tes upload butuh API yang punya `S3_*` **dan** presigned
+host yang dijangkau browser. Rig-nya: API di host + dev server kedua di :5174
+(cara jalaninnya di brief §3c). **Setelah selesai rig-nya WAJIB dimatikan**;
+kalau tidak, suite biasa lewat :5173 gagal karena container API sudah mati.

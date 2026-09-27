@@ -223,6 +223,15 @@ tangan — ubah sidecar-nya).
 - **Definisi "PASS" di CHECKLIST**: file layar ada DAN komponennya dirender.
   **Bukan** design match. Untuk layout ketat, ukur elemennya (`DESIGN-INVENTORY.md`).
 
+### Guard yang tidak bisa dijangkau tes
+
+- `TabArtifacts.tsx` — cabang `crypto.subtle` tidak ada. Chromium selalu punya
+  WebCrypto, jadi e2e tidak bisa menjangkaunya: mutan yang membuang guard itu
+  **SURVIVED** (Fase 1b). Penjaganya tetap benar — browser tanpa WebCrypto
+  memang tidak bisa menghitung digest yang diverifikasi server — tapi
+  **belum terverifikasi**, dan itu disebut apa adanya, bukan diklaim tertutup.
+  Kalau mau ditutup: test unit yang men-stub `crypto.subtle` jadi `undefined`.
+
 ### Yang masih terbuka setelah audit
 
 **"PASS" belum berarti design match.** Verdict di atas mengukur

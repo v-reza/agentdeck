@@ -4,9 +4,18 @@ import { baseApi } from './base'
  * Artifacts per task (US-AD48, ARCHITECTURE 6.2.16).
  *
  * The five endpoints behind this have been live since F13, proven end to end
- * against a real S3-compatible store. Only the list and the download link are
- * wrapped here: those are what US-AD48 specifies. Registration is deliberately
- * absent — it needs a run picker, and the client has no `runs` endpoint yet.
+ * against a real S3-compatible store. The list, the register call and the
+ * download link are wrapped here.
+ *
+ * Why a third endpoint (upload-url) exists at all: the API never receives the
+ * bytes. It hands back a presigned URL, the browser PUTs the file straight to
+ * object storage, and the register call then tells the API what landed. That is
+ * what keeps a 25 MB artifact off the API's heap and out of its request body.
+ *
+ * `upload-url` answers with a `storage_key` and an `artifact_id`. The register
+ * call sends the key back and the API checks it is under THIS org AND THIS task
+ * before accepting it — a key is not a credential here, it is a claim the server
+ * verifies.
  */
 export interface Artifact {
   id: string
@@ -42,10 +51,73 @@ export const artifactsApi = baseApi.injectEndpoints({
       query: (taskID) => `tasks/${taskID}/artifacts`,
       providesTags: (_r, _e, taskID) => [{ type: 'Artifact', id: `TASK-${taskID}` }],
     }),
+
+    /** `POST /tasks/{id}/artifacts/upload-url` (Member). */
+    artifactUploadURL: build.mutation<UploadTicket, UploadURLArgs>({
+      query: ({ taskID, ...body }) => ({
+        url: `tasks/${taskID}/artifacts/upload-url`,
+        method: 'POST',
+        body,
+      }),
+    }),
+
+    /**
+     * `POST /tasks/{id}/artifacts` (Member).
+     *
+     * Invalidates the task's artifact list, which is what makes the new row
+     * appear: the list is the one query the tab renders from, so there is no
+     * second copy to patch.
+     */
+    registerArtifact: build.mutation<Artifact, RegisterArgs>({
+      query: ({ taskID, ...body }) => ({ url: `tasks/${taskID}/artifacts`, method: 'POST', body }),
+      invalidatesTags: (_r, _e, { taskID }) => [{ type: 'Artifact', id: `TASK-${taskID}` }],
+    }),
   }),
 })
 
-export const { useListTaskArtifactsQuery } = artifactsApi
+export const { useListTaskArtifactsQuery, useArtifactUploadURLMutation, useRegisterArtifactMutation } = artifactsApi
+
+export interface UploadTicket {
+  upload_url: string
+  storage_key: string
+  artifact_id: string
+  expires_at: string
+  max_file_size: number
+}
+
+export interface UploadURLArgs {
+  taskID: string
+  run_id: string
+  filename: string
+  content_type: string
+  size: number
+}
+
+export interface RegisterArgs {
+  taskID: string
+  run_id: string
+  filename: string
+  content_type: string
+  size: number
+  sha256: string
+  storage_key: string
+}
+
+/**
+ * SHA-256 as lowercase hex, computed in the browser.
+ *
+ * The digest is not bookkeeping: the API re-hashes the object it finds under
+ * `storage_key` and refuses the registration when the two differ, so this value
+ * is what makes "the file the operator picked" and "the file that landed in
+ * storage" the same statement. `crypto.subtle` is the only digest available in
+ * a browser without shipping a hash implementation.
+ */
+export async function sha256Hex(file: File): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
 
 /**
  * Where an artifact's bytes are fetched from (US-AD48 AC4).

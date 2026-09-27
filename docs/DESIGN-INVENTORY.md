@@ -9,7 +9,7 @@ scriptnya kalau ada yang berubah.
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 78 |
+| `<svg>` | 111 | 79 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -163,7 +163,7 @@ Nol.
 | 17-close-account | `/settings/close` | — | 0/0 | 0 | 0 |
 | 18-kanban | `/boards/:id` | `BoardToolbar.tsx`, `KanbanBoard.tsx` | 5/4 | 0 | 1 |
 | 19-table-view | `/boards/:id?view=table` | `BoardToolbar.tsx`, `TableView.tsx` | 0/4 | 0 | 1 |
-| 20-task-drawer | `(drawer)` | `RunSteps.tsx`, `TabArtifacts.tsx`, `StepTimeline.tsx`, `TaskDetailDrawer.tsx` | 12/9 | 0 | 4 |
+| 20-task-drawer | `(drawer)` | `RunSteps.tsx`, `TabArtifacts.tsx`, `StepTimeline.tsx`, `TaskDetailDrawer.tsx` | 12/10 | 0 | 4 |
 | 21-task-create | `(modal)` | `TaskCreateForm.tsx` | 7/3 | 0 | 0 |
 | 22-column-editor | `(panel)` | `ColumnEditor.tsx`, `BoardSettings.tsx` | 0/6 | 0 | 1 |
 | 23-board-settings | `/boards/:id/settings` | `BoardSettings.tsx` | 0/0 | 0 | 0 |
