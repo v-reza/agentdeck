@@ -62,7 +62,7 @@ Maka urutannya:
 | 2 | ✅ **SELESAI** (`F2`) — **Logs tab**: step timeline per run (grup per run, warna status, expand payload) | US-AD26, US-AD94 | AC1 (cache read/write) dan AC5 (masking viewer) TIDAK bisa: kolom/permukaan tidak ada. Dicatat di OPEN-ISSUES. |
 | 1b | ✅ **SELESAI** (`F1b`) — **Upload artifact** di tab Artifacts | US-AD46 | File picker → `upload-url` → PUT → register. `run_id` diambil dari `useListTaskRunsQuery` (Fase 2 sudah menyediakannya). |
 | 3 | ✅ **SELESAI** (`F3`) — **Approvals tab** di drawer | US-AD34, US-AD35 | `stream.ts` sudah punya `listApprovals`/`approveApproval`/`rejectApproval`. |
-| 4 | **Approval detail** `36-approval-detail` | US-AD34, US-AD35 | Layar belum ada; datanya sudah. |
+| 4 | ✅ **SELESAI** (`F4`) — **Approval detail** `36-approval-detail` | US-AD34, US-AD35 | Layar belum ada; datanya sudah. |
 | 5 | **Run detail** `32-run-detail` | US-AD41 | `GET /runs/{id}` + `/summary` ada. |
 | 6 | **Notifications** `13-notifications` | US-AD61 | Backend notifikasi ada sejak F9. |
 | 7 | **Webhooks tab** (isi stub) | US-AD52, US-AD53 | Backend 7 endpoint jalan sejak F12. Admin-only; secret tampil sekali. |

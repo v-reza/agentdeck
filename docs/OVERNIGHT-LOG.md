@@ -1441,3 +1441,51 @@ kalau tidak, suite biasa lewat :5173 gagal karena container API sudah mati.
 - **Mutasi 3 CAUGHT / 0 SURVIVED:** penyaring `task_id` dibuang, role gate
   dibuang, payload tidak dirender.
 - Gate rc=0 · tsc rc=0 · vitest 80/80 · prettier bersih · CHECKLIST 70 -> **72 PASS**.
+
+### Fase 4 — Layar detail approval (US-AD34, US-AD35)
+
+**Keputusan yang gw ambil:**
+
+- **Dua hal di mockup sengaja TIDAK dibangun, dan alasannya lebih penting
+  daripada yang dibuang:**
+  - *"Field `reason` minimum 10 karakter"*. Server hanya menuntut **non-kosong
+    setelah `TrimSpace`** (`internal/board/approval.go:218-220`). Aturan mockup
+    itu akan menolak alasan sah yang diterima API, tanpa jalan bagi operator
+    untuk tahu kenapa. Tesnya menyematkan alasan 6 karakter supaya aturan
+    mockup tidak diam-diam ikut masuk. Dicatat di `OPEN-ISSUES.md`.
+  - *Tabel hak akses penyetuju* (`US-AD34`, route `/approvals/:id/approve`,
+    `RBAC US-AD37 AC4`). Itu narasi spec, bukan hal yang bisa ditindak pengguna
+    layar. Role gate-nya sama dengan tab Fase 3.
+- **Digest `sha256:` di mockup tidak gw tiru.** Mockup mencetak
+  `sha256:4b8e21a...7f9c` — string yang tidak diverifikasi apa pun. Menampilkan
+  potongan yang tidak bisa dicocokkan siapa pun itu teater; yang auditabel adalah
+  payload apa adanya, dan itu sudah dirender verbatim.
+- **Jejak event dibaca dari `useSseCache`, bukan tabel `events`.** Itu jalur yang
+  sudah terbukti di Fase 0 dan menyegarkan board maupun antrean; tabel `events`
+  tidak punya endpoint sendiri.
+- **`reason` hanya ditampilkan selama gate terbuka.** Lihat temuan di bawah.
+
+**Temuan baru (diverifikasi lawan kode):**
+
+`DecideApproval` menulis `reason = COALESCE($5, reason)`
+(`internal/store/queries/queries.sql:1664`). Jadi **kolom `reason` dipakai ulang**:
+alasan pemohon memasang gate, lalu alasan penyetus menimpanya saat menolak —
+alasan asli permintaan **hilang** setelah diputus. Karena itu panel aksi hanya
+menampilkannya selagi gate terbuka, dan panel keputusan setelahnya: satu fakta,
+satu label. Perbaikan sebenarnya butuh kolom `decision_reason` terpisah ->
+keputusan produk, dicatat di `OPEN-ISSUES.md`.
+
+**Bukti:**
+
+- **e2e `approval-detail.spec.ts` 2/2** — dari antrean -> detail -> kembali, dan
+  penolakan ber-alasan pendek diterima. Yang kedua sengaja menyematkan perilaku
+  SERVER, bukan mockup.
+- **Full e2e: 140 passed / 2 skipped / 0 failed.**
+- **Mutasi 4 CAUGHT / 0 SURVIVED:** payload tidak dirender, guard alasan dibuang,
+  panel keputusan selalu dirender (riwayat hilang), link antrean dibuang.
+- Gate rc=0 · tsc rc=0 · vitest 80/80 · prettier bersih.
+
+**Catatan:** `SectionTitle` ternyata komponen **lokal** di `TaskDetailDrawer`,
+bukan ekspor `@/components/ui/card`; `formatDateTime` dari `@/lib/format` (bukan
+`@/lib/formatters`); `useSseCache` dari `@/hooks/use-sse-cache`. Tiga impor yang
+gw tebak salah dan ketahuan dari `tsc`.

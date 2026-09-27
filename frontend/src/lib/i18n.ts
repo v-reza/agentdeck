@@ -280,6 +280,29 @@ export interface Dictionary {
   'artifacts.notConfigured': string
   'artifacts.upload': string
   'approvals.none': string
+  'approvalDetail.title': string
+  'approvalDetail.back': string
+  'approvalDetail.context': string
+  'approvalDetail.task': string
+  'approvalDetail.statusLabel': string
+  'approvalDetail.cost': string
+  'approvalDetail.tokens': string
+  'approvalDetail.requestedBy': string
+  'approvalDetail.gateMode': string
+  'approvalDetail.run': string
+  'approvalDetail.requestedAt': string
+  'approvalDetail.action': string
+  'approvalDetail.decision': string
+  'approvalDetail.outcome': string
+  'approvalDetail.decidedBy': string
+  'approvalDetail.decidedAt': string
+  'approvalDetail.trail': string
+  'approvalDetail.noEvents': string
+  'approvalDetail.approveAndRun': string
+  'approvalDetail.loadFailed': string
+  'approvalDetail.quick.maintenance': string
+  'approvalDetail.quick.lag': string
+  'approvalDetail.quick.window': string
   'approvals.approve': string
   'approvals.reject': string
   'approvals.reason': string
@@ -797,6 +820,29 @@ const en: Dictionary = {
   'artifacts.notConfigured': 'Object storage is not configured, so artifacts cannot be listed.',
   'artifacts.upload': 'Upload file',
   'approvals.none': 'Nothing is waiting on a decision for this task.',
+  'approvalDetail.title': 'Approval detail',
+  'approvalDetail.back': 'Queue',
+  'approvalDetail.context': 'Task and request',
+  'approvalDetail.task': 'Task',
+  'approvalDetail.statusLabel': 'Status',
+  'approvalDetail.cost': 'Cost',
+  'approvalDetail.tokens': 'Tokens',
+  'approvalDetail.requestedBy': 'Requested by',
+  'approvalDetail.gateMode': 'Gate mode',
+  'approvalDetail.run': 'Run',
+  'approvalDetail.requestedAt': 'Requested at',
+  'approvalDetail.action': 'Gated action',
+  'approvalDetail.decision': 'Decision',
+  'approvalDetail.outcome': 'Outcome',
+  'approvalDetail.decidedBy': 'Decided by',
+  'approvalDetail.decidedAt': 'Decided at',
+  'approvalDetail.trail': 'Run event trail',
+  'approvalDetail.noEvents': 'No events recorded for this task yet.',
+  'approvalDetail.approveAndRun': 'Approve & run',
+  'approvalDetail.loadFailed': 'This approval could not be loaded.',
+  'approvalDetail.quick.maintenance': 'maintenance window outside working hours',
+  'approvalDetail.quick.lag': 'replication is still catching up',
+  'approvalDetail.quick.window': 'wait for the release window',
   'approvals.approve': 'Approve',
   'approvals.reject': 'Reject',
   'approvals.reason': 'Reason for rejecting',
@@ -1320,6 +1366,29 @@ const id: Dictionary = {
   'artifacts.notConfigured': 'Object storage belum dikonfigurasi, jadi artefak tidak bisa didaftar.',
   'artifacts.upload': 'Unggah berkas',
   'approvals.none': 'Tidak ada yang menunggu keputusan untuk task ini.',
+  'approvalDetail.title': 'Detail persetujuan',
+  'approvalDetail.back': 'Antrean',
+  'approvalDetail.context': 'Task dan permintaan',
+  'approvalDetail.task': 'Task',
+  'approvalDetail.statusLabel': 'Status',
+  'approvalDetail.cost': 'Biaya',
+  'approvalDetail.tokens': 'Token',
+  'approvalDetail.requestedBy': 'Diminta oleh',
+  'approvalDetail.gateMode': 'Mode gerbang',
+  'approvalDetail.run': 'Run',
+  'approvalDetail.requestedAt': 'Diminta pada',
+  'approvalDetail.action': 'Aksi yang ditahan',
+  'approvalDetail.decision': 'Keputusan',
+  'approvalDetail.outcome': 'Hasil',
+  'approvalDetail.decidedBy': 'Diputuskan oleh',
+  'approvalDetail.decidedAt': 'Diputuskan pada',
+  'approvalDetail.trail': 'Jejak event run',
+  'approvalDetail.noEvents': 'Belum ada event untuk task ini.',
+  'approvalDetail.approveAndRun': 'Setujui & jalankan',
+  'approvalDetail.loadFailed': 'Persetujuan ini tidak bisa dimuat.',
+  'approvalDetail.quick.maintenance': 'window maintenance di luar jam kerja',
+  'approvalDetail.quick.lag': 'replikasi masih menyusul',
+  'approvalDetail.quick.window': 'tunggu window rilis',
   'approvals.approve': 'Setujui',
   'approvals.reject': 'Tolak',
   'approvals.reason': 'Alasan penolakan',

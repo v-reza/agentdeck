@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Check, Clock, X } from 'lucide-react'
 import { useListApprovalsQuery, useApproveApprovalMutation, useRejectApprovalMutation } from '@/store/api/stream'
 import { WorkspaceTopbar } from '@/components/layout/WorkspaceTopbar'
@@ -97,12 +98,21 @@ function ApprovalRow({
   return (
     <Panel className="p-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        {/*
+          The design draws this row as the way into `/approvals/:id`, and the
+          detail screen needs a way back — so the link lives here rather than on
+          a button beside the decision controls, which are a different action.
+        */}
+        <Link
+          to={approval.id}
+          aria-label={`${approval.gate_mode} ${shortID(approval.task_id)}`}
+          className="flex items-center gap-2 rounded-[4px] transition-opacity hover:opacity-80"
+        >
           <span className="rounded-[4px] bg-[var(--color-accent-tint)] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--color-accent)]">
             {approval.gate_mode}
           </span>
           <span className="font-mono text-[11px] text-[var(--color-secondary)]">task {shortID(approval.task_id)}</span>
-        </div>
+        </Link>
         <RemainingChip remaining={remaining} />
       </div>
 

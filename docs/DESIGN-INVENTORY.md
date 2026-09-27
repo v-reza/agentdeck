@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (141 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (142 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 82 |
+| `<svg>` | 111 | 86 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -17,10 +17,10 @@ sementara implementasi mendeklarasikan komponennya sekali lalu merendernya
 di dalam `.map()`. Jadi rasio mentahnya selalu terlihat lebih buruk daripada
 kenyataan, dan satu-satunya cara membacanya adalah per jenis icon di layar
 yang punya file impl — lihat §3.
-| blok skeleton (abu berukuran) | 323 | 24 |
+| blok skeleton (abu berukuran) | 323 | 25 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 28 |
+| file memakai `lucide-react` | 0 | 29 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -126,7 +126,7 @@ Dideklarasikan: 6. Nol dipakai: 0.
 | penanda | design | impl |
 |---|---|---|
 | `line-through` | 6 | 2 |
-| `opacity-*` | 37 | 14 |
+| `opacity-*` | 37 | 15 |
 
 ## 8. Jargon yang bocor ke UI yang dirender
 
@@ -180,7 +180,7 @@ Nol.
 | 33-run-timeline | `/runs/:id/timeline` | — | 4/0 | 0 | 0 |
 | 34-step-payload | `(panel)` | — | 0/0 | 0 | 0 |
 | 35-approval-inbox | `/approvals` | `DiffViewer.tsx`, `ApprovalInbox.tsx` | 10/3 | 0 | 1 |
-| 36-approval-detail | `/approvals/:id` | — | 0/0 | 0 | 0 |
+| 36-approval-detail | `/approvals/:id` | `ApprovalDetail.tsx` | 0/4 | 0 | 1 |
 | 37-workspace-settings | `/settings/workspace` | `WorkspaceSettings.tsx` | 0/8 | 0 | 1 |
 | 38-members | `/settings/members` | `role-badge.tsx`, `Members.tsx`, `members-actions.tsx` | 0/1 | 0 | 1 |
 | 39-api-keys | `/settings/api-keys` | `ApiKeys.tsx` | 7/0 | 0 | 0 |

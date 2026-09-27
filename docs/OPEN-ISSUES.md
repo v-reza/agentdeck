@@ -223,6 +223,24 @@ tangan — ubah sidecar-nya).
 - **Definisi "PASS" di CHECKLIST**: file layar ada DAN komponennya dirender.
   **Bukan** design match. Untuk layout ketat, ukur elemennya (`DESIGN-INVENTORY.md`).
 
+### `approvals.reason` dipakai ulang: alasan permintaan hilang saat ditolak
+
+`DecideApproval` (`internal/store/queries/queries.sql:1664`) menulis
+`reason = COALESCE($5, reason)`. Kolom yang sama menyimpan dua fakta berbeda:
+alasan **pemohon** memasang gate (diisi `RequestApproval`), lalu alasan
+**penyetus** menolaknya. Karena `COALESCE` menimpanya, alasan asli permintaan
+**hilang** begitu keputusan diambil.
+
+Akibatnya di layar: setelah ditolak, tidak ada satu pun tempat untuk menampilkan
+kedua alasan dengan label yang benar. Untuk sekarang panel aksi hanya
+menampilkan `reason` selama gate masih terbuka, dan panel keputusan
+menampilkannya setelah diputus — satu fakta, satu label, tidak ambigu.
+
+Perbaikannya kolom terpisah (`decision_reason`) plus perubahan handler dan
+mungkin kontrak, jadi keputusan produk. Ini sekamar dengan temuan Fase 2 soal
+`finishRunStep` yang menerima `payload` lalu membuangnya: dua-duanya bentuk
+"kolom dipakai ulang / data diterima lalu hilang".
+
 ### Endpoint per-task yang query-nya ada tapi route-nya tidak
 
 - **`ListTaskApprovals` tidak ter-expose.** Query-nya ada di

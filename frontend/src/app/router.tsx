@@ -53,6 +53,9 @@ const AgentDetail = lazy(() =>
 const ApprovalInbox = lazy(() =>
   import('@/routes/dashboard/approvals/ApprovalInbox').then((m) => ({ default: m.ApprovalInbox })),
 )
+const ApprovalDetail = lazy(() =>
+  import('@/routes/dashboard/approvals/ApprovalDetail').then((m) => ({ default: m.ApprovalDetail })),
+)
 const CostOverview = lazy(() =>
   import('@/routes/dashboard/finops/CostOverview').then((m) => ({ default: m.CostOverview })),
 )
@@ -79,6 +82,7 @@ function dashboardRoutes() {
       <Route path="agents" element={<AgentRegistry />} />
       <Route path="agents/:agentID" element={<AgentDetail />} />
       <Route path="approvals" element={<ApprovalInbox />} />
+      <Route path="approvals/:approvalID" element={<ApprovalDetail />} />
       <Route path="cost" element={<CostOverview />} />
       <Route path="settings" element={<Navigate to="workspace" replace />} />
       <Route path="settings/workspace" element={<WorkspaceSettings />} />
