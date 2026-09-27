@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { ChevronDown, ChevronRight, CircleAlert, CircleCheck, LoaderCircle } from 'lucide-react'
 import { useListRunStepsQuery, useListTaskRunsQuery, type Step } from '@/store/api/runs'
 import { useAppSelector } from '@/store/hooks'
@@ -37,6 +38,7 @@ const STATUS_STYLE: Record<Step['status'], { icon: typeof CircleCheck; className
 
 export function RunSteps({ taskID }: { taskID: string }) {
   const t = useT()
+  const { orgID } = useParams<{ orgID: string }>()
   const lang = useAppSelector((state) => state.lang.lang)
   const { data: runs, isLoading, isError } = useListTaskRunsQuery(taskID)
   const list = runs ?? []
@@ -54,11 +56,23 @@ export function RunSteps({ taskID }: { taskID: string }) {
     <div className="flex flex-col gap-3">
       {list.map((run) => (
         <section key={run.id} className="flex flex-col">
+          {/*
+            The header is the way into the full run screen (US-AD41). A run
+            screen with no door is a route nobody can reach, and this row is
+            already the thing an operator clicks when one attempt of three looks
+            wrong.
+          */}
           <header className="flex items-baseline gap-2 border-b border-[var(--color-border-subtle)] pb-1">
-            <span className="font-mono text-[11px] font-semibold text-[var(--color-primary)]">
-              {t['logs.attempt']} {run.attempt}
-            </span>
-            <span className="font-mono text-[10px] text-[var(--color-tertiary)]">{run.status}</span>
+            <Link
+              to={orgID ? `/app/${orgID}/runs/${run.id}` : `/runs/${run.id}`}
+              aria-label={`${t['logs.attempt']} ${run.attempt} ${run.id}`}
+              className="flex items-baseline gap-2 rounded-[4px] transition-opacity hover:opacity-80"
+            >
+              <span className="font-mono text-[11px] font-semibold text-[var(--color-primary)]">
+                {t['logs.attempt']} {run.attempt}
+              </span>
+              <span className="font-mono text-[10px] text-[var(--color-tertiary)]">{run.status}</span>
+            </Link>
             <span className="ml-auto font-mono text-[10px] tabular-nums text-[var(--color-tertiary)]">
               {formatMicroUSD(run.cost_micros)} · {formatTokens(run.tokens_in + run.tokens_out)}
             </span>

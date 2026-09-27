@@ -281,6 +281,24 @@ export interface Dictionary {
   'artifacts.upload': string
   'approvals.none': string
   'approvalDetail.title': string
+  'runDetail.title': string
+  'runDetail.back': string
+  'runDetail.attempt': string
+  'runDetail.duration': string
+  'runDetail.cost': string
+  'runDetail.tokens': string
+  'runDetail.tokensIn': string
+  'runDetail.tokensOut': string
+  'runDetail.startedAt': string
+  'runDetail.tab.steps': string
+  'runDetail.tab.ledger': string
+  'runDetail.cancelRequested': string
+  'runDetail.notFound': string
+  'runDetail.loadFailed': string
+  'runDetail.stepsFailed': string
+  'runDetail.ledgerFailed': string
+  'runDetail.noSteps': string
+  'runDetail.noLedger': string
   'approvalDetail.back': string
   'approvalDetail.context': string
   'approvalDetail.task': string
@@ -821,6 +839,24 @@ const en: Dictionary = {
   'artifacts.upload': 'Upload file',
   'approvals.none': 'Nothing is waiting on a decision for this task.',
   'approvalDetail.title': 'Approval detail',
+  'runDetail.title': 'Run detail',
+  'runDetail.back': 'Back',
+  'runDetail.attempt': 'Attempt',
+  'runDetail.duration': 'Duration',
+  'runDetail.cost': 'Cost',
+  'runDetail.tokens': 'Tokens',
+  'runDetail.tokensIn': 'Tokens in',
+  'runDetail.tokensOut': 'Tokens out',
+  'runDetail.startedAt': 'Started at',
+  'runDetail.tab.steps': 'Steps',
+  'runDetail.tab.ledger': 'Ledger',
+  'runDetail.cancelRequested': 'A stop has been requested; the run is still winding down.',
+  'runDetail.notFound': 'This run does not exist, or it is not in this organisation.',
+  'runDetail.loadFailed': 'This run could not be loaded.',
+  'runDetail.stepsFailed': 'The steps of this run could not be loaded.',
+  'runDetail.ledgerFailed': 'The ledger of this run could not be loaded.',
+  'runDetail.noSteps': 'This run has no steps recorded.',
+  'runDetail.noLedger': 'No ledger rows were recorded for this run.',
   'approvalDetail.back': 'Queue',
   'approvalDetail.context': 'Task and request',
   'approvalDetail.task': 'Task',
@@ -1367,6 +1403,24 @@ const id: Dictionary = {
   'artifacts.upload': 'Unggah berkas',
   'approvals.none': 'Tidak ada yang menunggu keputusan untuk task ini.',
   'approvalDetail.title': 'Detail persetujuan',
+  'runDetail.title': 'Detail run',
+  'runDetail.back': 'Kembali',
+  'runDetail.attempt': 'Percobaan',
+  'runDetail.duration': 'Durasi',
+  'runDetail.cost': 'Biaya',
+  'runDetail.tokens': 'Token',
+  'runDetail.tokensIn': 'Token masuk',
+  'runDetail.tokensOut': 'Token keluar',
+  'runDetail.startedAt': 'Dimulai',
+  'runDetail.tab.steps': 'Langkah',
+  'runDetail.tab.ledger': 'Ledger',
+  'runDetail.cancelRequested': 'Permintaan berhenti sudah dikirim; run masih berjalan menuju selesai.',
+  'runDetail.notFound': 'Run ini tidak ada, atau bukan milik organisasi ini.',
+  'runDetail.loadFailed': 'Run ini tidak bisa dimuat.',
+  'runDetail.stepsFailed': 'Langkah run ini tidak bisa dimuat.',
+  'runDetail.ledgerFailed': 'Ledger run ini tidak bisa dimuat.',
+  'runDetail.noSteps': 'Run ini belum mencatat langkah apa pun.',
+  'runDetail.noLedger': 'Belum ada baris ledger untuk run ini.',
   'approvalDetail.back': 'Antrean',
   'approvalDetail.context': 'Task dan permintaan',
   'approvalDetail.task': 'Task',

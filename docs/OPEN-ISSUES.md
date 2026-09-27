@@ -223,6 +223,37 @@ tangan — ubah sidecar-nya).
 - **Definisi "PASS" di CHECKLIST**: file layar ada DAN komponennya dirender.
   **Bukan** design match. Untuk layout ketat, ukur elemennya (`DESIGN-INVENTORY.md`).
 
+### US-AD41 AC2: tiga dari lima tab tidak punya endpoint per-RUN
+
+AC2 minta tab **Steps, Logs, Approvals, Artifacts, Ledger** di layar run. Yang
+dibangun: **Steps** dan **Ledger** — keduanya benar-benar per-run
+(`GET /runs/{id}/steps`, `GET /runs/{id}/ledger`).
+
+Tiga sisanya tidak punya sumber per-run:
+
+- **Approvals** dan **Artifacts** dilist per TASK (`GET /tasks/{id}/approvals`,
+  `GET /tasks/{id}/artifacts`). Keduanya **punya** kolom pembeda `run_id`, jadi
+  versi jujurnya menyaring di klien — itu pekerjaan fase yang memiliki Ledger
+  explorer, bukan alasan untuk menampilkan keputusan/artefak task sebagai milik
+  run ini. Untuk task yang di-retry, itu menampilkan hasil run LAIN.
+- **Logs** (event) tabel `events` **tidak punya route sama sekali**; jalur yang
+  ada hanya stream SSE per board, dan itu tidak bisa diputar ulang untuk satu
+  run yang sudah selesai.
+
+### `payload` vs `payload_json`: request dan respons memakai nama berbeda
+
+`stepRequest` (`cmd/api/runs.go:473-481`) membaca field **`payload`**, sedangkan
+respons (`toStepResponse`) mengembalikan **`payload_json`**. Mengirim
+`payload_json` dijawab **201 dengan payload null** — sukses, tapi tanpa data.
+Bentuk gagal yang paling mahal: tidak ada error untuk ditemukan, dan payload-nya
+baru terlihat kosong jauh di layar lain.
+
+Ini kejadian KETIGA soal payload di jalur run: (1) `finishRunStep` menerima
+`payload` lalu membuangnya, (2) `steps` hanya punya satu kolom `payload_json`
+padahal AC94 AC2 minta payload masuk DAN keluar, (3) nama field request berbeda
+dari nama field respons. Tiga-tiganya arahnya sama: payload adalah bagian yang
+paling gampang hilang tanpa suara di modul ini.
+
 ### `approvals.reason` dipakai ulang: alasan permintaan hilang saat ditolak
 
 `DecideApproval` (`internal/store/queries/queries.sql:1664`) menulis

@@ -1489,3 +1489,49 @@ keputusan produk, dicatat di `OPEN-ISSUES.md`.
 bukan ekspor `@/components/ui/card`; `formatDateTime` dari `@/lib/format` (bukan
 `@/lib/formatters`); `useSseCache` dari `@/hooks/use-sse-cache`. Tiga impor yang
 gw tebak salah dan ketahuan dari `tsc`.
+
+### Fase 5 — Layar detail run (US-AD41)
+
+**Keputusan yang gw ambil:**
+
+- **AC2 minta 5 tab; gw bangun 2, dan sisanya gw sebut.** `GET /runs/{id}/steps`
+  dan `GET /runs/{id}/ledger` memang per-run. Approvals dan Artifacts dilist per
+  TASK — keduanya punya kolom `run_id`, jadi versi jujurnya menyaring, dan itu
+  pekerjaan fase Ledger explorer. Untuk task yang di-retry, menyalinnya ke sini
+  berarti menampilkan hasil run LAIN di bawah nama run ini. Event run malah tidak
+  punya route sama sekali. Semuanya dicatat di `OPEN-ISSUES.md`.
+- **Durasi diambil dari `/summary`, bukan dari `runs`.** Baris `runs` tidak
+  menyimpan durasi: untuk run yang belum selesai, server mengukurnya terhadap
+  `now()`. Kalau `/summary` gagal, layarnya tetap menampilkan data run (turunan
+  boleh hilang, sumbernya tidak).
+- **404 dibedakan dari gagal muat** (AC3/AC4). Server sengaja menjawab 404 yang
+  sama untuk "tidak ada" dan "milik org lain" supaya id tenant lain tidak bisa
+  dipancing; layarnya menyebut itu sebagai satu kalimat.
+- **Layar ini diberi pintu masuk.** Baris run di tab Logs (Fase 2) sekarang link
+  ke sini — rute tanpa pintu tidak bisa dicapai siapa pun, dan dites dari UI.
+- **`StepTimeline` dipakai ulang** untuk tab Steps, bukan renderer kedua: bentuk
+  yang dibacanya adalah `{kind, payload, created_at}`, jadi envelope-nya disintesis
+  di batas komponen dan `StepTimeline` tetap tidak tahu soal run.
+
+**Temuan baru (diverifikasi lawan kode):**
+
+`stepRequest` membaca field **`payload`**, sedangkan respons mengembalikan
+**`payload_json`** (`cmd/api/runs.go:473-481`). Mengirim `payload_json` dijawab
+**201 dengan payload null** — sukses tanpa data. Ini kejadian **ketiga** soal
+payload di jalur run, sesudah `finishRunStep` membuang payload dan `steps` hanya
+punya satu kolom padahal AC94 AC2 minta dua. Ketiganya arah yang sama: payload
+adalah bagian yang paling gampang hilang tanpa suara di modul ini.
+
+**Bukti:**
+
+- **e2e `run-detail.spec.ts` 3/3** — ringkasan + step nyata, pintu masuk dari
+  drawer, dan 404 untuk run yang bukan milik org ini.
+- **Full e2e: 143 passed / 2 skipped / 0 failed.**
+- **Mutasi 3 CAUGHT / 0 SURVIVED:** durasi `/summary` dibuang, 404 tidak
+  dibedakan, tab Steps tidak memuat step.
+- Gate rc=0 · tsc rc=0 · vitest 80/80 · prettier bersih.
+
+**Catatan harness:** `providesTags` `listTaskRuns` sempat gw ubah jadi
+`TASK-${taskID}` tanpa perlu; gw balikin setelah memverifikasi tidak ada yang
+meng-invalidate tag `Run` selain deklarasinya di `base.ts`. Perubahan tag yang
+tidak diminta adalah cara paling sunyi untuk mematikan refresh tab Logs.

@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (142 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (143 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 86 |
+| `<svg>` | 111 | 91 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -17,10 +17,10 @@ sementara implementasi mendeklarasikan komponennya sekali lalu merendernya
 di dalam `.map()`. Jadi rasio mentahnya selalu terlihat lebih buruk daripada
 kenyataan, dan satu-satunya cara membacanya adalah per jenis icon di layar
 yang punya file impl — lihat §3.
-| blok skeleton (abu berukuran) | 323 | 25 |
+| blok skeleton (abu berukuran) | 323 | 28 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 29 |
+| file memakai `lucide-react` | 0 | 30 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -126,7 +126,7 @@ Dideklarasikan: 6. Nol dipakai: 0.
 | penanda | design | impl |
 |---|---|---|
 | `line-through` | 6 | 2 |
-| `opacity-*` | 37 | 15 |
+| `opacity-*` | 37 | 16 |
 
 ## 8. Jargon yang bocor ke UI yang dirender
 
@@ -176,7 +176,7 @@ Nol.
 | 29-cost-overview | `/cost` | `CostOverview.tsx` | 0/0 | 0 | 1 |
 | 30-ledger-explorer | `/cost/ledger` | — | 0/0 | 0 | 0 |
 | 31-cost-export | `(modal)` | — | 0/0 | 0 | 0 |
-| 32-run-detail | `/runs/:id` | — | 18/0 | 0 | 0 |
+| 32-run-detail | `/runs/:id` | `RunDetail.tsx` | 18/5 | 0 | 3 |
 | 33-run-timeline | `/runs/:id/timeline` | — | 4/0 | 0 | 0 |
 | 34-step-payload | `(panel)` | — | 0/0 | 0 | 0 |
 | 35-approval-inbox | `/approvals` | `DiffViewer.tsx`, `ApprovalInbox.tsx` | 10/3 | 0 | 1 |
