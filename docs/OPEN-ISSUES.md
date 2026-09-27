@@ -203,6 +203,26 @@ router atau dirender induknya.
 Regenerate: `python tools/update_checklist.py` (**jangan** edit CHECKLIST.md
 tangan — ubah sidecar-nya).
 
+### Temuan Fase 2 (tab Logs)
+
+- **`finishRunStep` menerima `payload` di body lalu membuangnya.** Handler cuma
+  membangun `board.Step{Status, CostMicros}`. Payload hanya tersimpan saat step
+  dibuka (`StartStep`). Mengirimnya lewat `PATCH .../steps/{seq}` adalah no-op
+  yang tidak berbunyi. Sumber: `cmd/api/runs.go`.
+- **`steps` cuma punya satu kolom `payload_json`** (migrasi `0013`), padahal
+  US-AD94 AC2 minta payload **masuk dan keluar** ditampilkan sebagai dua blok.
+  Memperbaikinya = kolom baru + perubahan handler (kontrak). Panel sekarang
+  menampilkan yang satu ada.
+- **US-AD94 AC1 minta cache read/write per step, `steps` tidak punya kolomnya.**
+  Ada di `ledger_entries` (`CacheReadTokens`, `CacheWriteTokens`). Merender 0
+  berarti mengarang angka; panel menampilkan token dan biaya yang step laporkan.
+  Cache ditangani di fase Ledger explorer.
+- **US-AD94 AC5 (payload mentah disamarkan untuk `viewer`) belum dikerjakan.**
+  App belum punya permukaan penyamaran per peran di mana pun; gerbang peran hidup
+  di endpoint. Mengklaimnya di UI = aturan yang tidak ditegakkan di mana pun.
+- **Definisi "PASS" di CHECKLIST**: file layar ada DAN komponennya dirender.
+  **Bukan** design match. Untuk layout ketat, ukur elemennya (`DESIGN-INVENTORY.md`).
+
 ### Yang masih terbuka setelah audit
 
 **"PASS" belum berarti design match.** Verdict di atas mengukur

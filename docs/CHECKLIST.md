@@ -66,10 +66,10 @@
 | `US-AD70` | Must | M2 | Proteksi siklus dependency | *backend-only* | ✅ PASS |
 | `US-AD80` | Must | M2 | Menghapus task (soft delete) | `18-kanban`, `20-task-drawer` | ✅ PASS |
 | `US-AD86` | Must | M2 | Simpan kredensial provider LLM per agent | `27-agent-provider-key` | ✅ PASS |
-| `US-AD94` | Must | M2 | Panel detail step dan payload | `34-step-payload` | ⬜ |
+| `US-AD94` | Must | M2 | Panel detail step dan payload | `34-step-payload` | ✅ PASS |
 | `US-AD96` | Must | M2 | Formulir agent (buat dan ubah) | `26-agent-form` | ✅ PASS |
 | `US-AD97` | Must | M2 | Cost rail: panel biaya sisi kanan | `18-kanban` | ✅ PASS |
-| `US-AD26` | Must | M3 | Melihat timeline step per run | `33-run-timeline` | ⬜ |
+| `US-AD26` | Must | M3 | Melihat timeline step per run | `33-run-timeline` | ✅ PASS |
 | `US-AD33` | Must | M3 | Approval gate: request approval | *backend-only* | ✅ PASS |
 | `US-AD34` | Must | M3 | Approval: approve | `36-approval-detail` | ⬜ |
 | `US-AD35` | Must | M3 | Approval: reject | `36-approval-detail` | ⬜ |
@@ -96,7 +96,7 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ✅ PASS |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ✅ PASS |
 
-**Total M0–M4: 89 story** (68 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (70 PASS, 1 ditunda)
 
 ## Progres per milestone
 
@@ -104,8 +104,8 @@
 |---|---|---|---|
 | M0 | 10 | 9 | 1 |
 | M1 | 32 | 26 | 6 |
-| M2 | 21 | 16 | 5 |
-| M3 | 16 | 8 | 8 |
+| M2 | 21 | 17 | 4 |
+| M3 | 16 | 9 | 7 |
 | M4 | 10 | 9 | 1 |
 
 ### Catatan status — `US-AD73` (🔨 dikerjakan)

@@ -12,6 +12,7 @@ import { useActionForm, describeError } from '@/hooks/use-action-form'
 import { useCanAct } from '@/hooks/use-orgs'
 import { StepTimeline } from '@/components/terminal/StepTimeline'
 import { TabArtifacts } from '@/components/boards/TabArtifacts'
+import { RunSteps } from '@/components/boards/RunSteps'
 import { Button } from '@/components/ui/button'
 import { Field, Input, Textarea } from '@/components/ui/input'
 import { useAppDispatch } from '@/store/hooks'
@@ -217,6 +218,13 @@ export function TaskDetailDrawer({ taskID }: { taskID: string }) {
               >
                 <SectionTitle>{t['drawer.tab.artifacts']}</SectionTitle>
                 <TabArtifacts taskID={taskID} />
+              </section>
+            ) : null}
+
+            {tab === 'logs' ? (
+              <section role="tabpanel" id="drawer-panel-logs" aria-labelledby="drawer-tab-logs" className="mt-5">
+                <SectionTitle>{t['drawer.tab.logs']}</SectionTitle>
+                <RunSteps taskID={taskID} />
               </section>
             ) : null}
           </>

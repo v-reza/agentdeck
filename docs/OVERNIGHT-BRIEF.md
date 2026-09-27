@@ -59,7 +59,8 @@ Maka urutannya:
 |---|---|---|---|
 | 0 | ✅ **SELESAI** (`d4078f1`) — Pasang `useSseCache` di kanban + toolbar | US-AD39 | Board hidup tanpa refresh. |
 | 1 | ✅ **SELESAI** — **Artifacts tab** (list + unduh) + tab shell 4 tab | US-AD48 | Upload dipisah ke fase 1b, lihat di bawah. |
-| 2 | **Logs tab** (step timeline) | US-AD26, US-AD94 | `GET /runs/{id}/events` + step payload ada. |
+| 2 | ✅ **SELESAI** (`F2`) — **Logs tab**: step timeline per run (grup per run, warna status, expand payload) | US-AD26, US-AD94 | AC1 (cache read/write) dan AC5 (masking viewer) TIDAK bisa: kolom/permukaan tidak ada. Dicatat di OPEN-ISSUES. |
+| 1b | **Upload artifact** di tab Artifacts | US-AD48 | File picker → `upload-url` → PUT → register. `run_id` diambil dari `useListTaskRunsQuery` (Fase 2 sudah menyediakannya). |
 | 3 | **Approvals tab** di drawer | US-AD34, US-AD35 | `stream.ts` sudah punya `listApprovals`/`approveApproval`/`rejectApproval`. |
 | 4 | **Approval detail** `36-approval-detail` | US-AD34, US-AD35 | Layar belum ada; datanya sudah. |
 | 5 | **Run detail** `32-run-detail` | US-AD41 | `GET /runs/{id}` + `/summary` ada. |

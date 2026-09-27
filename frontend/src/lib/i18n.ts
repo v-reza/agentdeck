@@ -278,6 +278,17 @@ export interface Dictionary {
   'drawer.tab.approvals': string
   'artifacts.empty': string
   'artifacts.notConfigured': string
+  'logs.loadFailed': string
+  'logs.noRuns': string
+  'logs.stepsFailed': string
+  'logs.noSteps': string
+  'logs.attempt': string
+  'logs.running': string
+  'logs.kind': string
+  'logs.started': string
+  'logs.tokensIn': string
+  'logs.tokensOut': string
+  'logs.noPayload': string
   'artifacts.loadFailed': string
   'artifacts.download': string
   'boards.liveHint': string
@@ -772,6 +783,17 @@ const en: Dictionary = {
   'drawer.tab.approvals': 'Approvals',
   'artifacts.empty': 'This task has produced no artifacts yet.',
   'artifacts.notConfigured': 'Object storage is not configured, so artifacts cannot be listed.',
+  'logs.loadFailed': "Could not load this task's runs.",
+  'logs.noRuns': 'This task has not been run yet.',
+  'logs.stepsFailed': 'Could not load the steps of this run.',
+  'logs.noSteps': 'No steps recorded yet.',
+  'logs.attempt': 'Attempt',
+  'logs.running': 'running',
+  'logs.kind': 'kind',
+  'logs.started': 'started',
+  'logs.tokensIn': 'tokens in',
+  'logs.tokensOut': 'tokens out',
+  'logs.noPayload': 'No payload stored for this step.',
   'artifacts.loadFailed': 'Artifacts could not be loaded.',
   'artifacts.download': 'Download',
   'boards.liveHint': 'Updates arrive on their own; no refresh needed.',
@@ -1272,6 +1294,17 @@ const id: Dictionary = {
   'drawer.tab.approvals': 'Persetujuan',
   'artifacts.empty': 'Task ini belum menghasilkan artefak.',
   'artifacts.notConfigured': 'Object storage belum dikonfigurasi, jadi artefak tidak bisa didaftar.',
+  'logs.loadFailed': 'Run task ini tidak bisa dimuat.',
+  'logs.noRuns': 'Task ini belum pernah dijalankan.',
+  'logs.stepsFailed': 'Step pada run ini tidak bisa dimuat.',
+  'logs.noSteps': 'Belum ada step tercatat.',
+  'logs.attempt': 'Percobaan',
+  'logs.running': 'berjalan',
+  'logs.kind': 'jenis',
+  'logs.started': 'mulai',
+  'logs.tokensIn': 'token masuk',
+  'logs.tokensOut': 'token keluar',
+  'logs.noPayload': 'Tidak ada payload tersimpan untuk step ini.',
   'artifacts.loadFailed': 'Artefak tidak bisa dimuat.',
   'artifacts.download': 'Unduh',
   'boards.liveHint': 'Perubahan masuk sendiri; tidak perlu refresh.',

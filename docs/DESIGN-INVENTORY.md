@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (136 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (140 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 74 |
+| `<svg>` | 111 | 78 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -17,10 +17,10 @@ sementara implementasi mendeklarasikan komponennya sekali lalu merendernya
 di dalam `.map()`. Jadi rasio mentahnya selalu terlihat lebih buruk daripada
 kenyataan, dan satu-satunya cara membacanya adalah per jenis icon di layar
 yang punya file impl — lihat §3.
-| blok skeleton (abu berukuran) | 323 | 20 |
+| blok skeleton (abu berukuran) | 323 | 23 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 25 |
+| file memakai `lucide-react` | 0 | 27 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -163,7 +163,7 @@ Nol.
 | 17-close-account | `/settings/close` | — | 0/0 | 0 | 0 |
 | 18-kanban | `/boards/:id` | `BoardToolbar.tsx`, `KanbanBoard.tsx` | 5/4 | 0 | 1 |
 | 19-table-view | `/boards/:id?view=table` | `BoardToolbar.tsx`, `TableView.tsx` | 0/4 | 0 | 1 |
-| 20-task-drawer | `(drawer)` | `StepTimeline.tsx`, `TaskDetailDrawer.tsx` | 12/5 | 0 | 1 |
+| 20-task-drawer | `(drawer)` | `RunSteps.tsx`, `TabArtifacts.tsx`, `StepTimeline.tsx`, `TaskDetailDrawer.tsx` | 12/9 | 0 | 4 |
 | 21-task-create | `(modal)` | `TaskCreateForm.tsx` | 7/3 | 0 | 0 |
 | 22-column-editor | `(panel)` | `ColumnEditor.tsx`, `BoardSettings.tsx` | 0/6 | 0 | 1 |
 | 23-board-settings | `/boards/:id/settings` | `BoardSettings.tsx` | 0/0 | 0 | 0 |
@@ -195,7 +195,7 @@ Nol.
 
 ## 10. File tanpa layar (shell & komponen bersama)
 
-80 file tidak dipetakan ke satu layar. Ini wajar untuk
+82 file tidak dipetakan ke satu layar. Ini wajar untuk
 layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 
 - `App.tsx`
@@ -260,11 +260,13 @@ layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 - `routes/public/NotFoundPage.tsx`
 - `routes/public/SupportPage.tsx`
 - `store/api/agents.ts`
+- `store/api/artifacts.ts`
 - `store/api/base.ts`
 - `store/api/boards.ts`
 - `store/api/finops.ts`
 - `store/api/providers.ts`
 - `store/api/releases.ts`
+- `store/api/runs.ts`
 - `store/api/session.ts`
 - `store/api/stream.ts`
 - `store/hooks.ts`

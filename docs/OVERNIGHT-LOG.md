@@ -1265,3 +1265,80 @@ signing; panel Artifacts tidak dirender.
 - full e2e 4 shard: 42 / 29+1 skip / 28 / 33 = **132 passed, 1 skipped, 0 failed**.
 - suite artifact lawan rig MinIO: **2/2 passed** (termasuk round-trip byte).
 - Yang **tidak** dites: tab Logs dan Approvals masih placeholder; upload belum ada.
+
+### Fase 2 — Tab Logs: timeline step per run (US-AD26, US-AD94)
+
+**Dua endpoint sudah hidup, nol pemanggil.** `GET /tasks/{id}/runs` dan
+`GET /runs/{id}/steps` plus tabel `steps` (append-only, `seq` unik per run)
+sudah lengkap sejak run lifecycle mendarat. Yang tidak ada: klien `runs` di
+frontend. Jadi tab ini menunggu klien, bukan endpoint.
+
+Yang dibangun:
+- `store/api/runs.ts` — `listTaskRuns`, `listRunSteps` (tag `Run`, `Step`).
+- `components/boards/RunSteps.tsx` — setiap run task dengan step-nya, warna
+  status, token/biaya `tabular-nums`, expand → payload.
+- Panel Logs di drawer menggantikan placeholder.
+
+**Tiga keputusan, dengan alasannya:**
+
+1. **Dikelompokkan per run, bukan satu daftar step datar.** Run adalah unit yang
+   di-retry, jadi task yang gagal dua kali lalu berhasil punya tiga run dan satu
+   di antaranya yang penting. Daftar datar menggabungkannya dan menyembunyikan
+   step itu milik percobaan ke berapa. (Klien AC94 minta `run_id` di step;
+   route-nya belum ada — dikelompokkan lewat run, bukan lewat field yang tidak
+   ada.)
+
+2. **Upload artifact (Fase 1b) butuh klien ini, jadi dia jalan setelah ini.**
+   `run_id` wajib di kedua endpoint artifact (keputusan F13), dan sekarang tinggal
+   pakai `POST /runs/{id}/steps` yang sudah dipakai tab ini.
+
+3. **`data-status` di ikon status.** Alasannya bukan gaya: `svg.text-[var(--color-success)]`
+   **bukan selector CSS yang valid** dan `querySelectorAll` menolaknya dengan
+   `SyntaxError` — itu kegagalan test pertama, dan pesannya menunjuk ke locator
+   bukan ke tesnya. Atribut ini juga menghindari memaku nilai hex yang DESIGN.md
+   yang punya.
+
+**Tiga temuan yang diverifikasi lawan kode (semua dicatat, satu diperbaiki):**
+
+- **`finishRunStep` membuang payload.** Handler menerima `payload` di body, lalu
+  membangun `board.Step{Status, CostMicros}` saja. Payload hanya tersimpan saat
+  step DIBUKA (`StartStep`). Tes gw sendiri yang ketahuan: mengirim payload lewat
+  PATCH adalah no-op yang tidak berbunyi. Komentar di test sekarang menyebut
+  perilakunya.
+- **`steps` hanya punya SATU kolom `payload_json`**, padahal AC94 AC2 minta
+  payload **masuk dan keluar**. Payload keluar tidak punya tempat. Panel
+  menampilkan yang ada; menambah kolom + mengubah handler = perubahan kontrak,
+  jadi tidak dikerjakan malam ini.
+- **AC94 AC1 minta cache read/write per step** — kolomnya tidak ada di `steps`,
+  ada di `ledger_entries`. Merender 0 adalah angka karangan, jadi panel
+  menampilkan token dan biaya yang step benar-benar laporkan. Cache masuk fase
+  Ledger explorer.
+
+AC94 AC5 (payload disamarkan untuk viewer) belum dikerjakan: app ini belum punya
+permukaan penyamaran per peran di mana pun. Diklaim di UI berarti aturan yang
+tidak ditegakkan di mana pun.
+
+**Verifikasi:** gate rc=0 · vitest 80/80 · `tsc -b` rc=0 · prettier bersih ·
+e2e logs 3/3 · **full e2e 135 passed / 1 skipped / 0 failed** (128 → +3 Fase 0,
++3 Fase 2, +1 Fase 1 yang di-skip saat storage mati). CHECKLIST regenerasi:
+**70 PASS / 89** (dari 68).
+
+**Mutasi 6 CAUGHT, dan dua SURVIVED yang mengungkap asert kosong milik gw.**
+Mutan "payload tidak di-pretty-print" SURVIVED dua kali:
+- asert pertama `toContainText('"completion"')` cocok untuk JSON mentah MAUPUN
+  pretty-print;
+- versi berspasi (`'"completion": "selesai"'`) juga cocok, karena kolom
+  `payload_json` adalah **JSONB** dan Postgres sudah mengembalikannya berspasi
+  `{"a": 1}` persis seperti `JSON.stringify` untuk objek datar.
+
+Bedanya baru muncul saat payloadnya **bersarang**: pretty-print menghasilkan baris
+baru, JSONB tidak. Asert final menghitung jumlah baris. Mutan lain yang CAUGHT:
+durasi "running" diganti 0ms (AC94 AC3), warna status dihapus (AC26 AC1), payload
+kosong jadi error (AC26 AC3), step diurutkan terbalik di klien, empty state
+diganti teks gagal.
+
+**Kesalahan proses gw yang perlu dicatat:** satu sel `execute_code` gagal di
+tengah setelah menerapkan 3 edit; karena `write_text` baru jalan di akhir,
+ketiga edit itu tidak pernah tersimpan dan gw menemukannya dari kegagalan test
+berikutnya (`write_file` ter-render dengan status `running`). Verifikasi edit
+sebelum menjalankan test itu lebih murah daripada membaca log test.
