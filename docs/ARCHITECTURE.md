@@ -1906,13 +1906,13 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 #### 6.2.18 Webhooks & Deliveries (7 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/boards/{board_id}/webhooks` | Session/Key | Admin | Ya | ⬜ | List webhook subscriptions pada board |
-| `POST` | `/api/v1/boards/{board_id}/webhooks` | Session/Key | Admin | Ya (Key) | ⬜ | Daftarkan webhook `{url, events_json, secret}` |
-| `GET` | `/api/v1/webhooks/{id}` | Session/Key | Admin | Ya | ⬜ | Detail webhook dan status aktif |
-| `PATCH` | `/api/v1/webhooks/{id}` | Session/Key | Admin | Ya | ⬜ | Aktifkan/nonaktifkan webhook atau ubah URL |
-| `DELETE` | `/api/v1/webhooks/{id}` | Session/Key | Admin | Ya | ⬜ | Hapus subscription webhook |
-| `GET` | `/api/v1/webhooks/{id}/deliveries` | Session/Key | Admin | Ya | ⬜ | Log riwayat pengiriman event & HTTP response code |
-| `POST` | `/api/v1/webhooks/{id}/deliveries/{delivery_id}/retry` | Session/Key | Admin | Ya | ⬜ | Kirim ulang webhook delivery yang gagal |
+| `GET` | `/api/v1/boards/{board_id}/webhooks` | Session/Key | Admin | Ya | ✅ | List webhook subscriptions pada board |
+| `POST` | `/api/v1/boards/{board_id}/webhooks` | Session/Key | Admin | Ya (Key) | ✅ | Daftarkan webhook `{url, events_json, secret}` |
+| `GET` | `/api/v1/webhooks/{id}` | Session/Key | Admin | Ya | ✅ | Detail webhook dan status aktif |
+| `PATCH` | `/api/v1/webhooks/{id}` | Session/Key | Admin | Ya | ✅ | Aktifkan/nonaktifkan webhook atau ubah URL |
+| `DELETE` | `/api/v1/webhooks/{id}` | Session/Key | Admin | Ya | ✅ | Hapus subscription webhook |
+| `GET` | `/api/v1/webhooks/{id}/deliveries` | Session/Key | Admin | Ya | ✅ | Log riwayat pengiriman event & HTTP response code |
+| `POST` | `/api/v1/webhooks/{id}/deliveries/{delivery_id}/retry` | Session/Key | Admin | Ya | ✅ | Kirim ulang webhook delivery yang gagal |
 
 #### 6.2.19 Audit, Search & System (6 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |

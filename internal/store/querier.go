@@ -212,6 +212,8 @@ type Querier interface {
 	// rejects cycles before insert.
 	CreateTaskLink(ctx context.Context, arg CreateTaskLinkParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
+	CreateWebhook(ctx context.Context, arg CreateWebhookParams) (CreateWebhookRow, error)
+	CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (WebhookDelivery, error)
 	// Transisi tunggal (8.4): `decision` hanya boleh bergerak dari 'pending' ke
 	// nilai terminal. Predikatnya ada DI DALAM UPDATE, bukan di cek-lalu-tulis,
 	// supaya dua approver yang menekan bersamaan menghasilkan satu pemenang dan
@@ -240,6 +242,7 @@ type Querier interface {
 	// Revokes every session of one user (US-AD88 AC2). Deliberately not scoped by
 	// token: after a reset the operator has no trusted device, so all of them go.
 	DeleteUserSessions(ctx context.Context, userID string) error
+	DeleteWebhook(ctx context.Context, arg DeleteWebhookParams) (int64, error)
 	// The cost rollup is computed from ledger_entries in the same statement that
 	// closes the run, so runs.cost_micros can never disagree with the ledger it
 	// summarises. A rollup maintained by the executor in a separate UPDATE would
@@ -322,6 +325,8 @@ type Querier interface {
 	GetTask(ctx context.Context, arg GetTaskParams) (Task, error)
 	GetUserByEmail(ctx context.Context, lower string) (GetUserByEmailRow, error)
 	GetUserByID(ctx context.Context, id string) (GetUserByIDRow, error)
+	GetWebhook(ctx context.Context, arg GetWebhookParams) (Webhook, error)
+	GetWebhookDelivery(ctx context.Context, id int64) (WebhookDelivery, error)
 	// ============================================================================
 	// M4 irisan 2: dispatcher tick (heartbeat, reclaim, dependency, budget, klaim)
 	// ============================================================================
@@ -410,6 +415,7 @@ type Querier interface {
 	// `sqlc.narg` rather than a sentinel: an empty string is a legitimate search
 	// term for "no match", so it cannot double as "unset".
 	ListBoardTasks(ctx context.Context, arg ListBoardTasksParams) ([]Task, error)
+	ListBoardWebhooks(ctx context.Context, arg ListBoardWebhooksParams) ([]ListBoardWebhooksRow, error)
 	ListBoards(ctx context.Context, arg ListBoardsParams) ([]Board, error)
 	// 5.1: "satu instance per board yang aktif". Daftar board yang punya project
 	// (board tanpa project tidak bisa punya task). Instance memilihnya sendiri lewat
@@ -417,6 +423,13 @@ type Querier interface {
 	// Dibatasi ke board yang punya setidaknya satu task `ready` supaya org dengan
 	// puluhan board tidak membayar satu query budget per board tiap 2 detik.
 	ListClaimableBoards(ctx context.Context) ([]ListClaimableBoardsRow, error)
+	// Melayani webhooks_board_active_idx (board_id, active).
+	//
+	// `jsonb_array_length(events_json) = 0` berarti SEMUA event: DEFAULT '[]' di
+	// 3.22 dibaca sebagai "belum difilter", dan webhook tanpa filter yang tidak
+	// pernah menyala adalah webhook yang tidak berguna. Operator yang memang ingin
+	// nol event menonaktifkannya (`active = false`), bukan mengosongkan daftarnya.
+	ListMatchingWebhooks(ctx context.Context, arg ListMatchingWebhooksParams) ([]ListMatchingWebhooksRow, error)
 	ListMembers(ctx context.Context, orgID string) ([]ListMembersRow, error)
 	ListModelPrices(ctx context.Context, orgID string) ([]AgentModelPrice, error)
 	// 6.2.19 / US-AD61: milik satu pengguna, terbaru dulu, dengan plafon. `unread`
@@ -439,6 +452,23 @@ type Querier interface {
 	ListProjects(ctx context.Context, orgID string) ([]Project, error)
 	// The default sorts first because it is what the agent form preselects (AC9).
 	ListProviders(ctx context.Context, orgID string) ([]Provider, error)
+	// Melayani webhook_deliveries_retry_idx.
+	//
+	// Kapan sebuah delivery "jatuh tempo" dihitung di Go (jadwal backoff 13.3),
+	// bukan di SQL: jadwalnya adalah konstanta yang diuji, dan menaruhnya di SQL
+	// berarti menguji perilaku waktu lewat string query. Baris yang belum jatuh
+	// tempo dilewati tick ini dan tetap terambil tick berikutnya, karena urutannya
+	// id ASC — baris paling tua justru yang paling dulu jatuh tempo.
+	// Event-nya di-join di sini, bukan dibaca terpisah per baris: body pengiriman
+	// butuh kind/board_id/payload dari event, dan satu query jauh lebih murah
+	// daripada satu pembacaan per delivery.
+	//
+	// LEFT JOIN, bukan JOIN: `agentdeck_cleanup()` (3.24) menghapus `events` lebih
+	// tua dari 30 hari, jadi sebuah delivery bisa kehilangan event-nya sementara
+	// barisnya sendiri masih `pending`. Dengan JOIN biasa baris itu hilang dari
+	// hasil dan menggantung selamanya tanpa jejak; dengan LEFT JOIN worker
+	// melihatnya dan menandainya `dead` dengan alasan yang jelas.
+	ListRetryableDeliveries(ctx context.Context, limit int32) ([]ListRetryableDeliveriesRow, error)
 	// Replay trace satu run (6.2.13). Melayani `events_run_idx (run_id, id)`.
 	// Scoping org ada di predikat supaya run org lain tidak pernah terbaca.
 	ListRunEventsAfter(ctx context.Context, arg ListRunEventsAfterParams) ([]Event, error)
@@ -477,6 +507,7 @@ type Querier interface {
 	ListTaskEvents(ctx context.Context, taskID *string) ([]Event, error)
 	ListTaskParents(ctx context.Context, childID string) ([]ListTaskParentsRow, error)
 	ListTaskRuns(ctx context.Context, arg ListTaskRunsParams) ([]ListTaskRunsRow, error)
+	ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]WebhookDelivery, error)
 	// Dua bentuk dalam satu statement: `ids` kosong + `all` benar = semua yang belum
 	// dibaca; kalau tidak, hanya id yang disebut. `user_id` dan `org_id` ada di
 	// predikat, jadi id milik pengguna lain tidak pernah tersentuh.
@@ -542,6 +573,10 @@ type Querier interface {
 	// memperlakukan nol baris sebagai "sudah selesai", bukan sebagai error.
 	RequestRunCancel(ctx context.Context, arg RequestRunCancelParams) (pgtype.Timestamptz, error)
 	ResetTaskFailures(ctx context.Context, arg ResetTaskFailuresParams) error
+	// Retry manual (13.3): attempts kembali 0 supaya delivery yang sudah dead
+	// mendapat jatah enam percobaan penuh lagi, bukan langsung mati di percobaan
+	// berikutnya karena jatahnya sudah habis.
+	ResetWebhookDelivery(ctx context.Context, id int64) error
 	// POST /tasks/{id}/retry. Satu statement, bukan tiga, karena `consecutive_failures`
 	// dan `status` harus bergerak bersamaan: task yang kembali `ready` dengan counter
 	// yang masih penuh akan langsung menyentuh plafon max_attempts lagi di kegagalan
@@ -670,6 +705,8 @@ type Querier interface {
 	// spelling drifts between sqlc releases and breaks the caller. `sqlc.arg` names
 	// the parameter and `::text` pins the type, so the generated field is stable.
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (UpdateUserProfileRow, error)
+	UpdateWebhook(ctx context.Context, arg UpdateWebhookParams) (UpdateWebhookRow, error)
+	UpdateWebhookDelivery(ctx context.Context, arg UpdateWebhookDeliveryParams) error
 	// 4c/5.3: agregat biaya harian per board. Di-UPSERT setiap step selesai, jadi
 	// dispatcher tidak perlu menjumlahkan ledger_entries tiap tick.
 	UpsertDailyBoardCost(ctx context.Context, arg UpsertDailyBoardCostParams) error

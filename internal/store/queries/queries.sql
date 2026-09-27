@@ -1019,6 +1019,100 @@ INSERT INTO events (org_id, board_id, task_id, run_id, kind, payload_json)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, org_id, board_id, task_id, run_id, kind, payload_json, created_at;
 
+-- name: CreateWebhook :one
+INSERT INTO webhooks (id, org_id, board_id, url, secret_enc, events_json, active)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, org_id, board_id, url, events_json, active, created_at;
+
+-- name: ListBoardWebhooks :many
+SELECT id, org_id, board_id, url, events_json, active, created_at
+FROM webhooks
+WHERE board_id = $1 AND org_id = $2
+ORDER BY created_at DESC, id DESC;
+
+-- name: GetWebhook :one
+SELECT id, org_id, board_id, url, secret_enc, events_json, active, created_at
+FROM webhooks
+WHERE id = $1 AND org_id = $2;
+
+-- name: UpdateWebhook :one
+UPDATE webhooks
+SET url = $3, active = $4
+WHERE id = $1 AND org_id = $2
+RETURNING id, org_id, board_id, url, events_json, active, created_at;
+
+-- name: DeleteWebhook :execrows
+DELETE FROM webhooks WHERE id = $1 AND org_id = $2;
+
+-- name: ListMatchingWebhooks :many
+-- Melayani webhooks_board_active_idx (board_id, active).
+--
+-- `jsonb_array_length(events_json) = 0` berarti SEMUA event: DEFAULT '[]' di
+-- 3.22 dibaca sebagai "belum difilter", dan webhook tanpa filter yang tidak
+-- pernah menyala adalah webhook yang tidak berguna. Operator yang memang ingin
+-- nol event menonaktifkannya (`active = false`), bukan mengosongkan daftarnya.
+SELECT id, org_id, board_id, url, secret_enc
+FROM webhooks
+WHERE board_id = $1 AND active = true
+  AND (jsonb_array_length(events_json) = 0 OR events_json ? $2::text);
+
+-- name: CreateWebhookDelivery :one
+INSERT INTO webhook_deliveries (webhook_id, event_id, status)
+VALUES ($1, $2, 'pending')
+RETURNING id, webhook_id, event_id, status, attempts, response_code, last_error, created_at;
+
+-- name: GetWebhookDelivery :one
+SELECT id, webhook_id, event_id, status, attempts, response_code, last_error, created_at
+FROM webhook_deliveries
+WHERE id = $1;
+
+-- name: ListWebhookDeliveries :many
+SELECT id, webhook_id, event_id, status, attempts, response_code, last_error, created_at
+FROM webhook_deliveries
+WHERE webhook_id = $1
+ORDER BY id DESC
+LIMIT $2;
+
+-- name: ListRetryableDeliveries :many
+-- Melayani webhook_deliveries_retry_idx.
+--
+-- Kapan sebuah delivery "jatuh tempo" dihitung di Go (jadwal backoff 13.3),
+-- bukan di SQL: jadwalnya adalah konstanta yang diuji, dan menaruhnya di SQL
+-- berarti menguji perilaku waktu lewat string query. Baris yang belum jatuh
+-- tempo dilewati tick ini dan tetap terambil tick berikutnya, karena urutannya
+-- id ASC — baris paling tua justru yang paling dulu jatuh tempo.
+-- Event-nya di-join di sini, bukan dibaca terpisah per baris: body pengiriman
+-- butuh kind/board_id/payload dari event, dan satu query jauh lebih murah
+-- daripada satu pembacaan per delivery.
+--
+-- LEFT JOIN, bukan JOIN: `agentdeck_cleanup()` (3.24) menghapus `events` lebih
+-- tua dari 30 hari, jadi sebuah delivery bisa kehilangan event-nya sementara
+-- barisnya sendiri masih `pending`. Dengan JOIN biasa baris itu hilang dari
+-- hasil dan menggantung selamanya tanpa jejak; dengan LEFT JOIN worker
+-- melihatnya dan menandainya `dead` dengan alasan yang jelas.
+SELECT d.id, d.webhook_id, d.event_id, d.status, d.attempts, d.created_at,
+       w.url, w.secret_enc, w.org_id,
+       e.kind, e.board_id, e.task_id, e.run_id, e.payload_json, e.created_at AS event_created_at
+FROM webhook_deliveries d
+JOIN webhooks w ON w.id = d.webhook_id
+LEFT JOIN events e ON e.id = d.event_id
+WHERE d.status IN ('pending','failed') AND w.active = true
+ORDER BY d.id
+LIMIT $1;
+
+-- name: UpdateWebhookDelivery :exec
+UPDATE webhook_deliveries
+SET status = $2, attempts = $3, response_code = $4, last_error = $5
+WHERE id = $1;
+
+-- name: ResetWebhookDelivery :exec
+-- Retry manual (13.3): attempts kembali 0 supaya delivery yang sudah dead
+-- mendapat jatah enam percobaan penuh lagi, bukan langsung mati di percobaan
+-- berikutnya karena jatahnya sudah habis.
+UPDATE webhook_deliveries
+SET status = 'pending', attempts = 0, response_code = NULL, last_error = NULL
+WHERE id = $1;
+
 -- name: ListRunEventsAfter :many
 -- Replay trace satu run (6.2.13). Melayani `events_run_idx (run_id, id)`.
 -- Scoping org ada di predikat supaya run org lain tidak pernah terbaca.

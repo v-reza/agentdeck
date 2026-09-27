@@ -10,6 +10,7 @@ import (
 	"agentdeck/internal/board"
 	"agentdeck/internal/modelprice"
 	"agentdeck/internal/providerreg"
+	"agentdeck/internal/webhook"
 )
 
 // boardAPI wires the M1 board domain to HTTP. It rides the same authAPI as the
@@ -136,6 +137,32 @@ func toProjectResponse(p board.Project) projectResponse {
 //
 // Each route chains authentication + tenant resolution + the role gate, so no
 // board handler can be registered without all three.
+// registerWebhookRoutes mounts the seven 6.2.18 routes.
+//
+// Dipisah dari registerBoardRoutes supaya pemanggil yang tidak punya service
+// webhook (tes RBAC board) tetap bisa memasang route board tanpa ikut memasang
+// ini. `svc` boleh nil: handler-nya menjaga sendiri.
+//
+// Setiap route lewat rantai yang sama dengan route board — autentikasi +
+// resolusi tenant + gerbang peran — jadi tidak ada satu pun yang bisa
+// terdaftar tanpa ketiganya.
+func registerWebhookRoutes(mux *http.ServeMux, api authAPI, boards *board.Service, hooks *webhook.Service) {
+	handler := webhookAPI{svc: hooks, boards: boards}
+	boardRoute := func(pattern string, h http.Handler, minimum auth.Role) {
+		mux.Handle(pattern, api.orgHeaderContextMiddleware(api.requireRole(h, minimum)))
+	}
+	// 6.2.18: seluruh modul ini Admin. Webhook mengirim data board keluar dari
+	// AgentDeck, jadi menambah atau mengubah tujuannya adalah keputusan admin,
+	// bukan keputusan anggota.
+	boardRoute("GET /api/v1/boards/{board_id}/webhooks", http.HandlerFunc(handler.listWebhooks), auth.Admin)
+	boardRoute("POST /api/v1/boards/{board_id}/webhooks", http.HandlerFunc(handler.createWebhook), auth.Admin)
+	boardRoute("GET /api/v1/webhooks/{id}", http.HandlerFunc(handler.getWebhook), auth.Admin)
+	boardRoute("PATCH /api/v1/webhooks/{id}", http.HandlerFunc(handler.patchWebhook), auth.Admin)
+	boardRoute("DELETE /api/v1/webhooks/{id}", http.HandlerFunc(handler.deleteWebhook), auth.Admin)
+	boardRoute("GET /api/v1/webhooks/{id}/deliveries", http.HandlerFunc(handler.listWebhookDeliveries), auth.Admin)
+	boardRoute("POST /api/v1/webhooks/{id}/deliveries/{delivery_id}/retry", http.HandlerFunc(handler.retryWebhookDelivery), auth.Admin)
+}
+
 func registerBoardRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, providers *providerreg.Service) {
 	boardAPI := boardAPI{svc: svc, providers: providers}
 	boardRoute := func(pattern string, handler http.Handler, minimum auth.Role) {

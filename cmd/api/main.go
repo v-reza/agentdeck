@@ -24,6 +24,7 @@ import (
 	"agentdeck/internal/providerreg"
 	"agentdeck/internal/skill"
 	"agentdeck/internal/sse"
+	"agentdeck/internal/webhook"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -346,6 +347,24 @@ func main() {
 	// §14.2: the metric registry and the middleware that fills the HTTP half of
 	// it. The middleware wraps the mux at the bottom of this function, so it is
 	// one place to read the order of the whole request path.
+	// 6.2.18: webhook. Service-nya memegang enkripsi secret (16) dan validasi
+	// URL (§16); worker-nya mendengarkan channel yang sama dengan hub SSE.
+	webhookRepo := webhook.NewPgxRepository(pool, openWebhookSecret(cfg.MasterKey))
+	webhookSvc := webhook.NewService(webhookRepo, sealWebhookSecret(cfg.MasterKey))
+	webhookWorker := webhook.New(webhookRepo, logger, metricsReg, sseChannel)
+	// Worker mengirim HTTP KELUAR ke URL yang didaftarkan admin. Sama seperti
+	// dispatcher, ia default MATI: deployment yang tidak memakai webhook tidak
+	// boleh membuka koneksi keluar yang tidak diminta siapa pun.
+	if os.Getenv("AGENTDECK_WEBHOOKS") == "1" {
+		go func() {
+			if err := webhookWorker.Run(ctx); err != nil {
+				logger.Error("webhook: worker berhenti", "error", err)
+			}
+		}()
+	} else {
+		logger.Info("webhook: worker OFF (set AGENTDECK_WEBHOOKS=1 untuk menyalakan)")
+	}
+
 	mux := http.NewServeMux()
 	// 6.2.19: which build is serving. Public on purpose — it is the one thing an
 	// operator needs from outside when a deploy is suspected of being stale, and
@@ -463,6 +482,7 @@ func main() {
 	// fetched list (AC10).
 	providerSvc := newProviderService(pool, cfg.MasterKey)
 	registerBoardRoutes(mux, api, boardService, providerSvc)
+	registerWebhookRoutes(mux, api, boardService, webhookSvc)
 	// The agent registry and the skill library are their own route files, so
 	// each owns its role table in one place (see registerAgentRoutes /
 	// registerAgentSkillRoutes). Wiring them here is the one line that makes

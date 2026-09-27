@@ -336,3 +336,25 @@ type User struct {
 	CreatedAt    pgtype.Timestamptz
 	IsShadow     bool
 }
+
+type Webhook struct {
+	ID         string
+	OrgID      string
+	BoardID    string
+	Url        string
+	SecretEnc  []byte
+	EventsJson []byte
+	Active     bool
+	CreatedAt  pgtype.Timestamptz
+}
+
+type WebhookDelivery struct {
+	ID           int64
+	WebhookID    string
+	EventID      int64
+	Status       string
+	Attempts     int16
+	ResponseCode *int16
+	LastError    *string
+	CreatedAt    pgtype.Timestamptz
+}

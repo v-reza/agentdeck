@@ -149,6 +149,20 @@ coret.
   dikerjakan**: kontrak tidak menetapkan kebijakan retensi, dan memilihnya
   (mis. 90 hari) adalah keputusan produk.
 
+- **§13.3 tidak rekonsiliasi dengan dirinya sendiri.** Enam jeda retry
+  (1m, 5m, 15m, 30m, 1j, 2j) berarti tujuh percobaan, sementara kalimat
+  berikutnya bilang "total 6 percobaan" dan "setelah 6 percobaan" jadi dead.
+  Yang dipakai implementasi: enam percobaan, lima jeda — aturan dead-letter
+  yang mengikat. Nilai 2 jam dari daftar itu karena itu tidak terpakai.
+  **Belum diperbaiki**: memperbaikinya berarti memilih salah satu angka, dan
+  itu keputusan produk.
+
+- **Frontend belum memakai webhook.** Tujuh endpoint §6.2.18 jalan dan
+  terbukti lawan API nyata (`tools/probe-f12.py` 30/30, termasuk pengiriman
+  keluar dengan HMAC terverifikasi), tapi belum ada layar untuk mendaftarkan
+  atau membaca riwayat pengiriman. **Belum dikerjakan** — itu perubahan di
+  `frontend/`, bukan penambahan endpoint.
+
 ## Batasan yang diketahui (bukan bug)
 
 - **Gerbang peran tidak bisa dibuktikan lewat e2e** — fixture selalu owner. Cakupan

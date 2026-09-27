@@ -781,3 +781,104 @@ error yang menunjuk ke penyebabnya.
   dicatat di skill. Harness mutasi migrasi pertama juga jalan dengan
   `AGENTDECK_TEST_DATABASE_URL` kosong ⇒ semua tes **SKIP** dan terbaca
   "SURVIVED" — baseline 0 PASS yang seharusnya langsung ketahuan.
+
+## F12 — 6.2.18 Webhooks (7 endpoint)
+
+**Status:** selesai, ter-push. **124 ✅ / 5 ⬜**. Gate rc=0.
+
+**Deviasi slot brief:** brief menaruh 6.2.18 di slot 11; gw kerjakan di slot 12
+karena F11 (6.2.13) lebih murah dan brief sendiri bilang termurah dulu.
+Deviasi dicatat, entri lama tidak ditulis ulang.
+
+**Tiga konflik kontrak yang gw putuskan, dan alasannya.**
+
+1. **§3.22 `CHECK (url ~ '^https://')` vs §16 pengecualian loopback.**
+   §16 (keputusan user 2026-09-21, mengalahkan US-AD106 AC3) mengizinkan
+   `localhost`, `127.0.0.1`, `host.docker.internal` sebagai **string persis**,
+   boleh lewat `http`. §3.22 melarangnya. Yang gw pakai §16, dan check-nya
+   menegakkan pengecualian itu **persis** — bukan `^https?://` yang akan
+   membuka seluruh internet. Terbukti: `http://evil.example` ditolak,
+   `http://127.0.0.1:9000` diterima, `http://127.0.0.1.evil.example` ditolak.
+
+2. **`secret` TEXT vs BYTEA terenkripsi.** §3.22 mengetik `secret TEXT` tapi
+   komentarnya sendiri bilang "dienkripsi di DB via AES-256-GCM, lihat §16".
+   §16 yang mengikat: kolomnya jadi `secret_enc BYTEA`, sama seperti
+   `providers.api_key_enc` dan `agents.provider_api_key_enc`.
+
+3. **Jadwal retry §13.3 tidak rekonsiliasi dengan dirinya sendiri.** §13.3
+   menulis enam jeda (1m, 5m, 15m, 30m, 1j, 2j) **dan** "total 6 percobaan";
+   enam jeda berarti tujuh percobaan. Yang gw pakai aturan yang mengikat —
+   kalimat dead-letter "setelah 6 percobaan dan tidak ada sukses" — jadi total
+   enam percobaan dan jedanya lima. Nilai 2 jam dari daftar itu tidak terpakai.
+   Dicatat di `docs/OPEN-ISSUES.md`.
+
+**Temuan di luar F12: `compose.yaml` masih menyetel nama env yang salah.**
+
+F10 membetulkan `cmd/api/main.go` membaca `AGENTDECK_DISPAT` (empat dokumen
+kontrak memakai nama itu), tapi **`compose.yaml:63` masih `AGENTDECK_DISPATCH`**.
+Jadi bug-nya masih hidup di jalur yang justru dipakai operator: menyalakan
+dispatcher lewat compose memberi container variabel yang tidak dibaca siapa pun.
+Dibetulkan, plus `AGENTDECK_WEBHOOKS` ditambahkan.
+
+**Yang dikerjakan.**
+
+- Migrasi `0021`: `webhooks` + `webhook_deliveries` dari §3.22/§3.23. `event_id`
+  sengaja **tanpa FK**: `agentdeck_cleanup()` (§3.24) menghapus `events` lebih
+  tua dari 30 hari, dan FK cascade akan menghapus riwayat pengiriman yang justru
+  dibaca `GET /webhooks/{id}/deliveries`.
+- `internal/webhook/`: `sign.go` (HMAC 13.2), `types.go` (jadwal + klasifikasi
+  13.3), `worker.go` (LISTEN → fan-out → retry), `send.go` (pengiriman +
+  validasi URL §16), `service.go` (CRUD), `pgx.go` (adapter).
+- `cmd/api/webhooks.go` (7 handler, semua Admin) + `webhook_wiring.go`.
+- Worker default **OFF** (`AGENTDECK_WEBHOOKS=1` untuk menyalakan), alasan sama
+  dengan dispatcher: deployment yang tidak memakai webhook tidak boleh membuka
+  koneksi keluar yang tidak diminta siapa pun.
+
+**Keputusan desain yang gw ambil.**
+
+- **Percobaan pertama tidak dikirim dari goroutine notifikasi.** Satu event bisa
+  cocok dengan banyak webhook, dan mengirim di dalam callback LISTEN berarti
+  setiap pengiriman lambat (batasnya 10 detik, 13.3) menahan notifikasi
+  berikutnya — antrean menumpuk tepat saat sistem sibuk. Percobaan pertama dan
+  retry lewat **satu jalur**: tick membaca baris yang jatuh tempo (`attempts = 0`
+  berarti "sekarang").
+- **4xx tidak di-retry, dan itu diputuskan di driver retry, bukan di kolom
+  status.** §13.3 meminta 4xx berstatus `failed` **dan** tidak di-retry — tapi
+  `failed` justru yang dibaca index retry, jadi kolom status saja tidak bisa
+  membedakan "akan dicoba lagi" dari "sudah selesai". Yang membedakannya
+  `response_code`: 4xx dilewati. Tanpa ini, retry jalan terus selamanya ke
+  endpoint yang sudah menolak.
+- **Event yang sudah dipurge retensi → `dead`, bukan `failed`.** Barisnya
+  di-LEFT JOIN; tanpa itu ia menggantung `pending` selamanya tanpa jejak.
+- **At-least-once, disengaja.** `attempts` dinaikkan setelah percobaan selesai,
+  jadi proses yang mati di tengah pengiriman mengirim ulang. US-AD53 AC2
+  berbunyi "Event tidak hilang"; penerima membedakan kiriman ganda lewat `id`.
+- **Retry manual me-reset `attempts` ke 0.** Delivery `dead` punya attempts = 6;
+  tanpa reset, percobaan berikutnya langsung dinilai habis jatah dan kembali
+  `dead` tanpa pernah dikirim — tombol retry yang tidak mengirim apa pun.
+
+**Bukti.**
+
+- `tools/probe-f12.py` **30/30** lawan API nyata. Termasuk rantai penuh:
+  `task.created` → trigger NOTIFY → worker LISTEN → POST ke receiver HTTP nyata
+  → **HMAC diverifikasi ulang dari byte mentah yang diterima** → tercatat
+  `delivered` dengan `response_code` 200.
+- `internal/webhook/` 27 tes, `cmd/api/` 9 tes RBAC/tenant, `internal/migrate/`
+  5 tes constraint. Semua hijau.
+- Mutation 9 mutant: **6 CAUGHT** (HMAC dipotong, secret tidak dipakai, daftar
+  loopback tidak diperiksa, http-ke-mana-pun diterima, 4xx di-retry, constraint
+  URL dilonggarkan), **1 SURVIVED yang gw buktikan ekuivalen** (guard `attempts
+  >= maxAttempts` redundant dengan cek index — identik untuk attempts 0..20,
+  diukur ekshaustif), **1 SURVIVED yang gw tutup** (daftar loopback perlu diuji
+  sebagai daftar, bukan lewat kasus yang kebetulan memakai host berbeda).
+- `go test` paket tersentuh: webhook 1.9s, cmd/api 25.2s, migrate 102.1s.
+- Gate `tools/gate-overnight.cmd` rc=0. `gofmt -l .` bersih.
+
+**Catatan probe:** receiver-nya server HTTP di host, dan worker-nya jalan di
+dalam container — jadi URL-nya `http://host.docker.internal:<port>/hook`, bukan
+`127.0.0.1`. Percobaan pertama gagal karena itu, dan gagalnya justru membuktikan
+worker-nya benar-benar POST keluar.
+
+**Sisa: 5 ⬜ — 6.2.16 Artifacts.** Terhalang kredensial object storage
+(presigned URL). Kerangkanya bisa ditulis, tapi tidak bisa dibuktikan jalan
+lawan layanan nyata, jadi tidak dikerjakan sampai kredensialnya ada.

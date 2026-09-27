@@ -1768,6 +1768,82 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
+const createWebhook = `-- name: CreateWebhook :one
+INSERT INTO webhooks (id, org_id, board_id, url, secret_enc, events_json, active)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, org_id, board_id, url, events_json, active, created_at
+`
+
+type CreateWebhookParams struct {
+	ID         string
+	OrgID      string
+	BoardID    string
+	Url        string
+	SecretEnc  []byte
+	EventsJson []byte
+	Active     bool
+}
+
+type CreateWebhookRow struct {
+	ID         string
+	OrgID      string
+	BoardID    string
+	Url        string
+	EventsJson []byte
+	Active     bool
+	CreatedAt  pgtype.Timestamptz
+}
+
+func (q *Queries) CreateWebhook(ctx context.Context, arg CreateWebhookParams) (CreateWebhookRow, error) {
+	row := q.db.QueryRow(ctx, createWebhook,
+		arg.ID,
+		arg.OrgID,
+		arg.BoardID,
+		arg.Url,
+		arg.SecretEnc,
+		arg.EventsJson,
+		arg.Active,
+	)
+	var i CreateWebhookRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.BoardID,
+		&i.Url,
+		&i.EventsJson,
+		&i.Active,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createWebhookDelivery = `-- name: CreateWebhookDelivery :one
+INSERT INTO webhook_deliveries (webhook_id, event_id, status)
+VALUES ($1, $2, 'pending')
+RETURNING id, webhook_id, event_id, status, attempts, response_code, last_error, created_at
+`
+
+type CreateWebhookDeliveryParams struct {
+	WebhookID string
+	EventID   int64
+}
+
+func (q *Queries) CreateWebhookDelivery(ctx context.Context, arg CreateWebhookDeliveryParams) (WebhookDelivery, error) {
+	row := q.db.QueryRow(ctx, createWebhookDelivery, arg.WebhookID, arg.EventID)
+	var i WebhookDelivery
+	err := row.Scan(
+		&i.ID,
+		&i.WebhookID,
+		&i.EventID,
+		&i.Status,
+		&i.Attempts,
+		&i.ResponseCode,
+		&i.LastError,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const decideApproval = `-- name: DecideApproval :execrows
 UPDATE approvals
 SET decision = $3, decided_by = $4, decided_at = now(), reason = COALESCE($5, reason)
@@ -1998,6 +2074,23 @@ type DeleteTaskLinkParams struct {
 func (q *Queries) DeleteTaskLink(ctx context.Context, arg DeleteTaskLinkParams) error {
 	_, err := q.db.Exec(ctx, deleteTaskLink, arg.ParentID, arg.ChildID)
 	return err
+}
+
+const deleteWebhook = `-- name: DeleteWebhook :execrows
+DELETE FROM webhooks WHERE id = $1 AND org_id = $2
+`
+
+type DeleteWebhookParams struct {
+	ID    string
+	OrgID string
+}
+
+func (q *Queries) DeleteWebhook(ctx context.Context, arg DeleteWebhookParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteWebhook, arg.ID, arg.OrgID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const endRun = `-- name: EndRun :one
@@ -3011,6 +3104,55 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (GetUserByIDRow, e
 	return i, err
 }
 
+const getWebhook = `-- name: GetWebhook :one
+SELECT id, org_id, board_id, url, secret_enc, events_json, active, created_at
+FROM webhooks
+WHERE id = $1 AND org_id = $2
+`
+
+type GetWebhookParams struct {
+	ID    string
+	OrgID string
+}
+
+func (q *Queries) GetWebhook(ctx context.Context, arg GetWebhookParams) (Webhook, error) {
+	row := q.db.QueryRow(ctx, getWebhook, arg.ID, arg.OrgID)
+	var i Webhook
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.BoardID,
+		&i.Url,
+		&i.SecretEnc,
+		&i.EventsJson,
+		&i.Active,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getWebhookDelivery = `-- name: GetWebhookDelivery :one
+SELECT id, webhook_id, event_id, status, attempts, response_code, last_error, created_at
+FROM webhook_deliveries
+WHERE id = $1
+`
+
+func (q *Queries) GetWebhookDelivery(ctx context.Context, id int64) (WebhookDelivery, error) {
+	row := q.db.QueryRow(ctx, getWebhookDelivery, id)
+	var i WebhookDelivery
+	err := row.Scan(
+		&i.ID,
+		&i.WebhookID,
+		&i.EventID,
+		&i.Status,
+		&i.Attempts,
+		&i.ResponseCode,
+		&i.LastError,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const heartbeatOwnedRuns = `-- name: HeartbeatOwnedRuns :exec
 
 UPDATE runs SET last_heartbeat_at = now()
@@ -3851,6 +3993,56 @@ func (q *Queries) ListBoardTasks(ctx context.Context, arg ListBoardTasksParams) 
 	return items, nil
 }
 
+const listBoardWebhooks = `-- name: ListBoardWebhooks :many
+SELECT id, org_id, board_id, url, events_json, active, created_at
+FROM webhooks
+WHERE board_id = $1 AND org_id = $2
+ORDER BY created_at DESC, id DESC
+`
+
+type ListBoardWebhooksParams struct {
+	BoardID string
+	OrgID   string
+}
+
+type ListBoardWebhooksRow struct {
+	ID         string
+	OrgID      string
+	BoardID    string
+	Url        string
+	EventsJson []byte
+	Active     bool
+	CreatedAt  pgtype.Timestamptz
+}
+
+func (q *Queries) ListBoardWebhooks(ctx context.Context, arg ListBoardWebhooksParams) ([]ListBoardWebhooksRow, error) {
+	rows, err := q.db.Query(ctx, listBoardWebhooks, arg.BoardID, arg.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBoardWebhooksRow
+	for rows.Next() {
+		var i ListBoardWebhooksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.BoardID,
+			&i.Url,
+			&i.EventsJson,
+			&i.Active,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBoards = `-- name: ListBoards :many
 SELECT id, org_id, project_id, slug, name, columns_json, budget_daily_micros, created_at
 FROM boards
@@ -3931,6 +4123,58 @@ func (q *Queries) ListClaimableBoards(ctx context.Context) ([]ListClaimableBoard
 			&i.Slug,
 			&i.Name,
 			&i.BudgetDailyMicros,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMatchingWebhooks = `-- name: ListMatchingWebhooks :many
+SELECT id, org_id, board_id, url, secret_enc
+FROM webhooks
+WHERE board_id = $1 AND active = true
+  AND (jsonb_array_length(events_json) = 0 OR events_json ? $2::text)
+`
+
+type ListMatchingWebhooksParams struct {
+	BoardID string
+	Column2 string
+}
+
+type ListMatchingWebhooksRow struct {
+	ID        string
+	OrgID     string
+	BoardID   string
+	Url       string
+	SecretEnc []byte
+}
+
+// Melayani webhooks_board_active_idx (board_id, active).
+//
+// `jsonb_array_length(events_json) = 0` berarti SEMUA event: DEFAULT '[]' di
+// 3.22 dibaca sebagai "belum difilter", dan webhook tanpa filter yang tidak
+// pernah menyala adalah webhook yang tidak berguna. Operator yang memang ingin
+// nol event menonaktifkannya (`active = false`), bukan mengosongkan daftarnya.
+func (q *Queries) ListMatchingWebhooks(ctx context.Context, arg ListMatchingWebhooksParams) ([]ListMatchingWebhooksRow, error) {
+	rows, err := q.db.Query(ctx, listMatchingWebhooks, arg.BoardID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMatchingWebhooksRow
+	for rows.Next() {
+		var i ListMatchingWebhooksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.BoardID,
+			&i.Url,
+			&i.SecretEnc,
 		); err != nil {
 			return nil, err
 		}
@@ -4280,6 +4524,88 @@ func (q *Queries) ListProviders(ctx context.Context, orgID string) ([]Provider, 
 			&i.LastVerifiedAt,
 			&i.IsDefault,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRetryableDeliveries = `-- name: ListRetryableDeliveries :many
+SELECT d.id, d.webhook_id, d.event_id, d.status, d.attempts, d.created_at,
+       w.url, w.secret_enc, w.org_id,
+       e.kind, e.board_id, e.task_id, e.run_id, e.payload_json, e.created_at AS event_created_at
+FROM webhook_deliveries d
+JOIN webhooks w ON w.id = d.webhook_id
+LEFT JOIN events e ON e.id = d.event_id
+WHERE d.status IN ('pending','failed') AND w.active = true
+ORDER BY d.id
+LIMIT $1
+`
+
+type ListRetryableDeliveriesRow struct {
+	ID             int64
+	WebhookID      string
+	EventID        int64
+	Status         string
+	Attempts       int16
+	CreatedAt      pgtype.Timestamptz
+	Url            string
+	SecretEnc      []byte
+	OrgID          string
+	Kind           *string
+	BoardID        *string
+	TaskID         *string
+	RunID          *string
+	PayloadJson    []byte
+	EventCreatedAt pgtype.Timestamptz
+}
+
+// Melayani webhook_deliveries_retry_idx.
+//
+// Kapan sebuah delivery "jatuh tempo" dihitung di Go (jadwal backoff 13.3),
+// bukan di SQL: jadwalnya adalah konstanta yang diuji, dan menaruhnya di SQL
+// berarti menguji perilaku waktu lewat string query. Baris yang belum jatuh
+// tempo dilewati tick ini dan tetap terambil tick berikutnya, karena urutannya
+// id ASC — baris paling tua justru yang paling dulu jatuh tempo.
+// Event-nya di-join di sini, bukan dibaca terpisah per baris: body pengiriman
+// butuh kind/board_id/payload dari event, dan satu query jauh lebih murah
+// daripada satu pembacaan per delivery.
+//
+// LEFT JOIN, bukan JOIN: `agentdeck_cleanup()` (3.24) menghapus `events` lebih
+// tua dari 30 hari, jadi sebuah delivery bisa kehilangan event-nya sementara
+// barisnya sendiri masih `pending`. Dengan JOIN biasa baris itu hilang dari
+// hasil dan menggantung selamanya tanpa jejak; dengan LEFT JOIN worker
+// melihatnya dan menandainya `dead` dengan alasan yang jelas.
+func (q *Queries) ListRetryableDeliveries(ctx context.Context, limit int32) ([]ListRetryableDeliveriesRow, error) {
+	rows, err := q.db.Query(ctx, listRetryableDeliveries, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRetryableDeliveriesRow
+	for rows.Next() {
+		var i ListRetryableDeliveriesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WebhookID,
+			&i.EventID,
+			&i.Status,
+			&i.Attempts,
+			&i.CreatedAt,
+			&i.Url,
+			&i.SecretEnc,
+			&i.OrgID,
+			&i.Kind,
+			&i.BoardID,
+			&i.TaskID,
+			&i.RunID,
+			&i.PayloadJson,
+			&i.EventCreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -4820,6 +5146,48 @@ func (q *Queries) ListTaskRuns(ctx context.Context, arg ListTaskRunsParams) ([]L
 	return items, nil
 }
 
+const listWebhookDeliveries = `-- name: ListWebhookDeliveries :many
+SELECT id, webhook_id, event_id, status, attempts, response_code, last_error, created_at
+FROM webhook_deliveries
+WHERE webhook_id = $1
+ORDER BY id DESC
+LIMIT $2
+`
+
+type ListWebhookDeliveriesParams struct {
+	WebhookID string
+	Limit     int32
+}
+
+func (q *Queries) ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]WebhookDelivery, error) {
+	rows, err := q.db.Query(ctx, listWebhookDeliveries, arg.WebhookID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WebhookDelivery
+	for rows.Next() {
+		var i WebhookDelivery
+		if err := rows.Scan(
+			&i.ID,
+			&i.WebhookID,
+			&i.EventID,
+			&i.Status,
+			&i.Attempts,
+			&i.ResponseCode,
+			&i.LastError,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markNotificationsRead = `-- name: MarkNotificationsRead :execrows
 UPDATE notifications
 SET read_at = now()
@@ -5159,6 +5527,20 @@ type ResetTaskFailuresParams struct {
 
 func (q *Queries) ResetTaskFailures(ctx context.Context, arg ResetTaskFailuresParams) error {
 	_, err := q.db.Exec(ctx, resetTaskFailures, arg.ID, arg.OrgID)
+	return err
+}
+
+const resetWebhookDelivery = `-- name: ResetWebhookDelivery :exec
+UPDATE webhook_deliveries
+SET status = 'pending', attempts = 0, response_code = NULL, last_error = NULL
+WHERE id = $1
+`
+
+// Retry manual (13.3): attempts kembali 0 supaya delivery yang sudah dead
+// mendapat jatah enam percobaan penuh lagi, bukan langsung mati di percobaan
+// berikutnya karena jatahnya sudah habis.
+func (q *Queries) ResetWebhookDelivery(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, resetWebhookDelivery, id)
 	return err
 }
 
@@ -6202,6 +6584,75 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const updateWebhook = `-- name: UpdateWebhook :one
+UPDATE webhooks
+SET url = $3, active = $4
+WHERE id = $1 AND org_id = $2
+RETURNING id, org_id, board_id, url, events_json, active, created_at
+`
+
+type UpdateWebhookParams struct {
+	ID     string
+	OrgID  string
+	Url    string
+	Active bool
+}
+
+type UpdateWebhookRow struct {
+	ID         string
+	OrgID      string
+	BoardID    string
+	Url        string
+	EventsJson []byte
+	Active     bool
+	CreatedAt  pgtype.Timestamptz
+}
+
+func (q *Queries) UpdateWebhook(ctx context.Context, arg UpdateWebhookParams) (UpdateWebhookRow, error) {
+	row := q.db.QueryRow(ctx, updateWebhook,
+		arg.ID,
+		arg.OrgID,
+		arg.Url,
+		arg.Active,
+	)
+	var i UpdateWebhookRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.BoardID,
+		&i.Url,
+		&i.EventsJson,
+		&i.Active,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateWebhookDelivery = `-- name: UpdateWebhookDelivery :exec
+UPDATE webhook_deliveries
+SET status = $2, attempts = $3, response_code = $4, last_error = $5
+WHERE id = $1
+`
+
+type UpdateWebhookDeliveryParams struct {
+	ID           int64
+	Status       string
+	Attempts     int16
+	ResponseCode *int16
+	LastError    *string
+}
+
+func (q *Queries) UpdateWebhookDelivery(ctx context.Context, arg UpdateWebhookDeliveryParams) error {
+	_, err := q.db.Exec(ctx, updateWebhookDelivery,
+		arg.ID,
+		arg.Status,
+		arg.Attempts,
+		arg.ResponseCode,
+		arg.LastError,
+	)
+	return err
 }
 
 const upsertDailyBoardCost = `-- name: UpsertDailyBoardCost :exec

@@ -60,7 +60,18 @@ services:
       # spending the operator's money. Off unless asked for: a deployment upgraded
       # into this code should not start paying for completions because someone
       # assigned an agent to a task and forgot. Set to 1 to run the tick loop.
-      AGENTDECK_DISPATCH: ${AGENTDECK_DISPATCH:-0}
+      #
+      # The name is AGENTDECK_DISPAT — no trailing CH. That is what main.go
+      # reads and what ARCHITECTURE 2813, the brief, and .hermes.md all say. The
+      # key here used to be AGENTDECK_DISPATCH, which meant an operator who set
+      # it in this file enabled nothing at all: the container got a variable
+      # nobody read, and the log line told them to set a different name.
+      AGENTDECK_DISPAT: ${AGENTDECK_DISPAT:-0}
+      # Webhook worker: sends HTTP OUT to URLs an admin registered (13.1). Off
+      # by default for the same reason as the dispatcher — a deployment that
+      # never uses webhooks should not open outbound connections nobody asked
+      # for. Set to 1 to run it.
+      AGENTDECK_WEBHOOKS: ${AGENTDECK_WEBHOOKS:-0}
       # Prometheus scrape credential, "user:password" (ARCHITECTURE 6.2.1).
       # Unset means /metrics answers 404: the label sets carry board and org ids,
       # which is tenant topology, so the endpoint is closed until an operator
