@@ -271,6 +271,8 @@ export interface Dictionary {
   'boards.viewBoard': string
   'boards.viewTable': string
   'boards.taskCount': string
+  'boards.live': string
+  'boards.liveHint': string
   'boards.newTask': string
   'boards.noTasksMatch': string
   'boards.noTasksMatchHint': string
@@ -755,6 +757,8 @@ const en: Dictionary = {
   'boards.viewBoard': 'Board',
   'boards.viewTable': 'Table',
   'boards.taskCount': '{0} tasks',
+  'boards.live': 'Live',
+  'boards.liveHint': 'Updates arrive on their own; no refresh needed.',
   'boards.newTask': 'New task',
   'boards.noTasksMatch': 'No tasks match',
   'boards.noTasksMatchHint': 'Clear a filter or add a task to this board.',
@@ -1245,6 +1249,8 @@ const id: Dictionary = {
   'boards.viewBoard': 'Board',
   'boards.viewTable': 'Tabel',
   'boards.taskCount': '{0} task',
+  'boards.live': 'Langsung',
+  'boards.liveHint': 'Perubahan masuk sendiri; tidak perlu refresh.',
   'boards.newTask': 'Buat Task',
   'boards.noTasksMatch': 'Tidak ada task yang cocok',
   'boards.noTasksMatchHint': 'Hapus filter atau tambah task ke board ini.',

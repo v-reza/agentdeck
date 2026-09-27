@@ -7,7 +7,7 @@ import {
   useMoveTaskMutation,
   useUpdateTaskMutation,
 } from '@/store/api/boards'
-import { useBoardEventsQuery } from '@/store/api/stream'
+import { useSseCache } from '@/hooks/use-sse-cache'
 import { useActionForm, describeError } from '@/hooks/use-action-form'
 import { useCanAct } from '@/hooks/use-orgs'
 import { StepTimeline } from '@/components/terminal/StepTimeline'
@@ -56,7 +56,10 @@ export function TaskDetailDrawer({ taskID }: { taskID: string }) {
   const dispatch = useAppDispatch()
   const { data: task, isError } = useGetTaskQuery(taskID)
   const { data: links } = useListTaskLinksQuery(taskID)
-  const { data: events } = useBoardEventsQuery(task?.board_id ?? '', { skip: !task?.board_id })
+  // Same subscription as the board toolbar (one hook, one cache entry): the
+  // drawer reads the live tail AND benefits from the invalidateTags on
+  // `boardEvents`, so an event from the dispatcher refreshes the task too.
+  const { events } = useSseCache(task?.board_id ?? null)
   const [updateTask] = useUpdateTaskMutation()
 
   const [state, formAction, isPending] = useActionForm(updateTask, (form) => ({

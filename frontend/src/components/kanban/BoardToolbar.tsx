@@ -6,6 +6,7 @@ import { TASK_STATUSES, statusColorVar } from '@/lib/domain'
 import { interpolate } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { useT } from '@/hooks/use-t'
+import { useSseCache } from '@/hooks/use-sse-cache'
 
 /**
  * Screens 18-kanban / 19-table-view — the board toolbar.
@@ -36,6 +37,15 @@ export function BoardToolbar({ boardName, taskCount }: { boardName?: string; tas
   const statusFilter = useAppSelector((state) => state.ui.statusFilter)
   const search = useAppSelector((state) => state.ui.search)
   const t = useT()
+  // One subscription for both views (US-AD39). Mounted HERE, not in each view,
+  // because the toolbar is the one component both views render — so switching
+  // between board and table does not tear the stream down and open it again.
+  //
+  // `events` is deliberately unread. The point of the stream is the
+  // `invalidatesTags` on `boardEvents`, which refetches this board's task list;
+  // reading the tail here would be a second copy of board state living in a
+  // component, which is what ARCHITECTURE 18.2 says not to do.
+  const { live } = useSseCache(boardID ?? null)
 
   const view = location.pathname.endsWith('/table') ? 'table' : 'board'
 
@@ -45,6 +55,21 @@ export function BoardToolbar({ boardName, taskCount }: { boardName?: string; tas
       <span className="font-mono text-[11px] text-[var(--color-tertiary)]">
         {interpolate(t['boards.taskCount'], [String(taskCount)])}
       </span>
+      {/*
+        The stream's state, shown rather than assumed (US-AD39). Without it a
+        dead stream is indistinguishable from a quiet board: both look like
+        nothing happening. The dot is only drawn when the stream is actually
+        open, so it can never claim liveness it does not have.
+      */}
+      {live && (
+        <span
+          title={t['boards.liveHint']}
+          className="flex items-center gap-1 font-mono text-[10px] font-semibold uppercase text-[var(--color-success)]"
+        >
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--color-success)]" />
+          {t['boards.live']}
+        </span>
+      )}
 
       <div className="flex items-center gap-0.5 rounded-[6px] border border-[var(--color-border-subtle)] p-0.5">
         <ViewLink to={base} active={view === 'board'} icon={SquareKanban} label={t['boards.viewBoard']} />

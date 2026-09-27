@@ -1133,3 +1133,63 @@ Kesimpulan: tekanan resource (satu sesi Playwright lebih lama hidup), bukan
 regresi. **Tapi screenshot + `error-context.md` kegagalan itu ketimpa** karena gw
 memakai `--output=.e2e-out` yang sama untuk run standalone sesudahnya. Aturan
 `--output` unik per run lahir dari kesalahan ini.
+
+### Fase 1 — SSE dipakai: board hidup tanpa reload (US-AD39)
+
+**Temuan: bridge-nya tidak pernah tersambung.** `stream.ts` (158 baris) sudah
+lengkap sejak lama — `EventSource`, resume `Last-Event-ID`, batas percobaan
+ulang — tapi nol komponen memakainya. `use-sse-cache.ts` juga nol pemanggil.
+Yang dipakai hanya `useBoardEventsQuery` langsung di drawer, dan itu cuma
+membaca tail; board-nya tidak pernah ikut ter-refresh.
+
+**Dua jebakan nyata, keduanya kena:**
+
+1. **`invalidatesTags` pada endpoint ber-`queryFn` diabaikan RTK.** Versi pertama
+   perbaikan ini menulis `invalidatesTags` di `boardEvents`. Tipenya `never`,
+   nilainya diabaikan, dan **tidak ada satu pun error runtime** — board tetap
+   diam. Cuma `tsc` yang menangkap. Invalidasi sekarang di-dispatch dari handler
+   event (`api.dispatch(api.util.invalidateTags(...))`).
+2. **Satu event = satu refetch = badai.** Dispatcher yang menyelesaikan satu run
+   mengeluarkan burst (`step.finished`, `ledger.entry`, `run.finished`).
+   Refetch di-koalesce `REFRESH_COALESCE_MS = 150`, dan timer yang tertunda
+   dibatalkan saat cache entry dilepas.
+
+**Temuan sampingan yang nyata:** tag `Event` dideklarasikan di `TAG_TYPES` dengan
+**nol provider**. Dua mutasi (`createTask`, `moveTask`) meng-invalidasinya —
+refresh nol, tapi terbaca seperti me-refresh timeline. Dibuang.
+
+**Tag jadi satu fungsi, bukan tiga literal.** `boardTaskTag(boardID)` di `base.ts`
+dipakai `listTasks` (provides), `boardEvents` (dispatch), dan `createTask`
+(invalidates). Sebelumnya literal `BOARD-${boardID}` ditulis di tiga tempat dan
+hanya dua yang sepakat.
+
+**UI:** indikator `Live` di `BoardToolbar` (satu mount, dua view — board & table,
+jadi pindah view tidak memutus stream), i18n `bounds.live`/`liveHint` di `en`+`id`,
+token `--color-success` dari DESIGN.md.
+
+Bukti:
+- `src/store/api/stream-wiring.test.ts` — 12/12; mutation **7/7 CAUGHT**
+  (refresh dihapus, `invalidatesTags` dikembalikan, guard `boardID` dilumpuhkan,
+  cleanup timer dibuang, prefix helper diubah, `createTask` literal, `listTasks`
+  literal dua cabang).
+- `e2e/board-live.spec.ts` — **3/3**: indikator live; **task dari klien lain
+  muncul tanpa reload**; burst 3 task semuanya muncul. Mutation e2e (refresh
+  dihapus) → **1 failed**, jadi tesnya benar-benar mengukur fiturnya.
+- Vitest 80/80 · `tsc -b` rc=0 · prettier `src/` bersih · gate rc=0 (4.14s).
+- Full e2e **131 passed / 0 failed** (128 lama + 3 baru), 4 shard.
+- `go test` tidak dijalankan: fase ini nol perubahan Go.
+
+**Dua kesalahan gw sendiri, dicatat supaya tidak terulang:**
+- Semua edit lewat Python menulis **CRLF** (7 file), dan gate tetap hijau —
+  prettier/gate tidak memeriksa line ending. Ketahuan dari `file` + `git show`.
+  Semua dinormalkan ke LF.
+- Playwright `page.request` **tidak mengirim cookie `Secure` lewat HTTP**, jadi
+  setiap panggilan API setelah register menjawab 401 sementara browser-nya
+  mengirim dengan lancar. Itu sebabnya suite yang ada memakai `page.evaluate`.
+  `signUp` sekarang me-re-`addCookies` dengan `secure: false` sehingga satu jar
+  dipakai browser dan request context.
+
+**Deviasi brief:** urutan fase di brief menaruh "pasang SSE" di fase 0; dikerjakan
+sebagai fase 1 karena tab Artifacts butuh `boardID` yang sama dan lebih murah
+dites setelah stream-nya terbukti hidup.
+

@@ -1,4 +1,4 @@
-import { baseApi } from './base'
+import { baseApi, boardTaskTag } from './base'
 import type { Column, Task, TaskStatus, TaskLink, TaskEvent, Project, Board } from '@/lib/domain'
 import type { AssignableAgent } from './agents'
 
@@ -180,13 +180,12 @@ export const boardsApi = baseApi.injectEndpoints({
         const qs = params.toString()
         return `boards/${boardID}/tasks${qs ? `?${qs}` : ''}`
       },
+      // `boardTaskTag` is the board-scoped tag the event stream invalidates, so
+      // the two ends cannot drift apart by being spelled twice.
       providesTags: (result, _e, { boardID }) =>
         result
-          ? [
-              ...result.map((t) => ({ type: 'Task' as const, id: t.id })),
-              { type: 'Task' as const, id: `BOARD-${boardID}` },
-            ]
-          : [{ type: 'Task' as const, id: `BOARD-${boardID}` }],
+          ? [...result.map((t) => ({ type: 'Task' as const, id: t.id })), boardTaskTag(boardID)]
+          : [boardTaskTag(boardID)],
     }),
 
     getTask: build.query<Task, string>({
@@ -213,10 +212,14 @@ export const boardsApi = baseApi.injectEndpoints({
         // server stores an unassigned task as NULL, never ''.
         body: assignee_agent_id ? { ...body, assignee_agent_id } : body,
       }),
-      invalidatesTags: (_r, _e, { boardID }) => [
-        { type: 'Task', id: `BOARD-${boardID}` },
-        { type: 'Event', id: `BOARD-${boardID}` },
-      ],
+      // `boardTaskTag` is the same tag the event stream invalidates and the task
+      // list provides. It used to be spelled out here as well, which is three
+      // places that had to agree and only two that ever did.
+      //
+      // The `Event` tag beside it is deliberately gone: nothing PROVIDES it (the
+      // only `Event` provider is the `LIST` tag), so invalidating it refreshed
+      // nothing while reading like it refreshed the timeline.
+      invalidatesTags: (_r, _e, { boardID }) => [boardTaskTag(boardID)],
     }),
 
     updateTask: build.mutation<Task, UpdateTaskArgs>({
@@ -240,7 +243,6 @@ export const boardsApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { id }) => [
         { type: 'Task', id },
         { type: 'Task', id: 'LIST' },
-        { type: 'Event', id: 'LIST' },
       ],
     }),
 

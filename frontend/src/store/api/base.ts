@@ -64,6 +64,19 @@ export const TAG_TYPES = [
   'Notification',
 ] as const
 
+/**
+ * The tag that ties a board's stream to its task list.
+ *
+ * Both sides import this one function: `listTasks` PROVIDES it and `boardEvents`
+ * INVALIDATES it. Spelling the tag inline in each place would let one side drift
+ * — the stream would still connect and still receive events while the board
+ * quietly stopped refreshing, which looks like "realtime is broken" with no
+ * error anywhere. `base.test.ts` pins the two ends together.
+ */
+export function boardTaskTag(boardID: string) {
+  return { type: 'Task' as const, id: `BOARD-${boardID}` }
+}
+
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithReauth,
