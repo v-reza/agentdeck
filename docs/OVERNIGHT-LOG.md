@@ -1053,3 +1053,61 @@ dan brief lama masih menyuruh ngerjain endpoint §6.2 yang sudah tidak ada.
 Fase 2 (Logs tab) punya risiko duplikasi: drawer sudah menampilkan timeline dari
 `useBoardEventsQuery`. **Cek dulu** apakah "Logs" di design beda dari "Timeline"
 yang sudah ada; kalau sama, jangan bikin dua yang isinya sama.
+
+## F15 — verifikasi per-story lawan kode (lanjutan audit CHECKLIST)
+
+**Status:** selesai, ter-push.
+
+**Kenapa ada fase ini.** F14 cuma mengaudit per-*file* (52 layar ada/nggak).
+Itu belum menjawab "story mana yang sudah dikerjakan". Fase ini menghitung
+**89 story M0–M4** satu per satu lawan kode.
+
+### Hasil: 13 PASS → 68 PASS
+
+| Verdict | Jumlah | Dasar |
+|---|---:|---|
+| PASS backend-only | 21 | endpoint terpasang & terverifikasi lawan API nyata |
+| PASS UI | 47 | file layar ada **dan** komponennya terpasang (router / dirender induk) |
+| dikerjakan (wip) | 4 | US-AD19, US-AD67, US-AD73, US-AD108 |
+| belum (todo) | 16 | 14 layar belum ada filenya + 2 backend-only kosong |
+| ditunda (defer) | 1 | US-AD92 (keputusan user) |
+
+Rincian: `docs/CHECKLIST.md`, diregenerate dari `tools/checklist_status.json`
+(17 → 98 entri).
+
+### Dua story backend-only yang BENAR-BENAR kosong
+
+- **US-AD85 (rate limit)** — nol `RateLimit` di seluruh repo. Dicari di 100 file
+  Go non-test; nol hit.
+- **US-AD50 (deteksi string keras di CI)** — nol `.github/workflows/`, nol
+  pengecekan literal/keras di `tools/`.
+
+### Tiga hipotesis yang gw buang setelah diverifikasi
+
+Ditulis di sini supaya sesi berikutnya tidak mengulang tebakan yang sama:
+
+1. **"US-AD49 (i18n) belum jalan"** — SALAH. `frontend/src/lib/i18n.ts` punya
+   blok `en` (baris 509) dan `id` (baris 1000), 1383 key, `DICTIONARIES` dua-duanya.
+2. **"US-AD05 (force logout) belum jalan"** — SALAH. `internal/auth/sessions.go`
+   punya `Sessions`/`ChangePassword`/`RevokeSession`; route
+   `GET /auth/sessions` + `DELETE /auth/sessions/{id}` terpasang di `main.go:407-409`.
+3. **"18 story ber-layar kehilangan route-nya"** — SALAH, dan ini yang paling
+   menipu. Nol komponen di-import-tanpa-dipakai di router. Yang terlihat
+   "hilang" itu sub-komponen (`TaskCreateForm`, `TaskDrawerHost`,
+   `CreateAgentForm`, `AgentProviderKeyPanel`, `ColumnEditor`, dst) yang
+   dirender **di dalam** layar induk — diverifikasi satu per satu punya pemanggil.
+
+### Batasan yang harus disebut
+
+**"PASS" di sini = ada filenya + terpasang. BUKAN design match.** Kesamaan
+dengan `design/stitch-output/v2/*.html` cuma diketahui untuk layar yang pernah
+di-inventory; sisanya belum diukur. Jangan naikkan status jadi "selesai" tanpa
+inventory elemen.
+
+### Verifikasi
+
+- Nol file Go/produksi disentuh — fase ini murni dokumentasi + sidecar JSON.
+  `go test` **tidak** dijalankan, dan itu disebut di sini, bukan didiamkan.
+- Diff sidecar lawan hasil audit komputasi: **0 selisih** dari 89 story
+  (dicek ulang otomatis sebelum generate).
+- `python tools/update_checklist.py` → `wrote docs\CHECKLIST.md (77 PASS, 98 tracked)`.

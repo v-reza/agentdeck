@@ -30,32 +30,54 @@ belum ada.**
 
 ## 2. Urutan fase (termurah dulu — yang termurah itu yang paling kelihatan)
 
-> Sumber progres yang SAH: tabel detail `docs/ARCHITECTURE.md` §6.2.1–§6.2.19
-> (dijaga `verify_suite.py`, sekarang **129 ✅ / 0 ⬜**) dan `tools/checklist_status.json`
-> (17 entri dilacak).
-> **`docs/CHECKLIST.md` BASI** — bilang 13 PASS dari 89 story, di-generate saat
-> backend baru segelintir. Jangan dipakai buat nentuin prioritas. Angka AC di
-> `docs/00-PRD.md` juga nol yang tercentang, jadi bukan pelacak progres.
+> **Sumber progres yang SAH, sudah diverifikasi lawan kode (2026-09-27):**
+> - `docs/CHECKLIST.md` → **68 PASS / 4 dikerjakan / 16 belum / 1 ditunda**
+>   dari 89 story M0–M4. Dihasilkan `tools/update_checklist.py` dari
+>   `tools/checklist_status.json`. **Jangan diedit tangan** — ubah sidecar, lalu
+>   jalankan ulang tool-nya (`python tools/update_checklist.py`).
+> - Tabel detail `docs/ARCHITECTURE.md` §6.2.1–§6.2.19 → **129 ✅ / 0 ⬜**,
+>   dijaga `verify_suite.py`.
+> - `docs/00-PRD.md` **bukan** pelacak progres: 387 item AC, nol tercentang.
+>
+> "PASS" berarti **layarnya ada filenya dan komponennya terpasang** (di router
+> atau dirender induknya). **Bukan** berarti design match — itu belum diukur
+> untuk semua layar.
 
-| # | Fase | Kenapa murah | Gate |
+**Yang pertama dikerjakan bukan story baru, tapi yang sudah ditulis lalu tidak
+disambungkan.** Ini pola sebenarnya di repo ini:
+
+| Ada | Kenyataannya |
+|---|---|
+| `store/api/stream.ts` 158 baris + test | SSE lengkap (EventSource, patch cache RTK, `Last-Event-ID`). **Nol komponen memakainya.** |
+| `hooks/use-sse-cache.ts` | Hook siap. **Nol pemanggil.** |
+| `settings/ApiKeys.tsx`, `settings/Webhooks.tsx` | Masing-masing 21 baris, bilang "not available yet". Backend 5 dan 7 endpoint jalan. |
+| `TaskDetailDrawer.tsx` | Tab Artifacts/Logs/Approvals/assignee picker belum dibangun. Endpoint-nya semua ada. |
+
+Maka urutannya:
+
+| # | Fase | Story | Kenapa murah |
 |---|---|---|---|
-| 1 | **Artifacts tab** di `TaskDetailDrawer` | 5 endpoint + presigned URL sudah jalan & terbukti. Cuma perlu UI + RTK Query slice baru. | Klaim komentar basi di baris 44 dibuang. |
-| 2 | **Logs tab** (step timeline) | `GET /api/v1/runs/{id}/events` + `GET /tasks/{id}/runs` sudah ada. Drawer sudah punya sebagian timeline. | Beda dari tab Timeline yang sudah ada? Kalau sama, **jangan** bikin duplikat — sebut di log. |
-| 3 | **Approvals tab** di drawer | `stream.ts` **sudah punya** `listApprovals`/`approveApproval`/`rejectApproval`. Tinggal dipakai. | Approve/reject = Admin. Member jangan dikasih tombol yang bakal 403. |
-| 4 | **SSE dipasang di kanban + drawer** | `useSseCache` tinggal dipanggil. Ini yang bikin board hidup tanpa refresh. | Board harus tetap benar saat stream mati (fallback fetch). |
-| 5 | **Webhooks tab** (`settings/Webhooks.tsx`) | Stub 21 baris bilang "not available yet". Backend 7 endpoint jalan. | Admin-only; secret cuma tampil sekali saat dibuat. |
-| 6 | **API Keys tab** (`settings/ApiKeys.tsx`) | Stub 21 baris, alasan sama. Backend F10 jalan. | Key penuh cuma tampil sekali. |
-| 7 | **Assignee picker** di drawer | `POST /tasks/{id}/assign` ada. | — |
-| 8 | **Task archived** (US-AD59) | Row archived = strikethrough + bg abu + border kiri (`.hermes.md`). | Cocokkan ke design, bukan dikarang. |
+| 0 | **Pasang `useSseCache`** di kanban + drawer | US-AD39 | Hook sudah ada. Board jadi hidup tanpa refresh. Fallback fetch wajib jalan saat stream mati. |
+| 1 | **Artifacts tab** di drawer | US-AD48 | 5 endpoint + presigned URL sudah terbukti lawan MinIO. Cuma UI. |
+| 2 | **Logs tab** (step timeline) | US-AD26, US-AD94 | `GET /runs/{id}/events` + step payload ada. |
+| 3 | **Approvals tab** di drawer | US-AD34, US-AD35 | `stream.ts` sudah punya `listApprovals`/`approveApproval`/`rejectApproval`. |
+| 4 | **Approval detail** `36-approval-detail` | US-AD34, US-AD35 | Layar belum ada; datanya sudah. |
+| 5 | **Run detail** `32-run-detail` | US-AD41 | `GET /runs/{id}` + `/summary` ada. |
+| 6 | **Notifications** `13-notifications` | US-AD61 | Backend notifikasi ada sejak F9. |
+| 7 | **Webhooks tab** (isi stub) | US-AD52, US-AD53 | Backend 7 endpoint jalan sejak F12. Admin-only; secret tampil sekali. |
+| 8 | **API Keys tab** (isi stub) | US-AD06 | Backend 5 endpoint jalan sejak F10. Key penuh tampil sekali. |
+| 9 | **Dashboard** `42-dashboard` | US-AD76 | — |
+| 10 | **Dependency view** `24-dependency-view` | US-AD19 | DAG endpoint ada. |
+| 11 | **State screens** `43`/`44`/`45` | US-AD63, US-AD64, US-AD65 | Skeleton, empty, error boundary. Kecil-kecil. |
+| 12 | **Skill library** `26b-agent-skills` | US-AD107 | Backend ada. |
+| 13 | **Security** `16-security` | US-AD90 | Ganti password + sesi aktif; endpoint ada. |
+| 14 | **Mobile board** `46-mobile-board` | US-AD60 | — |
+| 15 | **Ledger explorer** `30-ledger-explorer` | US-AD27 | — |
+| 16 | **Rate limit** | US-AD85 | **Backend-only, benar-benar kosong** — nol rate limiter di repo. |
+| 17 | **Deteksi string keras di CI** | US-AD50 | **Backend-only, benar-benar kosong** — nol workflow CI. |
 
-Sisa sesudah itu (belum ada filenya sama sekali, lebih besar): run detail
-(`32-run-detail`), run timeline (`33-run-timeline`), step payload (`34-step-payload`),
-approval detail (`36-approval-detail`), audit log (`41-audit-log`), ledger explorer
-(`30-ledger-explorer`), notifications (`13-notifications`), dashboard (`42-dashboard`),
-state loading/empty/error (`43`/`44`/`45`), mobile board (`46-mobile-board`).
-
-**22 dari 52 layar belum ada filenya** (diukur dari `docs/COVERAGE.md` lawan
-`frontend/src`). Daftar lengkapnya di `docs/OPEN-ISSUES.md` F13.
+Kalau fase 0–5 kelar, itu hasil yang bagus. Jangan mulai fase baru sebelum yang
+lama ter-push.
 
 ## 3. Loop tiap fase
 

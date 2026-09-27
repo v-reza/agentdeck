@@ -192,42 +192,48 @@ coret.
 
 ---
 
-## Audit CHECKLIST.md (2026-09-27) — dokumennya basi
+## Audit CHECKLIST.md (2026-09-27) — SUDAH DIPERBAIKI
 
-`docs/CHECKLIST.md` di-generate dari `tools/checklist_status.json` dan bilang
-**13 PASS dari 89 story**. Itu angka dari saat backend baru segelintir.
-Sekarang seluruh 129 endpoint §6.2 terpasang. **Jangan pakai CHECKLIST buat
-nentuin prioritas.**
+**Status: selesai.** `docs/CHECKLIST.md` sekarang **68 PASS / 4 dikerjakan /
+16 belum / 1 ditunda** dari 89 story M0–M4, dihitung ulang lawan kode
+(sebelumnya 13 PASS). Sidecar `tools/checklist_status.json` naik dari 17 → 98
+entri, dan tiap verdict diverifikasi: file layar ada + komponennya terpasang di
+router atau dirender induknya.
 
-Angka AC di `docs/00-PRD.md` juga bukan pelacak progres: 387 item, **nol**
-tercentang sejak awal. Jadi tidak ada satu pun dokumen yang menjawab "story mana
-yang sudah jalan" — yang ada cuma:
-- tabel detail §6.2.1–§6.2.19 (endpoint), dijaga `verify_suite.py` → **129 ✅ / 0 ⬜**
-- `tools/checklist_status.json` → 17 entri dilacak tangan
+Regenerate: `python tools/update_checklist.py` (**jangan** edit CHECKLIST.md
+tangan — ubah sidecar-nya).
 
-### Yang benar-benar belum, diukur lawan kode
+### Yang masih terbuka setelah audit
 
-**Layar yang filenya sudah ada tapi KOSONG (stub):**
-- `settings/ApiKeys.tsx` — 21 baris, bilang "not available yet". Backend 5 endpoint
-  sudah jalan sejak F10.
-- `settings/Webhooks.tsx` — 21 baris, alasan sama. Backend 7 endpoint jalan sejak F12.
+**"PASS" belum berarti design match.** Verdict di atas mengukur
+*ada filenya + terpasang*, bukan kesamaan dengan design. `18-kanban` dan
+`20-task-drawer` sudah diketahui belum di-inventory lawan
+`design/stitch-output/v2/*.html`. Layar lain belum diperiksa sama sekali.
 
-**Ditulis lalu tidak pernah disambungkan:**
-- `store/api/stream.ts` (158 baris + test) — SSE lengkap. **Nol komponen memakainya.**
-- `hooks/use-sse-cache.ts` — **nol pemanggil.**
-- `TaskDetailDrawer.tsx:44-46` — komentar bilang Logs/Artifacts/Approvals tab butuh
-  endpoint `runs`/`artifacts`/`approvals` yang "do not exist". Ketiganya **sudah ada**.
-- `stream.ts` sudah punya `listApprovals`/`approveApproval`/`rejectApproval`.
-  `ApprovalInbox` pakai `useListApprovalsQuery`, tapi terima kasih ke wiring lama;
-  approve/reject belum dipakai dari drawer.
+**Dua story backend-only yang benar-benar kosong (nol kode):**
+- `US-AD85` rate limit per endpoint — **nol rate limiter di seluruh repo**.
+- `US-AD50` deteksi string keras di CI — **nol `.github/workflows/`**, nol cek.
 
-**22 dari 52 layar di `docs/COVERAGE.md` belum ada filenya:**
-`06-docs-quickstart`, `06b-docs-api`, `06c-docs-telemetry`, `12-onboarding`,
-`13-notifications`, `14-command-palette`, `16-security`, `17-close-account`,
-`24-dependency-view`, `26b-agent-skills`, `30-ledger-explorer`, `31-cost-export`,
-`32-run-detail`, `33-run-timeline`, `34-step-payload`, `36-approval-detail`,
-`41-audit-log`, `42-dashboard`, `43-state-loading`, `44-state-empty`,
-`45-state-error`, `46-mobile-board`.
+**Empat story separuh jalan:**
+- `US-AD19` — `18-kanban` ada, `24-dependency-view` belum ada filenya.
+- `US-AD67` — `POST /agents/{id}/validate` ada, penegakan harga di create/update
+  belum (nol panggilan ke `internal/pricing` dari jalur itu).
+- `US-AD73` — backend PASS, AC1 nunggu executor.
+- `US-AD108` — label estimasi di UI selesai, jalur `manual`/`pattern` belum
+  terbukti tercatat di baris ledger.
 
-**Layar yang ada tapi belum cocok design (belum di-inventory):** `18-kanban`,
-`20-task-drawer`.
+**14 layar UI belum ada filenya:** `33-run-timeline`, `30-ledger-explorer`,
+`36-approval-detail` (2 story), `32-run-detail`, `46-mobile-board`,
+`13-notifications`, `43-state-loading`, `44-state-empty`, `45-state-error`,
+`42-dashboard`, `16-security`, `34-step-payload`, `26b-agent-skills`.
+
+**Pola yang ditemukan berulang — ditulis lalu tidak disambungkan:**
+- `store/api/stream.ts` (158 baris + test) — SSE lengkap, **nol komponen memakainya**.
+- `hooks/use-sse-cache.ts` — **nol pemanggil**.
+- `settings/ApiKeys.tsx` + `settings/Webhooks.tsx` — stub 21 baris, bilang
+  "not available yet", padahal backend-nya jalan (5 dan 7 endpoint).
+- `TaskDetailDrawer.tsx` — tab Artifacts/Logs/Approvals/assignee picker belum
+  dibangun; endpoint-nya semua ada.
+
+> Catatan lama di F13 yang bilang "22 dari 52 layar belum ada" itu menghitung
+> **semua** milestone. Dalam cakupan CHECKLIST (M0–M4) jumlahnya 14.

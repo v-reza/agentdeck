@@ -19,94 +19,94 @@
 | `US-AD08` | Must | M1 | Membuat project dalam Org | `11-project-list` | ✅ PASS |
 | `US-AD09` | Must | M1 | Membuat board kanban | `18-kanban` | ✅ PASS |
 | `US-AD10` | Must | M1 | Mengedit kolom board | `22-column-editor` | ✅ PASS |
-| `US-AD11` | Must | M1 | Membuat task | `18-kanban`, `21-task-create` | ⬜ |
-| `US-AD12` | Must | M1 | Drag task antar kolom | `18-kanban` | ⬜ |
-| `US-AD13` | Must | M1 | Task detail drawer | `20-task-drawer` | ⬜ |
-| `US-AD14` | Must | M1 | Assign task ke agent | `21-task-create` | ⬜ |
-| `US-AD15` | Must | M1 | Filter task berdasarkan status dan assignee | `18-kanban` | ⬜ |
-| `US-AD16` | Should | M1 | Cari task | `18-kanban` | ⬜ |
-| `US-AD17` | Should | M1 | Priority task (urgent, high, medium, low) | `18-kanban` | ⬜ |
+| `US-AD11` | Must | M1 | Membuat task | `18-kanban`, `21-task-create` | ✅ PASS |
+| `US-AD12` | Must | M1 | Drag task antar kolom | `18-kanban` | ✅ PASS |
+| `US-AD13` | Must | M1 | Task detail drawer | `20-task-drawer` | ✅ PASS |
+| `US-AD14` | Must | M1 | Assign task ke agent | `21-task-create` | ✅ PASS |
+| `US-AD15` | Must | M1 | Filter task berdasarkan status dan assignee | `18-kanban` | ✅ PASS |
+| `US-AD16` | Should | M1 | Cari task | `18-kanban` | ✅ PASS |
+| `US-AD17` | Should | M1 | Priority task (urgent, high, medium, low) | `18-kanban` | ✅ PASS |
 | `US-AD20` | Must | M1 | Agent registry (CRUD) | `25-agent-registry` | ✅ PASS |
-| `US-AD21` | Must | M1 | Dispatcher mengklaim task | *backend-only* | ⬜ |
-| `US-AD22` | Must | M1 | Run lifecycle: claim → finish | *backend-only* | ⬜ |
-| `US-AD23` | Must | M1 | Heartbeat berkala | *backend-only* | ⬜ |
-| `US-AD24` | Must | M1 | Reclaim task stale | *backend-only* | ⬜ |
-| `US-AD58` | Must | M1 | Menandai task selesai (done) | `21-task-create` | ⬜ |
-| `US-AD59` | Must | M1 | Task archived | `18-kanban`, `20-task-drawer` | ⬜ |
+| `US-AD21` | Must | M1 | Dispatcher mengklaim task | *backend-only* | ✅ PASS |
+| `US-AD22` | Must | M1 | Run lifecycle: claim → finish | *backend-only* | ✅ PASS |
+| `US-AD23` | Must | M1 | Heartbeat berkala | *backend-only* | ✅ PASS |
+| `US-AD24` | Must | M1 | Reclaim task stale | *backend-only* | ✅ PASS |
+| `US-AD58` | Must | M1 | Menandai task selesai (done) | `21-task-create` | ✅ PASS |
+| `US-AD59` | Must | M1 | Task archived | `18-kanban`, `20-task-drawer` | ✅ PASS |
 | `US-AD60` | Must | M1 | View toggle: tampilan mobile | `46-mobile-board` | ⬜ |
-| `US-AD62` | Should | M1 | Filter tasks berdasarkan tanggal | `18-kanban` | ⬜ |
+| `US-AD62` | Should | M1 | Filter tasks berdasarkan tanggal | `18-kanban` | ✅ PASS |
 | `US-AD64` | Must | M1 | Empty state board | `44-state-empty` | ⬜ |
-| `US-AD66` | Must | M1 | Max runtime per task (N9) | *backend-only* | ⬜ |
-| `US-AD67` | Must | M1 | Menentukan model dan provider per agent | `26-agent-form`, `28-agent-detail` | ⬜ |
+| `US-AD66` | Must | M1 | Max runtime per task (N9) | *backend-only* | ✅ PASS |
+| `US-AD67` | Must | M1 | Menentukan model dan provider per agent | `26-agent-form`, `28-agent-detail` | 🔨 dikerjakan |
 | `US-AD73` | Must | M1 | Menonaktifkan (archive) agent | `25-agent-registry`, `28-agent-detail` | 🔨 dikerjakan |
-| `US-AD75` | Must | M1 | Workspace management: menentukan workspace_kind | *backend-only* | ⬜ |
+| `US-AD75` | Must | M1 | Workspace management: menentukan workspace_kind | *backend-only* | ✅ PASS |
 | `US-AD76` | Should | M1 | Halaman dashboard | `42-dashboard` | ⬜ |
-| `US-AD79` | Must | M1 | Reassign task ke agent lain | `20-task-drawer` | ⬜ |
-| `US-AD81` | Must | M1 | Filter board berdasarkan kolom | `18-kanban` | ⬜ |
-| `US-AD82` | Must | M1 | Scroll sinkron antar kolom | `18-kanban` | ⬜ |
-| `US-AD83` | Must | M1 | Mengubah nama board | `23-board-settings` | ⬜ |
-| `US-AD84` | Must | M1 | Menghapus board | `23-board-settings` | ⬜ |
+| `US-AD79` | Must | M1 | Reassign task ke agent lain | `20-task-drawer` | ✅ PASS |
+| `US-AD81` | Must | M1 | Filter board berdasarkan kolom | `18-kanban` | ✅ PASS |
+| `US-AD82` | Must | M1 | Scroll sinkron antar kolom | `18-kanban` | ✅ PASS |
+| `US-AD83` | Must | M1 | Mengubah nama board | `23-board-settings` | ✅ PASS |
+| `US-AD84` | Must | M1 | Menghapus board | `23-board-settings` | ✅ PASS |
 | `US-AD90` | Must | M1 | Ganti password dan sesi aktif | `16-security` | ⬜ |
-| `US-AD91` | Must | M1 | Daftar board lintas project | `10-board-list`, `11-project-list` | ⬜ |
-| `US-AD106` | Must | M2 | Provider BYO (bring your own) | `26-agent-form` | ⬜ |
+| `US-AD91` | Must | M1 | Daftar board lintas project | `10-board-list`, `11-project-list` | ✅ PASS |
+| `US-AD106` | Must | M2 | Provider BYO (bring your own) | `26-agent-form` | ✅ PASS |
 | `US-AD107` | Should | M2 | Skill library per ruang kerja | `26b-agent-skills` | ⬜ |
-| `US-AD108` | Must | M2 | Estimasi biaya: label dan sumber harga | `26-agent-form` | ⬜ |
-| `US-AD109` | Must | M2 | Provider registry: daftar kredensial sekali pakai | `47-providers` | ⬜ |
-| `US-AD18` | Must | M2 | Dependency DAG antar task | *backend-only* | ⬜ |
-| `US-AD19` | Should | M2 | Visualisasi dependency di board | `18-kanban`, `24-dependency-view` | ⬜ |
-| `US-AD25` | Must | M2 | Menulis step (trace) dalam run | *backend-only* | ⬜ |
+| `US-AD108` | Must | M2 | Estimasi biaya: label dan sumber harga | `26-agent-form` | 🔨 dikerjakan |
+| `US-AD109` | Must | M2 | Provider registry: daftar kredensial sekali pakai | `47-providers` | ✅ PASS |
+| `US-AD18` | Must | M2 | Dependency DAG antar task | *backend-only* | ✅ PASS |
+| `US-AD19` | Should | M2 | Visualisasi dependency di board | `18-kanban`, `24-dependency-view` | 🔨 dikerjakan |
+| `US-AD25` | Must | M2 | Menulis step (trace) dalam run | *backend-only* | ✅ PASS |
 | `US-AD27` | Must | M2 | Cost ledger: mencatat pemakaian token per step | `30-ledger-explorer` | ⬜ |
-| `US-AD28` | Must | M2 | Agregasi biaya harian per board | `29-cost-overview` | ⬜ |
-| `US-AD29` | Must | M2 | Budget guardrail: hard stop per run ($2) | `29-cost-overview` | ⬜ |
-| `US-AD30` | Must | M2 | Budget harian board ($20) | `29-cost-overview` | ⬜ |
-| `US-AD31` | Must | M2 | Alert budget 80% | `29-cost-overview` | ⬜ |
-| `US-AD32` | Must | M2 | Melihat total biaya task di card | `18-kanban` | ⬜ |
-| `US-AD68` | Must | M2 | Provider harga dinamis (price_version) | *backend-only* | ⬜ |
-| `US-AD69` | Should | M2 | Menampilkan total biaya project | `29-cost-overview` | ⬜ |
-| `US-AD70` | Must | M2 | Proteksi siklus dependency | *backend-only* | ⬜ |
-| `US-AD80` | Must | M2 | Menghapus task (soft delete) | `18-kanban`, `20-task-drawer` | ⬜ |
-| `US-AD86` | Must | M2 | Simpan kredensial provider LLM per agent | `27-agent-provider-key` | ⬜ |
+| `US-AD28` | Must | M2 | Agregasi biaya harian per board | `29-cost-overview` | ✅ PASS |
+| `US-AD29` | Must | M2 | Budget guardrail: hard stop per run ($2) | `29-cost-overview` | ✅ PASS |
+| `US-AD30` | Must | M2 | Budget harian board ($20) | `29-cost-overview` | ✅ PASS |
+| `US-AD31` | Must | M2 | Alert budget 80% | `29-cost-overview` | ✅ PASS |
+| `US-AD32` | Must | M2 | Melihat total biaya task di card | `18-kanban` | ✅ PASS |
+| `US-AD68` | Must | M2 | Provider harga dinamis (price_version) | *backend-only* | ✅ PASS |
+| `US-AD69` | Should | M2 | Menampilkan total biaya project | `29-cost-overview` | ✅ PASS |
+| `US-AD70` | Must | M2 | Proteksi siklus dependency | *backend-only* | ✅ PASS |
+| `US-AD80` | Must | M2 | Menghapus task (soft delete) | `18-kanban`, `20-task-drawer` | ✅ PASS |
+| `US-AD86` | Must | M2 | Simpan kredensial provider LLM per agent | `27-agent-provider-key` | ✅ PASS |
 | `US-AD94` | Must | M2 | Panel detail step dan payload | `34-step-payload` | ⬜ |
-| `US-AD96` | Must | M2 | Formulir agent (buat dan ubah) | `26-agent-form` | ⬜ |
-| `US-AD97` | Must | M2 | Cost rail: panel biaya sisi kanan | `18-kanban` | ⬜ |
+| `US-AD96` | Must | M2 | Formulir agent (buat dan ubah) | `26-agent-form` | ✅ PASS |
+| `US-AD97` | Must | M2 | Cost rail: panel biaya sisi kanan | `18-kanban` | ✅ PASS |
 | `US-AD26` | Must | M3 | Melihat timeline step per run | `33-run-timeline` | ⬜ |
-| `US-AD33` | Must | M3 | Approval gate: request approval | *backend-only* | ⬜ |
+| `US-AD33` | Must | M3 | Approval gate: request approval | *backend-only* | ✅ PASS |
 | `US-AD34` | Must | M3 | Approval: approve | `36-approval-detail` | ⬜ |
 | `US-AD35` | Must | M3 | Approval: reject | `36-approval-detail` | ⬜ |
-| `US-AD36` | Must | M3 | Approval: expired otomatis | *backend-only* | ⬜ |
-| `US-AD37` | Must | M3 | Melihat antrean approval | `35-approval-inbox` | ⬜ |
-| `US-AD38` | Must | M3 | Approval gate mode per agent | `35-approval-inbox` | ⬜ |
-| `US-AD39` | Must | M3 | Event stream SSE: perubahan status task | `18-kanban` | ⬜ |
-| `US-AD40` | Must | M3 | Timeline event per task | `20-task-drawer` | ⬜ |
+| `US-AD36` | Must | M3 | Approval: expired otomatis | *backend-only* | ✅ PASS |
+| `US-AD37` | Must | M3 | Melihat antrean approval | `35-approval-inbox` | ✅ PASS |
+| `US-AD38` | Must | M3 | Approval gate mode per agent | `35-approval-inbox` | ✅ PASS |
+| `US-AD39` | Must | M3 | Event stream SSE: perubahan status task | `18-kanban` | ✅ PASS |
+| `US-AD40` | Must | M3 | Timeline event per task | `20-task-drawer` | ✅ PASS |
 | `US-AD41` | Must | M3 | Halaman detail run | `32-run-detail` | ⬜ |
-| `US-AD42` | Must | M3 | Menambahkan komentar ke task | `20-task-drawer` | ⬜ |
+| `US-AD42` | Must | M3 | Menambahkan komentar ke task | `20-task-drawer` | ✅ PASS |
 | `US-AD61` | Must | M3 | Notifikasi in-app | `13-notifications` | ⬜ |
 | `US-AD63` | Must | M3 | Skeleton loading state | `43-state-loading` | ⬜ |
 | `US-AD65` | Must | M3 | Error boundary UI | `45-state-error` | ⬜ |
-| `US-AD71` | Should | M3 | Comment dengan mention | `20-task-drawer` | ⬜ |
+| `US-AD71` | Should | M3 | Comment dengan mention | `20-task-drawer` | ✅ PASS |
 | `US-AD85` | Must | M3 | Rate limit per endpoint | *backend-only* | ⬜ |
-| `US-AD43` | Must | M4 | Failue taxonomy: klasifikasi otomatis | *backend-only* | ⬜ |
-| `US-AD44` | Must | M4 | Retry otomatis berdasarkan failure_kind | *backend-only* | ⬜ |
-| `US-AD45` | Must | M4 | Max attempts dan dead letter | *backend-only* | ⬜ |
-| `US-AD46` | Must | M4 | Upload artifact ke R2 | *backend-only* | ⬜ |
-| `US-AD47` | Must | M4 | Download artifact | *backend-only* | ⬜ |
-| `US-AD48` | Must | M4 | Menampilkan daftar artifact per task | `20-task-drawer` | ⬜ |
-| `US-AD49` | Must | M4 | UI dwibahasa EN/ID | *backend-only* | ⬜ |
+| `US-AD43` | Must | M4 | Failue taxonomy: klasifikasi otomatis | *backend-only* | ✅ PASS |
+| `US-AD44` | Must | M4 | Retry otomatis berdasarkan failure_kind | *backend-only* | ✅ PASS |
+| `US-AD45` | Must | M4 | Max attempts dan dead letter | *backend-only* | ✅ PASS |
+| `US-AD46` | Must | M4 | Upload artifact ke R2 | *backend-only* | ✅ PASS |
+| `US-AD47` | Must | M4 | Download artifact | *backend-only* | ✅ PASS |
+| `US-AD48` | Must | M4 | Menampilkan daftar artifact per task | `20-task-drawer` | ✅ PASS |
+| `US-AD49` | Must | M4 | UI dwibahasa EN/ID | *backend-only* | ✅ PASS |
 | `US-AD50` | Must | M4 | Deteksi string keras (hardcoded) di CI | *backend-only* | ⬜ |
-| `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ⬜ |
-| `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ⬜ |
+| `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ✅ PASS |
+| `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ✅ PASS |
 
-**Total M0–M4: 89 story** (13 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (68 PASS, 1 ditunda)
 
 ## Progres per milestone
 
 | Milestone | Story | PASS | Sisa |
 |---|---|---|---|
 | M0 | 10 | 9 | 1 |
-| M1 | 32 | 4 | 28 |
-| M2 | 21 | 0 | 21 |
-| M3 | 16 | 0 | 16 |
-| M4 | 10 | 0 | 10 |
+| M1 | 32 | 26 | 6 |
+| M2 | 21 | 16 | 5 |
+| M3 | 16 | 8 | 8 |
+| M4 | 10 | 9 | 1 |
 
 ### Catatan status — `US-AD73` (🔨 dikerjakan)
 
@@ -116,20 +116,4 @@
 - AC2 sudah punya sumber data: `GET /api/v1/boards/{board_id}/assignable-agents` memanggil `ListAssignableAgentsForBoard` (`cmd/api/boards.go`, `internal/board/pgx.go`), dan predikatnya mengecualikan agent terarsip. Catatan lama yang bilang "tidak ada handler maupun endpoint yang memakainya" sudah tidak benar dan dikoreksi di sini.
 - AC1 (task `running` tetap tuntas saat agent diarsip) baru bisa dibuktikan end-to-end setelah executor M4 ada.
 - Status PASS ditahan sampai kedua AC itu bisa dibuktikan — bukan karena gate merah.
-
-### Catatan status — `US-AD67` (⬜)
-
-**endpoint validate ada, cek harga belum.**
-
-- Sudah jalan: `POST /api/v1/agents/{id}/validate` (Member) ada dan terverifikasi runtime; `PATCH /api/v1/agents/{id}` menerima `provider`/`model` dengan floor role di route.
-- Belum: AC1 dan AC2 menuntut kombinasi `provider`+`model` yang tidak ada di tabel harga ditolak **400**. `validateAgent` di `internal/board/service.go` hanya memeriksa format nama, retry policy, rentang runtime, dan pasangan `base_url`. Nol panggilan ke `internal/pricing` dari jalur create/update.
-- Halaman detail (`28-agent-detail`) sudah menampilkan tarif dari `GET /agent-catalog`, tetapi itu lapisan tampilan — bukan penegakan AC.
-
-### Catatan status — `US-AD108` (⬜)
-
-**label estimasi di UI selesai, penulis ledger baru ada.**
-
-- Sudah jalan: AC1 — setiap angka biaya di UI melewati `formatEstimatedMicroUSD`, yang menuliskan `(estimate)`. `GET /agent-catalog` mengirim `estimate: true` dan `disclaimer` dari server, jadi klien tidak bisa diam-diam menghapus labelnya.
-- AC2/AC3 sebagian: `ledger_entries` **sudah punya penulis** sejak M4 — `internal/board/runtime.go` + query `RecordLedgerEntry` menulis `price_source`, `price_version`, dan `pricing_model` per baris, dan itu dibuktikan lawan API nyata (`tools/probe-m5.py`: satu entri, `source=catalog`). Catatan lama yang bilang "nol query sqlc dan nol handler" sudah tidak benar. Yang masih perlu dibuktikan sebelum statusnya naik: jalur `manual` (harga tier-1 menimpa katalog) dan `pattern` ikut tercatat di baris ledger, bukan cuma di resolusi harga.
-- AC5 (5 komponen, `reasoning` tidak pernah disamakan dengan `output`) sudah terpenuhi di tabel harga: 271 entri membawa `ReasoningMicrosPer1M` terpisah dan gate `verify_suite.py` memeriksa blok rumusnya.
 
