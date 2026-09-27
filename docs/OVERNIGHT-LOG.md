@@ -1395,3 +1395,49 @@ pertama jalan — kalau baseline merah, hasilnya dibuang.
 host yang dijangkau browser. Rig-nya: API di host + dev server kedua di :5174
 (cara jalaninnya di brief §3c). **Setelah selesai rig-nya WAJIB dimatikan**;
 kalau tidak, suite biasa lewat :5173 gagal karena container API sudah mati.
+
+### Fase 3 — Tab Approvals di drawer (US-AD34, US-AD35)
+
+**Keputusan yang gw ambil:**
+
+- **Penyaringan per task di klien, dan itu bukan jalan pintas.** `GET
+  /api/v1/approvals` tidak menerima `task_id`; ia mengembalikan antrean seluruh
+  organisasi. Yang penting: **repository-nya PUNYA `ListTaskApprovals`**
+  (`queries.sql:1646`, service `TaskApprovals` di `internal/board/approval.go:199`)
+  — query-nya sudah ada, **tidak ada route yang memasangnya**. Jadi ini bukan
+  parameter yang gw lewatkan; ini endpoint yang belum pernah didaftarkan. Kalau
+  dipasang, ia juga akan membawa riwayat yang sudah diputus, yang justru tidak
+  diinginkan tab ini. Dicatat di `docs/OPEN-ISSUES.md`.
+- **Penyaring `pending` DIHAPUS setelah mutasi menunjukkan ia mubazir.** Server
+  sudah menyaring `decision = 'pending' AND expires_at > now()`
+  (`ListPendingApprovals`). Menyalin aturan itu ke klien berarti dua tempat yang
+  bisa berbeda pendapat soal batas kedaluwarsa. Sekarang layar menampilkan apa
+  yang diberikan; tepi kedaluwarsa tetap milik server.
+- **Role gate membaca `admin`, mengikuti server, bukan cerita.** US-AD34 AC3
+  bilang approve = owner/admin/**member**; US-AD35 AC4 bilang reject =
+  owner/admin saja. Implementasi server menaruh **keduanya di `admin`**. Kalau
+  layar memisahkan keduanya, seorang member akan melihat tombol setujui yang
+  dijawab 403. Konflik ini dicatat di `OPEN-ISSUES.md`, bukan diselesaikan
+  diam-diam dengan memilih satu sisi.
+- **Tombol tolak mati sampai alasannya diisi**, karena server menolak reject
+  tanpa `reason` (US-AD35 AC2). Tombol hidup yang selalu gagal tidak mengajarkan
+  apa pun.
+- **Tiga hal yang gw coba dan gagal, supaya tidak diulang:** (1) `GET
+  /api/v1/members` **tidak ada** — route-nya `GET /api/v1/orgs/{id}/members`;
+  (2) menurunkan owner terakhir lewat `PATCH .../members/{user_id}` dijawab
+  `ErrLastOwner` (`internal/auth/errors.go:20`), jadi peran viewer **tidak bisa**
+  disemai lewat API — dipakai stub `GET /auth/me`, cara yang sama dengan
+  `approvals.spec.ts`; (3) label tab di bawah bahasa default (`id`) adalah
+  **"Persetujuan"**, bukan "Approvals".
+
+**Bukti:**
+
+- **e2e `approvals-tab.spec.ts` 3/3.** Yang paling berharga: approval milik task
+  LAIN harus tidak muncul — kesalahan tipe itu akan membuat tab menampilkan
+  pekerjaan orang lain. Juga: payload bersarang dirender apa adanya, menyetujui
+  dari drawer menghapus kartunya, tolak mati tanpa alasan, dan viewer tidak
+  melihat satu tombol pun.
+- **Full e2e: 138 passed / 2 skipped / 0 failed.**
+- **Mutasi 3 CAUGHT / 0 SURVIVED:** penyaring `task_id` dibuang, role gate
+  dibuang, payload tidak dirender.
+- Gate rc=0 · tsc rc=0 · vitest 80/80 · prettier bersih · CHECKLIST 70 -> **72 PASS**.

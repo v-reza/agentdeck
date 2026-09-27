@@ -13,6 +13,7 @@ import { useCanAct } from '@/hooks/use-orgs'
 import { StepTimeline } from '@/components/terminal/StepTimeline'
 import { TabArtifacts } from '@/components/boards/TabArtifacts'
 import { RunSteps } from '@/components/boards/RunSteps'
+import { TabApprovals } from '@/components/boards/TabApprovals'
 import { Button } from '@/components/ui/button'
 import { Field, Input, Textarea } from '@/components/ui/input'
 import { useAppDispatch } from '@/store/hooks'
@@ -75,10 +76,8 @@ export function TaskDetailDrawer({ taskID }: { taskID: string }) {
   const { events } = useSseCache(task?.board_id ?? null)
   const [updateTask] = useUpdateTaskMutation()
 
-  // The four tabs the design draws (screen 20-task-drawer). Only Timeline and
-  // Artifacts have content yet; Logs and Approvals are wired to real tabs so the
-  // shell matches the design and each one lands as its own change rather than a
-  // rewrite of this file. See docs/OVERNIGHT-BRIEF.md §2 for their order.
+  // The four tabs the design draws (screen 20-task-drawer), all four now with
+  // their own panel: Timeline, Logs (run steps), Artifacts, Approvals.
   const [tab, setTab] = useState<DrawerTabKey>('timeline')
 
   const [state, formAction, isPending] = useActionForm(updateTask, (form) => ({
@@ -218,6 +217,18 @@ export function TaskDetailDrawer({ taskID }: { taskID: string }) {
               >
                 <SectionTitle>{t['drawer.tab.artifacts']}</SectionTitle>
                 <TabArtifacts taskID={taskID} />
+              </section>
+            ) : null}
+
+            {tab === 'approvals' ? (
+              <section
+                role="tabpanel"
+                id="drawer-panel-approvals"
+                aria-labelledby="drawer-tab-approvals"
+                className="mt-5"
+              >
+                <SectionTitle>{t['drawer.tab.approvals']}</SectionTitle>
+                <TabApprovals taskID={taskID} />
               </section>
             ) : null}
 

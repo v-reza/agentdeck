@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (140 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (141 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 79 |
+| `<svg>` | 111 | 82 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -17,10 +17,10 @@ sementara implementasi mendeklarasikan komponennya sekali lalu merendernya
 di dalam `.map()`. Jadi rasio mentahnya selalu terlihat lebih buruk daripada
 kenyataan, dan satu-satunya cara membacanya adalah per jenis icon di layar
 yang punya file impl — lihat §3.
-| blok skeleton (abu berukuran) | 323 | 23 |
+| blok skeleton (abu berukuran) | 323 | 24 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 27 |
+| file memakai `lucide-react` | 0 | 28 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -163,7 +163,7 @@ Nol.
 | 17-close-account | `/settings/close` | — | 0/0 | 0 | 0 |
 | 18-kanban | `/boards/:id` | `BoardToolbar.tsx`, `KanbanBoard.tsx` | 5/4 | 0 | 1 |
 | 19-table-view | `/boards/:id?view=table` | `BoardToolbar.tsx`, `TableView.tsx` | 0/4 | 0 | 1 |
-| 20-task-drawer | `(drawer)` | `RunSteps.tsx`, `TabArtifacts.tsx`, `StepTimeline.tsx`, `TaskDetailDrawer.tsx` | 12/10 | 0 | 4 |
+| 20-task-drawer | `(drawer)` | `RunSteps.tsx`, `TabApprovals.tsx`, `TabArtifacts.tsx`, `StepTimeline.tsx`, `TaskDetailDrawer.tsx` | 12/13 | 0 | 5 |
 | 21-task-create | `(modal)` | `TaskCreateForm.tsx` | 7/3 | 0 | 0 |
 | 22-column-editor | `(panel)` | `ColumnEditor.tsx`, `BoardSettings.tsx` | 0/6 | 0 | 1 |
 | 23-board-settings | `/boards/:id/settings` | `BoardSettings.tsx` | 0/0 | 0 | 0 |

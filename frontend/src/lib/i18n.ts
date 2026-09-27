@@ -279,6 +279,13 @@ export interface Dictionary {
   'artifacts.empty': string
   'artifacts.notConfigured': string
   'artifacts.upload': string
+  'approvals.none': string
+  'approvals.approve': string
+  'approvals.reject': string
+  'approvals.reason': string
+  'approvals.expiresIn': string
+  'approvals.expired': string
+  'approvals.needsAdmin': string
   'artifacts.uploading': string
   'artifacts.uploadFailed': string
   'artifacts.noRun': string
@@ -789,6 +796,13 @@ const en: Dictionary = {
   'artifacts.empty': 'This task has produced no artifacts yet.',
   'artifacts.notConfigured': 'Object storage is not configured, so artifacts cannot be listed.',
   'artifacts.upload': 'Upload file',
+  'approvals.none': 'Nothing is waiting on a decision for this task.',
+  'approvals.approve': 'Approve',
+  'approvals.reject': 'Reject',
+  'approvals.reason': 'Reason for rejecting',
+  'approvals.expiresIn': 'expires in',
+  'approvals.expired': 'expired',
+  'approvals.needsAdmin': 'Approving and rejecting needs the owner or admin role.',
   'artifacts.uploading': 'Uploading…',
   'artifacts.uploadFailed': 'Object storage refused the upload',
   'artifacts.noRun': 'This task has no run yet, so it cannot take an artifact.',
@@ -1305,6 +1319,13 @@ const id: Dictionary = {
   'artifacts.empty': 'Task ini belum menghasilkan artefak.',
   'artifacts.notConfigured': 'Object storage belum dikonfigurasi, jadi artefak tidak bisa didaftar.',
   'artifacts.upload': 'Unggah berkas',
+  'approvals.none': 'Tidak ada yang menunggu keputusan untuk task ini.',
+  'approvals.approve': 'Setujui',
+  'approvals.reject': 'Tolak',
+  'approvals.reason': 'Alasan penolakan',
+  'approvals.expiresIn': 'kedaluwarsa dalam',
+  'approvals.expired': 'kedaluwarsa',
+  'approvals.needsAdmin': 'Menyetujui dan menolak butuh peran owner atau admin.',
   'artifacts.uploading': 'Mengunggah…',
   'artifacts.uploadFailed': 'Object storage menolak unggahan',
   'artifacts.noRun': 'Task ini belum punya run, jadi belum bisa menerima artefak.',

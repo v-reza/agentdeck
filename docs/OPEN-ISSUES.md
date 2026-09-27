@@ -223,6 +223,29 @@ tangan — ubah sidecar-nya).
 - **Definisi "PASS" di CHECKLIST**: file layar ada DAN komponennya dirender.
   **Bukan** design match. Untuk layout ketat, ukur elemennya (`DESIGN-INVENTORY.md`).
 
+### Endpoint per-task yang query-nya ada tapi route-nya tidak
+
+- **`ListTaskApprovals` tidak ter-expose.** Query-nya ada di
+  `internal/store/queries/queries.sql:1646` dan service-nya di
+  `internal/board/approval.go:199` (`TaskApprovals`), tapi **tidak ada satu pun
+  route** yang mendaftarkannya — daftar `approvals` di `cmd/api/runs.go:63-70`
+  hanya punya `/approvals` (antrean org), `/{id}`, approve, reject, dan
+  `POST /tasks/{id}/approvals`. Akibatnya tab Approvals di drawer menyaring
+  antrean organisasi di klien. Itu benar hari ini, tapi ia membaca seluruh
+  antrean untuk menampilkan satu task. Memasang route-nya juga akan membawa
+  riwayat yang sudah diputus, jadi keputusan produknya: tab ini **hanya
+  keputusan tertunda**, dan itu memang yang dikirim endpoint antrean.
+
+### Konflik peran: story vs implementasi (approval)
+
+- **US-AD34 AC3** bilang approve boleh `owner`/`admin`/**`member`**.
+  **US-AD35 AC4** bilang reject hanya `owner`/`admin`. **Implementasi server
+  menaruh keduanya di `admin`** (`cmd/api/runs.go:65-66`). Ini keputusan produk
+  yang belum diambil, bukan bug yang bisa gw putuskan sendiri: kalau approve
+  memang boleh member, route-nya harus turun ke `auth.Member`; kalau tidak,
+  AC3 di PRD yang salah. Layar mengikuti server supaya tidak menampilkan tombol
+  yang dijawab 403.
+
 ### Guard yang tidak bisa dijangkau tes
 
 - `TabArtifacts.tsx` — cabang `crypto.subtle` tidak ada. Chromium selalu punya

@@ -71,8 +71,8 @@
 | `US-AD97` | Must | M2 | Cost rail: panel biaya sisi kanan | `18-kanban` | ✅ PASS |
 | `US-AD26` | Must | M3 | Melihat timeline step per run | `33-run-timeline` | ✅ PASS |
 | `US-AD33` | Must | M3 | Approval gate: request approval | *backend-only* | ✅ PASS |
-| `US-AD34` | Must | M3 | Approval: approve | `36-approval-detail` | ⬜ |
-| `US-AD35` | Must | M3 | Approval: reject | `36-approval-detail` | ⬜ |
+| `US-AD34` | Must | M3 | Approval: approve | `36-approval-detail` | ✅ PASS |
+| `US-AD35` | Must | M3 | Approval: reject | `36-approval-detail` | ✅ PASS |
 | `US-AD36` | Must | M3 | Approval: expired otomatis | *backend-only* | ✅ PASS |
 | `US-AD37` | Must | M3 | Melihat antrean approval | `35-approval-inbox` | ✅ PASS |
 | `US-AD38` | Must | M3 | Approval gate mode per agent | `35-approval-inbox` | ✅ PASS |
@@ -96,7 +96,7 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ✅ PASS |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ✅ PASS |
 
-**Total M0–M4: 89 story** (70 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (72 PASS, 1 ditunda)
 
 ## Progres per milestone
 
@@ -105,7 +105,7 @@
 | M0 | 10 | 9 | 1 |
 | M1 | 32 | 26 | 6 |
 | M2 | 21 | 17 | 4 |
-| M3 | 16 | 9 | 7 |
+| M3 | 16 | 11 | 5 |
 | M4 | 10 | 9 | 1 |
 
 ### Catatan status — `US-AD73` (🔨 dikerjakan)
