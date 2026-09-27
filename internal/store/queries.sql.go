@@ -1023,6 +1023,52 @@ func (q *Queries) CreateApproval(ctx context.Context, arg CreateApprovalParams) 
 	return i, err
 }
 
+const createArtifact = `-- name: CreateArtifact :one
+INSERT INTO artifacts (id, org_id, task_id, run_id, filename, content_type, size, storage_key, sha256)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, org_id, task_id, run_id, filename, content_type, size, storage_key, sha256, created_at
+`
+
+type CreateArtifactParams struct {
+	ID          string
+	OrgID       string
+	TaskID      string
+	RunID       string
+	Filename    string
+	ContentType string
+	Size        int32
+	StorageKey  string
+	Sha256      string
+}
+
+func (q *Queries) CreateArtifact(ctx context.Context, arg CreateArtifactParams) (Artifact, error) {
+	row := q.db.QueryRow(ctx, createArtifact,
+		arg.ID,
+		arg.OrgID,
+		arg.TaskID,
+		arg.RunID,
+		arg.Filename,
+		arg.ContentType,
+		arg.Size,
+		arg.StorageKey,
+		arg.Sha256,
+	)
+	var i Artifact
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TaskID,
+		&i.RunID,
+		&i.Filename,
+		&i.ContentType,
+		&i.Size,
+		&i.StorageKey,
+		&i.Sha256,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createBoard = `-- name: CreateBoard :one
 INSERT INTO boards (id, org_id, project_id, slug, name, columns_json, budget_daily_micros)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -2515,6 +2561,35 @@ func (q *Queries) GetApproval(ctx context.Context, arg GetApprovalParams) (Appro
 		&i.PreviewJson,
 		&i.ExpiresAt,
 		&i.DecidedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getArtifact = `-- name: GetArtifact :one
+SELECT id, org_id, task_id, run_id, filename, content_type, size, storage_key, sha256, created_at
+FROM artifacts
+WHERE id = $1 AND org_id = $2
+`
+
+type GetArtifactParams struct {
+	ID    string
+	OrgID string
+}
+
+func (q *Queries) GetArtifact(ctx context.Context, arg GetArtifactParams) (Artifact, error) {
+	row := q.db.QueryRow(ctx, getArtifact, arg.ID, arg.OrgID)
+	var i Artifact
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.TaskID,
+		&i.RunID,
+		&i.Filename,
+		&i.ContentType,
+		&i.Size,
+		&i.StorageKey,
+		&i.Sha256,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -4926,6 +5001,49 @@ func (q *Queries) ListTaskApprovals(ctx context.Context, arg ListTaskApprovalsPa
 	return items, nil
 }
 
+const listTaskArtifacts = `-- name: ListTaskArtifacts :many
+SELECT id, org_id, task_id, run_id, filename, content_type, size, storage_key, sha256, created_at
+FROM artifacts
+WHERE task_id = $1 AND org_id = $2
+ORDER BY created_at DESC, id DESC
+`
+
+type ListTaskArtifactsParams struct {
+	TaskID string
+	OrgID  string
+}
+
+func (q *Queries) ListTaskArtifacts(ctx context.Context, arg ListTaskArtifactsParams) ([]Artifact, error) {
+	rows, err := q.db.Query(ctx, listTaskArtifacts, arg.TaskID, arg.OrgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Artifact
+	for rows.Next() {
+		var i Artifact
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.TaskID,
+			&i.RunID,
+			&i.Filename,
+			&i.ContentType,
+			&i.Size,
+			&i.StorageKey,
+			&i.Sha256,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTaskChildren = `-- name: ListTaskChildren :many
 SELECT l.child_id, t.title, t.status
 FROM task_links l
@@ -6008,6 +6126,27 @@ WHERE id = $1 AND deleted_at IS NULL
 func (q *Queries) SoftDeleteUser(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, softDeleteUser, id)
 	return err
+}
+
+const sumTaskArtifactSize = `-- name: SumTaskArtifactSize :one
+SELECT COALESCE(SUM(size), 0)::bigint AS total
+FROM artifacts
+WHERE task_id = $1 AND org_id = $2
+`
+
+type SumTaskArtifactSizeParams struct {
+	TaskID string
+	OrgID  string
+}
+
+// N22: kuota 100 MB per task dihitung dari yang sudah terdaftar. COALESCE
+// penting: SUM atas nol baris mengembalikan NULL, dan NULL di-kuantisasi jadi
+// error scan, bukan nol.
+func (q *Queries) SumTaskArtifactSize(ctx context.Context, arg SumTaskArtifactSizeParams) (int64, error) {
+	row := q.db.QueryRow(ctx, sumTaskArtifactSize, arg.TaskID, arg.OrgID)
+	var total int64
+	err := row.Scan(&total)
+	return total, err
 }
 
 const touchAPIKey = `-- name: TouchAPIKey :exec

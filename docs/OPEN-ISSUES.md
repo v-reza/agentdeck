@@ -163,6 +163,17 @@ coret.
   atau membaca riwayat pengiriman. **Belum dikerjakan** — itu perubahan di
   `frontend/`, bukan penambahan endpoint.
 
+- **Tidak ada role "Worker" di kode.** §6.2.14 dan §6.2.16 meminta
+  `Internal/Key` dengan role Worker, tapi `auth.Role` hanya Owner/Admin/Member/
+  Viewer. Route worker (approval, artifact upload) karena itu dipasang `Member`.
+  **Butuh keputusan produk**: apakah Worker jadi peran kelima, atau kredensial
+  worker tetap diwakili API key berperan Member selamanya.
+
+- **`artifacts_storage_key_idx` (§3.15) sengaja tidak dibuat.** Kontrak bilang
+  index itu melayani download by storage_key, tapi endpoint-nya
+  `/artifacts/{id}/download` — lewat primary key. Dicatat supaya tidak ada yang
+  menambahkannya diam-diam demi mencocokkan dokumen.
+
 ## Batasan yang diketahui (bukan bug)
 
 - **Gerbang peran tidak bisa dibuktikan lewat e2e** — fixture selalu owner. Cakupan

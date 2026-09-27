@@ -140,6 +140,7 @@ type Querier interface {
 	// membiarkan klien memilih tenggatnya berarti approval yang tidak pernah
 	// kedaluwarsa bisa dibuat dengan mengirim tanggal jauh di depan.
 	CreateApproval(ctx context.Context, arg CreateApprovalParams) (Approval, error)
+	CreateArtifact(ctx context.Context, arg CreateArtifactParams) (Artifact, error)
 	// Boards. columns_json is the board's view of status, never a new status.
 	CreateBoard(ctx context.Context, arg CreateBoardParams) (Board, error)
 	// ---------------------------------------------------------------- approvals --
@@ -271,6 +272,7 @@ type Querier interface {
 	// Dibatasi org_id seperti setiap pembacaan runtime lain (11.4): approval tenant
 	// lain harus tak terbedakan dari yang tidak ada.
 	GetApproval(ctx context.Context, arg GetApprovalParams) (Approval, error)
+	GetArtifact(ctx context.Context, arg GetArtifactParams) (Artifact, error)
 	GetBoard(ctx context.Context, arg GetBoardParams) (Board, error)
 	GetComment(ctx context.Context, arg GetCommentParams) (Comment, error)
 	// Dipakai hub SSE: trigger NOTIFY hanya mengirim `id` (payload event bisa
@@ -500,6 +502,7 @@ type Querier interface {
 	// Riwayat keputusan satu task, terbaru dulu — dipakai layar trace dan oleh
 	// pemeriksaan "sudah ada gate pending?" sebelum membuat gate baru.
 	ListTaskApprovals(ctx context.Context, arg ListTaskApprovalsParams) ([]Approval, error)
+	ListTaskArtifacts(ctx context.Context, arg ListTaskArtifactsParams) ([]Artifact, error)
 	ListTaskChildren(ctx context.Context, parentID string) ([]ListTaskChildrenRow, error)
 	// `id ASC` is the discussion order, and the index comments_task_idx is on
 	// (task_id, id) for exactly this read.
@@ -654,6 +657,10 @@ type Querier interface {
 	// akan ditolak Authenticate pada request berikutnya — tapi mencabutnya lebih
 	// jelas daripada membiarkannya menggantung sampai kedaluwarsa.
 	SoftDeleteUser(ctx context.Context, id string) error
+	// N22: kuota 100 MB per task dihitung dari yang sudah terdaftar. COALESCE
+	// penting: SUM atas nol baris mengembalikan NULL, dan NULL di-kuantisasi jadi
+	// error scan, bukan nol.
+	SumTaskArtifactSize(ctx context.Context, arg SumTaskArtifactSizeParams) (int64, error)
 	// Dicatat saat key dipakai. Kegagalan di sini tidak boleh menggagalkan request
 	// (lihat internal/auth/apikey.go) — ini telemetri, bukan otorisasi.
 	TouchAPIKey(ctx context.Context, id string) error

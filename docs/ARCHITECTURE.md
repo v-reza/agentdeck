@@ -1889,11 +1889,11 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 #### 6.2.16 Artifacts (5 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/tasks/{id}/artifacts` | Session/Key | Viewer | Ya | ⬜ | List metadata artifact milik task |
-| `POST` | `/api/v1/tasks/{id}/artifacts/upload-url` | Internal/Key | Worker | Tidak | ⬜ | Minta presigned PUT URL R2 (`filename, size`) |
-| `POST` | `/api/v1/tasks/{id}/artifacts` | Internal/Key | Worker | Ya | ⬜ | Daftarkan file sukses di-upload (`sha256, key`) |
-| `GET` | `/api/v1/artifacts/{id}` | Session/Key | Viewer | Ya | ⬜ | Metadata satu artifact |
-| `GET` | `/api/v1/artifacts/{id}/download` | Session/Key | Viewer | Ya | ⬜ | Redirect `302` ke presigned GET URL R2 |
+| `GET` | `/api/v1/tasks/{id}/artifacts` | Session/Key | Viewer | Ya | ✅ | List metadata artifact milik task |
+| `POST` | `/api/v1/tasks/{id}/artifacts/upload-url` | Internal/Key | Worker | Tidak | ✅ | Minta presigned PUT URL R2 (`filename, size`) |
+| `POST` | `/api/v1/tasks/{id}/artifacts` | Internal/Key | Worker | Ya | ✅ | Daftarkan file sukses di-upload (`sha256, key`) |
+| `GET` | `/api/v1/artifacts/{id}` | Session/Key | Viewer | Ya | ✅ | Metadata satu artifact |
+| `GET` | `/api/v1/artifacts/{id}/download` | Session/Key | Viewer | Ya | ✅ | Redirect `302` ke presigned GET URL R2 |
 
 #### 6.2.17 Comments (4 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
@@ -2800,8 +2800,9 @@ gambar struktur di atas tidak dibaca sebagai janji:
 | `internal/dispatcher/` | Tick loop: klaim, dependency, budget, reclaim, worker | **Ada** (lihat catatan) |
 | `internal/executor/` | Runner LLM satu task lawan satu agent | **Ada** (lihat catatan) |
 | `internal/sse/` | Broker SSE + `LISTEN/NOTIFY` | Belum |
-| `internal/storage/` | Klien R2/S3, presigned URL | Belum |
-| `internal/webhook/` | Pengiriman webhook + retry | Belum |
+| `internal/storage/` | Klien R2/S3, presigned URL | **Ada** |
+| `internal/webhook/` | Pengiriman webhook + retry | **Ada** |
+| `internal/artifact/` | Metadata artifact + kuota N22 | **Ada** |
 | `tests/` | Integration test (Testcontainers), load test k6 | Belum |
 
 **Runtime sudah memanggil LLM.** `internal/executor` menyusun prompt dari

@@ -1,0 +1,32 @@
+-- Index artifacts yang hilang — ARCHITECTURE 3.15.
+--
+-- Dua index dideklarasikan di 3.15 dan tidak pernah dibuat; tabelnya sendiri
+-- sudah ada sejak migrasi 0013. Keduanya diperlakukan berbeda, dan alasannya
+-- beda.
+--
+-- 1. `artifacts_retention_idx`. Kontrak menulisnya sebagai PARTIAL index:
+--      CREATE INDEX ... ON artifacts (created_at) WHERE created_at < now() - interval '85 days';
+--    Pernyataan itu TIDAK BISA dijalankan Postgres:
+--      ERROR: functions in index predicate must be marked IMMUTABLE
+--    `now()` bukan IMMUTABLE (nilainya berubah tiap transaksi), dan predikat
+--    partial index wajib immutable. Jadi index versi kontraknya bukan "belum
+--    dibuat" — dia mustahil. Yang dipakai di sini index btree biasa di
+--    `created_at`: pembersihan retensi 90 hari (N12) menjalankan
+--      DELETE FROM artifacts WHERE created_at < now() - interval '90 days'
+--    dan btree biasa melayani predikat rentang itu persis sama baiknya.
+--    Predikatnya memang tidak diperlukan: yang dihemat partial index hanyalah
+--    baris yang tidak akan pernah dicari, dan di sini SEMUA baris tua adalah
+--    kandidat hapus, jadi tidak ada yang bisa dihemat.
+--
+-- 2. `artifacts_storage_key_idx` sengaja TIDAK dibuat. 3.15 bilang index itu
+--    "melayani download artifact by storage_key (presigned URL)", tapi endpoint
+--    download-nya `GET /artifacts/{id}/download` — dia mencari baris lewat
+--    primary key lalu membaca `storage_key` dari baris itu. Tidak ada query
+--    yang memfilter `WHERE storage_key = ...`, jadi index-nya tidak melayani
+--    apa pun dan hanya menambah biaya tulis pada setiap artifact yang
+--    didaftarkan. Mencatatnya di sini lebih baik daripada membuat index mati
+--    supaya cocok dengan dokumen.
+--
+-- `IF NOT EXISTS` mengikuti konvensi 0013 ke atas (jalur repair mengulang
+-- Apply di atas skema yang sudah terisi).
+CREATE INDEX IF NOT EXISTS artifacts_retention_idx ON artifacts (created_at);

@@ -1113,6 +1113,30 @@ UPDATE webhook_deliveries
 SET status = 'pending', attempts = 0, response_code = NULL, last_error = NULL
 WHERE id = $1;
 
+-- name: CreateArtifact :one
+INSERT INTO artifacts (id, org_id, task_id, run_id, filename, content_type, size, storage_key, sha256)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, org_id, task_id, run_id, filename, content_type, size, storage_key, sha256, created_at;
+
+-- name: ListTaskArtifacts :many
+SELECT id, org_id, task_id, run_id, filename, content_type, size, storage_key, sha256, created_at
+FROM artifacts
+WHERE task_id = $1 AND org_id = $2
+ORDER BY created_at DESC, id DESC;
+
+-- name: GetArtifact :one
+SELECT id, org_id, task_id, run_id, filename, content_type, size, storage_key, sha256, created_at
+FROM artifacts
+WHERE id = $1 AND org_id = $2;
+
+-- name: SumTaskArtifactSize :one
+-- N22: kuota 100 MB per task dihitung dari yang sudah terdaftar. COALESCE
+-- penting: SUM atas nol baris mengembalikan NULL, dan NULL di-kuantisasi jadi
+-- error scan, bukan nol.
+SELECT COALESCE(SUM(size), 0)::bigint AS total
+FROM artifacts
+WHERE task_id = $1 AND org_id = $2;
+
 -- name: ListRunEventsAfter :many
 -- Replay trace satu run (6.2.13). Melayani `events_run_idx (run_id, id)`.
 -- Scoping org ada di predikat supaya run org lain tidak pernah terbaca.

@@ -882,3 +882,122 @@ worker-nya benar-benar POST keluar.
 **Sisa: 5 ⬜ — 6.2.16 Artifacts.** Terhalang kredensial object storage
 (presigned URL). Kerangkanya bisa ditulis, tapi tidak bisa dibuktikan jalan
 lawan layanan nyata, jadi tidak dikerjakan sampai kredensialnya ada.
+
+## F13 — 6.2.16 Artifacts (5 endpoint)
+
+**Status:** selesai. **129 ✅ / 0 ⬜ — seluruh endpoint §6.2 terpasang.**
+Gate rc=0.
+
+**Koreksi penilaian sebelumnya.** Sesi ini beberapa kali menyatakan Artifacts
+terhalang kredensial object storage dan karena itu tidak bisa dibuktikan.
+**Itu salah.** §12.3 memakai presigned URL ke R2, dan presigning S3 itu murni
+kripto lokal — tidak ada panggilan API ke Cloudflare yang dibutuhkan untuk
+membuatnya. Seluruh siklusnya bisa dijalankan lawan server S3-compatible lokal
+(MinIO), dan itulah yang dikerjakan: `tools/probe-f13.py` **28/28**.
+
+Pelajaran yang layak dicatat: "butuh kredensial" bukan alasan berhenti sampai
+kredensial itu benar-benar diperlukan. Di sini yang diperlukan cuma endpoint
+S3 yang bisa dijangkau, dan itu bisa dibuat sendiri.
+
+### Konflik kontrak
+
+1. **§3.15 mendeklarasikan index yang mustahil.** Kontrak menulis
+   `CREATE INDEX artifacts_retention_idx ON artifacts (created_at) WHERE created_at < now() - interval '85 days'`.
+   Postgres menolaknya: `ERROR: functions in index predicate must be marked
+   IMMUTABLE`. Jadi versi kontraknya bukan "belum dibuat" — **tidak bisa
+   dijalankan**. Migrasi `0022` memakai btree biasa di `created_at`, yang
+   melayani `DELETE ... WHERE created_at < now() - interval '90 days'` (N12)
+   sama baiknya. Predikatnya memang tidak bisa menghemat apa pun di sini:
+   semua baris tua adalah kandidat hapus.
+
+2. **`artifacts_storage_key_idx` sengaja TIDAK dibuat.** §3.15 bilang index itu
+   "melayani download artifact by storage_key", tapi endpoint-nya
+   `GET /artifacts/{id}/download` — mencari lewat primary key lalu membaca
+   `storage_key` dari barisnya. Tidak ada query yang memfilter
+   `WHERE storage_key = ...`. Index mati hanya menambah biaya tulis.
+
+3. **`run_id` wajib, walau §6.2.16 meringkas request upload-url sebagai
+   `(filename, size)`.** Key objeknya berbentuk
+   `artifacts/{org}/{task}/{run}/{id}-{filename}` (§3.15), jadi tanpa run
+   key-nya tidak bisa dibentuk sesuai kontrak. Ringkasan itu tidak bisa
+   dipenuhi bersamaan dengan DDL-nya, dan DDL yang mengikat.
+
+4. **Role "Worker" tidak ada di kode.** §6.2.16 meminta `Internal/Key` + role
+   Worker; `auth.Role` hanya Owner/Admin/Member/Viewer. Sama seperti isu
+   terbuka sejak F7/F10, route-nya dipasang `Member`. Sudah tercatat di
+   `docs/OPEN-ISSUES.md`.
+
+### Yang dikerjakan
+
+- Migrasi `0022`: index retensi (versi yang bisa dijalankan).
+- `internal/storage/`: SigV4 presign PUT/GET/HEAD, URI-encoding SigV4, klien
+  (HEAD + Fetch), key builder + sanitizer. **Tanpa SDK AWS** — yang dibutuhkan
+  cuma HMAC-SHA256, dan menambah SDK untuk empat rumus berarti menambah pohon
+  dependensi yang harus diaudit.
+- `internal/artifact/`: service + adapter pgx. Batas 25 MB/file, kuota 100 MB
+  per task (N22), verifikasi SHA-256.
+- `cmd/api/artifacts.go` (5 handler) + `artifact_wiring.go` +
+  `internal/config/storage.go`.
+- Worker default **OFF** (`S3_*` kosong ⇒ endpoint balas 503, bukan 404:
+  route-nya ada, konfigurasinya yang belum).
+
+### Keputusan desain
+
+- **Verifikasi digest benar-benar membaca objeknya.** §12.3 langkah 6 bilang
+  "backend memverifikasi SHA-256 matching". Membandingkan string yang dikirim
+  klien dengan string yang dikirim klien tidak memverifikasi apa pun, jadi
+  objeknya diunduh dan digest-nya dihitung ulang. Di atas 8 MB isinya tidak
+  dibaca ulang (`MaxVerifyBytes`) — `size` dan HEAD tetap diperiksa, tapi
+  membaca ulang objek sebesar batas atas dikali beberapa pendaftaran paralel
+  adalah tekanan memori yang tidak dijanjikan siapa pun.
+- **`size` didaftarkan harus sama dengan yang dilaporkan storage.** Tanpa itu
+  kuota N22 bisa dilewati dengan melaporkan angka apa pun.
+- **`storage_key` harus di bawah prefix org DAN task.** Memeriksa org saja
+  masih membolehkan artifact task lain didaftarkan ke task ini.
+- **Key harus konsisten dengan `run_id` yang didaftarkan** — kalau tidak,
+  barisnya benar dan isinya menunjuk pekerjaan orang lain.
+- **Tanpa `S3_PATH_STYLE`.** Klien selalu path-style: R2 menerimanya, dan itu
+  satu-satunya bentuk yang bekerja untuk endpoint non-DNS seperti `minio:9000`.
+  Variabel yang tidak dibaca siapa pun adalah persis bagaimana nama env
+  dispatcher melenceng dari manifest-nya.
+
+### Bukti
+
+- `tools/probe-f13.py` **28/28** lawan API nyata + MinIO. Termasuk siklus 12.3
+  penuh: upload-url → PUT ke presigned URL (diterima storage) → register
+  (digest dihitung ulang dari objek yang mendarat) → download 302 → isi unduhan
+  **identik byte-per-byte**. Plus penolakan: digest salah, ukuran tidak cocok,
+  key tenant lain, run tidak ada, file > 25 MB, viewer 403.
+- `internal/storage/` 13 tes lawan MinIO nyata: round-trip, secret salah 403,
+  URL kedaluwarsa ditolak, HEAD ukuran, vektor SigV4 resmi AWS untuk service
+  `s3` DAN `iam` (supaya service-nya benar-benar kepaku).
+- `internal/artifact/` 18 tes; `internal/migrate/` 3 tes (index ada, planner
+  memakainya, versi partial kontrak benar-benar ditolak Postgres).
+- Mutation 6/6 **CAUGHT**: digest tidak dihitung ulang, prefix org+task tidak
+  diperiksa, ukuran storage tidak dibandingkan, key tidak dicocokkan dengan run,
+  kuota task tidak ditegakkan, batas per file tidak ditegakkan.
+- Gate `tools/gate-overnight.cmd` rc=0. `gofmt -l .` bersih.
+- `go test`: cmd/api 26.0s, migrate 9.0s (tes baru), storage 1.9s, artifact 1.1s.
+
+### Dua bug yang ditemukan server S3 nyata, bukan mock
+
+1. **Presign path-style lupa menyertakan bucket di canonical path.** URL-nya
+   menunjuk `/bucket/key` sementara yang ditandatangani `/key` ⇒
+   `SignatureDoesNotMatch`. Tidak kelihatan sampai URL-nya benar-benar dikirim:
+   URL-nya sendiri terlihat benar. Lalu perbaikan pertama salah —
+   `canonicalPath` dipakai untuk merakit URL juga, jadi bucketnya ter-prefix dua
+   kali (`/bucket/bucket/key`). Keduanya hanya ketahuan lawan server sungguhan.
+2. **`sanitizeFilename("../../etc/passwd")` menghasilkan `_/_/etc/passwd`.**
+   Segmen `..` diganti `_`, bukan dibuang, jadi key-nya masih terlihat seperti
+   path. Sekarang segmen `..` dibuang seluruhnya ⇒ `etc/passwd`.
+
+Satu lagi: vektor HMAC yang dipakai di tes pertama adalah vektor service
+**`iam`**, bukan `s3`. Tesnya yang salah, bukan kodenya — sekarang keduanya
+dipaku supaya `s3` benar-benar terbukti.
+
+**Catatan operasional:** probe F13 menjalankan API **di host**, bukan di
+container. Presigned URL punya satu host string dan yang membuatnya harus
+menjangkaunya sama seperti yang memakainya; di container, host itu tidak punya
+nama yang juga dikenal host. Postgres dan MinIO sama-sama di-publish ke
+loopback, jadi API di host menjangkau keduanya. Skripnya di scratch
+(`run-api-host.sh`), bukan di repo — ia meng-hardcode port dev lokal.

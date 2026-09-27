@@ -483,6 +483,11 @@ func main() {
 	providerSvc := newProviderService(pool, cfg.MasterKey)
 	registerBoardRoutes(mux, api, boardService, providerSvc)
 	registerWebhookRoutes(mux, api, boardService, webhookSvc)
+	// 6.2.16: artifact. Service-nya nil kalau S3_ENDPOINT dkk belum diisi —
+	// rutenya tetap dipasang supaya yang belum dikonfigurasi menjawab 503,
+	// bukan 404 yang menyiratkan endpoint-nya belum ada.
+	artifactSvc := artifactService(pool, logger)
+	registerArtifactRoutes(mux, api, artifactSvc)
 	// The agent registry and the skill library are their own route files, so
 	// each owns its role table in one place (see registerAgentRoutes /
 	// registerAgentSkillRoutes). Wiring them here is the one line that makes

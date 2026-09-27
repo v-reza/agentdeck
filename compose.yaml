@@ -72,6 +72,21 @@ services:
       # never uses webhooks should not open outbound connections nobody asked
       # for. Set to 1 to run it.
       AGENTDECK_WEBHOOKS: ${AGENTDECK_WEBHOOKS:-0}
+      # Object storage for artifacts (6.2.16, 12.3). Unset means the five
+      # artifact endpoints answer 503 instead of 404: the route exists, the
+      # configuration does not. That is deliberate — a deployment that never
+      # uploads artifacts should still boot.
+      #
+      # R2 is S3-compatible, so these are the standard S3 names. There is no
+      # S3_PATH_STYLE knob on purpose: the client always uses path-style, which
+      # R2 accepts and which is the only form that works for a non-DNS endpoint
+      # like `minio:9000`. A variable nobody reads is how the dispatcher env var
+      # drifted out of sync with its own manifest.
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
       # Prometheus scrape credential, "user:password" (ARCHITECTURE 6.2.1).
       # Unset means /metrics answers 404: the label sets carry board and org ids,
       # which is tenant topology, so the endpoint is closed until an operator
