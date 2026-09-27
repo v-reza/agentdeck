@@ -1535,3 +1535,34 @@ adalah bagian yang paling gampang hilang tanpa suara di modul ini.
 `TASK-${taskID}` tanpa perlu; gw balikin setelah memverifikasi tidak ada yang
 meng-invalidate tag `Run` selain deklarasinya di `base.ts`. Perubahan tag yang
 tidak diminta adalah cara paling sunyi untuk mematikan refresh tab Logs.
+
+### Gate `/goal` rusak — butuh perbaikan dari dalam sesi
+
+Bukan masalah repo. `tools/gate-overnight.cmd` sendiri **lulus** (`cmd.exe /c
+"tools\gate-overnight.cmd"` -> rc=0, dijalankan dua kali). Yang rusak adalah
+**command yang tersimpan di state goal**: `./tools/gate-overnight.cmd`.
+
+Gate dijalankan `subprocess.run(command, shell=True)`, yang di Windows berarti
+`cmd.exe /c <command>`, dan cmd.exe tidak menerima prefix `./`:
+
+    $ cmd.exe /c "./tools/gate-overnight.cmd"
+    '.' is not recognized as an internal or external command
+    $ cmd.exe /c "tools\gate-overnight.cmd"
+    rc=0
+
+**Kenapa tidak bisa diperbaiki dari sesi ini.** `_session_bound_manager`
+(`hermes_cli/cli_loops_mixin.py:450-455`) mengembalikan GoalManager dari MEMORI
+proses selama `session_id` tidak berubah -- tidak membaca DB ulang. Sesi CLI yang
+hidup masih memegang daftar gate lama (dimuat sebelum perbaikan), menjalankannya,
+gagal, lalu `_save()` menulis balik state basi itu. Perbaikan out-of-process
+(dibuktikan tersimpan: `attempts: 0`, `last_exit_code: null`) ditimpa dalam satu
+siklus gate. `hermes` juga tidak punya subcommand `goal`, jadi tidak ada jalur
+CLI dari luar.
+
+**Perbaikan yang benar** -- dijalankan di dalam sesi ini sebagai slash command:
+
+    /goal gate remove 1
+    /goal gate add tools\gate-overnight.cmd
+
+Verifikasi setelahnya: `/goal gate list` harus menampilkan gate itu tanpa
+"✗ failing".
