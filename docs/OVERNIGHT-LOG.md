@@ -1111,3 +1111,25 @@ inventory elemen.
 - Diff sidecar lawan hasil audit komputasi: **0 selisih** dari 89 story
   (dicek ulang otomatis sebelum generate).
 - `python tools/update_checklist.py` → `wrote docs\CHECKLIST.md (77 PASS, 98 tracked)`.
+
+### F15 tambahan — full e2e dijalankan (user mengizinkan)
+
+**128 tes, 0 gagal.** Terukur per shard: 1=42 (124s), 2=25 (47s), 3=38 (85s),
+4=23 (51s). Total ~307 detik.
+
+Perintahnya masuk brief §3b: `--shard=N/4 --workers=1 --trace=off`,
+`--output` unik per run, foreground + redirect, artifact dihapus setelah selesai.
+
+**Satu flake nyata, bukan regresi — dan buktinya hilang karena kesalahan gw.**
+Run pertama shard 3: `column-editor.spec.ts:139 AC1` gagal,
+`locator.fill` timeout 60 detik menunggu `getByLabel('Nama kolom baru')`.
+- Label itu **ada** di komponen (`components/boards/ColumnEditor.tsx:326`,
+  `aria-label`), dan form-nya selalu dirender di panel.
+- Dijalankan sendiri: **7/7 hijau, AC1 2.6 detik**.
+- Shard 3 diulang: **38/38 hijau**, 87 detik — run pertama 168 detik, dua kali
+  lebih lambat.
+
+Kesimpulan: tekanan resource (satu sesi Playwright lebih lama hidup), bukan
+regresi. **Tapi screenshot + `error-context.md` kegagalan itu ketimpa** karena gw
+memakai `--output=.e2e-out` yang sama untuk run standalone sesudahnya. Aturan
+`--output` unik per run lahir dari kesalahan ini.

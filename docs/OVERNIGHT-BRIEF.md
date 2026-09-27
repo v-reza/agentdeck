@@ -91,6 +91,40 @@ lama ter-push.
 6. `tsc -b` + `prettier --check src/` tiap edit (gate cepat).
 7. Commit + push + tulis hasilnya di `docs/OVERNIGHT-LOG.md`.
 
+## 3b. Full e2e (diizinkan, TERUKUR ~5 menit)
+
+User mengizinkan full e2e. Perintah yang benar, dan caranya **wajib** begini:
+
+```bash
+cd frontend
+rm -rf .e2e-final
+node node_modules/@playwright/test/cli.js test --shard=N/4 --workers=1 --trace=off --output=.e2e-final
+```
+
+- **Wajib dipecah `--shard=N/4`.** Full suite sekali jalan (~400s+) menembus cap
+  tool terminal; per-shard ~47–170 detik.
+- **`--workers=1`.** Config repo memang `workers: 1` + `fullyParallel: false`;
+  menaikkannya bikin tes saling ganggu.
+- **Jangan `npx`** — kadang nggak resolve. Pakai path `node_modules` langsung.
+- **Jangan background** — background selalu `stdin is not a tty`. Foreground +
+  redirect ke file.
+- **`--output` unik per run.** Kalau dipakai ulang, artifact kegagalan run
+  sebelumnya ketimpa dan buktinya hilang — ini pernah kejadian.
+- **Hapus `.e2e-final/` setelah selesai**, jangan sampai ke-commit.
+
+Angka acuan yang sudah diukur: **128 tes, 0 gagal**, shard 1/2/3/4 =
+42/25/38/23, total ~307 detik.
+
+`column-editor.spec.ts` (AC1) **pernah flake sekali** dengan pola
+`locator.fill` timeout 60 detik padahal labelnya ada di komponen dan tesnya
+lolos 2.6 detik saat dijalankan sendiri. Shard itu dua kali lebih lambat di run
+pertama (168s vs 87s). Kalau ketemu lagi: **ulangi tes itu dulu sebelum
+menyimpulkan regresi**, dan kalau gagal di bawah tekanan, catat sebagai flake —
+jangan diamkan.
+
+Container web (`agentdeck-web` :5173) dan API harus hidup. `reuseExistingServer`
+membuat dev server yang sudah jalan dipakai ulang.
+
 ## 4. Kontrak gate (terukur, bukan tebakan)
 
 `tools\gate-overnight.cmd` = `gofmt -l .` → `go build ./...` → `tsc -b` →
