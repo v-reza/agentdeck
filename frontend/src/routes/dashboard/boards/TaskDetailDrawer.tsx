@@ -41,10 +41,16 @@ import { SkeletonText } from '@/components/ui/skeleton'
  * that would 403. A refusal that still gets through — a 409 because the task is
  * not finished — is rendered in the server's own words.
  *
- * Not built, and named rather than faked: the design's Logs tab, Artifacts tab,
- * Approvals tab, assignee picker, and code-font markdown body all need endpoints
- * that do not exist (`runs`, `artifacts`, `approvals`). Rendering dead tabs would
- * be the same lie as a screen reading a column nobody writes.
+ * Belum dibangun, dan disebut namanya daripada dipalsukan: tab Logs, tab
+ * Artifacts, tab Approvals, pemilih assignee, dan body markdown berfont kode.
+ *
+ * Alasan lama di baris ini — "butuh endpoint yang tidak ada (`runs`,
+ * `artifacts`, `approvals`)" — sudah **tidak benar**. Ketiganya terpasang dan
+ * terbukti lawan API nyata: `GET /tasks/{id}/runs`, `GET /tasks/{id}/runs/{id}`
+ * (events), `GET|POST /tasks/{id}/artifacts` + `upload-url` + `/download`, dan
+ * `POST /tasks/{id}/approvals` + approve/reject. Yang kurang sekarang **UI-nya**,
+ * bukan endpoint-nya. Cek dulu `docs/ARCHITECTURE.md` §6.2 baris detail sebelum
+ * menyalin alasan apa pun dari komentar ini.
  */
 export function TaskDetailDrawer({ taskID }: { taskID: string }) {
   const dispatch = useAppDispatch()

@@ -1001,3 +1001,55 @@ menjangkaunya sama seperti yang memakainya; di container, host itu tidak punya
 nama yang juga dikenal host. Postgres dan MinIO sama-sama di-publish ke
 loopback, jadi API di host menjangkau keduanya. Skripnya di scratch
 (`run-api-host.sh`), bukan di repo — ia meng-hardcode port dev lokal.
+
+## F14 — audit CHECKLIST.md + brief baru (transisi ke frontend)
+
+**Status:** selesai, ter-push. Gate rc=0.
+
+**Kenapa ada fase ini.** User minta CHECKLIST.md dicek lawan kode, dan minta
+overnight run lagi. Backend sudah 129 ✅ / 0 ⬜, jadi misinya pindah ke frontend —
+dan brief lama masih menyuruh ngerjain endpoint §6.2 yang sudah tidak ada.
+
+### Temuan audit (semua diverifikasi ke kode, bukan diklaim)
+
+1. **`docs/CHECKLIST.md` BASI.** Bilang 13 PASS dari 89 story. Di-generate dari
+   `tools/checklist_status.json` (17 entri) saat backend baru segelintir.
+   **Jangan dipakai buat prioritas.**
+2. **`docs/00-PRD.md` bukan pelacak progres:** 109 story, 387 item AC, **nol**
+   tercentang sejak awal.
+3. **Dua layar sudah ada tapi KOSONG (stub 21 baris):** `settings/ApiKeys.tsx`
+   dan `settings/Webhooks.tsx` — dua-duanya bilang "not available yet" padahal
+   backend-nya jalan (F10 5 endpoint, F12 7 endpoint).
+4. **`store/api/stream.ts` (158 baris + test) nol pemakai.** Implementasi SSE
+   lengkap: EventSource, patch cache RTK, `Last-Event-ID` resume. Tapi cuma
+   `stream.test.ts` yang mengimpornya.
+5. **`hooks/use-sse-cache.ts` nol pemanggil.** Didefinisikan, tidak pernah dipasang.
+6. **`TaskDetailDrawer.tsx:44-46` alasannya basi.** Komentarnya bilang tab
+   Logs/Artifacts/Approvals butuh endpoint `runs`/`artifacts`/`approvals` yang
+   "do not exist". Ketiganya **sudah ada dan terbukti** lawan API nyata.
+7. **22 dari 52 layar (`docs/COVERAGE.md`) belum ada filenya.** Daftar lengkap
+   ditulis di `docs/OPEN-ISSUES.md`.
+
+### Yang dikerjakan
+
+- `docs/OVERNIGHT-BRIEF.md` **ditulis ulang**: misi → frontend, 8 fase termurah
+  dulu (Artifacts tab → Logs tab → Approvals tab → pasang SSE → Webhooks → API
+  Keys → assignee picker → task archived), sumber progres yang sah disebut
+  eksplisit, CHECKLIST ditandai basi.
+- `docs/OPEN-ISSUES.md`: bagian audit CHECKLIST.md + daftar 22 layar.
+- `frontend/src/routes/dashboard/boards/TaskDetailDrawer.tsx`: komentar basi
+  dibetulin — menyebut endpoint yang **sudah** ada, dan menyuruh cek §6.2 dulu
+  sebelum menyalin alasan apa pun dari file itu.
+
+### Verifikasi
+
+- `tsc -b` rc=0; `prettier --check` pada file yang disentuh: bersih.
+- `./tools/gate-overnight.cmd` rc=0 (4.59s).
+- Nol file Go disentuh di fase ini, jadi `go test` tidak dijalankan — dan itu
+  disebut di sini, bukan didiamkan.
+
+### Catatan buat sesi berikutnya
+
+Fase 2 (Logs tab) punya risiko duplikasi: drawer sudah menampilkan timeline dari
+`useBoardEventsQuery`. **Cek dulu** apakah "Logs" di design beda dari "Timeline"
+yang sudah ada; kalau sama, jangan bikin dua yang isinya sama.

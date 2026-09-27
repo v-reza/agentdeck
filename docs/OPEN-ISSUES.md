@@ -189,3 +189,45 @@ coret.
 - Status per 2026-09-21 (provider registry fase 0–6, audit F3, restructure dokumen)
   → `archive/reports/HANDOFF-2026-09-21.md`. **Jangan** dipakai sebagai sumber kebenaran.
 - `OVERNIGHT-BRIEF.md` / `OVERNIGHT-LOG.md` versi lama → `archive/reports/`.
+
+---
+
+## Audit CHECKLIST.md (2026-09-27) — dokumennya basi
+
+`docs/CHECKLIST.md` di-generate dari `tools/checklist_status.json` dan bilang
+**13 PASS dari 89 story**. Itu angka dari saat backend baru segelintir.
+Sekarang seluruh 129 endpoint §6.2 terpasang. **Jangan pakai CHECKLIST buat
+nentuin prioritas.**
+
+Angka AC di `docs/00-PRD.md` juga bukan pelacak progres: 387 item, **nol**
+tercentang sejak awal. Jadi tidak ada satu pun dokumen yang menjawab "story mana
+yang sudah jalan" — yang ada cuma:
+- tabel detail §6.2.1–§6.2.19 (endpoint), dijaga `verify_suite.py` → **129 ✅ / 0 ⬜**
+- `tools/checklist_status.json` → 17 entri dilacak tangan
+
+### Yang benar-benar belum, diukur lawan kode
+
+**Layar yang filenya sudah ada tapi KOSONG (stub):**
+- `settings/ApiKeys.tsx` — 21 baris, bilang "not available yet". Backend 5 endpoint
+  sudah jalan sejak F10.
+- `settings/Webhooks.tsx` — 21 baris, alasan sama. Backend 7 endpoint jalan sejak F12.
+
+**Ditulis lalu tidak pernah disambungkan:**
+- `store/api/stream.ts` (158 baris + test) — SSE lengkap. **Nol komponen memakainya.**
+- `hooks/use-sse-cache.ts` — **nol pemanggil.**
+- `TaskDetailDrawer.tsx:44-46` — komentar bilang Logs/Artifacts/Approvals tab butuh
+  endpoint `runs`/`artifacts`/`approvals` yang "do not exist". Ketiganya **sudah ada**.
+- `stream.ts` sudah punya `listApprovals`/`approveApproval`/`rejectApproval`.
+  `ApprovalInbox` pakai `useListApprovalsQuery`, tapi terima kasih ke wiring lama;
+  approve/reject belum dipakai dari drawer.
+
+**22 dari 52 layar di `docs/COVERAGE.md` belum ada filenya:**
+`06-docs-quickstart`, `06b-docs-api`, `06c-docs-telemetry`, `12-onboarding`,
+`13-notifications`, `14-command-palette`, `16-security`, `17-close-account`,
+`24-dependency-view`, `26b-agent-skills`, `30-ledger-explorer`, `31-cost-export`,
+`32-run-detail`, `33-run-timeline`, `34-step-payload`, `36-approval-detail`,
+`41-audit-log`, `42-dashboard`, `43-state-loading`, `44-state-empty`,
+`45-state-error`, `46-mobile-board`.
+
+**Layar yang ada tapi belum cocok design (belum di-inventory):** `18-kanban`,
+`20-task-drawer`.
