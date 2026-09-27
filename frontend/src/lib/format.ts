@@ -58,3 +58,27 @@ export function formatCount(value: number, lang: Lang): string {
 export function interpolate(template: string, values: string[]): string {
   return template.replace(/\{(\d+)\}/g, (whole, index: string) => values[Number(index)] ?? whole)
 }
+
+/**
+ * `1.5 MB` — a file size (US-AD48 AC1).
+ *
+ * Binary units (1024), matching what object storage and the API's own 100 MB
+ * quota mean by "MB". `Intl.NumberFormat` gives the locale's decimal separator
+ * for free, so `1,5 MB` in Indonesian and `1.5 MB` in English come from the
+ * same line.
+ */
+export function formatBytes(bytes: number, lang: Lang): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '—'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  const digits = unit === 0 ? 0 : value < 10 ? 1 : 0
+  return `${new Intl.NumberFormat(LOCALES[lang], {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value)} ${units[unit]}`
+}

@@ -12,6 +12,7 @@ import './api/boards'
 import './api/agents'
 import './api/finops'
 import './api/stream'
+import './api/artifacts'
 
 import sessionReducer from './slices/sessionSlice'
 import uiReducer from './slices/uiSlice'

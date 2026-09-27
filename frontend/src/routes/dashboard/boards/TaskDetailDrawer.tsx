@@ -11,9 +11,12 @@ import { useSseCache } from '@/hooks/use-sse-cache'
 import { useActionForm, describeError } from '@/hooks/use-action-form'
 import { useCanAct } from '@/hooks/use-orgs'
 import { StepTimeline } from '@/components/terminal/StepTimeline'
+import { TabArtifacts } from '@/components/boards/TabArtifacts'
 import { Button } from '@/components/ui/button'
 import { Field, Input, Textarea } from '@/components/ui/input'
 import { useAppDispatch } from '@/store/hooks'
+import { useT } from '@/hooks/use-t'
+import { cn } from '@/lib/cn'
 import type { TaskStatus } from '@/lib/domain'
 import { closeTask } from '@/store/slices/uiSlice'
 import { formatEstimatedMicroUSD, formatTokens, shortID } from '@/lib/formatters'
@@ -52,8 +55,17 @@ import { SkeletonText } from '@/components/ui/skeleton'
  * bukan endpoint-nya. Cek dulu `docs/ARCHITECTURE.md` §6.2 baris detail sebelum
  * menyalin alasan apa pun dari komentar ini.
  */
+/**
+ * The four tabs the design draws for this drawer. The union is the single
+ * source of truth for what the tablist renders, so adding a tab is one edit
+ * here plus its panel — not a second list of labels kept in step by hand.
+ */
+type DrawerTabKey = 'timeline' | 'logs' | 'artifacts' | 'approvals'
+const DRAWER_TABS: DrawerTabKey[] = ['timeline', 'logs', 'artifacts', 'approvals']
+
 export function TaskDetailDrawer({ taskID }: { taskID: string }) {
   const dispatch = useAppDispatch()
+  const t = useT()
   const { data: task, isError } = useGetTaskQuery(taskID)
   const { data: links } = useListTaskLinksQuery(taskID)
   // Same subscription as the board toolbar (one hook, one cache entry): the
@@ -61,6 +73,12 @@ export function TaskDetailDrawer({ taskID }: { taskID: string }) {
   // `boardEvents`, so an event from the dispatcher refreshes the task too.
   const { events } = useSseCache(task?.board_id ?? null)
   const [updateTask] = useUpdateTaskMutation()
+
+  // The four tabs the design draws (screen 20-task-drawer). Only Timeline and
+  // Artifacts have content yet; Logs and Approvals are wired to real tabs so the
+  // shell matches the design and each one lands as its own change rather than a
+  // rewrite of this file. See docs/OVERNIGHT-BRIEF.md §2 for their order.
+  const [tab, setTab] = useState<DrawerTabKey>('timeline')
 
   const [state, formAction, isPending] = useActionForm(updateTask, (form) => ({
     id: taskID,
@@ -89,6 +107,47 @@ export function TaskDetailDrawer({ taskID }: { taskID: string }) {
           <X size={15} strokeWidth={2} aria-hidden="true" />
         </button>
       </header>
+
+      {task ? (
+        <div
+          role="tablist"
+          aria-label={t['drawer.tab.timeline']}
+          className="flex border-b border-[var(--color-border-subtle)] px-2"
+        >
+          {DRAWER_TABS.map((entry) => (
+            <button
+              key={entry}
+              type="button"
+              role="tab"
+              id={`drawer-tab-${entry}`}
+              aria-selected={tab === entry}
+              aria-controls={`drawer-panel-${entry}`}
+              onClick={() => setTab(entry)}
+              className={cn(
+                // The underline is the active marker, and the token pair keeps
+                // the selected tab legible without relying on colour alone:
+                // aria-selected carries it for assistive tech.
+                'border-b-2 px-3 py-2 font-mono text-[11px] transition-colors',
+                tab === entry
+                  ? 'border-[var(--color-accent)] text-[var(--color-accent)]'
+                  : 'border-transparent text-[var(--color-tertiary)] hover:text-[var(--color-secondary)]',
+              )}
+            >
+              {
+                t[
+                  entry === 'timeline'
+                    ? 'drawer.tab.timeline'
+                    : entry === 'logs'
+                      ? 'drawer.tab.logs'
+                      : entry === 'artifacts'
+                        ? 'drawer.tab.artifacts'
+                        : 'drawer.tab.approvals'
+                ]
+              }
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {task ? (
@@ -131,10 +190,35 @@ export function TaskDetailDrawer({ taskID }: { taskID: string }) {
               )}
             </section>
 
-            <section className="mt-5">
-              <SectionTitle>Timeline</SectionTitle>
-              <StepTimeline events={(events ?? []).filter((event) => event.task_id === taskID)} />
-            </section>
+            {/*
+              Each panel is a real tabpanel with a real heading, so the tab
+              switch moves focusable content rather than hiding it in place.
+              Timeline keeps its exact previous markup — this change adds tabs
+              around it, it does not restyle it.
+            */}
+            {tab === 'timeline' ? (
+              <section
+                role="tabpanel"
+                id="drawer-panel-timeline"
+                aria-labelledby="drawer-tab-timeline"
+                className="mt-5"
+              >
+                <SectionTitle>{t['drawer.tab.timeline']}</SectionTitle>
+                <StepTimeline events={(events ?? []).filter((event) => event.task_id === taskID)} />
+              </section>
+            ) : null}
+
+            {tab === 'artifacts' ? (
+              <section
+                role="tabpanel"
+                id="drawer-panel-artifacts"
+                aria-labelledby="drawer-tab-artifacts"
+                className="mt-5"
+              >
+                <SectionTitle>{t['drawer.tab.artifacts']}</SectionTitle>
+                <TabArtifacts taskID={taskID} />
+              </section>
+            ) : null}
           </>
         ) : isError ? (
           // A failed fetch must not masquerade as a slow one: the previous

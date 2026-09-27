@@ -232,8 +232,31 @@ tangan — ubah sidecar-nya).
 - `hooks/use-sse-cache.ts` — **nol pemanggil**.
 - `settings/ApiKeys.tsx` + `settings/Webhooks.tsx` — stub 21 baris, bilang
   "not available yet", padahal backend-nya jalan (5 dan 7 endpoint).
-- `TaskDetailDrawer.tsx` — tab Artifacts/Logs/Approvals/assignee picker belum
-  dibangun; endpoint-nya semua ada.
+
+**Diperbarui 2026-09-27 (fase 0–1):**
+- ✅ `stream.ts` **sudah dipakai** — board hidup dari event stream (commit
+  `d4078f1`). Sebelumnya nol pemakai.
+- ✅ **Tab Artifacts** terpasang (commit fase 1), termasuk tab shell
+  Timeline/Logs/Artifacts/Approvals sesuai `20-task-drawer.html`.
+- ⬜ Tab **Logs** dan **Approvals** masih placeholder; assignee picker belum ada.
+- ⬜ `ApiKeys.tsx` dan `Webhooks.tsx` masih stub.
+
+**Temuan baru yang terverifikasi lawan kode:**
+1. **US-AD48 AC2 (paginasi cursor) tidak ada di backend.** `ListTaskArtifacts`
+   tidak punya `LIMIT`/`cursor` — daftarnya mengembalikan seluruh artifact satu
+   task. UI-nya sengaja tidak mengarang paginasi (lihat `ponytail:` di
+   `store/api/artifacts.ts`). Konsekuensi praktis kecil hari ini karena kuota
+   artifact per task 100 MB, tapi AC-nya berbunyi 50+ item.
+2. **Unduhan artifact tampil inline, bukan tersimpan.** `Release` presigned
+   membawa `ResponseContentType` tapi bukan `ResponseContentDisposition`, jadi
+   `text/plain` dirender di tab alih-alih diunduh. Atribut `download` HTML
+   diabaikan browser karena URL storage beda origin dari app. Perbaikan = API
+   change (tambah `response-content-disposition=attachment` saat menandatangani).
+3. **Semua endpoint artifact balas 503 kalau `S3_*` tidak diset** — termasuk
+   `GET` daftar. `artifactService()` mengembalikan nil dan `artifactContext`
+   menolak semua. UI sekarang membedakan "storage belum dikonfigurasi" dari
+   "belum ada artefak". **Runner e2e yang menjalankan suite artifact butuh
+   `S3_*`** — lihat `docs/OVERNIGHT-BRIEF.md` §3c.
 
 > Catatan lama di F13 yang bilang "22 dari 52 layar belum ada" itu menghitung
 > **semua** milestone. Dalam cakupan CHECKLIST (M0–M4) jumlahnya 14.

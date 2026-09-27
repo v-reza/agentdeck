@@ -57,8 +57,8 @@ Maka urutannya:
 
 | # | Fase | Story | Kenapa murah |
 |---|---|---|---|
-| 0 | **Pasang `useSseCache`** di kanban + drawer | US-AD39 | Hook sudah ada. Board jadi hidup tanpa refresh. Fallback fetch wajib jalan saat stream mati. |
-| 1 | **Artifacts tab** di drawer | US-AD48 | 5 endpoint + presigned URL sudah terbukti lawan MinIO. Cuma UI. |
+| 0 | ✅ **SELESAI** (`d4078f1`) — Pasang `useSseCache` di kanban + toolbar | US-AD39 | Board hidup tanpa refresh. |
+| 1 | ✅ **SELESAI** — **Artifacts tab** (list + unduh) + tab shell 4 tab | US-AD48 | Upload dipisah ke fase 1b, lihat di bawah. |
 | 2 | **Logs tab** (step timeline) | US-AD26, US-AD94 | `GET /runs/{id}/events` + step payload ada. |
 | 3 | **Approvals tab** di drawer | US-AD34, US-AD35 | `stream.ts` sudah punya `listApprovals`/`approveApproval`/`rejectApproval`. |
 | 4 | **Approval detail** `36-approval-detail` | US-AD34, US-AD35 | Layar belum ada; datanya sudah. |
@@ -75,6 +75,12 @@ Maka urutannya:
 | 15 | **Ledger explorer** `30-ledger-explorer` | US-AD27 | — |
 | 16 | **Rate limit** | US-AD85 | **Backend-only, benar-benar kosong** — nol rate limiter di repo. |
 | 17 | **Deteksi string keras di CI** | US-AD50 | **Backend-only, benar-benar kosong** — nol workflow CI. |
+
+| 1b | **Upload artifact** dari UI | US-AD48 | Endpoint `upload-url` + `register` ada; klien `useRegisterArtifactMutation` sengaja belum dibuat karena butuh `run_id`, yaitu UI pemilihan run. Fase 5 (run detail) yang paling murah memasangnya. |
+
+Yang sudah selesai tidak dihitung ulang: **fase 0 (`d4078f1`) dan fase 1**. Fase 1
+dipecah — **list + unduh** dikerjakan, **upload** ditunda ke 1b dengan alasan
+yang dicatat di log (`run_id` wajib, jadi butuh UI pemilihan run lebih dulu).
 
 Kalau fase 0–5 kelar, itu hasil yang bagus. Jangan mulai fase baru sebelum yang
 lama ter-push.
@@ -124,6 +130,53 @@ jangan diamkan.
 
 Container web (`agentdeck-web` :5173) dan API harus hidup. `reuseExistingServer`
 membuat dev server yang sudah jalan dipakai ulang.
+
+## 3c. Suite artifact butuh object storage
+
+`e2e/artifacts.spec.ts` punya dua test dan **satu di antaranya bergantung
+lingkungan**:
+
+- **"dua empty state"** — jalan di mana saja. TIDAK butuh storage. Asertnya
+  mengikuti jawaban API (503 = belum dikonfigurasi, 200 = belum ada artefak).
+- **"round-trip byte"** — `test.skip` otomatis kalau API menjawab 503. Untuk
+  menjalankannya sungguhan, API harus punya `S3_*`, **dan** presigned host-nya
+  harus dijangkau browser yang menjalankan test.
+
+### Kenapa butuh lebih dari sekadar mengisi `S3_*`
+
+URL presigned punya satu host string, dan host itu dibakar ke dalam tanda
+tangan. Yang menandatangani (API) dan yang memakainya (browser) harus setuju.
+Container tidak bisa memenuhi keduanya: `minio:9000` tidak dikenal browser,
+`127.0.0.1:9000` tidak berarti di dalam container.
+
+Solusinya: **API di HOST** (seperti probe F13) + **dev server kedua** yang
+proxy-nya diarahkan ke host. Ini yang dipakai F13 dan dipakai lagi di sini:
+
+    # 1. API di host, MinIO hidup (container agentdeck-minio :9000)
+    #    S3_ENDPOINT=http://127.0.0.1:9000 supaya browser bisa menjangkaunya
+    bash "C:/Users/Reza/AppData/Local/hermes/cache/scratch/run-art-e2e.sh"
+
+    # 2. Jalankan suite-nya lawan dev server kedua itu (:5174).
+    #    JANGAN :5173 -- yang itu proxy ke API container yang tidak punya S3_*.
+    cd frontend
+    E2E_BASE_URL=http://127.0.0.1:5174 \
+      node node_modules/@playwright/test/cli.js test e2e/artifacts.spec.ts \
+      --workers=1 --trace=off --output=.e2e-art
+
+`E2E_BASE_URL` menaikkan juga `webServer.url`, jadi Playwright tidak menyalakan
+dev server ketiga. Variabelnya opsional: tanpa itu semuanya jalan di :5173
+seperti sebelumnya.
+
+**Sesudah selesai, matikan rig-nya.** Kalau tidak, suite biasa ikut gagal:
+
+    powershell -NoProfile -Command "Get-Process agentdeck-api -EA SilentlyContinue | Stop-Process -Force"
+    docker compose up -d api     # hidupkan lagi yang di container
+
+### Kalau lupa mematikan rig
+
+Gejalanya menyesatkan: container API mati, tapi :8080 tetap hidup karena API
+host yang menjawab. Suite biasa (lewat :5173) gagal 502 karena proxy-nya
+menunjuk container yang sudah mati. Cek dulu siapa yang memegang :8080.
 
 ## 4. Kontrak gate (terukur, bukan tebakan)
 

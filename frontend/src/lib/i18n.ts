@@ -272,6 +272,14 @@ export interface Dictionary {
   'boards.viewTable': string
   'boards.taskCount': string
   'boards.live': string
+  'drawer.tab.timeline': string
+  'drawer.tab.logs': string
+  'drawer.tab.artifacts': string
+  'drawer.tab.approvals': string
+  'artifacts.empty': string
+  'artifacts.notConfigured': string
+  'artifacts.loadFailed': string
+  'artifacts.download': string
   'boards.liveHint': string
   'boards.newTask': string
   'boards.noTasksMatch': string
@@ -758,6 +766,14 @@ const en: Dictionary = {
   'boards.viewTable': 'Table',
   'boards.taskCount': '{0} tasks',
   'boards.live': 'Live',
+  'drawer.tab.timeline': 'Timeline',
+  'drawer.tab.logs': 'Logs',
+  'drawer.tab.artifacts': 'Artifacts',
+  'drawer.tab.approvals': 'Approvals',
+  'artifacts.empty': 'This task has produced no artifacts yet.',
+  'artifacts.notConfigured': 'Object storage is not configured, so artifacts cannot be listed.',
+  'artifacts.loadFailed': 'Artifacts could not be loaded.',
+  'artifacts.download': 'Download',
   'boards.liveHint': 'Updates arrive on their own; no refresh needed.',
   'boards.newTask': 'New task',
   'boards.noTasksMatch': 'No tasks match',
@@ -1250,6 +1266,14 @@ const id: Dictionary = {
   'boards.viewTable': 'Tabel',
   'boards.taskCount': '{0} task',
   'boards.live': 'Langsung',
+  'drawer.tab.timeline': 'Linimasa',
+  'drawer.tab.logs': 'Log',
+  'drawer.tab.artifacts': 'Artefak',
+  'drawer.tab.approvals': 'Persetujuan',
+  'artifacts.empty': 'Task ini belum menghasilkan artefak.',
+  'artifacts.notConfigured': 'Object storage belum dikonfigurasi, jadi artefak tidak bisa didaftar.',
+  'artifacts.loadFailed': 'Artefak tidak bisa dimuat.',
+  'artifacts.download': 'Unduh',
   'boards.liveHint': 'Perubahan masuk sendiri; tidak perlu refresh.',
   'boards.newTask': 'Buat Task',
   'boards.noTasksMatch': 'Tidak ada task yang cocok',

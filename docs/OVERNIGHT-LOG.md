@@ -1164,7 +1164,7 @@ dipakai `listTasks` (provides), `boardEvents` (dispatch), dan `createTask`
 hanya dua yang sepakat.
 
 **UI:** indikator `Live` di `BoardToolbar` (satu mount, dua view — board & table,
-jadi pindah view tidak memutus stream), i18n `bounds.live`/`liveHint` di `en`+`id`,
+jadi pindah view tidak memutus stream), i18n `boards.live`/`liveHint` di `en`+`id`,
 token `--color-success` dari DESIGN.md.
 
 Bukti:
@@ -1197,3 +1197,71 @@ mengaku ada deviasi dari brief. Salah dua-duanya — yang dikerjakan memang fase
 dan urutannya tidak menyimpang. Angka fase di dokumen ini harus cocok dengan
 brief §2, kalau tidak sesi berikutnya mengira sesuatu sudah lewat padahal belum.
 
+### Fase 1 — Tab Artifacts (US-AD48) + tab shell drawer
+
+**Keputusan yang gw ambil dan alasannya.**
+
+1. **Drawer belum punya tab sama sekali.** Design `20-task-drawer.html` baris
+   1323 menggambar 4 tab (Timeline/Logs/Artifacts/Approvals) dengan `tab-count`;
+   implementasinya menumpuk semuanya dalam satu kolom gulir. Jadi fase ini
+   mengerjakan **shell tab** lebih dulu (Timeline + Artifacts hidup, Logs +
+   Approvals placeholder terlihat tapi dinonaktifkan — biar tidak terlihat
+   seperti fitur yang rusak).
+2. **Fase 1 DIPECAH: upload ditunda ke 1b.** Klien `useRegisterArtifactMutation`
+   butuh `run_id`, dan `run_id` wajib di kedua endpoint (keputusan F13). Artinya
+   upload butuh UI pemilihan run — pekerjaan yang lebih besar, dan `runs` belum
+   ada di klien sama sekali. AC US-AD48 sendiri hanya minta **daftar** (AC1) dan
+   **perilaku URL unduh** (AC3, AC4). Deviasi ini dicatat, bukan didiemin.
+3. **Unduh lewat `<a href>` ke `/download`, bukan `fetch` + blob.** Endpoint-nya
+   menandatangani URL segar per request dan membalas 302; browser mengikuti dan
+   tautan bertanda tangan tidak pernah mendarat di state komponen tempat dia
+   bisa hidup lebih lama dari masa berlakunya. Itu inti AC4.
+4. **`invalidatesTags: ['Artifact']` sengaja tidak dipasang.** Tag `Artifact`
+   ada di `TAG_TYPES` tapi **nol pemakai** — pola yang sama dengan `Event` yang
+   gw buang di fase 0. Dibiarkan: menambah tag mati baru bukan perbaikan.
+
+**Tiga temuan yang terverifikasi lawan kode, bukan tebakan.**
+
+- **US-AD48 AC2 (paginasi cursor) nol implementasi.** `ListTaskArtifacts` nol
+  `LIMIT`. UI-nya sengaja tidak mengarang. Ada `ponytail:` di
+  `store/api/artifacts.ts`.
+- **Unduhan tampil inline, bukan tersimpan.** Awalnya test-nya
+  `waitForEvent('download')` dan timeout 60 detik. Snapshot DOM saat gagal
+  menunjukkan teks filenya ter-render di halaman: Chrome **menampilkan**
+  `text/plain` inline. Penyebabnya dua — `Release` presigned tidak membawa
+  `ResponseContentDisposition`, dan atribut `download` HTML diabaikan untuk URL
+  beda origin (storage :9000 vs app :5174). Perbaikannya API change; dicatat di
+  OPEN-ISSUES.
+- **Semua endpoint artifact 503 kalau `S3_*` tidak diset**, termasuk `GET`
+  daftar. Akibatnya suite e2e ini tidak bisa hijau di lingkungan biasa.
+
+**Bug nyata yang ketemu lewat test (dan kelasnya layak dicatat):**
+`error.status` dari RTK Query **bukan** kode HTTP di sini. Semua error API ditulis
+`http.Error` = `text/plain`, sementara base query mem-parse JSON; parse gagal →
+`status: 'PARSING_ERROR'`, kode aslinya di `originalStatus`. Cabang
+`status === 503` **compile tanpa error dan tidak pernah cocok**. Diverifikasi
+dengan probe: `{status:503, contentType:"text/plain", jsonParse:"THROW"}`.
+Sekarang `Number(originalStatus ?? status)`.
+
+**Line ending:** edit lewat python mengembalikan CRLF di 4 file lagi. Di-LF-kan,
+`file` diverifikasi, `prettier --check src/` bersih. Jebakan ini berulang di
+tiap fase; sudah tercatat di `.hermes.md`.
+
+**Test baru:**
+- `e2e/artifacts.spec.ts` — 2 test. "dua empty state" jalan di mana saja;
+  "round-trip byte" `skip` otomatis kalau API 503, dan **dijalankan sungguhan
+  lawan rig MinIO** (presign → PUT → register verifikasi SHA-256 → unduh 302 →
+  byte identik).
+- `playwright.config.ts` — `E2E_BASE_URL` opsional; tanpa itu semua spec jalan di
+  :5173 seperti sebelumnya (diverifikasi: full e2e hijau).
+
+**Mutation (5, semua CAUGHT):** cabang 503 dibuang; baca `status` bukan
+`originalStatus` (bug aslinya); empty state dibuang; `href` bukan endpoint
+signing; panel Artifacts tidak dirender.
+
+**Bukti eksekusi:**
+- gate `./tools/gate-overnight.cmd` rc=0.
+- `vitest run` 80/80; `tsc -b` rc=0; `prettier --check src/` bersih.
+- full e2e 4 shard: 42 / 29+1 skip / 28 / 33 = **132 passed, 1 skipped, 0 failed**.
+- suite artifact lawan rig MinIO: **2/2 passed** (termasuk round-trip byte).
+- Yang **tidak** dites: tab Logs dan Approvals masih placeholder; upload belum ada.
