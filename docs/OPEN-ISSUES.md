@@ -263,6 +263,30 @@ SURVIVED -- kali ini karena sebabnya benar (Chromium selalu punya WebCrypto).
   /notifications/read` satu-satunya penulisan. "Tandai terbaca" nyata, "close"
   tidak.
 
+### Webhooks: design meminta tiga hal yang API tidak punya (Fase 7)
+
+Layar `/settings/webhooks` sebelumnya **stub yang salah** — menulis "endpoint
+webhook belum diimplementasikan" padahal tujuh endpoint hidup di
+`cmd/api/webhooks.go` sejak F12. Sekarang stub itu diganti layar nyata.
+
+Tiga hal di mockup `40-webhooks.html` yang **sengaja tidak dibangun**, karena
+tidak bisa direpresentasikan tanpa mengarang:
+
+1. **Kolom `SECRET` per baris** (`whsec_••••9a1f`). `webhookResponse`
+   (`cmd/api/webhooks.go:34-42`) tidak punya field secret, dan tidak ada endpoint
+   reveal. Secret hanya masuk sekali saat create. Menampilkan nilai bertopeng =
+   mengarang. Yang ditegakkan tes: `whsec_` **tidak boleh** muncul di DOM.
+2. **Kolom `LAST DELIVERY` per baris.** `webhookResponse` tidak membawa info
+   delivery. Dilipat ke panel delivery (satu `GET /webhooks/{id}/deliveries` saat
+   baris dibuka), bukan N request demi satu kolom tabel.
+3. **Opsi scope "Semua Board (Global)".** `webhooks.board_id` NOT NULL + FK, jadi
+   tidak ada webhook lintas-board untuk dipilih. Pemilihnya dua Combobox
+   (Proyek → Board), bukan satu daftar board sedunia.
+
+Tambahan yang tidak diklaim: mockup menulis "Exponential Backoff (3x)" sebagai
+protokol pengiriman. Ambang retry milik worker, bukan kontrak API — UI menampilkan
+`attempts` + `status` apa adanya, bukan janji yang tidak bisa diverifikasi layar.
+
 ### US-AD41 AC2: tiga dari lima tab tidak punya endpoint per-RUN
 
 AC2 minta tab **Steps, Logs, Approvals, Artifacts, Ledger** di layar run. Yang

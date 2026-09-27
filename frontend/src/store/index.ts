@@ -14,6 +14,8 @@ import './api/finops'
 import './api/stream'
 import './api/runs'
 import './api/artifacts'
+import './api/notifications'
+import './api/webhooks'
 
 import sessionReducer from './slices/sessionSlice'
 import uiReducer from './slices/uiSlice'

@@ -1620,3 +1620,84 @@ karena sebab yang benar).
   failed.**
 - **Mutasi 4 CAUGHT / 0 SURVIVED** (dengan restart per mutan).
 - Gate rc=0 · tsc rc=0 · vitest 80/80 · prettier bersih.
+
+### Fase 7 — Webhooks (US-AD52, US-AD53)
+
+**Temuan yang mengubah pekerjaan:** halaman `/settings/webhooks` sudah ada di repo
+tapi isinya stub yang bilang *"endpoint webhook belum diimplementasikan"*. Itu
+bohong sejak F12: tujuh endpoint hidup di `cmd/api/webhooks.go`. Jadi fase ini
+bukan "bikin layar baru", tapi **mengganti stub yang salah dengan layar yang
+memakai API nyata**.
+
+**Keputusan yang gw ambil:**
+
+- **Kolom SECRET di design TIDAK dibangun.** Mockup menampilkan `whsec_••••9a1f`
+  per baris. `webhookResponse` (`cmd/api/webhooks.go:34`) tidak punya field secret
+  sama sekali, dan `UpdateInput` cuma `url` + `active`. Secret hanya masuk sekali
+  saat create. Menampilkan nilai bertopeng berarti **mengarang** nilai yang tidak
+  pernah dikirim server.
+- **Kolom LAST DELIVERY di design dilipat ke panel delivery.** Baris webhook tidak
+  membawa info delivery. Satu `GET /webhooks/{id}/deliveries` per baris demi satu
+  kolom tabel lebih buruk daripada satu panel yang dibuka saat diminta. Status
+  akhir delivery tetap terbaca, di tempat yang benar.
+- **Daftar event = 17 kind kanonik `DECISIONS §4`**, bukan 6 kind yang muncul di
+  grep (yang muncul cuma yang kebetulan dipancarkan hari ini). Kosong = **SEMUA
+  event** (`ListMatchingWebhooks`: `jsonb_array_length(events_json) = 0 OR ...`),
+  dan UI menyebutnya eksplisit — chip kosong terbaca "tidak ada", padahal artinya
+  "semuanya".
+- **URL wajib https.** `ValidateURL` (`send.go:83`) hanya menerima `https`, kecuali
+  `http` ke loopback saat `allowLocal`. Klien mencerminkan aturan itu supaya
+  errornya muncul sebelum request; server tetap penentu akhir.
+- **Tidak ada "auto-retry 3x" di UI.** Mockup menulis "Exponential Backoff (3x)"
+  sebagai protokol. Ambangnya milik worker, bukan kontrak API; UI menampilkan
+  `attempts` + `status` apa adanya, bukan janji yang tidak bisa diverifikasi layar.
+- **Pemilih board = dua Combobox (Proyek → Board).** `listBoards` butuh
+  `projectID`, tidak ada endpoint "semua board di org". Percobaan pertama gw
+  memanggil hook di dalam `flatMap()` — itu melanggar rules of hooks dan repo ini
+  sudah punya komentar eksplisit soal itu di `use-directory.ts`. Dibuang, diganti
+  dua hook tunggal berargumen stabil. **Nol endpoint baru.**
+- **Design punya opsi "Semua Board (Global)" yang gw tidak bangun:**
+  `webhooks.board_id` NOT NULL + FK, jadi tidak ada webhook lintas-board untuk
+  dipilih. Opsi itu tidak bisa direpresentasikan, jadi tidak ditampilkan.
+
+**Bukti:**
+
+- `e2e/webhooks.spec.ts` 5/5 hijau.
+- Mutasi **4 CAUGHT / 0 SURVIVED** (jumlah event selalu 0 · label "semua event"
+  dibuang · pilihan board tidak diterapkan · tombol retry tidak memanggil server).
+  Setiap mutan dijalankan **setelah `docker compose restart web`** — lihat catatan
+  cache di bawah.
+- `tsc -b` rc=0 · vitest 80/80 · prettier bersih · `tools/gate-overnight.cmd` rc=0.
+
+**Larangan yang ditegakkan di tes:** `whsec_` tidak boleh muncul di mana pun pada
+DOM. Itu bukan detail kosmetik — kalau suatu hari seseorang menambahkan kolom
+secret, tes ini yang menangkapnya.
+
+### Catatan infra — Vite tidak menginvalidasi file yang DIUBAH (bind mount Windows)
+
+Ditemukan di Fase 6, dan **berlaku surut**: hasil mutation testing gw sebelumnya
+tidak semuanya sah.
+
+- Bind mount jalan. Dibuktikan: `docker exec agentdeck-web cat <file>` melihat
+  tulisan gw di dalam container.
+- Yang tidak jalan: file watching. Vite **tidak** me-render ulang modul yang
+  sudah ada di cache transform-nya. Diuji dengan menunggu 8 detik — tetap basi.
+- Akibatnya mutan tidak pernah dirender → app jalan seperti kode asli → tes lolos
+  → dilaporkan **SURVIVED**. Tiga dari empat mutan Fase 6 pertama gw adalah
+  SURVIVED palsu; setelah `docker compose restart web`, semuanya CAUGHT.
+- **Arah cache basi itu satu arah:** dia membuat kode tampak *lebih benar* daripada
+  dirinya. Jadi dia bisa memproduksi SURVIVED palsu, **tidak bisa** memproduksi
+  CAUGHT palsu. Semua hasil "N CAUGHT" sebelumnya tetap sah. Yang gw ulang: Fase 5
+  penuh (3 CAUGHT / 0 SURVIVED) dan guard `crypto.subtle` Fase 1b — yang **tetap
+  SURVIVED** setelah diuji ulang dengan cara benar, karena sebabnya benar
+  (Chromium selalu punya WebCrypto).
+- **Aturan baru: setiap mutan dijalankan setelah `docker compose restart web`.**
+  File **baru** tetap terinvalidasi sendiri (request pertama → 404 → baca ulang),
+  jadi e2e biasa tidak perlu restart; hanya mutation testing yang butuh.
+
+**Konsekuensi operasional:** Docker Desktop mati di tengah full-e2e dan ikut
+mematikan container (`Exited 3 hours ago`), sehingga shard 2 melaporkan 9 failed
+dengan `Failed to fetch` di `signUp`. Itu **infra, bukan regresi** — dibuktikan
+dengan memeriksa daemon (`docker info` gagal), menyalakan ulang, dan mengulang
+suite. `docker compose up -d` juga nol efek di sini; yang bekerja `docker start`
+per container setelah daemon hidup.

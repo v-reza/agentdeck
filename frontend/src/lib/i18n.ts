@@ -18,6 +18,36 @@ export interface Dictionary {
   'nav.approvals': string
   'nav.notifications': string
   'notifications.title': string
+  'webhooks.count': string
+  'webhooks.add': string
+  'webhooks.project': string
+  'webhooks.board': string
+  'webhooks.needsAdmin': string
+  'webhooks.noBoards': string
+  'webhooks.noBoardsHint': string
+  'webhooks.none': string
+  'webhooks.noneHint': string
+  'webhooks.colUrl': string
+  'webhooks.colEvents': string
+  'webhooks.colStatus': string
+  'webhooks.colActions': string
+  'webhooks.allEvents': string
+  'webhooks.events': string
+  'webhooks.active': string
+  'webhooks.paused': string
+  'webhooks.pause': string
+  'webhooks.resume': string
+  'webhooks.deliveries': string
+  'webhooks.noDeliveries': string
+  'webhooks.attempts': string
+  'webhooks.retry': string
+  'webhooks.secret': string
+  'webhooks.secretHint': string
+  'webhooks.eventsHint': string
+  'webhooks.modalHint': string
+  'webhooks.cancel': string
+  'webhooks.save': string
+  'webhooks.createFailed': string
   'notifications.unread': string
   'notifications.unreadChip': string
   'notifications.markAll': string
@@ -603,6 +633,36 @@ const en: Dictionary = {
   'nav.approvals': 'Approvals',
   'nav.notifications': 'Notifications',
   'notifications.title': 'Notifications',
+  'webhooks.count': '{count} registered',
+  'webhooks.add': 'Add webhook',
+  'webhooks.board': 'Board',
+  'webhooks.project': 'Project',
+  'webhooks.needsAdmin': 'Webhooks are workspace settings. Changing them needs the owner or admin role.',
+  'webhooks.noBoards': 'No board to attach a webhook to',
+  'webhooks.noBoardsHint': 'A webhook always belongs to one board, so create a board first.',
+  'webhooks.none': 'No webhook on this board',
+  'webhooks.noneHint': 'Add one to POST matching events to your endpoint.',
+  'webhooks.colUrl': 'Endpoint URL',
+  'webhooks.colEvents': 'Events',
+  'webhooks.colStatus': 'Status',
+  'webhooks.colActions': 'Actions',
+  'webhooks.allEvents': 'all events',
+  'webhooks.events': 'events',
+  'webhooks.active': 'active',
+  'webhooks.paused': 'paused',
+  'webhooks.pause': 'Pause',
+  'webhooks.resume': 'Resume',
+  'webhooks.deliveries': 'Deliveries',
+  'webhooks.noDeliveries': 'Nothing has been delivered yet.',
+  'webhooks.attempts': 'attempts',
+  'webhooks.retry': 'Retry',
+  'webhooks.secret': 'Signing secret',
+  'webhooks.secretHint': 'Used for the HMAC-SHA256 signature. It is stored encrypted and never shown again.',
+  'webhooks.eventsHint': 'Leave every event unselected to receive all of them.',
+  'webhooks.modalHint': 'The endpoint must answer 2xx. Delivery is signed with X-Hub-Signature-256.',
+  'webhooks.cancel': 'Cancel',
+  'webhooks.save': 'Save',
+  'webhooks.createFailed': 'The webhook could not be created. Check the URL and secret.',
   'notifications.unread': '{count} unread',
   'notifications.unreadChip': 'new',
   'notifications.markAll': 'Mark all read',
@@ -1183,6 +1243,37 @@ const id: Dictionary = {
   'nav.approvals': 'Persetujuan',
   'nav.notifications': 'Notifikasi',
   'notifications.title': 'Notifikasi',
+  'webhooks.count': '{count} terdaftar',
+  'webhooks.add': 'Tambah webhook',
+  'webhooks.board': 'Board',
+  'webhooks.project': 'Proyek',
+  'webhooks.needsAdmin': 'Webhook adalah pengaturan ruang kerja. Mengubahnya butuh role owner atau admin.',
+  'webhooks.noBoards': 'Belum ada board untuk memasang webhook',
+  'webhooks.noBoardsHint': 'Webhook selalu milik satu board, jadi buat board dulu.',
+  'webhooks.none': 'Belum ada webhook di board ini',
+  'webhooks.noneHint': 'Tambahkan satu untuk mengirim event yang cocok ke endpoint Anda.',
+  'webhooks.colUrl': 'URL endpoint',
+  'webhooks.colEvents': 'Event',
+  'webhooks.colStatus': 'Status',
+  'webhooks.colActions': 'Aksi',
+  'webhooks.allEvents': 'semua event',
+  'webhooks.events': 'event',
+  'webhooks.active': 'aktif',
+  'webhooks.paused': 'nonaktif',
+  'webhooks.pause': 'Nonaktifkan',
+  'webhooks.resume': 'Aktifkan',
+  'webhooks.deliveries': 'Pengiriman',
+  'webhooks.noDeliveries': 'Belum ada pengiriman.',
+  'webhooks.attempts': 'percobaan',
+  'webhooks.retry': 'Coba lagi',
+  'webhooks.secret': 'Secret penandatangan',
+  'webhooks.secretHint':
+    'Dipakai untuk tanda tangan HMAC-SHA256. Disimpan terenkripsi dan tidak pernah ditampilkan lagi.',
+  'webhooks.eventsHint': 'Biarkan semua event tidak terpilih untuk menerima semuanya.',
+  'webhooks.modalHint': 'Endpoint harus menjawab 2xx. Pengiriman ditandatangani dengan X-Hub-Signature-256.',
+  'webhooks.cancel': 'Batal',
+  'webhooks.save': 'Simpan',
+  'webhooks.createFailed': 'Webhook gagal dibuat. Periksa URL dan secret-nya.',
   'notifications.unread': '{count} belum dibaca',
   'notifications.unreadChip': 'baru',
   'notifications.markAll': 'Tandai semua terbaca',

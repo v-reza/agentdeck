@@ -78,9 +78,9 @@
 | `US-AD38` | Must | M3 | Approval gate mode per agent | `35-approval-inbox` | ✅ PASS |
 | `US-AD39` | Must | M3 | Event stream SSE: perubahan status task | `18-kanban` | ✅ PASS |
 | `US-AD40` | Must | M3 | Timeline event per task | `20-task-drawer` | ✅ PASS |
-| `US-AD41` | Must | M3 | Halaman detail run | `32-run-detail` | ⬜ |
+| `US-AD41` | Must | M3 | Halaman detail run | `32-run-detail` | ✅ PASS |
 | `US-AD42` | Must | M3 | Menambahkan komentar ke task | `20-task-drawer` | ✅ PASS |
-| `US-AD61` | Must | M3 | Notifikasi in-app | `13-notifications` | ⬜ |
+| `US-AD61` | Must | M3 | Notifikasi in-app | `13-notifications` | ✅ PASS |
 | `US-AD63` | Must | M3 | Skeleton loading state | `43-state-loading` | ⬜ |
 | `US-AD65` | Must | M3 | Error boundary UI | `45-state-error` | ⬜ |
 | `US-AD71` | Should | M3 | Comment dengan mention | `20-task-drawer` | ✅ PASS |
@@ -96,7 +96,7 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ✅ PASS |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ✅ PASS |
 
-**Total M0–M4: 89 story** (72 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (74 PASS, 1 ditunda)
 
 ## Progres per milestone
 
@@ -105,7 +105,7 @@
 | M0 | 10 | 9 | 1 |
 | M1 | 32 | 26 | 6 |
 | M2 | 21 | 17 | 4 |
-| M3 | 16 | 11 | 5 |
+| M3 | 16 | 13 | 3 |
 | M4 | 10 | 9 | 1 |
 
 ### Catatan status — `US-AD73` (🔨 dikerjakan)
