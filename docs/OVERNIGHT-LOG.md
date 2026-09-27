@@ -1134,7 +1134,7 @@ regresi. **Tapi screenshot + `error-context.md` kegagalan itu ketimpa** karena g
 memakai `--output=.e2e-out` yang sama untuk run standalone sesudahnya. Aturan
 `--output` unik per run lahir dari kesalahan ini.
 
-### Fase 1 — SSE dipakai: board hidup tanpa reload (US-AD39)
+### Fase 0 — SSE dipakai: board hidup tanpa reload (US-AD39)
 
 **Temuan: bridge-nya tidak pernah tersambung.** `stream.ts` (158 baris) sudah
 lengkap sejak lama — `EventSource`, resume `Last-Event-ID`, batas percobaan
@@ -1189,7 +1189,11 @@ Bukti:
   `signUp` sekarang me-re-`addCookies` dengan `secure: false` sehingga satu jar
   dipakai browser dan request context.
 
-**Deviasi brief:** urutan fase di brief menaruh "pasang SSE" di fase 0; dikerjakan
-sebagai fase 1 karena tab Artifacts butuh `boardID` yang sama dan lebih murah
-dites setelah stream-nya terbukti hidup.
+**Tidak ada deviasi urutan:** ini fase 0 di brief, dikerjakan pertama seperti
+tertulis.
+
+**Koreksi entri ini sendiri:** versi pertama entri ini menamainya "Fase 1" dan
+mengaku ada deviasi dari brief. Salah dua-duanya — yang dikerjakan memang fase 0,
+dan urutannya tidak menyimpang. Angka fase di dokumen ini harus cocok dengan
+brief §2, kalau tidak sesi berikutnya mengira sesuatu sudah lewat padahal belum.
 
