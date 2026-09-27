@@ -780,6 +780,31 @@ func (r *pgxRepository) CreateEvent(ctx context.Context, e Event) (Event, error)
 	return eventRow(row), nil
 }
 
+func (r *pgxRepository) ListRunEventsAfter(ctx context.Context, runID, orgID string, afterID int64, limit int) ([]Event, error) {
+	rows, err := r.q.ListRunEventsAfter(ctx, store.ListRunEventsAfterParams{
+		RunID: nullString(runID), OrgID: orgID, ID: afterID, Limit: int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Event, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, eventRow(row))
+	}
+	return out, nil
+}
+
+func (r *pgxRepository) GetEvent(ctx context.Context, id int64) (Event, error) {
+	row, err := r.q.GetEvent(ctx, id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return Event{}, ErrNotFound
+		}
+		return Event{}, err
+	}
+	return eventRow(row), nil
+}
+
 func (r *pgxRepository) ListTaskEvents(ctx context.Context, taskID string) ([]Event, error) {
 	rows, err := r.q.ListTaskEvents(ctx, nullString(taskID))
 	if err != nil {

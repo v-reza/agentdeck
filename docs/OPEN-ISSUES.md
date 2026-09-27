@@ -135,6 +135,20 @@ coret.
   menyentuh `BoardSpendToday` yang sudah ✅, dan memilih zona waktu itu keputusan
   produk (UTC vs zona pengguna), bukan keputusan implementasi.
 
+- **Frontend belum memakai stream SSE.** Empat endpoint §6.2.13 jalan dan
+  terbukti lawan API nyata (`tools/probe-f11.py` 21/21, termasuk rantai penuh
+  INSERT → trigger NOTIFY → LISTEN → frame), tapi UI masih memakai pola
+  revalidate/polling yang sama seperti sebelumnya. Backend-nya siap; yang belum
+  ada adalah kliennya. **Belum dikerjakan** — menyambung UI adalah perubahan di
+  `frontend/`, bukan penambahan endpoint.
+
+- **`events` tidak punya retensi.** §3.12 tidak menyebut TTL, dan N6 menyebut
+  target 1.000.000 event/bulan. Dengan trigger NOTIFY sekarang, setiap INSERT
+  juga membangunkan setiap hub yang LISTEN. Belum ada apa pun yang memangkas
+  tabel ini, jadi pertumbuhannya linier terhadap aktivitas selamanya. **Belum
+  dikerjakan**: kontrak tidak menetapkan kebijakan retensi, dan memilihnya
+  (mis. 90 hari) adalah keputusan produk.
+
 ## Batasan yang diketahui (bukan bug)
 
 - **Gerbang peran tidak bisa dibuktikan lewat e2e** — fixture selalu owner. Cakupan

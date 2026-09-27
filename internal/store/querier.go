@@ -270,6 +270,10 @@ type Querier interface {
 	GetApproval(ctx context.Context, arg GetApprovalParams) (Approval, error)
 	GetBoard(ctx context.Context, arg GetBoardParams) (Board, error)
 	GetComment(ctx context.Context, arg GetCommentParams) (Comment, error)
+	// Dipakai hub SSE: trigger NOTIFY hanya mengirim `id` (payload event bisa
+	// 64 KB / N21, sementara NOTIFY dibatasi ~8000 byte), jadi penerimanya harus
+	// membaca barisnya sendiri.
+	GetEvent(ctx context.Context, id int64) (Event, error)
 	// The single membership row that answers "is this user in this org, and as
 	// what". Every org-scoped handler resolves its tenant through this query, so
 	// there is no second code path that could forget the org_id scope.
@@ -435,6 +439,9 @@ type Querier interface {
 	ListProjects(ctx context.Context, orgID string) ([]Project, error)
 	// The default sorts first because it is what the agent form preselects (AC9).
 	ListProviders(ctx context.Context, orgID string) ([]Provider, error)
+	// Replay trace satu run (6.2.13). Melayani `events_run_idx (run_id, id)`.
+	// Scoping org ada di predikat supaya run org lain tidak pernah terbaca.
+	ListRunEventsAfter(ctx context.Context, arg ListRunEventsAfterParams) ([]Event, error)
 	ListRunLedger(ctx context.Context, arg ListRunLedgerParams) ([]LedgerEntry, error)
 	ListRunSteps(ctx context.Context, arg ListRunStepsParams) ([]Step, error)
 	// US-AD90 AC2. `deleted_at IS NULL` menyembunyikan sesi yang sudah dicabut, dan

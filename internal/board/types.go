@@ -653,6 +653,13 @@ type Repository interface {
 
 	// ---- events ----------------------------------------------------------
 	CreateEvent(ctx context.Context, e Event) (Event, error)
+	// GetEvent membaca satu event berdasarkan id. Hub SSE membutuhkannya karena
+	// trigger NOTIFY hanya mengirim id — payload bisa 64 KB (N21), di atas batas
+	// ~8000 byte milik NOTIFY.
+	GetEvent(ctx context.Context, id int64) (Event, error)
+	// ListRunEventsAfter backs the run-trace replay (6.2.13). Melayani
+	// events_run_idx (run_id, id).
+	ListRunEventsAfter(ctx context.Context, runID, orgID string, afterID int64, limit int) ([]Event, error)
 	ListTaskEvents(ctx context.Context, taskID string) ([]Event, error)
 	ListBoardEventsAfter(ctx context.Context, boardID, orgID string, afterID int64, limit int) ([]Event, error)
 

@@ -1860,10 +1860,10 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 #### 6.2.13 Events & Realtime SSE (4 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
-| `GET` | `/api/v1/boards/{id}/events` | Session/Key | Viewer | Ya | ⬜ | **SSE Stream** event realtime board (§7) |
-| `GET` | `/api/v1/events?board_id={id}` | Session/Key | Viewer | Ya | ⬜ | **SSE Stream** kanal generik (§7, FR-06, US-AD39 AC1); `board_id` wajib |
-| `GET` | `/api/v1/tasks/{id}/events` | Session/Key | Viewer | Ya | ⬜ | Event log khusus satu task (JSON / SSE stream) |
-| `GET` | `/api/v1/runs/{id}/events` | Session/Key | Viewer | Ya | ⬜ | Replay event log run trace |
+| `GET` | `/api/v1/boards/{id}/events` | Session/Key | Viewer | Ya | ✅ | **SSE Stream** event realtime board (§7) |
+| `GET` | `/api/v1/events?board_id={id}` | Session/Key | Viewer | Ya | ✅ | **SSE Stream** kanal generik (§7, FR-06, US-AD39 AC1); `board_id` wajib |
+| `GET` | `/api/v1/tasks/{id}/events` | Session/Key | Viewer | Ya | ✅ | Event log khusus satu task (JSON / SSE stream) |
+| `GET` | `/api/v1/runs/{id}/events` | Session/Key | Viewer | Ya | ✅ | Replay event log run trace |
 
 #### 6.2.14 Approvals (5 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |

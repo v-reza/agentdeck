@@ -142,6 +142,12 @@ func (a authAPI) mux(t *testing.T) *http.ServeMux {
 	headerRoute("GET /api/v1/notifications", http.HandlerFunc(a.listNotifications), auth.Viewer)
 	headerRoute("POST /api/v1/notifications/read", http.HandlerFunc(a.markNotificationsRead), auth.Viewer)
 
+	// 6.2.13. Stream dan log event: Viewer, dan {id}-nya bukan id organisasi.
+	headerRoute("GET /api/v1/boards/{id}/events", http.HandlerFunc(a.sseEvents), auth.Viewer)
+	headerRoute("GET /api/v1/events", http.HandlerFunc(a.sseEvents), auth.Viewer)
+	headerRoute("GET /api/v1/tasks/{id}/events", http.HandlerFunc(a.listTaskEvents), auth.Viewer)
+	headerRoute("GET /api/v1/runs/{id}/events", http.HandlerFunc(a.listRunEvents), auth.Viewer)
+
 	return mux
 }
 

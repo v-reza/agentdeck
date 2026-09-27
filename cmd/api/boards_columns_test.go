@@ -430,6 +430,12 @@ type fakeBoardRepo struct {
 	// runs backs the cancel path. The fixture only needs the fields the handlers
 	// read back; Postgres owns the rest.
 	runs map[string]board.Run
+	// events backs the task lifecycle timeline (DECISIONS 4). The service records
+	// task.created / task.status_changed / task.assigned on every write, so a
+	// fake that only embeds board.Repository panics on those calls — and the
+	// panic happens inside a handler, so it reads as a nil pointer in the router.
+	events []board.Event
+	nextID int64
 }
 
 func newFakeBoardRepo() *fakeBoardRepo {
@@ -593,6 +599,60 @@ func (r *fakeBoardRepo) UpdateBoardColumns(_ context.Context, id, orgID string, 
 	b.Columns = cols
 	r.boards[id] = b
 	return nil
+}
+
+// CreateEvent mirrors the append-only timeline, assigning the monotonic id
+// Postgres would assign with BIGSERIAL.
+func (r *fakeBoardRepo) CreateEvent(_ context.Context, e board.Event) (board.Event, error) {
+	r.nextID++
+	e.ID = r.nextID
+	r.events = append(r.events, e)
+	return e, nil
+}
+
+func (r *fakeBoardRepo) ListTaskEvents(_ context.Context, taskID string) ([]board.Event, error) {
+	var out []board.Event
+	for _, e := range r.events {
+		if e.TaskID == taskID {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+func (r *fakeBoardRepo) GetEvent(_ context.Context, id int64) (board.Event, error) {
+	for _, e := range r.events {
+		if e.ID == id {
+			return e, nil
+		}
+	}
+	return board.Event{}, board.ErrNotFound
+}
+
+func (r *fakeBoardRepo) ListBoardEventsAfter(_ context.Context, boardID, orgID string, afterID int64, limit int) ([]board.Event, error) {
+	var out []board.Event
+	for _, e := range r.events {
+		if e.BoardID == boardID && e.OrgID == orgID && e.ID > afterID {
+			out = append(out, e)
+		}
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+func (r *fakeBoardRepo) ListRunEventsAfter(_ context.Context, runID, orgID string, afterID int64, limit int) ([]board.Event, error) {
+	var out []board.Event
+	for _, e := range r.events {
+		if e.RunID == runID && e.OrgID == orgID && e.ID > afterID {
+			out = append(out, e)
+		}
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }
 
 func (r *fakeBoardRepo) CreateTask(_ context.Context, task board.Task) (board.Task, error) {

@@ -61,6 +61,27 @@ func (s *statusRecorder) Write(b []byte) (int, error) {
 	return s.ResponseWriter.Write(b)
 }
 
+// Flush forwards to the wrapped writer.
+//
+// Without this the wrapper HIDES the underlying ResponseWriter's Flusher: the
+// embedded field is an http.ResponseWriter interface, which has no Flush method,
+// so `w.(http.Flusher)` on a statusRecorder always fails. Every streaming
+// handler (SSE, chunked progress) then answers "streaming unsupported" — a 500
+// that only shows up at runtime, because a handler that never flushes works fine
+// against a recorder.
+func (s *statusRecorder) Flush() {
+	if f, ok := s.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Unwrap exposes the wrapped writer to http.ResponseController, so anything that
+// needs a capability beyond Flush (SetWriteDeadline for long-lived streams) can
+// still reach it. ResponseController walks Unwrap chains by design.
+func (s *statusRecorder) Unwrap() http.ResponseWriter {
+	return s.ResponseWriter
+}
+
 // routePath turns the mux's matched pattern into a label value.
 //
 // Go reports r.Pattern as the full registered pattern INCLUDING the method —

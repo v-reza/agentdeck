@@ -23,6 +23,7 @@ import (
 	"agentdeck/internal/notify"
 	"agentdeck/internal/providerreg"
 	"agentdeck/internal/skill"
+	"agentdeck/internal/sse"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -41,6 +42,11 @@ type authAPI struct {
 	// projects is nil in unit tests that do not exercise registration seeding,
 	// so every use is nil-guarded.
 	projects projectSeeder
+	// events and hub back 6.2.13. Both are nil in tests that do not exercise
+	// the SSE surface, so the handlers that need them are only registered when
+	// the real server wires them.
+	events eventSource
+	hub    eventHub
 }
 
 // projectSeeder creates the starter project a brand-new workspace opens with.
@@ -61,6 +67,11 @@ type projectSeeder interface {
 // The concrete implementation must satisfy the seam, or main.go would wire a
 // service that silently fails to seed.
 var _ projectSeeder = (*board.Service)(nil)
+
+// sseChannel adalah nama channel LISTEN/NOTIFY untuk event SSE (7.2). Nilainya
+// harus sama dengan yang dipakai trigger di migrasi 0020; tidak ada tempat lain
+// yang mengetahuinya, jadi mengubahnya berarti mengubah keduanya.
+const sseChannel = "agentdeck_events"
 
 // starterProjectSlug is the slug every new workspace's starter project gets.
 // Slug uniqueness is per org (projects_org_slug_key) and the org was created a
@@ -313,14 +324,28 @@ func main() {
 			From:     cfg.SMTP.From,
 		}}
 	}
+	metricsReg := metrics.NewRegistry()
+	// 6.2.13: hub SSE. Channel-nya konstanta supaya trigger NOTIFY (migrasi
+	// 0020) dan kode ini tidak bisa menyimpang — keduanya harus menyebut nama
+	// yang sama, dan tidak ada tempat lain yang mengetahuinya.
+	//
+	// Hub butuh pool sendiri, bukan *store.Queries: notifikasi Postgres hanya
+	// sampai ke koneksi yang menjalankan LISTEN.
+	hub := sse.NewHub(sseStore{svc: boardService, pool: pool, log: logger}, logger, metricsReg, sseChannel)
+	go func() {
+		if err := hub.Run(ctx); err != nil {
+			logger.Error("sse: hub berhenti", "error", err)
+		}
+	}()
+
 	// US-AD09 AC4: `projects` is the same board service the routes use, so a
 	// new workspace opens with one project and the board form never has to ask
 	// the operator to create one first.
-	api := authAPI{store: store, mailer: mailer, logger: logger, appBaseURL: cfg.AppBaseURL, projects: boardService, masterKey: cfg.MasterKey}
+	api := authAPI{store: store, mailer: mailer, logger: logger, appBaseURL: cfg.AppBaseURL,
+		projects: boardService, masterKey: cfg.MasterKey, events: boardService, hub: hub}
 	// §14.2: the metric registry and the middleware that fills the HTTP half of
 	// it. The middleware wraps the mux at the bottom of this function, so it is
 	// one place to read the order of the whole request path.
-	metricsReg := metrics.NewRegistry()
 	mux := http.NewServeMux()
 	// 6.2.19: which build is serving. Public on purpose — it is the one thing an
 	// operator needs from outside when a deploy is suspected of being stale, and

@@ -2480,6 +2480,31 @@ func (q *Queries) GetComment(ctx context.Context, arg GetCommentParams) (Comment
 	return i, err
 }
 
+const getEvent = `-- name: GetEvent :one
+SELECT id, org_id, board_id, task_id, run_id, kind, payload_json, created_at
+FROM events
+WHERE id = $1
+`
+
+// Dipakai hub SSE: trigger NOTIFY hanya mengirim `id` (payload event bisa
+// 64 KB / N21, sementara NOTIFY dibatasi ~8000 byte), jadi penerimanya harus
+// membaca barisnya sendiri.
+func (q *Queries) GetEvent(ctx context.Context, id int64) (Event, error) {
+	row := q.db.QueryRow(ctx, getEvent, id)
+	var i Event
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.BoardID,
+		&i.TaskID,
+		&i.RunID,
+		&i.Kind,
+		&i.PayloadJson,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getMembership = `-- name: GetMembership :one
 SELECT org_id, user_id, role, created_at
 FROM memberships
@@ -4254,6 +4279,57 @@ func (q *Queries) ListProviders(ctx context.Context, orgID string) ([]Provider, 
 			&i.ModelsFetchedAt,
 			&i.LastVerifiedAt,
 			&i.IsDefault,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRunEventsAfter = `-- name: ListRunEventsAfter :many
+SELECT id, org_id, board_id, task_id, run_id, kind, payload_json, created_at
+FROM events
+WHERE run_id = $1 AND org_id = $2 AND id > $3
+ORDER BY id
+LIMIT $4
+`
+
+type ListRunEventsAfterParams struct {
+	RunID *string
+	OrgID string
+	ID    int64
+	Limit int32
+}
+
+// Replay trace satu run (6.2.13). Melayani `events_run_idx (run_id, id)`.
+// Scoping org ada di predikat supaya run org lain tidak pernah terbaca.
+func (q *Queries) ListRunEventsAfter(ctx context.Context, arg ListRunEventsAfterParams) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listRunEventsAfter,
+		arg.RunID,
+		arg.OrgID,
+		arg.ID,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.BoardID,
+			&i.TaskID,
+			&i.RunID,
+			&i.Kind,
+			&i.PayloadJson,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

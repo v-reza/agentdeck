@@ -157,6 +157,16 @@ func registerBoardRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, pr
 	boardRoute("POST /api/v1/projects/{project_id}/boards", http.HandlerFunc(boardAPI.createBoard), auth.Admin)
 	boardRoute("GET /api/v1/projects/{project_id}/boards", http.HandlerFunc(boardAPI.listBoards), auth.Viewer)
 	boardRoute("GET /api/v1/boards/{id}", http.HandlerFunc(boardAPI.getBoard), auth.Viewer)
+	// 6.2.13: realtime. Stream SSE hidup lebih lama dari timeout tulis normal,
+	// jadi server tidak boleh memasang WriteTimeout untuk route ini — lihat
+	// komentar di main.go. Gerbang perannya tetap Viewer: stream board sama
+	// dengan membacanya.
+	boardRoute("GET /api/v1/boards/{id}/events", http.HandlerFunc(api.sseEvents), auth.Viewer)
+	// Kanal generik (FR-06, US-AD39 AC1). board_id wajib — tanpa itu 400.
+	boardRoute("GET /api/v1/events", http.HandlerFunc(api.sseEvents), auth.Viewer)
+	// Event log satu task dan satu run: JSON, bukan stream. Keduanya replay.
+	boardRoute("GET /api/v1/tasks/{id}/events", http.HandlerFunc(api.listTaskEvents), auth.Viewer)
+	boardRoute("GET /api/v1/runs/{id}/events", http.HandlerFunc(api.listRunEvents), auth.Viewer)
 	// PATCH /boards/{id} stays Member: it carries name/slug/budget, and neither
 	// US-AD83 (rename) nor US-AD84 (budget) raises the role, so nothing here
 	// justifies the change ARCHITECTURE 6.2.6 does not ask for either.

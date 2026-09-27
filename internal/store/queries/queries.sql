@@ -1019,6 +1019,23 @@ INSERT INTO events (org_id, board_id, task_id, run_id, kind, payload_json)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, org_id, board_id, task_id, run_id, kind, payload_json, created_at;
 
+-- name: ListRunEventsAfter :many
+-- Replay trace satu run (6.2.13). Melayani `events_run_idx (run_id, id)`.
+-- Scoping org ada di predikat supaya run org lain tidak pernah terbaca.
+SELECT id, org_id, board_id, task_id, run_id, kind, payload_json, created_at
+FROM events
+WHERE run_id = $1 AND org_id = $2 AND id > $3
+ORDER BY id
+LIMIT $4;
+
+-- name: GetEvent :one
+-- Dipakai hub SSE: trigger NOTIFY hanya mengirim `id` (payload event bisa
+-- 64 KB / N21, sementara NOTIFY dibatasi ~8000 byte), jadi penerimanya harus
+-- membaca barisnya sendiri.
+SELECT id, org_id, board_id, task_id, run_id, kind, payload_json, created_at
+FROM events
+WHERE id = $1;
+
 -- name: ListTaskEvents :many
 SELECT id, org_id, board_id, task_id, run_id, kind, payload_json, created_at
 FROM events

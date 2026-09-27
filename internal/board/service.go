@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -671,7 +672,20 @@ func (s *Service) CreateTask(ctx context.Context, orgID, boardID, title, body, c
 		GoalMode:        "auto",
 		GoalMaxTurns:    25,
 	}
-	return s.repo.CreateTask(ctx, t)
+	created, err := s.repo.CreateTask(ctx, t)
+	if err != nil {
+		return Task{}, err
+	}
+	// DECISIONS 4 lists `task.created` as a lifecycle event, and 7.1 sends these
+	// to the browser over SSE. The row exists first: an event pointing at a task
+	// that was never stored would be a phantom in the timeline.
+	s.recordTaskEvent(ctx, orgID, created.BoardID, created.ID, "task.created", map[string]any{
+		"task_id":  created.ID,
+		"board_id": created.BoardID,
+		"status":   created.Status,
+		"title":    created.Title,
+	})
+	return created, nil
 }
 
 // GetTask loads a task scoped by org.
@@ -726,9 +740,44 @@ func (s *Service) MoveTask(ctx context.Context, id, orgID string, from, to TaskS
 		// `current.Status`, not the caller's `from`: the guard's job here is to
 		// catch a concurrent writer between the read above and this write, not
 		// to re-check a status the caller stated before the read.
-		return s.repo.UpdateTaskStatus(ctx, id, orgID, current.Status, to)
+		moved, err := s.repo.UpdateTaskStatus(ctx, id, orgID, current.Status, to)
+		if err != nil {
+			return Task{}, err
+		}
+		s.recordTaskEvent(ctx, orgID, moved.BoardID, moved.ID, "task.status_changed", map[string]any{
+			"task_id":  moved.ID,
+			"board_id": moved.BoardID,
+			"from":     current.Status,
+			"to":       moved.Status,
+		})
+		return moved, nil
 	}
-	return s.repo.UpdateTaskStatus(ctx, id, orgID, from, to)
+	moved, err := s.repo.UpdateTaskStatus(ctx, id, orgID, from, to)
+	if err != nil {
+		return Task{}, err
+	}
+	s.recordTaskEvent(ctx, orgID, moved.BoardID, moved.ID, "task.status_changed", map[string]any{
+		"task_id":  moved.ID,
+		"board_id": moved.BoardID,
+		"from":     from,
+		"to":       moved.Status,
+	})
+	return moved, nil
+}
+
+// recordTaskEvent menulis satu event lifecycle task, dan sengaja MENGABAIKAN
+// errornya — sama seperti comment.go.
+//
+// Event adalah jejak, bukan bagian dari transaksi. Kalau penulisannya gagal,
+// task-nya sudah berpindah dan permintaan pemanggil sudah berhasil; menggagalkan
+// request di titik itu berarti melaporkan kegagalan untuk perubahan yang
+// benar-benar terjadi, dan klien akan mengulang lalu kena konflik status.
+func (s *Service) recordTaskEvent(ctx context.Context, orgID, boardID, taskID, kind string, payload any) {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	_, _ = s.RecordTaskEvent(ctx, orgID, boardID, taskID, kind, encoded)
 }
 
 // CancelTask implements POST /tasks/{id}/cancel.
@@ -841,7 +890,18 @@ func (s *Service) RetryTask(ctx context.Context, id, orgID string) (Task, error)
 // AssignTask sets the agent that will run the task. An empty agent id clears
 // the assignment.
 func (s *Service) AssignTask(ctx context.Context, id, orgID, agentID string) (Task, error) {
-	return s.repo.AssignTask(ctx, id, orgID, agentID)
+	assigned, err := s.repo.AssignTask(ctx, id, orgID, agentID)
+	if err != nil {
+		return Task{}, err
+	}
+	// DECISIONS 4 lists `task.assigned` as a lifecycle event. Recorded after the
+	// write, so the timeline never names an assignment that did not happen.
+	s.recordTaskEvent(ctx, orgID, assigned.BoardID, assigned.ID, "task.assigned", map[string]any{
+		"task_id":           assigned.ID,
+		"board_id":          assigned.BoardID,
+		"assignee_agent_id": assigned.AssigneeAgentID,
+	})
+	return assigned, nil
 }
 
 // UpdateTaskFields edits a task's text and priority.
@@ -962,6 +1022,26 @@ func (s *Service) RecordTaskEvent(ctx context.Context, orgID, boardID, taskID, k
 // TaskHistory returns the append-only timeline for one task.
 func (s *Service) TaskHistory(ctx context.Context, taskID string) ([]Event, error) {
 	return s.repo.ListTaskEvents(ctx, taskID)
+}
+
+// BoardEventsAfter backs the SSE replay (7.2). It lives here rather than in the
+// HTTP layer so the org scoping stays in one place: the query filters on
+// board_id AND org_id, and a caller that could pass an arbitrary org would
+// bypass the tenant boundary that every other board read enforces.
+func (s *Service) BoardEventsAfter(ctx context.Context, boardID, orgID string, afterID int64, limit int) ([]Event, error) {
+	return s.repo.ListBoardEventsAfter(ctx, boardID, orgID, afterID, limit)
+}
+
+// EventByID backs the NOTIFY path: the trigger sends only an id, so the hub
+// reads the row here before fanning it out.
+func (s *Service) EventByID(ctx context.Context, id int64) (Event, error) {
+	return s.repo.GetEvent(ctx, id)
+}
+
+// RunEventsAfter backs the run-trace replay. Scoped by org for the same reason
+// BoardEventsAfter is: the query's WHERE carries the tenant boundary.
+func (s *Service) RunEventsAfter(ctx context.Context, runID, orgID string, afterID int64, limit int) ([]Event, error) {
+	return s.repo.ListRunEventsAfter(ctx, runID, orgID, afterID, limit)
 }
 
 // Claim applies the dispatcher's atomic claim over the board's ready tasks.

@@ -686,3 +686,98 @@ lokal dan **tidak terdeteksi** `verify_suite.py` (yang hanya membaca
 `mux.Handle`/`HandleFunc` + tujuh nama helper) — gate melaporkan "0 FAIL" untuk
 endpoint yang ada. Ditulis ulang inline, lalu gate menandai kelimanya. Ini
 kesalahan yang sama seperti F7.
+
+## F11 — 6.2.13 Events & Realtime SSE (4 endpoint)
+
+**Status:** selesai, ter-push. **117 ✅ / 12 ⬜**. Gate rc=0.
+
+**Deviasi slot brief:** brief menaruh 6.2.18 di slot 11. Gw kerjakan 6.2.13
+karena brief sendiri bilang "termurah dulu", dan 6.2.13 memang termurah dari
+yang tersisa: tabel `events` sudah ada sejak migrasi awal dengan **62 baris
+nyata**, tiga query sudah ditulis, dan producer-nya (`run.claimed`,
+`run.finished`, `comment.created`, `approval.requested`, `ledger.entry`) sudah
+tersambung di F1-F9. Yang hilang cuma transportnya. 6.2.16 Artifacts butuh
+kredensial R2 yang tidak gw punya; 6.2.18 Webhooks butuh pengiriman HTTP keluar
+plus HMAC. Keduanya tidak bisa gw buktikan jalan, jadi bukan "termurah".
+
+### Yang dikerjakan
+
+1. **Migrasi `0020`** — trigger `events_notify_trigger` yang memanggil
+   `pg_notify('agentdeck_events', NEW.id::text)`.
+   §7.2 menetapkan hub menerima event lewat `LISTEN agentdeck_events`, dan §7.4
+   bilang polling bukan jalur utama — tapi tidak ada apa pun yang melakukan
+   `NOTIFY`. Pola yang sama seperti `comments` (F8), `notifications` (F9),
+   `api_keys` (F10): kontraknya lengkap, sisi yang menghubungkan tidak ada.
+   Trigger-nya `AFTER INSERT` saja, karena `events` append-only (§3.12).
+2. **`internal/sse/`** (kontrak menyebut `internal/sse/hub.go`) — `hub.go`,
+   `hub_impl.go`, `frame.go`, `serve.go`. Frame W3C (`id`/`event`/`data` +
+   baris kosong), heartbeat `: ping` 15 detik, buffer klien 128, slow-consumer
+   di-drop bukan diblokir (7.3), replay `Last-Event-ID` LIMIT 500 (7.2).
+3. **`cmd/api/events.go` + `sse_store.go`** — 4 handler + adapter LISTEN.
+   Adapter butuh **koneksi khusus dari pool**, bukan `*store.Queries`: notifikasi
+   Postgres hanya sampai ke koneksi yang menjalankan LISTEN.
+4. Query `GetEvent` + `ListRunEventsAfter`; method `board.Service`
+   `TaskHistory`/`BoardEventsAfter`/`RunEventsAfter`/`EventByID`.
+5. Wiring di `main.go`: hub + goroutine `Run(ctx)`, channel sebagai konstanta
+   `sseChannel` supaya trigger dan kode tidak bisa menyimpang.
+
+### Tiga bug nyata yang ketemu saat probe
+
+Ketiganya tidak akan ketemu dari unit test, dan tidak satu pun menghasilkan
+error yang menunjuk ke penyebabnya.
+
+1. **Middleware metrik menyembunyikan `http.Flusher`.** `statusRecorder`
+   menyematkan `http.ResponseWriter`, dan interface itu tidak punya `Flush` —
+   jadi `w.(http.Flusher)` **selalu** gagal dan setiap handler streaming
+   menjawab 500 "streaming unsupported". Ini bug F1 yang baru muncul sekarang
+   karena F1 belum punya handler streaming. Diperbaiki: `Flush()` yang
+   meneruskan, plus `Unwrap()` supaya `http.ResponseController` juga bisa
+   menembus. Tes regresi di `internal/metrics/middleware_test.go`.
+2. **Event lifecycle task tidak pernah ditulis.** `task.created`,
+   `task.status_changed`, dan `task.assigned` dinyatakan di DECISIONS §4, dan
+   `task.status_changed` justru contoh frame di §7.1 sendiri — tapi tidak ada
+   satu pun penulisnya. Timeline task kosong dan SSE tidak punya apa pun untuk
+   dikirim, tanpa satu error pun di mana pun. Diperbaiki di `CreateTask`,
+   `MoveTask`, `AssignTask`. Transisi yang **ditolak** tidak mencatat apa pun
+   (dites).
+3. **`last_event_id=0` diperlakukan sebagai "tidak ada".** §7.2 bilang replay
+   dijalankan "jika ada `last_event_id`". `0` adalah checkpoint yang sah
+   ("belum menerima apa pun") dan ids di `events` mulai dari 1 — jadi
+   memperlakukannya sebagai absen membuat klien yang minta backlog penuh tidak
+   mendapat apa pun. `LastEventID` sekarang mengembalikan `(id, ada)`.
+
+### Verifikasi
+
+- `gofmt -l .` bersih · `go build ./...` + `go vet ./...` bersih.
+- `go test` per paket: `sse` ok 1.4s (14 tes) · `metrics` ok 1.2s (15 tes) ·
+  `board` ok 81.1s · `cmd/api` ok 24.0s · `migrate` ok 96.2s (0020 idempoten).
+- Mutation **security/business rule**: hub 7 mutant → 5 CAUGHT, 1 BUILD-FAIL
+  (artefak mutant), 1 SURVIVED yang **ditemukan dan ditutup** (tes kelaparan
+  flaky karena urutan map acak → ditulis ulang jadi deterministik; setelah itu
+  2/2 CAUGHT pada dua mutan inti). Trigger migrasi 3/3 CAUGHT (notify dihapus,
+  payload jadi `payload_json`, channel salah).
+- **Probe lawan API nyata: `tools/probe-f11.py` 21/21 hijau.** Termasuk rantai
+  penuh INSERT → trigger NOTIFY → LISTEN → frame SSE dengan `event: task.created`
+  dan payload benar, plus replay `Last-Event-ID: 0`.
+- Container di-rebuild; trigger terverifikasi ada di DB
+  (`SELECT tgname FROM pg_trigger` → `events_notify_trigger`), skema versi 20.
+
+### Yang TIDAK dikerjakan (jangan dianggap beres)
+
+- **Frontend belum memakai stream ini.** Empat endpoint-nya jalan dan terbukti,
+  tapi UI masih polling/revalidate seperti sebelumnya. Menyambung UI adalah
+  pekerjaan terpisah dan belum dikerjakan.
+- Server tidak memasang `WriteTimeout` sama sekali (jadi stream tidak terputus),
+  tapi juga belum ada deadline tulis eksplisit per stream.
+
+### Catatan proses
+
+- Gate `verify_suite.py` melaporkan `DESIGN: designmd lint exit 1`. Bukan
+  DESIGN.md: `npx` cache-nya rusak (`MODULE_NOT_FOUND` di
+  `_npx/9cb06364208d5c89`). Dibuktikan dengan install bersih di scratch —
+  DESIGN.md **exit 0, 0 error**. Flake environment, bukan regresi.
+- Filter `-run` gw bolong lagi di percobaan pertama (`TestPgEventsNotify*`
+  tidak memuat `TestPgEventsTriggerNotifiesOnInsert`), persis jebakan yang sudah
+  dicatat di skill. Harness mutasi migrasi pertama juga jalan dengan
+  `AGENTDECK_TEST_DATABASE_URL` kosong ⇒ semua tes **SKIP** dan terbaca
+  "SURVIVED" — baseline 0 PASS yang seharusnya langsung ketahuan.
