@@ -40,7 +40,7 @@
 | `US-AD67` | Must | M1 | Menentukan model dan provider per agent | `26-agent-form`, `28-agent-detail` | 🔨 dikerjakan |
 | `US-AD73` | Must | M1 | Menonaktifkan (archive) agent | `25-agent-registry`, `28-agent-detail` | 🔨 dikerjakan |
 | `US-AD75` | Must | M1 | Workspace management: menentukan workspace_kind | *backend-only* | ✅ PASS |
-| `US-AD76` | Should | M1 | Halaman dashboard | `42-dashboard` | ⬜ |
+| `US-AD76` | Should | M1 | Halaman dashboard | `42-dashboard` | ✅ PASS |
 | `US-AD79` | Must | M1 | Reassign task ke agent lain | `20-task-drawer` | ✅ PASS |
 | `US-AD81` | Must | M1 | Filter board berdasarkan kolom | `18-kanban` | ✅ PASS |
 | `US-AD82` | Must | M1 | Scroll sinkron antar kolom | `18-kanban` | ✅ PASS |
@@ -96,14 +96,14 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ✅ PASS |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ✅ PASS |
 
-**Total M0–M4: 89 story** (74 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (75 PASS, 1 ditunda)
 
 ## Progres per milestone
 
 | Milestone | Story | PASS | Sisa |
 |---|---|---|---|
 | M0 | 10 | 9 | 1 |
-| M1 | 32 | 26 | 6 |
+| M1 | 32 | 27 | 5 |
 | M2 | 21 | 17 | 4 |
 | M3 | 16 | 13 | 3 |
 | M4 | 10 | 9 | 1 |

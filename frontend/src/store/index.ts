@@ -17,6 +17,7 @@ import './api/artifacts'
 import './api/notifications'
 import './api/webhooks'
 import './api/api-keys'
+import './api/dashboard'
 
 import sessionReducer from './slices/sessionSlice'
 import uiReducer from './slices/uiSlice'

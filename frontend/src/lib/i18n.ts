@@ -171,6 +171,31 @@ export interface Dictionary {
   // API keys and webhooks tabs. Both screens are placeholders until their
   // endpoints land, but the sidebar names them, so the copy must exist.
   'apiKeys.title': string
+  'dashboard.title': string
+  'dashboard.projects': string
+  'dashboard.projectsHint': string
+  'dashboard.failedRuns': string
+  'dashboard.scopeNote': string
+  'dashboard.noRunsHint': string
+  'dashboard.failed': string
+  'dashboard.failedHint': string
+  'dashboard.cost': string
+  'dashboard.costHint': string
+  'dashboard.approvals': string
+  'dashboard.approvalsHint': string
+  'dashboard.openBoards': string
+  'dashboard.noRuns': string
+  'dashboard.pendingApprovals': string
+  'dashboard.openInbox': string
+  'dashboard.noApprovals': string
+  'dashboard.noApprovalsHint': string
+  'dashboard.spendByBoard': string
+  'dashboard.spendWindow': string
+  'dashboard.runsCount': string
+  'dashboard.deletedBoard': string
+  'dashboard.noSpend': string
+  'dashboard.noSpendHint': string
+  'dashboard.noChartNote': string
   'apiKeys.needsMember': string
   'apiKeys.count': string
   'apiKeys.create': string
@@ -809,6 +834,33 @@ const en: Dictionary = {
   'sidebar.accountGroup': 'Account & team',
   'sidebar.integrationsGroup': 'Integrations & credentials',
   'apiKeys.title': 'API keys',
+  'dashboard.title': 'Dashboard',
+  'dashboard.projects': 'Projects',
+  'dashboard.projectsHint': 'Across the workspace',
+  'dashboard.failedRuns': 'Failed runs (24h)',
+  'dashboard.scopeNote':
+    'Task counts per status and a fleet-wide running count are not shown: the contract has no org-wide endpoint for either. Search runs needs an outcome, and a running run has none yet.',
+  'dashboard.noRunsHint': 'Failed runs from the last 24 hours appear here.',
+  'dashboard.failed': 'Failed (24h)',
+  'dashboard.failedHint': 'Runs that ended badly today',
+  'dashboard.cost': 'Spend',
+  'dashboard.costHint': 'Rolling 30 days, whole workspace',
+  'dashboard.approvals': 'Pending approvals',
+  'dashboard.approvalsHint': 'Waiting on a human',
+  'dashboard.openBoards': 'Boards',
+  'dashboard.noRuns': 'No runs yet',
+  'dashboard.pendingApprovals': 'Pending approvals',
+  'dashboard.openInbox': 'Inbox',
+  'dashboard.noApprovals': 'Nothing is waiting',
+  'dashboard.noApprovalsHint': 'Requests that need a decision show up here.',
+  'dashboard.spendByBoard': 'Spend by board',
+  'dashboard.spendWindow': 'last 30 days',
+  'dashboard.runsCount': '{count} runs',
+  'dashboard.deletedBoard': '(deleted board)',
+  'dashboard.noSpend': 'No spend recorded',
+  'dashboard.noSpendHint': 'Costs appear here once runs record ledger entries.',
+  'dashboard.noChartNote':
+    'The design shows a 7-day cost chart. The contract has no time series: cost-summary is a rolling 30-day total, and per-day data exists only per board. This breakdown is what the API actually returns.',
   'apiKeys.needsMember':
     'API keys are personal to the account that created them. Your role in this workspace is view-only, so there is nothing here for you to change.',
   'apiKeys.count': '{count} keys',
@@ -1457,6 +1509,33 @@ const id: Dictionary = {
   'sidebar.accountGroup': 'Pengaturan Akun & Tim',
   'sidebar.integrationsGroup': 'Integrasi & Kredensial',
   'apiKeys.title': 'API Keys',
+  'dashboard.title': 'Dashboard',
+  'dashboard.projects': 'Proyek',
+  'dashboard.projectsHint': 'Di seluruh workspace',
+  'dashboard.failedRuns': 'Run gagal (24 jam)',
+  'dashboard.scopeNote':
+    'Jumlah task per status dan jumlah run aktif seluruh armada tidak ditampilkan: kontrak tidak punya endpoint org-wide untuk keduanya. Pencarian run menuntut outcome, dan run yang sedang jalan belum punya outcome.',
+  'dashboard.noRunsHint': 'Run yang gagal dalam 24 jam terakhir muncul di sini.',
+  'dashboard.failed': 'Gagal (24 jam)',
+  'dashboard.failedHint': 'Run yang berakhir buruk hari ini',
+  'dashboard.cost': 'Biaya',
+  'dashboard.costHint': '30 hari menggelinding, seluruh workspace',
+  'dashboard.approvals': 'Approval tertunda',
+  'dashboard.approvalsHint': 'Menunggu keputusan manusia',
+  'dashboard.openBoards': 'Board',
+  'dashboard.noRuns': 'Belum ada run',
+  'dashboard.pendingApprovals': 'Approval tertunda',
+  'dashboard.openInbox': 'Antrean',
+  'dashboard.noApprovals': 'Tidak ada yang menunggu',
+  'dashboard.noApprovalsHint': 'Permintaan yang butuh keputusan muncul di sini.',
+  'dashboard.spendByBoard': 'Biaya per board',
+  'dashboard.spendWindow': '30 hari terakhir',
+  'dashboard.runsCount': '{count} run',
+  'dashboard.deletedBoard': '(board dihapus)',
+  'dashboard.noSpend': 'Belum ada biaya tercatat',
+  'dashboard.noSpendHint': 'Biaya muncul di sini begitu run mencatat entri ledger.',
+  'dashboard.noChartNote':
+    'Design menampilkan grafik biaya 7 hari. Kontrak tidak punya deret waktu: cost-summary adalah total 30 hari menggelinding, dan data harian hanya ada per board. Rincian ini yang benar-benar dikembalikan API.',
   'apiKeys.needsMember':
     'API key itu milik pribadi akun yang membuatnya. Peran Anda di workspace ini hanya melihat, jadi tidak ada yang bisa Anda ubah di sini.',
   'apiKeys.count': '{count} key',

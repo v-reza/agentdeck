@@ -71,12 +71,17 @@ const WorkspaceSettings = lazy(() =>
 const ApiKeys = lazy(() => import('@/routes/dashboard/settings/ApiKeys').then((m) => ({ default: m.ApiKeys })))
 const Webhooks = lazy(() => import('@/routes/dashboard/settings/Webhooks').then((m) => ({ default: m.Webhooks })))
 const Providers = lazy(() => import('@/routes/dashboard/settings/Providers').then((m) => ({ default: m.Providers })))
+const Dashboard = lazy(() => import('@/routes/dashboard/Dashboard').then((m) => ({ default: m.Dashboard })))
 
 /** The dashboard route set, mounted under both `/app` and `/app/:orgID`. */
 function dashboardRoutes() {
   return (
     <>
       <Route index element={<Navigate to="projects" replace />} />
+      {/* US-AD76: the operational dashboard. An explicit path, not `index` — the
+          layout redirects a bare /app/:orgID to /projects, so an index route here
+          would render and then bounce. */}
+      <Route path="dashboard" element={<Dashboard />} />
       <Route path="projects" element={<ProjectList />} />
       <Route path="projects/:projectID" element={<ProjectDetail />} />
       <Route path="boards" element={<BoardList />} />

@@ -1759,3 +1759,82 @@ vitest 80/80 · prettier bersih · `verify_suite.py` 0 FAIL.
 (container `Exited 3 hours ago`), yang membuat 9 tes shard-2 gagal di `signUp`
 dengan `Failed to fetch`. Setelah daemon + container dinyalakan ulang, shard itu
 hijau tanpa perubahan kode. Kegagalan itu lingkungan, bukan regresi.
+
+### Fase 9 — Dashboard (US-AD76)
+
+**Empat kartu AC1, tapi bukan empat yang diminta story.** Dua dari empat metrik
+story tidak punya sumber org-wide, dan itu gw ukur ke API yang jalan, bukan
+disimpulkan dari membaca kode:
+
+| Diminta story | Kenyataannya |
+|---|---|
+| jumlah task per status | `GET /search/tasks` menuntut `q` non-kosong (`?q=` dan `?limit=` saja sama-sama **400**), dan satu-satunya daftar task adalah `GET /boards/{id}/tasks` — per board. Tidak ada jalur org-wide. |
+| agent aktif | `GET /search/runs` **tidak punya filter `status`**, dan `runs.outcome` NULL sepanjang umur run yang hidup: `runs_outcome_chk` bahkan tidak mengizinkan `'running'`, karena `outcome` ditulis `EndRun`. Jadi `?outcome=running` menjawab `{"runs":[]}` selamanya — diverifikasi dengan probe. |
+| grafik biaya 7 hari | `cost-summary` = total **30 hari** menggelinding; satu-satunya data harian adalah `boards/{id}/budget` (satu board, hari ini). Tidak ada deret waktu. |
+
+Cost rail yang sudah ada memang menampilkan "N agents active" — itu **hitungan task
+board**, bukan run org-wide, dan itu sebabnya ia bekerja di sana.
+
+Membuat endpoint baru untuk ketiganya = mengubah kontrak, jadi tidak dikerjakan.
+Empat kartu diisi dari yang benar-benar ada: **run gagal 24 jam** (`search/runs
+?outcome=failed`, difilter 24 jam di klien), **biaya 30 hari** (`cost-summary`),
+**approval tertunda** (`GET /approvals`), **proyek** (`GET /projects`). Yang hilang
+disebut di layar (`dashboard.scopeNote` + `dashboard.noChartNote`), bukan dibiarkan
+terbaca sebagai nol.
+
+**Kartu biaya diberi label 30 hari, bukan "Hari Ini"** seperti design. Angka di
+belakangnya menggelinding 30 hari; menulis "Hari Ini" di atasnya bukan pembulatan,
+tapi angka yang salah.
+
+**AC3 dikerjakan, AC4 terpenuhi karena tidak ada.** Satu workspace → judul = nama
+pengguna; lebih dari satu → nama workspace. AC4 otomatis: layar ini tidak punya
+seksi anggota/undangan sama sekali. AC2 backend-only (middleware auth), tidak
+diklaim sebagai kerja UI.
+
+**Rail diubah mengikuti design, dan itu keputusan sadar.** `42-dashboard` menaruh
+Dashboard di slot pertama dan **tidak** mendaftarkan Notifications — bell di topbar
+adalah tujuan itu, dan ia membawa badge di semua layar. Jadi Notifications keluar
+dari rail (rutenya tetap hidup), Dashboard masuk. Nol e2e bergantung pada link rail
+itu (semuanya `goto` langsung — diverifikasi), jadi tidak ada yang pecah.
+
+**Mutasi 7 CAUGHT / 0 SURVIVED, dan tiga SURVIVED pertama ditutup dengan
+memperbaiki tesnya:**
+- `filter-24-jam-dibuang`: "24 jam" tidak bisa dibedakan dari "semua" kalau semua
+  run yang disemai baru saja berakhir. Fix: satu run gagal kedua disemai lalu
+  `started_at`/`ended_at`-nya dimundurkan 3 hari lewat psql — tidak ada jalur API
+  untuk memundurkan waktu. Sekarang kartu **harus** 1 sementara API mengembalikan 2.
+- `kartu-approval-selalu-0` dan `spend-by-board-dikosongkan`: keduanya diuji lawan
+  nol, jadi nilai yang selalu nol lolos. Fix: satu gate nyata (perhatikan
+  `preview_json` adalah `json.RawMessage` — objek, bukan string berisi JSON) dan
+  satu baris `ledger_entries` nyata (`id` BIGSERIAL, `price_version` NOT NULL).
+
+**Temuan kontrak yang perlu diketahui sesi berikutnya:**
+- Satu gate per task, dan hanya selama run-nya hidup: `RequestApproval` memarkir
+  task di `awaiting_approval` lalu **menutup run**-nya, jadi gate kedua ke task
+  yang sama ditolak (`task.CurrentRunID` sudah kosong). Ini perilaku kontrak.
+- `GET /search/runs` menolak request tanpa filter (400) — `limit` saja tidak cukup.
+- `ledger_entries` tidak punya jalur tulis di API; e2e menyemainya lewat psql,
+  pola yang sama dengan `notifications.spec.ts`.
+
+**Bukti:** e2e dashboard-screen 5/5 · mutasi **7 CAUGHT / 0 SURVIVED** · full e2e
+**159 passed / 2 skipped / 0 failed** · gate rc=0 · tsc rc=0 · vitest 80/80 ·
+prettier bersih · `verify_suite.py` 0 FAIL · CHECKLIST 74 → **75 PASS**.
+
+**Dua flake lingkungan yang ketemu di jalan, dan keduanya diperbaiki di harness:**
+1. Vite module graph basi bikin app gagal boot → halaman blank →
+   `column-editor` gagal 2-3 tes per run. `docker compose restart web`
+   ditambahkan ke script full e2e.
+2. Restart itu mengosongkan transform cache, jadi tes **pertama** sebuah shard
+   kalah balapan dengan timeout 5s. Ditambahkan langkah warmup sebelum shard.
+
+Sisa satu kegagalan berpindah spec antar run (`agents.spec.ts`,
+`board-live.spec.ts`) dan hijau saat shard-nya dijalankan sendiri (42/42 dan
+47/47), dengan nol file berubah di jendela run. Dicatat di `OPEN-ISSUES.md`,
+tidak diklaim hijau.
+
+**Satu bug asli yang ditemukan dan diperbaiki:** `orgCostSummary` sempat
+didefinisikan ulang di klien baru padahal `finops.ts` sudah punya. Dua definisi
+untuk satu nama di `baseApi` yang sama membuat yang terakhir inject menang dan
+call site yang lain berubah bentuk diam-diam. Gejalanya muncul jauh dari layar
+dashboard: `column-editor` crash di halaman blank. Definisi duplikat dibuang;
+`Dashboard.tsx` memakai yang dari `finops.ts`.

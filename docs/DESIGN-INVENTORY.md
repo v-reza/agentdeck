@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (148 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (150 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 102 |
+| `<svg>` | 111 | 109 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -17,10 +17,10 @@ sementara implementasi mendeklarasikan komponennya sekali lalu merendernya
 di dalam `.map()`. Jadi rasio mentahnya selalu terlihat lebih buruk daripada
 kenyataan, dan satu-satunya cara membacanya adalah per jenis icon di layar
 yang punya file impl — lihat §3.
-| blok skeleton (abu berukuran) | 323 | 32 |
+| blok skeleton (abu berukuran) | 323 | 33 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 34 |
+| file memakai `lucide-react` | 0 | 35 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -72,7 +72,7 @@ Dua hal berbeda yang pernah dihitung jadi satu:
 | 38-members | 25 | 1 | 1 |
 | 22-column-editor | 24 | 1 | 1 |
 | 19-table-view | 19 | 1 | 4 |
-| 42-dashboard | 19 | 0 | 3 |
+| 42-dashboard | 19 | 1 | 3 |
 | 15-profile | 15 | 1 | 2 |
 | 47-providers | 15 | 1 | 2 |
 | 30-ledger-explorer | 14 | 0 | 3 |
@@ -186,7 +186,7 @@ Nol.
 | 39-api-keys | `/settings/api-keys` | `ApiKeys.tsx` | 7/6 | 0 | 1 |
 | 40-webhooks | `/settings/webhooks` | `Webhooks.tsx` | 1/3 | 0 | 2 |
 | 41-audit-log | `/settings/audit` | — | 2/0 | 0 | 0 |
-| 42-dashboard | `/dashboard` | — | 0/0 | 0 | 0 |
+| 42-dashboard | `/dashboard` | `Dashboard.tsx` | 0/7 | 0 | 1 |
 | 43-state-loading | `(varian)` | `skeleton.tsx` | 0/0 | 0 | 2 |
 | 44-state-empty | `(varian)` | — | 2/0 | 0 | 0 |
 | 45-state-error | `(varian)` | — | 0/0 | 0 | 0 |
@@ -195,7 +195,7 @@ Nol.
 
 ## 10. File tanpa layar (shell & komponen bersama)
 
-86 file tidak dipetakan ke satu layar. Ini wajar untuk
+87 file tidak dipetakan ke satu layar. Ini wajar untuk
 layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 
 - `App.tsx`
@@ -265,6 +265,7 @@ layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 - `store/api/artifacts.ts`
 - `store/api/base.ts`
 - `store/api/boards.ts`
+- `store/api/dashboard.ts`
 - `store/api/finops.ts`
 - `store/api/notifications.ts`
 - `store/api/providers.ts`

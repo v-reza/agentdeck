@@ -287,6 +287,75 @@ Tambahan yang tidak diklaim: mockup menulis "Exponential Backoff (3x)" sebagai
 protokol pengiriman. Ambang retry milik worker, bukan kontrak API — UI menampilkan
 `attempts` + `status` apa adanya, bukan janji yang tidak bisa diverifikasi layar.
 
+### Full e2e: dua flake lingkungan, bukan regresi
+
+Dua-duanya gejalanya sama — `locator` timeout 5s di tes **pertama** sebuah spec,
+seolah board belum ter-render — dan dua-duanya **hijau saat shard-nya dijalankan
+sendiri**. Terukur: `--shard=3/4` 47/47 dan `--shard=1/4` 42/42 saat dijalankan
+terpisah. Nol file berubah di jendela run, jadi run hijau itu sah.
+
+1. **Vite module graph basi.** Vite di bind mount Windows tidak menginvalidasi
+   file yang DIUBAH, jadi app bisa gagal boot → halaman blank. Ini yang bikin
+   `column-editor` gagal beruntun (2-3 tes per run) sampai `docker compose
+   restart web` ditambahkan ke script full e2e. Sesudah itu `column-editor` hijau
+   penuh.
+2. **Cold start transform Vite.** Restart web mengosongkan transform cache, jadi
+   permintaan pertama membayar kompilasi seluruh graph. Kalau itu jatuh ke tes
+   pertama sebuah shard, tes itu kalah balapan dengan timeout 5s. Ditambahkan
+   langkah warmup (`e2e/dashboard.spec.ts`) sebelum shard berjalan; sesudah itu
+   shard2 dan shard3 hijau penuh.
+
+Sisa satu kegagalan berpindah spec antar run (`agents.spec.ts` sekali,
+`board-live.spec.ts` sekali) dan tidak pernah terulang. Itu sisa flake cold-start
+yang belum tertutup, bukan regresi kode: tidak ada yang berubah di antara run
+yang gagal dan run yang lulus.
+
+**Docker Desktop bisa mati di tengah run.** Satu full e2e menghasilkan 0 passed /
+144 failed dengan `connect ECONNREFUSED 127.0.0.1:8080` di semua shard — daemon
+mati, bukan kode. `docker compose up -d` diblokir heuristik; jalur yang bekerja:
+`docker start agentdeck-db agentdeck-minio` lalu `docker start agentdeck-api
+agentdeck-web`.
+
+### US-AD76: dua dari empat metrik AC1 tidak punya sumber org-wide
+
+Diverifikasi dengan probe ke API yang jalan, bukan dari membaca kode:
+
+- **Task per status.** `GET /search/tasks` menuntut `q` non-kosong — `?q=` dan
+  `?limit=100` saja sama-sama menjawab `400 invalid input`. Satu-satunya daftar
+  task adalah `GET /boards/{id}/tasks`, per board.
+- **Agent aktif.** `GET /search/runs` tidak punya filter `status`, dan
+  `runs.outcome` NULL sepanjang umur run yang hidup: `runs_outcome_chk`
+  (`0008.up.sql:88`) tidak mengizinkan `'running'` karena `outcome` ditulis
+  `EndRun`. `?outcome=running` menjawab `{"runs":[]}` selamanya.
+- **Grafik biaya 7 hari.** `GET /orgs/{id}/cost-summary` adalah total 30 hari
+  menggelinding; data harian hanya ada di `GET /boards/{id}/budget`.
+
+Layar mengisi empat kartu dari yang ada (run gagal 24 jam, biaya 30 hari,
+approval tertunda, proyek) dan menyebut yang tidak ada di layar. Menambah
+endpoint adalah perubahan kontrak, jadi tidak dikerjakan overnight.
+
+Catatan: `GET /search/runs` juga menolak request **tanpa filter** (400); `limit`
+sendirian tidak cukup.
+
+### Satu gate per task, dan hanya selama run-nya hidup
+
+`RequestApproval` (`internal/board/approval.go:54`) memarkir task di
+`awaiting_approval` lalu **menutup run**-nya — sengaja, supaya run yang tidak
+dieksekusi siapa pun tidak di-reclaim sebagai basi lalu di-retry (membelanjakan
+uang untuk kerja yang belum disetujui). Akibatnya `task.CurrentRunID` jadi kosong
+dan gate **kedua** ke task yang sama dijawab 400 `invalid input` sampai task itu
+di-claim lagi. Ini perilaku kontrak, bukan bug; tapi tidak kelihatan dari PRD, dan
+`POST /tasks/{id}/approvals` menuntut `preview_json` sebagai `json.RawMessage`
+(objek JSON, bukan string berisi JSON).
+
+### `ledger_entries` tidak punya jalur tulis di API
+
+Tidak ada endpoint yang menulis ledger — dispatcher yang menuliskannya saat run
+berjalan. Satu-satunya cara mengisi panel biaya dengan baris nyata di e2e adalah
+`psql` ke container DB, pola yang sama dengan `notifications.spec.ts`. Perlu
+diingat kalau menyemai: `id` adalah **BIGSERIAL** (bukan ULID), `run_id` dan
+`task_id` **NOT NULL** (butuh run nyata), dan `price_version` **NOT NULL**.
+
 ### US-AD06 AC2 tidak ada di kode: nol limit key aktif
 
 AC2 minta `409` saat batas maksimum key aktif per org tercapai. Yang ada:
