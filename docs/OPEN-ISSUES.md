@@ -287,6 +287,31 @@ Tambahan yang tidak diklaim: mockup menulis "Exponential Backoff (3x)" sebagai
 protokol pengiriman. Ambang retry milik worker, bukan kontrak API — UI menampilkan
 `attempts` + `status` apa adanya, bukan janji yang tidak bisa diverifikasi layar.
 
+### US-AD19: graf dependency tidak punya endpoint per-board
+
+`GET /tasks/{id}/links` dan `/tasks/{id}/dag` hanya per task. Graf per board lewat
+jalur itu = N+1 request, dan badge jumlah dependency di tiap kartu butuh angka per
+task dari satu panggilan. Endpoint `GET /api/v1/boards/{id}/dependencies` (Viewer)
+ditambahkan di Fase 10 — aditif, tidak mengubah bentuk yang sudah ada.
+
+Catatan kontrak yang perlu diingat kalau menyentuh jalur ini:
+
+- Scope-nya **child**, bukan dua ujungnya: edge yang parent-nya di board lain tetap
+  dilaporkan. Dispatcher tetap menolak promote task itu, dan menyembunyikan sebabnya
+  bikin board kelihatan macet tanpa alasan.
+- `TaskLink` (internal/board/types.go) tidak punya json tag dan hanya membawa
+  `ParentID`/`ChildID`. Query `ListTaskParents`/`ListTaskChildren` sebenarnya sudah
+  JOIN `tasks` untuk judul+status, tapi pgx membuangnya. Tipe baru `BoardDependency`
+  membawa keduanya, karena graf harus melabeli dan mewarnai edge.
+- `block_kind` **tidak bisa di-set lewat API**. Nilainya hanya ditulis dispatcher
+  (`applyOutcome`/`retryOrFail`): `budget_exceeded` → `budget`, atau `failure_kind`
+  yang memblokir → kind-nya. Untuk e2e, satu-satunya jalur jujur adalah run gagal
+  dengan `failure_kind=needs_input` lewat `POST /runs/{id}/end`.
+- Kolom board tidak 1:1 dengan status. `columnForStatus` (frontend) /
+  `ColumnKey()` (backend) memetakan `blocked`→backlog, `failed`/`cancelled`→done,
+  `awaiting_approval`→running. Membandingkan `task.status === column.key` menjatuhkan
+  task-task itu dari layar.
+
 ### Full e2e: dua flake lingkungan, bukan regresi
 
 Dua-duanya gejalanya sama — `locator` timeout 5s di tes **pertama** sebuah spec,

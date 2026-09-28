@@ -276,6 +276,18 @@ type TaskLink struct {
 	ChildID  string
 }
 
+// BoardDependency is one edge of a board's dependency graph (US-AD19): the child
+// is on the board, and the parent is whatever it waits on — which may live on
+// another board. The parent's title and status ride along because the graph has
+// to label and colour the edge, and fetching them per row would make drawing a
+// board's graph an N+1 walk.
+type BoardDependency struct {
+	ChildID     string
+	ParentID    string
+	ParentTitle string
+	ParentState string
+}
+
 // Event is one append-only row of the board timeline (ARCHITECTURE 3.12). No
 // code path may UPDATE or DELETE an event; the only writer is CreateEvent.
 // ApprovalDecision mirrors the approvals.decision CHECK (DECISIONS 4).
@@ -647,6 +659,10 @@ type Repository interface {
 	DeleteTaskLink(ctx context.Context, parentID, childID string) error
 	ListTaskParents(ctx context.Context, taskID string) ([]TaskLink, error)
 	ListTaskChildren(ctx context.Context, taskID string) ([]TaskLink, error)
+	// ListBoardDependencies is the whole board's edge set in one call, for the
+	// dependency graph (US-AD19). Scoped by the CHILD's board: the parent may be
+	// on another board and the edge still has to be drawn.
+	ListBoardDependencies(ctx context.Context, boardID string) ([]BoardDependency, error)
 	// CountUnfinishedParents is the gate a child must pass before it becomes
 	// ready: zero unfinished parents (ARCHITECTURE 4e).
 	CountUnfinishedParents(ctx context.Context, taskID string) (int, error)

@@ -1,5 +1,5 @@
 import { Link, useLocation, useParams } from 'react-router-dom'
-import { Filter, Plus, Search, SquareKanban, Table2 } from 'lucide-react'
+import { Filter, Network, Plus, Search, SquareKanban, Table2 } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { openCreateTask, setSearch, toggleStatusFilter } from '@/store/slices/uiSlice'
 import { TASK_STATUSES, statusColorVar } from '@/lib/domain'
@@ -47,7 +47,7 @@ export function BoardToolbar({ boardName, taskCount }: { boardName?: string; tas
   // component, which is what ARCHITECTURE 18.2 says not to do.
   const { live } = useSseCache(boardID ?? null)
 
-  const view = location.pathname.endsWith('/table') ? 'table' : 'board'
+  const view = location.pathname.endsWith('/table') ? 'table' : location.pathname.endsWith('/graph') ? 'graph' : 'board'
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border-subtle)] px-4 py-2">
@@ -74,6 +74,7 @@ export function BoardToolbar({ boardName, taskCount }: { boardName?: string; tas
       <div className="flex items-center gap-0.5 rounded-[6px] border border-[var(--color-border-subtle)] p-0.5">
         <ViewLink to={base} active={view === 'board'} icon={SquareKanban} label={t['boards.viewBoard']} />
         <ViewLink to={`${base}/table`} active={view === 'table'} icon={Table2} label={t['boards.viewTable']} />
+        <ViewLink to={`${base}/graph`} active={view === 'graph'} icon={Network} label={t['boards.viewGraph']} />
       </div>
 
       <div className="relative ml-auto">

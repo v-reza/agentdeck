@@ -1,5 +1,5 @@
 import { baseApi, boardTaskTag } from './base'
-import type { Column, Task, TaskStatus, TaskLink, TaskEvent, Project, Board } from '@/lib/domain'
+import type { Column, Task, TaskStatus, TaskLink, TaskEvent, Project, Board, BoardDependency } from '@/lib/domain'
 import type { AssignableAgent } from './agents'
 
 /**
@@ -272,6 +272,8 @@ export const boardsApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { id }) => [
         { type: 'TaskLink', id },
         { type: 'Task', id },
+        // The board graph is a different projection of the same edges.
+        { type: 'TaskLink', id: 'BOARD-LIST' },
       ],
     }),
 
@@ -286,12 +288,24 @@ export const boardsApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { id }) => [
         { type: 'TaskLink', id },
         { type: 'Task', id },
+        { type: 'TaskLink', id: 'BOARD-LIST' },
       ],
     }),
 
     taskDag: build.query<{ task: Task; parents: TaskLink[] }, string>({
       query: (id) => `tasks/${id}/dag`,
       providesTags: (_r, _e, id) => [{ type: 'TaskLink', id: `DAG-${id}` }],
+    }),
+
+    // US-AD19. One request per board, not one per card: the graph needs the whole
+    // edge set at once. Tagged by board so creating or deleting a link refreshes
+    // it along with the per-task reads.
+    boardDependencies: build.query<{ edges: BoardDependency[] }, string>({
+      query: (boardID) => `boards/${boardID}/dependencies`,
+      providesTags: (_r, _e, boardID) => [
+        { type: 'TaskLink', id: `BOARD-${boardID}` },
+        { type: 'TaskLink', id: 'BOARD-LIST' },
+      ],
     }),
   }),
 })
@@ -320,6 +334,7 @@ export const {
   useCreateTaskLinkMutation,
   useDeleteTaskLinkMutation,
   useTaskDagQuery,
+  useBoardDependenciesQuery,
 } = boardsApi
 
 /** Re-exported for callers that only need the event payload shape. */

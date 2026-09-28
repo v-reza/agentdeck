@@ -53,7 +53,7 @@
 | `US-AD108` | Must | M2 | Estimasi biaya: label dan sumber harga | `26-agent-form` | 🔨 dikerjakan |
 | `US-AD109` | Must | M2 | Provider registry: daftar kredensial sekali pakai | `47-providers` | ✅ PASS |
 | `US-AD18` | Must | M2 | Dependency DAG antar task | *backend-only* | ✅ PASS |
-| `US-AD19` | Should | M2 | Visualisasi dependency di board | `18-kanban`, `24-dependency-view` | 🔨 dikerjakan |
+| `US-AD19` | Should | M2 | Visualisasi dependency di board | `18-kanban`, `24-dependency-view` | ✅ PASS |
 | `US-AD25` | Must | M2 | Menulis step (trace) dalam run | *backend-only* | ✅ PASS |
 | `US-AD27` | Must | M2 | Cost ledger: mencatat pemakaian token per step | `30-ledger-explorer` | ⬜ |
 | `US-AD28` | Must | M2 | Agregasi biaya harian per board | `29-cost-overview` | ✅ PASS |
@@ -96,7 +96,7 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ✅ PASS |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ✅ PASS |
 
-**Total M0–M4: 89 story** (75 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (76 PASS, 1 ditunda)
 
 ## Progres per milestone
 
@@ -104,7 +104,7 @@
 |---|---|---|---|
 | M0 | 10 | 9 | 1 |
 | M1 | 32 | 27 | 5 |
-| M2 | 21 | 17 | 4 |
+| M2 | 21 | 18 | 3 |
 | M3 | 16 | 13 | 3 |
 | M4 | 10 | 9 | 1 |
 

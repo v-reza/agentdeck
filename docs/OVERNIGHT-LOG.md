@@ -1838,3 +1838,47 @@ untuk satu nama di `baseApi` yang sama membuat yang terakhir inject menang dan
 call site yang lain berubah bentuk diam-diam. Gejalanya muncul jauh dari layar
 dashboard: `column-editor` crash di halaman blank. Definisi duplikat dibuang;
 `Dashboard.tsx` memakai yang dari `finops.ts`.
+
+### Fase 10 — Graf dependency (US-AD19)
+
+**Brief bilang "DAG endpoint ada". Yang ada cuma per-task.** `GET /tasks/{id}/links`
+dan `GET /tasks/{id}/dag`, dua-duanya untuk satu task. Graf per board lewat jalur itu
+= N+1 request, dan badge "N dependensi" di tiap kartu butuh angka per task dari satu
+panggilan. Jadi endpoint-nya ditambah — aditif, tidak mengubah bentuk yang sudah ada:
+
+- `queries.sql` + `ListBoardTaskParents` (child_id, parent_id, judul+status parent)
+- `internal/board`: tipe `BoardDependency`, `ListBoardDependencies` di interface repo,
+  pgx, dan service
+- `cmd/api/boards.go`: `GET /api/v1/boards/{id}/dependencies` (Viewer), tercatat di
+  tabel endpoint ARCHITECTURE
+
+**Scope-nya child, bukan dua ujungnya.** Edge yang parent-nya di board LAIN tetap
+dilaporkan. Itu disengaja: dispatcher tetap menolak promote task itu, dan
+menyembunyikan sebabnya bikin board kelihatan macet tanpa alasan. Karena parent-nya
+tidak punya kartu di layar, edge itu **disebut di kartunya** ("Board lain: <judul>"),
+bukan digambar sebagai node melayang dan bukan pula dibuang.
+
+**`Terkunci` dibaca dari `block_kind` task, bukan dari jumlah parent.** Task yang
+parent-nya sudah `done` punya edge dan TIDAK terkunci. Field-nya sudah ada di respons
+task, jadi tidak ada yang dikarang. e2e-nya membuktikan keduanya: kartu berparent
+tanpa block_kind tidak punya marker, lalu block_kind asli dibuat lewat jalur produk
+(run gagal dengan `failure_kind=needs_input` → task `blocked` + block_kind) dan
+marker muncul.
+
+**Satu bug asli yang ketemu lewat e2e ini.** Graf mula-mula mengelompokkan kartu
+dengan `task.status === column.key` (cocok persis), padahal kanban memakai
+`columnForStatus` — kolom itu VIEW dari status (DECISIONS 3), dan `blocked`, `failed`,
+`cancelled`, `archived` tidak punya kolom sendiri. Akibatnya task `blocked` **hilang
+total** dari layar, yaitu justru kartu yang paling perlu terlihat di view dependency.
+Diperbaiki dengan `groupByColumn`, helper yang sama dengan kanban. Mutan
+`grup-pakai-status-persis` sekarang CAUGHT.
+
+**Garis digambar dari koordinat DOM yang diukur**, bukan layout engine baru: SVG di
+bawah kartu, `ResizeObserver` untuk ukur ulang. Hanya edge yang KEDUA ujungnya ada di
+layar yang dapat garis.
+
+**Bukti:** e2e dependency-graph 3/3 · mutasi **6 CAUGHT / 0 SURVIVED** · `go build`
+rc=0 · `gofmt -l` kosong · `go test ./internal/board` ok · `go test ./cmd/api` ok
+(30.2s) · endpoint di-probe lawan API nyata (3 edge, 401 tanpa auth, 404 board
+ngawur) · gate rc=0 · tsc rc=0 · vitest 80/80 · prettier bersih · `verify_suite.py`
+0 FAIL · CHECKLIST **75 → 76 PASS**.

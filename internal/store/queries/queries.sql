@@ -1005,6 +1005,22 @@ JOIN tasks t ON t.id = l.child_id
 WHERE l.parent_id = $1
 ORDER BY t.created_at;
 
+-- Every dependency edge whose CHILD is on this board, with the parent's title and
+-- status so a caller can draw the edge without a second round trip per row.
+--
+-- US-AD19 draws the board's dependency graph, and the parent of an edge is very
+-- often on the SAME board — but not always, and the graph has to show the edge
+-- either way. So this is scoped by the child's board, not by both ends: an edge
+-- crossing boards is still a real prerequisite, and hiding it would make a task
+-- look unblocked while the dispatcher refuses to promote it.
+-- name: ListBoardTaskParents :many
+SELECT l.child_id, l.parent_id, p.title, p.status
+FROM task_links l
+JOIN tasks c ON c.id = l.child_id
+JOIN tasks p ON p.id = l.parent_id
+WHERE c.board_id = $1
+ORDER BY c.created_at, p.created_at;
+
 -- Counts unfinished parents: the dispatcher promotes a child to ready only when
 -- this returns zero (ARCHITECTURE 4e).
 -- name: CountUnfinishedParents :one

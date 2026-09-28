@@ -198,6 +198,22 @@ export interface TaskLink {
   ChildID: string
 }
 
+/**
+ * One edge of a board's dependency graph (US-AD19). `parent_title` and
+ * `parent_state` come from the server join, so the graph can label and colour an
+ * edge without a request per row.
+ *
+ * The parent may live on ANOTHER board: the edge is scoped by the child's board,
+ * because an edge crossing boards is still a real prerequisite and hiding it
+ * would draw a task as unblocked while the dispatcher still refuses to promote it.
+ */
+export interface BoardDependency {
+  child_id: string
+  parent_id: string
+  parent_title: string
+  parent_state: TaskStatus
+}
+
 /** One append-only row of the board timeline. */
 export interface TaskEvent {
   ID: number

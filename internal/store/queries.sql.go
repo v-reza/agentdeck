@@ -3981,6 +3981,55 @@ func (q *Queries) ListBoardLedger(ctx context.Context, arg ListBoardLedgerParams
 	return items, nil
 }
 
+const listBoardTaskParents = `-- name: ListBoardTaskParents :many
+SELECT l.child_id, l.parent_id, p.title, p.status
+FROM task_links l
+JOIN tasks c ON c.id = l.child_id
+JOIN tasks p ON p.id = l.parent_id
+WHERE c.board_id = $1
+ORDER BY c.created_at, p.created_at
+`
+
+type ListBoardTaskParentsRow struct {
+	ChildID  string
+	ParentID string
+	Title    string
+	Status   string
+}
+
+// Every dependency edge whose CHILD is on this board, with the parent's title and
+// status so a caller can draw the edge without a second round trip per row.
+//
+// US-AD19 draws the board's dependency graph, and the parent of an edge is very
+// often on the SAME board — but not always, and the graph has to show the edge
+// either way. So this is scoped by the child's board, not by both ends: an edge
+// crossing boards is still a real prerequisite, and hiding it would make a task
+// look unblocked while the dispatcher refuses to promote it.
+func (q *Queries) ListBoardTaskParents(ctx context.Context, boardID string) ([]ListBoardTaskParentsRow, error) {
+	rows, err := q.db.Query(ctx, listBoardTaskParents, boardID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListBoardTaskParentsRow
+	for rows.Next() {
+		var i ListBoardTaskParentsRow
+		if err := rows.Scan(
+			&i.ChildID,
+			&i.ParentID,
+			&i.Title,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBoardTasks = `-- name: ListBoardTasks :many
 SELECT id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
        idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,

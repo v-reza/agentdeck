@@ -1669,7 +1669,7 @@ Transisi `outcome` di `runs` (hanya diisi saat `status='ended'`): `succeeded`, `
 
 ---
 
-### 6.2 Tabel Endpoint Lengkap (129 Endpoint)
+### 6.2 Tabel Endpoint Lengkap (130 Endpoint)
 
 > **Kolom `Status`** mencerminkan **kode**, bukan niat: ✅ = route terdaftar di
 > `cmd/api`, ⬜ = belum. Tanda ini diperiksa `tools/verify_suite.py` dua arah —
@@ -1832,13 +1832,14 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | `POST` | `/api/v1/tasks/{id}/retry` | Session/Key | Member | Ya | ✅ | Reset failure count, pindah status ke `ready` |
 | `POST` | `/api/v1/tasks/{id}/archive` | Session/Key | Admin | Ya | ✅ | Set status ke `archived`, sembunyikan dari view board. **Admin, bukan Member**: US-AD59 AC4 menetapkan minimal `admin`, dan baris ini dulu menulis Member — kontradiksi yang tidak pernah ketahuan karena nol test menyentuh arsip task |
 
-#### 6.2.10 Task Links / Dependencies (4 Endpoint)
+#### 6.2.10 Task Links / Dependencies (5 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
 | `GET` | `/api/v1/tasks/{id}/links` | Session/Key | Viewer | Ya | ✅ | List parent dan child task untuk ID tersebut |
 | `POST` | `/api/v1/tasks/{id}/links` | Session/Key | Member | Ya | ✅ | Tambah edge dependency (`{parent_id: "..."}`) |
 | `DELETE` | `/api/v1/tasks/{id}/links/{parent_id}` | Session/Key | Member | Ya | ✅ | Hapus edge dependency tertentu |
 | `GET` | `/api/v1/tasks/{id}/dag` | Session/Key | Viewer | Ya | ✅ | Tree rekursif seluruh prasyarat task (§4e.2) |
+| `GET` | `/api/v1/boards/{id}/dependencies` | Session/Key | Viewer | Ya | ✅ | Seluruh edge dependency yang child-nya di board ini, plus judul+status parent (US-AD19) |
 
 #### 6.2.11 Runs (6 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
@@ -1938,7 +1939,7 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | 6.2.7 | Agents | 16 | 0 | 16 |
 | 6.2.8 | Providers | 7 | 0 | 7 |
 | 6.2.9 | Tasks | 7 | 4 | 11 |
-| 6.2.10 | Task Links / Dependencies | 4 | 0 | 4 |
+| 6.2.10 | Task Links / Dependencies | 5 | 0 | 5 |
 | 6.2.11 | Runs | 0 | 6 | 6 |
 | 6.2.12 | Steps | 0 | 3 | 3 |
 | 6.2.13 | Events & Realtime SSE | 0 | 4 | 4 |
@@ -1950,7 +1951,7 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | 6.2.19 | Audit, Search & System | 0 | 6 | 6 |
 | | **Total** | **66** | **61** | **127** |
 
-*Total endpoint terdefinisi: 129 endpoint.*
+*Total endpoint terdefinisi: 130 endpoint.*
 
 ## 7. Realtime (SSE)
 
@@ -2660,7 +2661,7 @@ Sistem pengujian AgentDeck dibangun untuk menjamin kebenaran state machine, keta
                      ┌───────────────────────┐
                      │   Load Tests (k6)     │  Target konkurensi dan volume (N4: 50 agen running, N5: 100.000 run/bulan, N6: 1.000.000 event/bulan)
                      ├───────────────────────┤
-                     │  API Contract Tests   │  129 Endpoint coverage
+                     │  API Contract Tests   │  130 Endpoint coverage
                      ├───────────────────────┤
                      │ Integration (Pg test) │  Testcontainers Postgres 16
                      ├───────────────────────┤

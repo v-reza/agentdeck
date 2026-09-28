@@ -224,6 +224,9 @@ func registerBoardRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, pr
 	boardRoute("DELETE /api/v1/tasks/{id}/links/{parent_id}", http.HandlerFunc(boardAPI.deleteLink), auth.Member)
 	boardRoute("GET /api/v1/tasks/{id}/links", http.HandlerFunc(boardAPI.listLinks), auth.Viewer)
 	boardRoute("GET /api/v1/tasks/{id}/dag", http.HandlerFunc(boardAPI.taskDag), auth.Viewer)
+	// US-AD19 draws the board's dependency graph, and one call per board beats
+	// one call per task. Viewer, same as the per-task link reads above.
+	boardRoute("GET /api/v1/boards/{id}/dependencies", http.HandlerFunc(boardAPI.boardDependencies), auth.Viewer)
 
 	// US-AD20 agent registry. Roles come from the ARCHITECTURE route table:
 	// registering is Member, reading is Viewer, deleting is Admin. The create
@@ -981,6 +984,50 @@ func (a boardAPI) listLinks(w http.ResponseWriter, r *http.Request) {
 		"parents":  parents,
 		"children": children,
 	})
+}
+
+// GET /api/v1/boards/{id}/dependencies — every dependency edge whose child is on
+// this board, with the parent's title and status (US-AD19).
+//
+// One call per board instead of one per task: the graph needs the whole edge set
+// at once, and walking `/tasks/{id}/links` per card would be an N+1 request for
+// the screen the story asks for.
+func (a boardAPI) boardDependencies(w http.ResponseWriter, r *http.Request) {
+	orgCtx, err := a.boardContext(r)
+	if err != nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	boardID := r.PathValue("id")
+	if _, err := a.svc.GetBoard(r.Context(), boardID, orgCtx.workspace.ID); err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	edges, err := a.svc.BoardDependencies(r.Context(), boardID)
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	out := make([]boardDependencyResponse, 0, len(edges))
+	for _, e := range edges {
+		out = append(out, boardDependencyResponse{
+			ChildID:     e.ChildID,
+			ParentID:    e.ParentID,
+			ParentTitle: e.ParentTitle,
+			ParentState: e.ParentState,
+		})
+	}
+	writeJSONResponse(w, http.StatusOK, map[string]any{"edges": out})
+}
+
+// boardDependencyResponse is one edge of the dependency graph. `parent_state` is
+// the parent's task status, and it is named `state` rather than `status` to stay
+// clear of the run outcome of the same name.
+type boardDependencyResponse struct {
+	ChildID     string `json:"child_id"`
+	ParentID    string `json:"parent_id"`
+	ParentTitle string `json:"parent_title"`
+	ParentState string `json:"parent_state"`
 }
 
 // GET /api/v1/tasks/{id}/dag — the dependency closure for this task.

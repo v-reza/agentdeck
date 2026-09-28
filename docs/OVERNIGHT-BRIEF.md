@@ -65,9 +65,9 @@ Maka urutannya:
 | 4 | ✅ **SELESAI** (`F4`) — **Approval detail** `36-approval-detail` | US-AD34, US-AD35 | Layar belum ada; datanya sudah. |
 | 5 | ✅ **SELESAI** (`F5`) — **Run detail** `32-run-detail` | US-AD41 | `GET /runs/{id}` + `/summary` ada. |
 | 6 | ✅ **SELESAI** (`F6`) — **Notifications** `13-notifications` | US-AD61 | Backend notifikasi ada sejak F9. |
-| 7 | **Webhooks tab** (isi stub) | US-AD52, US-AD53 | Backend 7 endpoint jalan sejak F12. Admin-only; secret tampil sekali. |
-| 8 | **API Keys tab** (isi stub) | US-AD06 | Backend 5 endpoint jalan sejak F10. Key penuh tampil sekali. |
-| 9 | **Dashboard** `42-dashboard` | US-AD76 | — |
+| 7 | ✅ **SELESAI** (`f900251`) — **Webhooks** `40-webhooks` | US-AD52, US-AD53 | Backend 7 endpoint jalan sejak F12. Admin-only; secret tampil sekali. |
+| 8 | ✅ **SELESAI** (`ba5faa4`) — **API Keys** `39-api-keys` | US-AD06 | Backend 5 endpoint jalan sejak F10. Key penuh tampil sekali. |
+| 9 | ✅ **SELESAI** (`10b095c`) — **Dashboard** `42-dashboard` | US-AD76 | — |
 | 10 | **Dependency view** `24-dependency-view` | US-AD19 | DAG endpoint ada. |
 | 11 | **State screens** `43`/`44`/`45` | US-AD63, US-AD64, US-AD65 | Skeleton, empty, error boundary. Kecil-kecil. |
 | 12 | **Skill library** `26b-agent-skills` | US-AD107 | Backend ada. |

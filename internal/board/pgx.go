@@ -758,6 +758,26 @@ func (r *pgxRepository) ListTaskChildren(ctx context.Context, taskID string) ([]
 	return out, nil
 }
 
+// ListBoardDependencies returns every dependency edge whose child is on this
+// board (US-AD19). The parent's title and status come from the join so the graph
+// can label the edge without a per-row fetch.
+func (r *pgxRepository) ListBoardDependencies(ctx context.Context, boardID string) ([]BoardDependency, error) {
+	rows, err := r.q.ListBoardTaskParents(ctx, boardID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]BoardDependency, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, BoardDependency{
+			ChildID:     row.ChildID,
+			ParentID:    row.ParentID,
+			ParentTitle: row.Title,
+			ParentState: row.Status,
+		})
+	}
+	return out, nil
+}
+
 func (r *pgxRepository) CountUnfinishedParents(ctx context.Context, taskID string) (int, error) {
 	c, err := r.q.CountUnfinishedParents(ctx, taskID)
 	return int(c), err

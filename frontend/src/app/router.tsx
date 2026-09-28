@@ -41,6 +41,9 @@ const KanbanBoard = lazy(() =>
   import('@/routes/dashboard/boards/KanbanBoard').then((m) => ({ default: m.KanbanBoard })),
 )
 const TableView = lazy(() => import('@/routes/dashboard/boards/TableView').then((m) => ({ default: m.TableView })))
+const DependencyGraphView = lazy(() =>
+  import('@/routes/dashboard/boards/DependencyGraphView').then((m) => ({ default: m.DependencyGraphView })),
+)
 const BoardSettings = lazy(() =>
   import('@/routes/dashboard/boards/BoardSettings').then((m) => ({ default: m.BoardSettings })),
 )
@@ -87,6 +90,7 @@ function dashboardRoutes() {
       <Route path="boards" element={<BoardList />} />
       <Route path="boards/:boardID" element={<KanbanBoard />} />
       <Route path="boards/:boardID/table" element={<TableView />} />
+      <Route path="boards/:boardID/graph" element={<DependencyGraphView />} />
       <Route path="boards/:boardID/settings" element={<BoardSettings />} />
       <Route path="agents" element={<AgentRegistry />} />
       <Route path="agents/:agentID" element={<AgentDetail />} />

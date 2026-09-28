@@ -1007,6 +1007,14 @@ func (s *Service) TaskParents(ctx context.Context, taskID string) ([]TaskLink, e
 	return s.repo.ListTaskParents(ctx, taskID)
 }
 
+// BoardDependencies returns the whole board's dependency edges in one call, for
+// the dependency graph (US-AD19). Scoped by the child's board, so an edge whose
+// parent lives on another board is still reported — hiding it would draw a task
+// as unblocked while the dispatcher still refuses to promote it.
+func (s *Service) BoardDependencies(ctx context.Context, boardID string) ([]BoardDependency, error) {
+	return s.repo.ListBoardDependencies(ctx, boardID)
+}
+
 // RecordTaskEvent appends one lifecycle event to the board timeline. Events are
 // append-only: no code path may update or delete them (ARCHITECTURE 3.12).
 func (s *Service) RecordTaskEvent(ctx context.Context, orgID, boardID, taskID, kind string, payload []byte) (Event, error) {

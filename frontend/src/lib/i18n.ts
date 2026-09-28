@@ -371,6 +371,11 @@ export interface Dictionary {
   'task.create.bodyPlaceholder': string
   'boards.viewBoard': string
   'boards.viewTable': string
+  'boards.viewGraph': string
+  'graph.addTask': string
+  'graph.nDeps': string
+  'graph.locked': string
+  'graph.otherBoard': string
   'boards.taskCount': string
   'boards.live': string
   'drawer.tab.timeline': string
@@ -1037,6 +1042,11 @@ const en: Dictionary = {
   'task.create.bodyPlaceholder': 'What should the agent do?',
   'boards.viewBoard': 'Board',
   'boards.viewTable': 'Table',
+  'boards.viewGraph': 'Graph',
+  'graph.addTask': 'Add task',
+  'graph.nDeps': '{0} dependencies',
+  'graph.locked': 'Locked',
+  'graph.otherBoard': 'Other board',
   'boards.taskCount': '{0} tasks',
   'boards.live': 'Live',
   'drawer.tab.timeline': 'Timeline',
@@ -1710,6 +1720,11 @@ const id: Dictionary = {
   'task.create.bodyPlaceholder': 'Apa yang harus dilakukan agent?',
   'boards.viewBoard': 'Board',
   'boards.viewTable': 'Tabel',
+  'boards.viewGraph': 'Graf',
+  'graph.addTask': 'Tambah task',
+  'graph.nDeps': '{0} dependensi',
+  'graph.locked': 'Terkunci',
+  'graph.otherBoard': 'Board lain',
   'boards.taskCount': '{0} task',
   'boards.live': 'Langsung',
   'drawer.tab.timeline': 'Linimasa',
