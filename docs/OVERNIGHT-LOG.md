@@ -2017,3 +2017,79 @@ mengklaim itu bukti AC3.
 **8 CAUGHT / 0 SURVIVED / 0 SKIP** (4 unit termasuk 4 mutan keamanan markdown, 4
 e2e) · gate rc=0 · tsc rc=0 · vitest **90/90** · prettier bersih ·
 `verify_suite.py` 0 FAIL · CHECKLIST 91 → **92 PASS**.
+
+
+## Fase 13 — Keamanan: password + sesi aktif (US-AD90)
+
+`16-security` punya mockup, punya route di `screens.py`, dan **nol layar**: tidak ada
+file `Security.tsx`, tidak ada route, tidak ada nav. Dua endpoint-nya (`GET
+/auth/sessions`, `POST /auth/password/change`) hidup sejak lama tanpa pemanggil.
+Stub basi ketiga kalau dihitung dari Fase 7/8.
+
+**Yang dibuat**
+
+- `routes/dashboard/settings/Security.tsx` — panel sesi + panel ganti password.
+- `store/api/session.ts` — 3 endpoint: `listSessions`, `revokeSession`,
+  `changePassword` + tipe `SessionInfo`.
+- route `/app/:orgID/settings/security`, nav di grup "Akun & Tim", 19 key i18n x2.
+- `e2e/security.spec.ts` (3 tes).
+
+**Keputusan yang gw ambil dan kenapa**
+
+- **Dua panel di satu layar**, karena keduanya satu keputusan: ganti password
+  mencabut semua sesi lain (AC1), jadi daftar sesi itulah tempat janji itu jadi
+  terlihat. Dipisah = akibatnya disembunyikan dari aksinya.
+- **Tombol "Cabut Semua Sesi Lainnya" TIDAK dibangun** meski design
+  menggambarnya. `DELETE /auth/sessions/{id}` menerima SATU id, dan daftarnya
+  tidak memuat id sesi lain milik pemanggil. Bulk revoke = N request berurutan
+  yang diorkestrasi klien, dan kalau satu gagal di tengah operator tidak bisa tahu
+  sesi mana yang selamat. Ganti password **sudah** bulk revoke, atomik dan di
+  server. Panelnya bilang begitu.
+- **Lokasi, tipe klien, protokol, hash session id: tidak dibangun.** API
+  mengembalikan `user_agent`, `ip`, `last_seen_at`, `created_at`, `current` — itu
+  saja. Label perangkat diturunkan dari user agent, bukan dikarang, dan string
+  mentahnya tetap dicetak di bawahnya.
+- **Baris "perangkat ini" tanpa tombol cabut.** Mengakhiri sesi yang sedang
+  merender tombol itu jebakan; itu gunanya logout.
+- **AC4 (cabut sesi orang lain) tidak bisa dijangkau dari layar ini**, karena
+  `GET /auth/sessions` hanya mengembalikan baris milik pemanggil — jadi tidak ada
+  id untuk ditindak. Itu fakta tentang API, bukan celah layarnya. Batasnya tetap
+  diuji lewat API langsung (404 untuk sesi di luar ruang kerja pemanggil).
+
+**Dua bug nyata yang ketemu di fase ini**
+
+1. **`cause.status` salah baca.** Pesan 401 untuk password lama salah muncul
+   sebagai pesan generik. Sebabnya: API ini menulis semua error dengan
+   `http.Error` = `text/plain`, sementara base query RTK mem-parse JSON. Parse-nya
+   gagal, jadi RTK melaporkan `status: 'PARSING_ERROR'` dan kode aslinya ada di
+   `originalStatus`. Ini trap yang **sudah terdokumentasi** di `TabArtifacts.tsx`
+   dan gw kena juga. e2e yang menangkapnya, karena ia mengunci pesannya.
+
+2. **Pelanggaran rules-of-hooks di `ColumnEditor` — akar flake tiga fase.** Ini
+   temuan terbesar. `ColumnEditor` memanggil `useSensors`, dua `useMemo`, dan
+   `useActionForm` **di bawah** `if (!board) return <placeholder>`. React
+   mengenali hook dari urutan pemanggilan, jadi render pertama (board masih
+   dimuat) mendaftar 6 hook dan render berikutnya 10 → React melempar
+   *"Rendered more hooks than during the previous render"* → panelnya mati.
+   Gejalanya cuma `locator.fill` timeout 60s, yang selama tiga fase tercatat
+   sebagai "flake lintas-shard, bukan regresi". **Error boundary dari Fase 11 yang
+   akhirnya menaruh pesan aslinya di layar**, dan dari situ akarnya ketemu.
+   Diperbaiki dengan memindahkan semua hook ke atas early return. Diperiksa
+   seluruh `src/`: tidak ada pelanggaran lain (0 dari 12 kandidat heuristik).
+
+   Bukti mutan untuk yang ini perlu dicatat karena dua percobaan pertama gw
+   **menghasilkan SURVIVED yang menyesatkan**: React Compiler sudah mengubah
+   `useMemo` jadi memo-cache slot, bukan hook, jadi memindahkannya tidak lagi
+   melanggar apa pun. Mutan yang benar memindahkan `useActionForm` (hook asli) —
+   dan itu **CAUGHT**, dengan probe yang membuktikan mekanismenya: saat board
+   ditahan, panel menampilkan `error-fallback` dan input-nya hilang.
+   Tes barunya (`the editor can be opened before its board has loaded, and
+   survives the load`) menahan request board supaya cabang placeholder benar-benar
+   terpicu, lalu melepasnya dan menuntut editor asli muncul — render SETELAH yang
+   pertama, tempat pelanggaran urutan hook meledak.
+
+**Bukti:** e2e security 3/3 · e2e column-editor 7/7 (termasuk tes ordering baru) ·
+mutasi security **4 CAUGHT / 0 SURVIVED** · mutan rules-of-hooks **CAUGHT**
+(setelah dua mutan lemah dibuang, dicatat) · gate rc=0 · tsc rc=0 · vitest 90/90 ·
+prettier bersih · `verify_suite.py` 0 FAIL · `design_audit.py` jargon nol ·
+CHECKLIST 92 → **93 PASS**.

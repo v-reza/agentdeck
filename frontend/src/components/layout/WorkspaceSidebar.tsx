@@ -1,4 +1,4 @@
-import { Cable, KeyRound, Lock, UserRound, Users, Webhook } from 'lucide-react'
+import { Cable, KeyRound, Lock, ShieldCheck, UserRound, Users, Webhook } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { useProjects } from '@/hooks/use-projects'
@@ -152,6 +152,13 @@ function SettingsNav({ orgID }: { orgID: string }) {
         <SettingsLink to={`/app/${orgID}/settings/profile`} icon={<UserRound size={15} />} label={t['profile.title']} />
         <SettingsLink to={`/app/${orgID}/settings/workspace`} icon={<Lock size={15} />} label={t['workspace.title']} />
         <SettingsLink to={`/app/${orgID}/settings/members`} icon={<Users size={15} />} label={t['members.title']} />
+        {/* The sidebar's own comment used to say this item was absent because
+            16-security had no route. It has one now. */}
+        <SettingsLink
+          to={`/app/${orgID}/settings/security`}
+          icon={<ShieldCheck size={15} />}
+          label={t['security.title']}
+        />
       </div>
 
       <div className="flex flex-col gap-1">

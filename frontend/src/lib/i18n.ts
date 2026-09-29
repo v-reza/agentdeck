@@ -347,6 +347,25 @@ export interface Dictionary {
   // so the field is read-only and says so rather than offering an upload the
   // API does not implement yet.
   'profile.title': string
+  'security.title': string
+  'security.count': string
+  'security.sessionsTitle': string
+  'security.noSessions': string
+  'security.noSessionsHint': string
+  'security.thisDevice': string
+  'security.unknownDevice': string
+  'security.ip': string
+  'security.lastSeen': string
+  'security.revoke': string
+  'security.passwordTitle': string
+  'security.passwordHint': string
+  'security.oldPassword': string
+  'security.newPassword': string
+  'security.confirmPassword': string
+  'security.tooShort': string
+  'security.mismatch': string
+  'security.wrongOldPassword': string
+  'security.passwordChanged': string
   'profile.subtitle': string
   'profile.description': string
   'profile.menu': string
@@ -1051,6 +1070,25 @@ const en: Dictionary = {
   'workspace.updateFailed': 'The workspace name was not changed',
   'workspace.updated': 'Workspace name updated',
   'profile.title': 'Own account profile',
+  'security.title': 'Keamanan & sesi',
+  'security.count': '{count} sesi',
+  'security.sessionsTitle': 'Sesi aktif',
+  'security.noSessions': 'Belum ada sesi untuk ditampilkan',
+  'security.noSessionsHint': 'Kalau ini terlihat saat Anda masuk, daftar sesinya gagal dibaca.',
+  'security.thisDevice': 'perangkat ini',
+  'security.unknownDevice': 'Perangkat tidak dikenal',
+  'security.ip': 'IP',
+  'security.lastSeen': 'Terakhir terlihat',
+  'security.revoke': 'Cabut',
+  'security.passwordTitle': 'Ganti kata sandi',
+  'security.passwordHint': 'Mengganti kata sandi otomatis mencabut semua sesi lain. Sesi ini tetap masuk.',
+  'security.oldPassword': 'Kata sandi saat ini',
+  'security.newPassword': 'Kata sandi baru',
+  'security.confirmPassword': 'Konfirmasi kata sandi baru',
+  'security.tooShort': 'Minimal 8 karakter',
+  'security.mismatch': 'Keduanya tidak sama',
+  'security.wrongOldPassword': 'Kata sandi saat ini salah',
+  'security.passwordChanged': 'Kata sandi diganti. Sesi lain sudah dikeluarkan.',
   'profile.subtitle': 'Identity and workspace memberships',
   'profile.description':
     'Your identity is isolated per login session and read straight from the daemon endpoint GET /api/v1/auth/me.',
@@ -1763,6 +1801,25 @@ const id: Dictionary = {
   'workspace.updateFailed': 'Nama ruang kerja tidak berubah',
   'workspace.updated': 'Nama ruang kerja diperbarui',
   'profile.title': 'Profil akun mandiri',
+  'security.title': 'Keamanan & sesi',
+  'security.count': '{count} sesi',
+  'security.sessionsTitle': 'Sesi aktif',
+  'security.noSessions': 'Belum ada sesi untuk ditampilkan',
+  'security.noSessionsHint': 'Kalau ini terlihat saat Anda masuk, daftar sesinya gagal dibaca.',
+  'security.thisDevice': 'perangkat ini',
+  'security.unknownDevice': 'Perangkat tidak dikenal',
+  'security.ip': 'IP',
+  'security.lastSeen': 'Terakhir terlihat',
+  'security.revoke': 'Cabut',
+  'security.passwordTitle': 'Ganti kata sandi',
+  'security.passwordHint': 'Mengganti kata sandi otomatis mencabut semua sesi lain. Sesi ini tetap masuk.',
+  'security.oldPassword': 'Kata sandi saat ini',
+  'security.newPassword': 'Kata sandi baru',
+  'security.confirmPassword': 'Konfirmasi kata sandi baru',
+  'security.tooShort': 'Minimal 8 karakter',
+  'security.mismatch': 'Keduanya tidak sama',
+  'security.wrongOldPassword': 'Kata sandi saat ini salah',
+  'security.passwordChanged': 'Kata sandi diganti. Sesi lain sudah dikeluarkan.',
   'profile.subtitle': 'Identitas dan keanggotaan ruang kerja',
   'profile.description':
     'Identitas Anda diisolasi per sesi login dan dibaca langsung dari endpoint daemon GET /api/v1/auth/me.',

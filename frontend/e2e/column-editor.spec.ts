@@ -295,6 +295,58 @@ test.describe('column editor — US-AD10 AC4 (admin only)', () => {
     await memberContext.close()
   })
 
+  // The editor used to be reachable BEFORE its board query resolved, and that
+  // ordering was fatal: `ColumnEditor` called `useSensors`, two `useMemo`s and
+  // `useActionForm` BELOW its `if (!board)` early return, so the first paint
+  // (board still in flight) registered 6 hooks and the next registered 10. React
+  // throws "Rendered more hooks than during the previous render", the panel dies,
+  // and the only visible symptom was `locator.fill` timing out 60s later — which
+  // read as a slow e2e for three phases.
+  //
+  // This test pins the ordering rather than the symptom, because the symptom is
+  // timing-dependent: the board query has to be slow for the placeholder to be
+  // on screen at all, so the request is held open deliberately.
+  test('the editor can be opened before its board has loaded, and survives the load', async ({ page }) => {
+    const orgID = await signUp(page, 'E2E Early Editor')
+    await signIn(page, orgID)
+    const boardID = await createBoard(page, orgID, 'Early Board')
+
+    let release: (() => void) | undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let held = 0
+    await page.route('**/api/v1/boards/**', async (route) => {
+      // Only the board READ is held. The settings screen also PATCHes it, and a
+      // held write would hang the test on an unrelated assertion.
+      if (route.request().method() !== 'GET') {
+        await route.continue()
+        return
+      }
+      held += 1
+      await gate
+      await route.continue()
+    })
+
+    await page.goto(`/app/${orgID}/boards/${boardID}/settings`)
+    // The control is gated on the ROLE, not on the board, so it is clickable
+    // while the board is still loading — which is the whole point.
+    await page.getByRole('button', { name: /edit kolom/i }).click()
+
+    // Proof the placeholder really is what is on screen: the editor's first input
+    // only exists once the board has arrived.
+    await expect(page.getByRole('heading', { name: /editor kolom board/i })).toBeVisible()
+    await expect(page.getByLabel('Nama kolom backlog')).toHaveCount(0)
+    expect(held, 'the board read must have been intercepted, or this test proves nothing').toBeGreaterThan(0)
+    await expect(page.getByTestId('error-fallback')).toHaveCount(0)
+
+    // Let the board through: the same mounted component must now render the real
+    // editor. A hooks-order violation fails here, on the render AFTER the first.
+    release?.()
+    await expect(page.getByLabel('Nama kolom backlog')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId('error-fallback')).toHaveCount(0)
+  })
+
   // AC5: the primary user is a solo builder, so the admin gate must not require
   // inviting a second person.
   test('AC5 — a solo workspace can edit its columns with no RBAC setup', async ({ page }) => {

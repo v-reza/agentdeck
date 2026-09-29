@@ -50,6 +50,17 @@ export function ColumnEditor({ boardID, onClose }: { boardID: string; onClose: (
     setSeeded(true)
   }, [board, seeded])
 
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
+
+  const counts = useMemo(() => countTasksByColumn(tasks ?? []), [tasks])
+
+  const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(board?.columns ?? []), [draft, board])
+
+  const [state, formAction, isPending] = useActionForm(updateColumns, () => ({
+    boardID,
+    columns: draft,
+  }))
+
   // Until the layout arrives, `draft` is [] and the server's copy is unknown —
   // so the editor is a placeholder, not an editor.
   //
@@ -60,6 +71,16 @@ export function ColumnEditor({ boardID, onClose }: { boardID: string; onClose: (
   // write a ONE-column layout over the board's five. The e2e caught it as an
   // intermittent "persisted length 1, expected 6" — intermittent because it
   // depends on whether the board query resolved before the click.
+  //
+  // Every hook above this line, and none below it. That is not style: React
+  // identifies hooks by call order, so a hook reached only on the loaded branch
+  // makes the second render call MORE hooks than the first and the component
+  // throws "Rendered more hooks than during the previous render". It did exactly
+  // that — `useSensors`, the two `useMemo`s and `useActionForm` all sat below
+  // this return, so the first paint (board still loading) registered 6 hooks and
+  // the next registered 10. The symptom was a dead panel and a 60s `locator.fill`
+  // timeout, which read as a slow/flaky e2e for three phases; the error boundary
+  // added in US-AD65 finally put the real message on screen.
   if (!board) {
     return (
       <aside className="flex w-[420px] min-w-[420px] flex-col border-l border-[var(--color-border-standard)] bg-[var(--color-surface-panel)]">
@@ -86,17 +107,6 @@ export function ColumnEditor({ boardID, onClose }: { boardID: string; onClose: (
       </aside>
     )
   }
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
-
-  const counts = useMemo(() => countTasksByColumn(tasks ?? []), [tasks])
-
-  const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(board?.columns ?? []), [draft, board])
-
-  const [state, formAction, isPending] = useActionForm(updateColumns, () => ({
-    boardID,
-    columns: draft,
-  }))
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event

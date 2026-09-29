@@ -12,6 +12,17 @@ import type { MeResponse, Workspace, Role } from '@/lib/domain'
  * `Unexpected end of JSON input` and was a real bug here once.
  */
 
+/** One row of GET /auth/sessions (US-AD90 AC2). */
+export interface SessionInfo {
+  id: string
+  user_agent: string
+  ip: string
+  last_seen_at: string
+  created_at: string
+  /** True for the session making the request — the "perangkat ini" marker. */
+  current: boolean
+}
+
 export interface RegisterArgs {
   email: string
   password: string
@@ -134,6 +145,49 @@ export const sessionApi = baseApi.injectEndpoints({
       },
     }),
 
+    /**
+     * GET /auth/sessions (US-AD90 AC2). The list carries the device (user agent),
+     * the IP, the last time it was seen, and the `current` flag — the last one is
+     * computed server-side against the caller's own session, so the client never
+     * has to guess which row is "this device".
+     */
+    listSessions: build.query<SessionInfo[], void>({
+      query: () => 'auth/sessions',
+      providesTags: ['Session'],
+    }),
+
+    /**
+     * DELETE /auth/sessions/{id} (US-AD90 AC4).
+     *
+     * A 204 with no body: the row is gone and there is nothing useful to say. The
+     * list is invalidated rather than patched locally, because revoking someone
+     * else's session (admin path) can remove a row this client did not know the
+     * shape of.
+     */
+    revokeSession: build.mutation<void, string>({
+      query: (id) => ({ url: `auth/sessions/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Session'],
+    }),
+
+    /**
+     * POST /auth/password/change (US-AD90 AC1/AC3).
+     *
+     * No `invalidatesTags` on purpose, and the omission is load-bearing: the
+     * success path revokes every OTHER session server-side (AC1) while keeping
+     * the caller's, so the visible change is a list that loses rows. Invalidating
+     * `Session` here would refetch the list, which is the same result — but it
+     * would also make the screen depend on that refetch to look right, and the
+     * refusal path (wrong old password, 401) must not touch the list at all. The
+     * screen refetches explicitly on success instead, where the intent is
+     * readable.
+     *
+     * The 401 is NOT swallowed: the caller gets the error and the screen renders
+     * it against the old-password field (AC3).
+     */
+    changePassword: build.mutation<void, { old_password: string; new_password: string }>({
+      query: (body) => ({ url: 'auth/password/change', method: 'POST', body }),
+    }),
+
     listOrgs: build.query<Workspace[], void>({
       query: () => 'orgs',
       providesTags: ['Org'],
@@ -206,6 +260,9 @@ export const {
   useRequestPasswordResetMutation,
   useResetPasswordMutation,
   useUpdateMeMutation,
+  useListSessionsQuery,
+  useRevokeSessionMutation,
+  useChangePasswordMutation,
   useListOrgsQuery,
   useCreateOrgMutation,
   useUpdateOrgMutation,

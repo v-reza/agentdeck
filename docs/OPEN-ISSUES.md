@@ -603,3 +603,26 @@ di placeholder, timeout 30s. Bukti: `column-editor.spec.ts` 7/7 solo, dan shard3
   juga.
 - **Aksi "duplikat" tidak ada** karena slug unik per org — duplikat harus
   mengarang slug baru, dan itu keputusan produk, bukan keputusan UI.
+
+
+## US-AD90: security — batas dan trap
+
+- **Bulk "cabut semua sesi lain" tidak ada di API.** `DELETE /auth/sessions/{id}`
+  menerima satu id, dan `GET /auth/sessions` hanya mengembalikan baris milik
+  pemanggil. Design menggambar tombol bulk; tidak dibangun karena implementasinya
+  jadi N request berurutan di klien tanpa cara tahu mana yang gagal. Ganti password
+  adalah bulk revoke-nya (server-side, atomik).
+- **Trap `originalStatus`, kejadian kedua.** `http.Error` menulis `text/plain`,
+  base query RTK mem-parse JSON, parse gagal → `status: 'PARSING_ERROR'`, kode
+  asli di `originalStatus`. Sudah terdokumentasi di `TabArtifacts.tsx` dan tetap
+  terulang di `Security.tsx`. **Aturan: setiap cabang pada kode HTTP di klien
+  harus baca `Number(rt?.originalStatus ?? rt?.status)`, tidak pernah `rt.status`
+  saja.** Kalau ini terulang lagi, tempatnya bukan komentar lagi — helper
+  bersama di `lib/`.
+- **Rules of hooks: `ColumnEditor` melanggar, sekarang tidak.** Hook di bawah
+  early return. Ditemukan setelah error boundary (Fase 11) menaruh pesan aslinya
+  di layar. Diverifikasi seluruh `src/`: 0 pelanggaran lain.
+  **Catatan penting untuk mutasi:** React Compiler mengubah `useMemo`/`useCallback`
+  menjadi memo-cache slot yang BUKAN hook, jadi mutan yang memindahkan `useMemo`
+  tidak membuktikan apa-apa soal aturan hook. Pakai hook asli (`useActionForm`,
+  `useSensors`, `useSortable`) sebagai mutan.
