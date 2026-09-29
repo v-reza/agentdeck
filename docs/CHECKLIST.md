@@ -33,7 +33,7 @@
 | `US-AD24` | Must | M1 | Reclaim task stale | *backend-only* | ✅ PASS |
 | `US-AD58` | Must | M1 | Menandai task selesai (done) | `21-task-create` | ✅ PASS |
 | `US-AD59` | Must | M1 | Task archived | `18-kanban`, `20-task-drawer` | ✅ PASS |
-| `US-AD60` | Must | M1 | View toggle: tampilan mobile | `46-mobile-board` | ⬜ |
+| `US-AD60` | Must | M1 | View toggle: tampilan mobile | `46-mobile-board` | ✅ PASS |
 | `US-AD62` | Should | M1 | Filter tasks berdasarkan tanggal | `18-kanban` | ✅ PASS |
 | `US-AD64` | Must | M1 | Empty state board | `44-state-empty` | ✅ PASS |
 | `US-AD66` | Must | M1 | Max runtime per task (N9) | *backend-only* | ✅ PASS |
@@ -96,14 +96,14 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ✅ PASS |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ✅ PASS |
 
-**Total M0–M4: 89 story** (81 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (82 PASS, 1 ditunda)
 
 ## Progres per milestone
 
 | Milestone | Story | PASS | Sisa |
 |---|---|---|---|
 | M0 | 10 | 9 | 1 |
-| M1 | 32 | 29 | 3 |
+| M1 | 32 | 30 | 2 |
 | M2 | 21 | 19 | 2 |
 | M3 | 16 | 15 | 1 |
 | M4 | 10 | 9 | 1 |

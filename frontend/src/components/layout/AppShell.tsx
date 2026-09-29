@@ -1,8 +1,11 @@
 import { useEffect, type ReactNode } from 'react'
+import { cn } from '@/lib/cn'
 import { useLocation } from 'react-router-dom'
 import { IconRail } from './IconRail'
 import { WorkspaceSidebar } from './WorkspaceSidebar'
 import { CostRail } from './CostRail'
+import { MobileTabBar } from './MobileTabBar'
+import { useIsMobile } from '@/hooks/use-media-query'
 import { TaskDrawerHost } from '@/routes/dashboard/boards/TaskDrawerHost'
 import { TaskCreateHost } from '@/routes/dashboard/boards/TaskCreateForm'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
@@ -35,6 +38,13 @@ export function AppShell({ children, withCostRail = true }: AppShellProps) {
   const openTaskID = useAppSelector((state) => state.ui.openTaskID)
   const dispatch = useAppDispatch()
   const { pathname } = useLocation()
+  // US-AD60: the desktop shell is 44 + 224 + 264 = 532px of chrome. At a phone
+  // width the content pane is narrower than zero and the cost rail paints over the
+  // board, so the side chrome is not merely cramped — it makes the board
+  // unreachable. Below the breakpoint the rail, the sidebar and the cost rail come
+  // off the screen and navigation moves to the bottom bar, which is what the
+  // mobile design source shows.
+  const isMobile = useIsMobile()
 
   // The drawer now lives in the shell, so it outlives the board route. Without
   // this it would stay open showing a task from a board the operator left.
@@ -44,11 +54,11 @@ export function AppShell({ children, withCostRail = true }: AppShellProps) {
   }, [pathname])
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[var(--color-surface-page)]">
-      <IconRail daemonConnected={connected} />
-      <WorkspaceSidebar />
+    <div className="relative flex h-screen w-screen overflow-hidden bg-[var(--color-surface-page)]">
+      {isMobile ? null : <IconRail daemonConnected={connected} />}
+      {isMobile ? null : <WorkspaceSidebar />}
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={cn('flex min-w-0 flex-1 flex-col', isMobile && 'pb-[var(--spacing-tabbar)]')}>
         {activeOrgID ? (
           // US-AD65: the boundary wraps the CONTENT, not the shell. A screen that
           // throws loses its own pane and keeps the rail, the sidebar and the cost
@@ -65,7 +75,13 @@ export function AppShell({ children, withCostRail = true }: AppShellProps) {
       <TaskDrawerHost />
       <TaskCreateHost />
 
-      {withCostRail ? <CostRail /> : null}
+      {withCostRail && !isMobile ? <CostRail /> : null}
+
+      {isMobile ? (
+        <div className="absolute inset-x-0 bottom-0">
+          <MobileTabBar />
+        </div>
+      ) : null}
     </div>
   )
 }

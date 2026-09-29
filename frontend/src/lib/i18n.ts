@@ -15,6 +15,7 @@ export interface Dictionary {
   'nav.tasks': string
   'nav.agents': string
   'nav.finops': string
+  'nav.primary': string
   'nav.approvals': string
   'nav.skills': string
   'skills.title': string
@@ -505,6 +506,8 @@ export interface Dictionary {
   'boards.liveHint': string
   'boards.newTask': string
   'boards.noTasksMatch': string
+  'mobile.taskCount': string
+  'mobile.columnEmpty': string
   'boards.noTasksMatchHint': string
   'task.create.title': string
   'task.create.fieldTitle': string
@@ -744,6 +747,7 @@ const en: Dictionary = {
   'nav.tasks': 'Tasks',
   'nav.agents': 'Agents',
   'nav.finops': 'Cost & Usage',
+  'nav.primary': 'Primary',
   'nav.approvals': 'Approvals',
   'nav.skills': 'Skills',
   'skills.title': 'Skill library',
@@ -1228,6 +1232,8 @@ const en: Dictionary = {
   'boards.liveHint': 'Updates arrive on their own; no refresh needed.',
   'boards.newTask': 'New task',
   'boards.noTasksMatch': 'No tasks match',
+  'mobile.taskCount': '{count} tasks',
+  'mobile.columnEmpty': 'Nothing in this column',
   'boards.noTasksMatchHint': 'Clear a filter or add a task to this board.',
   'task.create.title': 'New task',
   'task.create.fieldTitle': 'Task title',
@@ -1474,6 +1480,7 @@ const id: Dictionary = {
   'nav.tasks': 'Task',
   'nav.agents': 'Agent',
   'nav.finops': 'Biaya & Pemakaian',
+  'nav.primary': 'Navigasi utama',
   'nav.approvals': 'Persetujuan',
   'nav.skills': 'Skill',
   'skills.title': 'Pustaka skill',
@@ -1959,6 +1966,8 @@ const id: Dictionary = {
   'boards.liveHint': 'Perubahan masuk sendiri; tidak perlu refresh.',
   'boards.newTask': 'Buat Task',
   'boards.noTasksMatch': 'Tidak ada task yang cocok',
+  'mobile.taskCount': '{count} task',
+  'mobile.columnEmpty': 'Tidak ada isi di kolom ini',
   'boards.noTasksMatchHint': 'Hapus filter atau tambah task ke board ini.',
   'task.create.title': 'Buat Task Baru',
   'task.create.fieldTitle': 'Judul Task',

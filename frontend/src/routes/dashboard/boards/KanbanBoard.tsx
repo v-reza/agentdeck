@@ -7,6 +7,8 @@ import { openCreateTask, openTask } from '@/store/slices/uiSlice'
 import { Column } from '@/components/kanban/Column'
 import { BoardToolbar } from '@/components/kanban/BoardToolbar'
 import { BoardEmpty, BoardError, BoardSkeleton } from '@/components/kanban/BoardStates'
+import { MobileBoard } from '@/components/kanban/MobileBoard'
+import { useIsMobile } from '@/hooks/use-media-query'
 import { COLUMN_ORDER, isTaskStatus } from '@/lib/domain'
 
 /**
@@ -42,6 +44,10 @@ export function KanbanBoard() {
     { skip: !boardID },
   )
   const [moveTask] = useMoveTaskMutation()
+  // US-AD60 AC3: below 768px the lanes become an accordion. Read as a value, not
+  // as a `md:` class, because the two are different LAYOUTS — hiding one with CSS
+  // would still mount both trees and run both sets of hooks.
+  const isMobile = useIsMobile()
   const { tasks, moveCard } = useOptimisticCards(data ?? [])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
@@ -74,6 +80,8 @@ export function KanbanBoard() {
         <BoardSkeleton />
       ) : tasks.length === 0 ? (
         <BoardEmpty filtered={filtered} onCreate={() => dispatch(openCreateTask(boardID ?? ''))} />
+      ) : isMobile ? (
+        <MobileBoard tasks={tasks} onOpenTask={(id) => dispatch(openTask(id))} />
       ) : (
         <div className="flex min-h-0 flex-1 gap-2.5 overflow-x-auto p-4">
           <DndContext sensors={sensors} onDragEnd={onDragEnd}>

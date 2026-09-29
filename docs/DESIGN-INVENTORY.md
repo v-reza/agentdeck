@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (158 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (161 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 124 |
+| `<svg>` | 111 | 125 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -20,7 +20,7 @@ yang punya file impl — lihat §3.
 | blok skeleton (abu berukuran) | 323 | 37 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 39 |
+| file memakai `lucide-react` | 0 | 41 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -110,7 +110,7 @@ Sumber beku: `DECISIONS.md` §8 paragraf "Status color".
 
 ## 6. Token spacing
 
-Dideklarasikan: 6. Nol dipakai: 0.
+Dideklarasikan: 7. Nol dipakai: 0.
 
 | token | nilai | dipakai |
 |---|---|---|
@@ -119,6 +119,7 @@ Dideklarasikan: 6. Nol dipakai: 0.
 | `--spacing-row` | 32px | 3 |
 | `--spacing-row-dense` | 28px | 4 |
 | `--spacing-sidebar` | 224px | 2 |
+| `--spacing-tabbar` | 56px | 3 |
 | `--spacing-topbar` | 52px | 4 |
 
 ## 7. State archived
@@ -190,12 +191,12 @@ Nol.
 | 43-state-loading | `(varian)` | `skeleton.tsx` | 0/0 | 0 | 2 |
 | 44-state-empty | `(varian)` | — | 2/0 | 0 | 0 |
 | 45-state-error | `(varian)` | — | 0/0 | 0 | 0 |
-| 46-mobile-board | `/m/boards/:id` | — | 0/0 | 0 | 0 |
+| 46-mobile-board | `/m/boards/:id` | `MobileBoard.tsx`, `MobileTabBar.tsx` | 0/1 | 0 | 0 |
 | 47-providers | `/settings/providers` | `Providers.tsx`, `providers-actions.tsx` | 0/4 | 0 | 1 |
 
 ## 10. File tanpa layar (shell & komponen bersama)
 
-91 file tidak dipetakan ke satu layar. Ini wajar untuk
+92 file tidak dipetakan ke satu layar. Ini wajar untuk
 layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 
 - `App.tsx`
@@ -244,6 +245,7 @@ layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 - `hooks/use-cost-rail.ts`
 - `hooks/use-directory-totals.ts`
 - `hooks/use-directory.ts`
+- `hooks/use-media-query.ts`
 - `hooks/use-optimistic-card.ts`
 - `hooks/use-orgs.ts`
 - `hooks/use-projects.ts`

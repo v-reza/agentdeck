@@ -626,3 +626,22 @@ di placeholder, timeout 30s. Bukti: `column-editor.spec.ts` 7/7 solo, dan shard3
   menjadi memo-cache slot yang BUKAN hook, jadi mutan yang memindahkan `useMemo`
   tidak membuktikan apa-apa soal aturan hook. Pakai hook asli (`useActionForm`,
   `useSensors`, `useSortable`) sebagai mutan.
+
+
+## US-AD60: mobile board — batas dan trap
+
+- **Shell desktop 532px chrome di viewport 390px.** Rail 44 + sidebar 224 + cost
+  rail 264. Di bawah breakpoint ketiganya harus lepas, kalau tidak cost rail
+  menimpa board dan klik ke board ditelan. Ini bukan soal sempit, ini soal board
+  tidak terjangkau. Siapa pun yang menambah zona shell keempat harus tahu
+  anggarannya.
+- **Biaya per kolom tidak ada di API.** Design mencetak `$0.000` per lane;
+  `cost-summary` agregat per MODEL dan per BOARD. Kalau nanti dibutuhkan, itu
+  endpoint baru, bukan angka yang dikarang di klien.
+- **Rotasi yang berubah breakpoint = kasus AC3, bukan AC2.** 844x390 (iPhone
+  modern landscape) lebih LEBAR dari 768, jadi ia merender lane desktop. Untuk
+  menguji AC2 pakai landscape yang tetap di bawah 768 (667x375). Draf yang memakai
+  844x390 flaky, dan flake-nya terlihat seperti bug implementasi padahal bug tes.
+- **`useMediaQuery` membaca `matchMedia`, bukan resize.** Resize fire tiap piksel
+  saat window desktop di-drag; `change` cuma saat hasil query berubah. Kalau ada
+  yang menggantinya dengan resize listener, board akan re-render terus-menerus.

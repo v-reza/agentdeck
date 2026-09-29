@@ -2093,3 +2093,90 @@ mutasi security **4 CAUGHT / 0 SURVIVED** · mutan rules-of-hooks **CAUGHT**
 (setelah dua mutan lemah dibuang, dicatat) · gate rc=0 · tsc rc=0 · vitest 90/90 ·
 prettier bersih · `verify_suite.py` 0 FAIL · `design_audit.py` jargon nol ·
 CHECKLIST 92 → **93 PASS**.
+
+
+## Fase 14 — Board mobile (US-AD60)
+
+Mockup `46-mobile-board` punya entri di `screens.py` dan nol implementasi: tidak ada
+media query di seluruh `src/` (yang ada cuma `md:` untuk grid form), tidak ada
+`/m/`, tidak ada accordion. Kanban desktop = lima lane 268px = 1340px konten.
+
+**Temuan yang mengubah bentuk fase ini**
+
+Shell desktop = 44px rail + 224px sidebar + 264px cost rail = **532px chrome**
+sebelum konten apa pun. Di viewport 390px pane kontennya lebih sempit dari nol dan
+cost rail **menimpa** board — klik ke tombol accordion ditelan `<aside
+aria-label="Cost and usage">`. Jadi AC1 ("tanpa horizontal scroll") **tidak bisa
+dicapai** selama shell itu ada di layar, dan design-nya setuju: mockup mobile tidak
+menampilkan rail, sidebar, maupun cost rail — cuma topbar dan bottom bar.
+
+Konsekuensinya fase ini bukan "bikin komponen accordion", tapi juga memindahkan
+navigasi ke bawah layar di bawah breakpoint. Itu kerjaan yang lebih besar dari yang
+terlihat di brief, dan gw kerjakan sesuai design, bukan dipotong.
+
+**Yang dibuat**
+
+- `hooks/use-media-query.ts` — `matchMedia('(max-width: 767px)')`, listener
+  `change` (bukan resize: cuma fire saat hasil query berubah).
+- `components/kanban/MobileBoard.tsx` — accordion lima kolom, satu terbuka,
+  `aria-expanded`/`aria-controls`, chevron berputar.
+- `components/layout/MobileTabBar.tsx` — bottom nav, 5 tujuan.
+- `components/layout/AppShell.tsx` — di bawah breakpoint rail+sidebar+cost rail
+  dilepas, tab bar dipasang, konten diberi padding bawah.
+- `store/slices/uiSlice.ts` — `mobileColumn` + `setMobileColumn`.
+- `index.css` — token `--spacing-tabbar: 56px` (bukan angka lepas).
+- route/nav/i18n: 4 key baru x2.
+- `e2e/mobile-board.spec.ts` — 4 tes.
+
+**Keputusan yang gw ambil dan kenapa**
+
+- **Pemilihan kolom di Redux, bukan URL hash.** Catatan design menyarankan hash.
+  Rotasi itu resize, bukan navigasi — komponennya tetap ter-mount, jadi nilainya
+  memang masih ada. Hash juga akan bertahan, tapi ia menaruh preferensi tampilan
+  sesaat ke history stack (tombol back yang menutup accordion), dan bertentangan
+  dengan aturan repo bahwa Redux Toolkit satu-satunya state management. Bonus
+  nyatanya: pilihan bertahan melewati perjalanan ke lebar desktop dan kembali —
+  itu justru yang diuji AC2+AC3 bersama.
+- **Breakpoint dibaca sebagai nilai, bukan kelas `md:`.** Ini dua LAYOUT berbeda.
+  Kelas CSS bisa menyembunyikan satu dan menampilkan yang lain, tapi keduanya
+  tetap ter-mount, kedua set hook jalan, dan state "kolom mana yang terbuka" ada
+  di desktop tempat tidak ada yang merendernya.
+- **Tanpa biaya per kolom.** Design mencetak `$0.000` per lane dan `$0.420` di lane
+  terbuka. API tidak punya biaya per kolom: `cost-summary` agregat per MODEL dan
+  per BOARD. Angka di sini karangan, dan biaya karangan di layar anggaran lebih
+  buruk daripada tidak ada biaya. Header lane cuma membawa jumlah task.
+- **Tanpa drag-and-drop.** Sensor `dnd-kit` butuh pointer; board yang terlihat bisa
+  di-drag tapi tidak, lebih buruk daripada yang menawarkan perubahan status lewat
+  drawer task.
+- **Kolom diturunkan dengan `columnForStatus`, bukan `task.status === key`.**
+  `blocked`, `failed`, `archived` tidak punya lane sendiri; mencocokkan kesetaraan
+  akan membuang persis kartu yang paling perlu dilihat operator — bug yang sama
+  dengan graf dependency di US-AD19.
+
+**Penyimpangan dari design yang gw sebut**
+
+Bottom nav di mockup berisi tab ber-scope board (Board/Table/Graf/Biaya/Setelan)
+karena mockup-nya memang layar board. Gw pakai lima tujuan level app
+(Papan/Proyek/Persetujuan/Biaya/Setelan). View switcher board sudah ada di
+`BoardToolbar` dan tetap terjangkau di mobile; menaruh salinannya di tab bar berarti
+dua kontrol untuk satu state, dan yang di toolbar tetap terlihat persis di atas bar.
+Klaim struktural design (tanpa chrome samping, navigasi pindah ke bawah, lima slot)
+yang gw pegang.
+
+**Trap yang kena**
+
+- **Landscape 844x390 salah.** iPhone modern 844px itu **di atas** breakpoint 768,
+  jadi rotasi ke sana adalah kasus AC3 (lane desktop), bukan AC2. Draf pertama gw
+  pakai angka itu dan hasilnya flaky — lulus/gagal tergantung apakah asersi jalan
+  sebelum atau sesudah listener media query re-render. Diganti 667x375 (masih di
+  bawah 768), baru AC2 benar-benar diuji.
+- **Label locale.** Tab bar di design berbahasa Inggris; app default-nya `id`, jadi
+  labelnya `Board`/`Proyek`/`Biaya`. Locator `/papan|boards/i` tidak cocok apa pun.
+  Dipakai `/board/i` + `data-testid` di bar. Ini trap keempat di run ini.
+- **Dua mutan pertama SURVIVED, dan itu jujur menunjuk celah nyata:** tidak ada tes
+  yang menjaga shell mobile (rail/sidebar/cost-rail hilang, tab bar ada). Celahnya
+  ditutup dengan tes AC1-shell baru, bukan dengan mengakali mutannya.
+
+**Bukti:** e2e mobile-board **4/4** · mutasi **6 CAUGHT / 0 SURVIVED** ·
+gate rc=0 (dua kali, termasuk tanpa export PATH) · tsc rc=0 · vitest 90/90 ·
+prettier bersih · `verify_suite.py` 0 FAIL · CHECKLIST 93 → **94 PASS**.

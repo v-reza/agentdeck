@@ -29,6 +29,13 @@ export interface UiState {
   directorySort: DirectorySort
   /** Collapsed project groups in the directory, by project id. */
   directoryCollapsed: string[]
+  /**
+   * US-AD60 AC2 — the column open in the mobile accordion, or null before the
+   * operator has chosen one. Lives here rather than in component state so an
+   * orientation change (a resize, not a navigation) keeps the same column open,
+   * and so a trip to a desktop width and back does not forget it.
+   */
+  mobileColumn: ColumnKey | null
 }
 
 /** US-AD91 AC2 — the sortable columns, and the direction they are sorted in. */
@@ -50,6 +57,7 @@ const initialState: UiState = {
   directorySearch: '',
   directorySort: { key: 'name', direction: 'asc' },
   directoryCollapsed: [],
+  mobileColumn: null,
 }
 
 const uiSlice = createSlice({
@@ -103,6 +111,9 @@ const uiSlice = createSlice({
       }
       state.directorySort = { key: action.payload, direction: action.payload === 'name' ? 'asc' : 'desc' }
     },
+    setMobileColumn(state, action: PayloadAction<ColumnKey>) {
+      state.mobileColumn = action.payload
+    },
     toggleDirectoryCollapsed(state, action: PayloadAction<string>) {
       const index = state.directoryCollapsed.indexOf(action.payload)
       if (index === -1) state.directoryCollapsed.push(action.payload)
@@ -125,5 +136,6 @@ export const {
   setDirectorySearch,
   setDirectorySort,
   toggleDirectoryCollapsed,
+  setMobileColumn,
 } = uiSlice.actions
 export default uiSlice.reducer

@@ -87,6 +87,7 @@
   --spacing-sidebar: 224px;
   --spacing-topbar: 52px;
   --spacing-costrail: 264px;
+  --spacing-tabbar: 56px;
   /* dense table row (DECISIONS 8: 32px rows, 28px in grouped view) */
   --spacing-row: 32px;
   --spacing-row-dense: 28px;
