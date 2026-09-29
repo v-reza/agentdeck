@@ -71,6 +71,9 @@ export function WorkspaceSidebar() {
           <SidebarLink to={`/app/${activeOrgID}/boards`} label={t['nav.boards']} count={boardTotal} />
           <SidebarLink to={`/app/${activeOrgID}/projects`} label={t['nav.projects']} count={projects.length} />
           <SidebarLink to={`/app/${activeOrgID}/approvals`} label={t['nav.approvals']} />
+          {/* The library had no route into it at all: the agent form reads the
+              skill list to fill a picker, and nothing let an operator write one. */}
+          <SidebarLink to={`/app/${activeOrgID}/skills`} label={t['nav.skills']} />
         </nav>
 
         {/*

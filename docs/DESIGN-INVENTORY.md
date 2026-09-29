@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (155 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (157 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 115 |
+| `<svg>` | 111 | 120 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -17,10 +17,10 @@ sementara implementasi mendeklarasikan komponennya sekali lalu merendernya
 di dalam `.map()`. Jadi rasio mentahnya selalu terlihat lebih buruk daripada
 kenyataan, dan satu-satunya cara membacanya adalah per jenis icon di layar
 yang punya file impl — lihat §3.
-| blok skeleton (abu berukuran) | 323 | 35 |
+| blok skeleton (abu berukuran) | 323 | 36 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 37 |
+| file memakai `lucide-react` | 0 | 38 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -170,7 +170,7 @@ Nol.
 | 24-dependency-view | `/boards/:id/graph` | `DependencyGraph.tsx`, `DependencyGraphView.tsx` | 1/4 | 0 | 1 |
 | 25-agent-registry | `/agents` | `AgentRegistry.tsx`, `AgentSpecCards.tsx` | 1/1 | 0 | 1 |
 | 26-agent-form | `/agents/new` | `ProviderKeyFields.tsx`, `CreateAgentFields.tsx`, `CreateAgentForm.tsx` | 2/1 | 0 | 0 |
-| 26b-agent-skills | `(panel)` | — | —/0 | 0 | 0 |
+| 26b-agent-skills | `(panel)` | `SkillLibrary.tsx` | —/5 | 0 | 1 |
 | 27-agent-provider-key | `(panel)` | `AgentProviderKeyPanel.tsx`, `ProviderKeyFields.tsx` | 1/0 | 0 | 0 |
 | 28-agent-detail | `/agents/:id` | `AgentAssignment.tsx`, `AgentDetail.tsx`, `AgentDetailForm.tsx`, `AgentDetailOptions.ts`, `AgentDetailParts.tsx`, `AgentPricingCard.tsx` | 4/6 | 0 | 2 |
 | 29-cost-overview | `/cost` | `CostOverview.tsx` | 0/0 | 0 | 1 |
@@ -195,7 +195,7 @@ Nol.
 
 ## 10. File tanpa layar (shell & komponen bersama)
 
-90 file tidak dipetakan ke satu layar. Ini wajar untuk
+91 file tidak dipetakan ke satu layar. Ini wajar untuk
 layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 
 - `App.tsx`
@@ -255,6 +255,7 @@ layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 - `lib/format.ts`
 - `lib/formatters.ts`
 - `lib/i18n.ts`
+- `lib/markdown.ts`
 - `lib/useGitHubReleases.ts`
 - `main.tsx`
 - `routes/dashboard/Layout.tsx`

@@ -49,7 +49,7 @@
 | `US-AD90` | Must | M1 | Ganti password dan sesi aktif | `16-security` | ⬜ |
 | `US-AD91` | Must | M1 | Daftar board lintas project | `10-board-list`, `11-project-list` | ✅ PASS |
 | `US-AD106` | Must | M2 | Provider BYO (bring your own) | `26-agent-form` | ✅ PASS |
-| `US-AD107` | Should | M2 | Skill library per ruang kerja | `26b-agent-skills` | ⬜ |
+| `US-AD107` | Should | M2 | Skill library per ruang kerja | `26b-agent-skills` | ✅ PASS |
 | `US-AD108` | Must | M2 | Estimasi biaya: label dan sumber harga | `26-agent-form` | 🔨 dikerjakan |
 | `US-AD109` | Must | M2 | Provider registry: daftar kredensial sekali pakai | `47-providers` | ✅ PASS |
 | `US-AD18` | Must | M2 | Dependency DAG antar task | *backend-only* | ✅ PASS |
@@ -96,7 +96,7 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ✅ PASS |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ✅ PASS |
 
-**Total M0–M4: 89 story** (79 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (80 PASS, 1 ditunda)
 
 ## Progres per milestone
 
@@ -104,7 +104,7 @@
 |---|---|---|---|
 | M0 | 10 | 9 | 1 |
 | M1 | 32 | 28 | 4 |
-| M2 | 21 | 18 | 3 |
+| M2 | 21 | 19 | 2 |
 | M3 | 16 | 15 | 1 |
 | M4 | 10 | 9 | 1 |
 

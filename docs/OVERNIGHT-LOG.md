@@ -1958,3 +1958,62 @@ asert cuma melihat keadaan SESUDAH, di mana skeleton sudah hilang pada kedua
 implementasi. Refetch-nya ditahan 2,5s supaya jendela in-flight bisa diamati, dan
 mutan itu jadi CAUGHT. Mutan "cabang error dihapus" juga awalnya SKIP karena
 anchor-nya meleset setelah edit — bukan lulus.
+
+
+## Fase 12 — Skill library (US-AD107)
+
+Backend skill sudah ada sejak F9 dengan **nol pemanggil frontend**: satu-satunya
+yang menyentuhnya adalah form agent, yang membaca daftar untuk mengisi picker.
+Tidak ada jalan untuk MENULIS skill sama sekali. Brief bilang "backend ada" —
+benar, tapi yang tidak ada justru separuh ceritanya.
+
+**Yang dibuat**
+
+- `lib/markdown.ts` + `lib/markdown.test.ts` — renderer markdown untuk isi skill.
+- `store/api/agents.ts` — 4 endpoint baru: create, update, delete, `/{id}/agents`.
+  Baca (`listAgentSkills`) sudah ada, tag `SKILLS` yang sama supaya form agent
+  ikut segar.
+- `routes/dashboard/skills/SkillLibrary.tsx` — daftar + panel detail + form.
+- `app/router.tsx` (`/app/:orgID/skills`), `WorkspaceSidebar.tsx` (nav),
+  `lib/i18n.ts` (28 key x2), `src/index.css` (tipografi preview).
+
+**Keputusan yang gw ambil dan kenapa**
+
+- **AC3 tanpa dependency baru.** Jawaban biasa: `marked` + `dompurify` — dua paket,
+  dan yang menanggung beban justru sanitizer-nya. Di sini dibalik: **semua teks
+  di-escape DULU**, baru struktur markdown diterapkan di atas string yang sudah
+  ter-escape. Tidak ada jalur dari input ke output yang tidak lewat `escapeHtml`.
+  Itu properti yang bisa gw tulis dan bisa diuji langsung, dan tidak benar untuk
+  allow-list sanitizer. Harganya jujur: renderer ini subset (heading, fence, list,
+  blockquote, hr, bold, italic, code, link). Tabel/gambar/HTML passthrough tidak
+  ada. Kalau nanti butuh tabel, **tambah di sini** — jangan tukar ke library dan
+  kehilangan invariannya.
+- **Link = satu-satunya atribut yang dibangun dari teks user**, jadi skemanya
+  dicek allow-list (`http`, `https`, `mailto`, path same-origin). `javascript:`
+  jadi teks, bukan link mati. Bentuk yang di-obfuscate (`java\nscript:`,
+  spasi di depan) ikut ditolak karena kontrol di-strip sebelum pengecekan.
+- **Slug tidak bisa diubah saat edit.** `PATCH` sengaja tidak menerima slug: slug
+  itu yang disimpan agent di `skills_json`, jadi menggantinya = melepas agent dari
+  skill-nya. Form menampilkannya read-only + alasannya, bukan menyembunyikannya.
+- **Skill sistem tidak bisa dihapus** (server 409). Tombolnya disabled + tooltip
+  alasannya, bukan gagal saat diklik.
+- **Tiga hal design yang API tidak punya, ditolak dibangun:** aksi "duplikat"
+  (slug unik per org, harus mengarang slug), riwayat versi (tidak ada penyimpanan
+  body lama — `version` naik tapi body lama tidak disimpan), kolom slug editable.
+
+**AC3 diuji di mana, dan kenapa bukan di e2e**
+
+Browser cuma bisa mengamati bahwa script TIDAK jalan — tak terbedakan dari script
+yang jalan tapi tidak melakukan apa-apa yang terlihat. Negatifnya tidak bisa
+dibuktikan dari luar. Jadi propertinya dipatok di `markdown.test.ts` pada string
+output: setelah tag milik renderer sendiri dibuang, **tidak boleh ada `<` yang
+tersisa**. Itu asersi yang menangkap tag yang belum pernah terpikirkan, bukan
+daftar substring terlarang (daftar substring malah lolos pada `onerror=` yang
+muncul sebagai TEKS ter-escape, yang aman dan benar). e2e tetap mengirim body
+bermusuhan lewat API nyata + renderer nyata sebagai cakupan integrasi — tapi tidak
+mengklaim itu bukti AC3.
+
+**Bukti:** e2e `skill-library.spec.ts` 5/5 · unit markdown 6/6 · mutasi
+**8 CAUGHT / 0 SURVIVED / 0 SKIP** (4 unit termasuk 4 mutan keamanan markdown, 4
+e2e) · gate rc=0 · tsc rc=0 · vitest **90/90** · prettier bersih ·
+`verify_suite.py` 0 FAIL · CHECKLIST 91 → **92 PASS**.

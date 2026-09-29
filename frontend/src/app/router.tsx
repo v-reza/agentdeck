@@ -73,6 +73,9 @@ const WorkspaceSettings = lazy(() =>
 )
 const ApiKeys = lazy(() => import('@/routes/dashboard/settings/ApiKeys').then((m) => ({ default: m.ApiKeys })))
 const Webhooks = lazy(() => import('@/routes/dashboard/settings/Webhooks').then((m) => ({ default: m.Webhooks })))
+const SkillLibrary = lazy(() =>
+  import('@/routes/dashboard/skills/SkillLibrary').then((m) => ({ default: m.SkillLibrary })),
+)
 const Providers = lazy(() => import('@/routes/dashboard/settings/Providers').then((m) => ({ default: m.Providers })))
 const Dashboard = lazy(() => import('@/routes/dashboard/Dashboard').then((m) => ({ default: m.Dashboard })))
 
@@ -107,6 +110,7 @@ function dashboardRoutes() {
       <Route path="settings/members" element={<Members />} />
       <Route path="settings/api-keys" element={<ApiKeys />} />
       <Route path="settings/webhooks" element={<Webhooks />} />
+      <Route path="skills" element={<SkillLibrary />} />
       {/* US-AD109: the credential registry. Settings-scoped, not a rail slot —
           the rail's six slots are pinned by the design's shell geometry. */}
       <Route path="settings/providers" element={<Providers />} />

@@ -584,3 +584,22 @@ sebelum baris berikutnya jalan — dan makin sering begitu DB membesar.
 Diperbaiki: wait-nya sekarang menunggu `Nama kolom backlog`, input yang **absen**
 di placeholder, timeout 30s. Bukti: `column-editor.spec.ts` 7/7 solo, dan shard3
 50/50 saat diulang.
+
+
+## US-AD107: skill library — batas yang tidak bisa diklaim
+
+- **AC3 (markdown disanitasi)** dikerjakan sebagai *escape dulu, baru format* di
+  `lib/markdown.ts`, bukan sanitizer. Propertinya: tidak ada tag di output yang
+  berasal dari input. Konsekuensinya renderer ini **subset** — tabel, gambar,
+  HTML passthrough, dan list bersarang tidak didukung. Kalau sebuah skill butuh
+  tabel, tambahkan di renderer itu; jangan ganti ke library sanitizer tanpa
+  memindahkan invariannya.
+- **Tidak ada riwayat versi.** AC6 minta `version` naik dan body lama tidak
+  berubah surut — itu benar (`UPDATE ... version = version + 1`), tapi body versi
+  lama **tidak disimpan**. Panel riwayat tidak bisa dibangun dari kontrak ini.
+  Butuh tabel `agent_skill_versions` + migrasi.
+- **Slug tidak bisa diubah** lewat `PATCH` (sengaja: agent menyimpan slug). Kalau
+  nanti perlu rename, itu operasi berbeda yang harus memindahkan referensi agent
+  juga.
+- **Aksi "duplikat" tidak ada** karena slug unik per org — duplikat harus
+  mengarang slug baru, dan itu keputusan produk, bukan keputusan UI.

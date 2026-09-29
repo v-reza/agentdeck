@@ -16,6 +16,33 @@ export interface Dictionary {
   'nav.agents': string
   'nav.finops': string
   'nav.approvals': string
+  'nav.skills': string
+  'skills.title': string
+  'skills.count': string
+  'skills.add': string
+  'skills.empty': string
+  'skills.emptyHint': string
+  'skills.selectHint': string
+  'skills.system': string
+  'skills.systemNoDelete': string
+  'skills.edit': string
+  'skills.delete': string
+  'skills.deleteTitle': string
+  'skills.deleteBody': string
+  'skills.updated': string
+  'skills.usedBy': string
+  'skills.usedByAgents': string
+  'skills.preview': string
+  'skills.createTitle': string
+  'skills.editTitle': string
+  'skills.fieldSlug': string
+  'skills.slugHint': string
+  'skills.slugLocked': string
+  'skills.fieldName': string
+  'skills.fieldBody': string
+  'skills.bodyHint': string
+  'skills.showPreview': string
+  'skills.showSource': string
   'nav.notifications': string
   'notifications.title': string
   'webhooks.count': string
@@ -64,6 +91,7 @@ export interface Dictionary {
   'action.newProject': string
   'action.create': string
   'action.cancel': string
+  'action.save': string
   'action.retry': string
   'action.open': string
   'field.name': string
@@ -698,6 +726,33 @@ const en: Dictionary = {
   'nav.agents': 'Agents',
   'nav.finops': 'Cost & Usage',
   'nav.approvals': 'Approvals',
+  'nav.skills': 'Skills',
+  'skills.title': 'Skill library',
+  'skills.count': '{count} skills',
+  'skills.add': 'New skill',
+  'skills.empty': 'No skills yet',
+  'skills.emptyHint': 'A workspace is seeded with eight default skills. Seeing this means the library is empty.',
+  'skills.selectHint': 'Pick a skill to read it',
+  'skills.system': 'system',
+  'skills.systemNoDelete': 'A system skill cannot be deleted',
+  'skills.edit': 'Edit',
+  'skills.delete': 'Delete',
+  'skills.deleteTitle': 'Delete skill',
+  'skills.deleteBody': 'Delete “{name}”? Agents referencing its slug lose it.',
+  'skills.updated': 'Updated',
+  'skills.usedBy': 'Used by',
+  'skills.usedByAgents': 'Referenced by',
+  'skills.preview': 'Preview',
+  'skills.createTitle': 'New skill',
+  'skills.editTitle': 'Edit skill',
+  'skills.fieldSlug': 'Slug',
+  'skills.slugHint': 'Lowercase letters, digits and underscore. Agents reference the slug.',
+  'skills.slugLocked': 'The slug is fixed: agents store it, so renaming it would detach them.',
+  'skills.fieldName': 'Name',
+  'skills.fieldBody': 'Body (markdown)',
+  'skills.bodyHint': '# Instructions for the agent',
+  'skills.showPreview': 'Preview',
+  'skills.showSource': 'Source',
   'nav.notifications': 'Notifications',
   'notifications.title': 'Notifications',
   'webhooks.count': '{count} registered',
@@ -747,6 +802,7 @@ const en: Dictionary = {
   'action.newProject': 'New project',
   'action.create': 'Create',
   'action.cancel': 'Cancel',
+  'action.save': 'Save',
   'action.retry': 'Retry',
   'action.open': 'Open',
   'field.name': 'Name',
@@ -1381,6 +1437,34 @@ const id: Dictionary = {
   'nav.agents': 'Agent',
   'nav.finops': 'Biaya & Pemakaian',
   'nav.approvals': 'Persetujuan',
+  'nav.skills': 'Skill',
+  'skills.title': 'Pustaka skill',
+  'skills.count': '{count} skill',
+  'skills.add': 'Skill baru',
+  'skills.empty': 'Belum ada skill',
+  'skills.emptyHint': 'Ruang kerja baru disemai delapan skill bawaan. Kalau ini terlihat, pustakanya kosong.',
+  'skills.selectHint': 'Pilih satu skill untuk dibaca',
+  'skills.system': 'sistem',
+  'skills.systemNoDelete': 'Skill sistem tidak bisa dihapus',
+  'skills.edit': 'Ubah',
+  'skills.delete': 'Hapus',
+  'skills.deleteTitle': 'Hapus skill',
+  'skills.deleteBody': 'Hapus “{name}”? Agent yang merujuk slug-nya kehilangan skill ini.',
+  'skills.updated': 'Diperbarui',
+  'skills.usedBy': 'Dipakai',
+  'skills.usedByAgents': 'Dirujuk oleh',
+  'skills.preview': 'Pratinjau',
+  'skills.createTitle': 'Skill baru',
+  'skills.editTitle': 'Ubah skill',
+  'skills.fieldSlug': 'Slug',
+  'skills.slugHint': 'Huruf kecil, angka, dan garis bawah. Agent merujuk lewat slug.',
+  'skills.slugLocked':
+    'Slug tidak bisa diubah: agent menyimpannya, jadi menggantinya akan melepas agent dari skill ini.',
+  'skills.fieldName': 'Nama',
+  'skills.fieldBody': 'Isi (markdown)',
+  'skills.bodyHint': '# Instruksi untuk agent',
+  'skills.showPreview': 'Pratinjau',
+  'skills.showSource': 'Sumber',
   'nav.notifications': 'Notifikasi',
   'notifications.title': 'Notifikasi',
   'webhooks.count': '{count} terdaftar',
@@ -1431,6 +1515,7 @@ const id: Dictionary = {
   'action.newProject': 'Project baru',
   'action.create': 'Buat',
   'action.cancel': 'Batal',
+  'action.save': 'Simpan',
   'action.retry': 'Ulangi',
   'action.open': 'Buka',
   'field.name': 'Nama',

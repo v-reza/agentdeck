@@ -202,9 +202,44 @@ export const agentsApi = baseApi.injectEndpoints({
       }),
     }),
 
+    /**
+     * The skill library (US-AD107). The read has been here since the agent form
+     * needed a picker; the four writes are added because the library screen is
+     * the first surface that manages skills rather than only referencing them.
+     *
+     * `SKILLS` stays the tag the agent form invalidates, so a skill renamed here
+     * shows up in the picker without a reload. `updateAgentSkill` bumps `version`
+     * server-side (AC6) — the client never sends one, which is what keeps an
+     * older version from being rewritten.
+     *
+     * `getSkillAgents` is separate from `used_by` on purpose: `used_by` is the
+     * count for the list row, this is the named list under the editor, and the
+     * two come from different queries server-side.
+     */
     listAgentSkills: build.query<AgentSkill[], void>({
       query: () => 'agent-skills',
       providesTags: [{ type: 'Agent', id: 'SKILLS' }],
+    }),
+
+    createAgentSkill: build.mutation<AgentSkill, { slug: string; name: string; body_md: string }>({
+      query: (body) => ({ url: 'agent-skills', method: 'POST', body }),
+      invalidatesTags: [{ type: 'Agent', id: 'SKILLS' }],
+    }),
+
+    // No slug: the slug is what agents store in `skills_json`, so renaming it
+    // would detach every agent using the skill. The server refuses it too.
+    updateAgentSkill: build.mutation<AgentSkill, { id: string; name: string; body_md: string }>({
+      query: ({ id, ...body }) => ({ url: `agent-skills/${id}`, method: 'PATCH', body }),
+      invalidatesTags: [{ type: 'Agent', id: 'SKILLS' }],
+    }),
+
+    deleteAgentSkill: build.mutation<void, string>({
+      query: (id) => ({ url: `agent-skills/${id}`, method: 'DELETE' }),
+      invalidatesTags: [{ type: 'Agent', id: 'SKILLS' }],
+    }),
+
+    getSkillAgents: build.query<{ id: string; name: string }[], string>({
+      query: (id) => `agent-skills/${id}/agents`,
     }),
 
     createAgent: build.mutation<Agent, CreateAgentArgs>({
@@ -303,6 +338,10 @@ export const {
   useGetAgentQuery,
   useGetAgentCatalogQuery,
   useListAgentSkillsQuery,
+  useCreateAgentSkillMutation,
+  useUpdateAgentSkillMutation,
+  useDeleteAgentSkillMutation,
+  useGetSkillAgentsQuery,
   useCreateAgentMutation,
   useUpdateAgentMutation,
   useArchiveAgentMutation,
