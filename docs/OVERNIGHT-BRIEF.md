@@ -68,8 +68,8 @@ Maka urutannya:
 | 7 | ✅ **SELESAI** (`f900251`) — **Webhooks** `40-webhooks` | US-AD52, US-AD53 | Backend 7 endpoint jalan sejak F12. Admin-only; secret tampil sekali. |
 | 8 | ✅ **SELESAI** (`ba5faa4`) — **API Keys** `39-api-keys` | US-AD06 | Backend 5 endpoint jalan sejak F10. Key penuh tampil sekali. |
 | 9 | ✅ **SELESAI** (`10b095c`) — **Dashboard** `42-dashboard` | US-AD76 | — |
-| 10 | **Dependency view** `24-dependency-view` | US-AD19 | DAG endpoint ada. |
-| 11 | **State screens** `43`/`44`/`45` | US-AD63, US-AD64, US-AD65 | Skeleton, empty, error boundary. Kecil-kecil. |
+| 10 | ✅ **SELESAI** (`00fd787`) — **Dependency view** `24-dependency-view` | US-AD19 | Endpoint per-task = N+1; ditambah `GET /boards/{id}/dependencies`. |
+| 11 | ✅ **SELESAI** — **State screens** `43`/`44`/`45` | US-AD63, US-AD64, US-AD65 | Skeleton, empty, error boundary. Kecil-kecil. |
 | 12 | **Skill library** `26b-agent-skills` | US-AD107 | Backend ada. |
 | 13 | **Security** `16-security` | US-AD90 | Ganti password + sesi aktif; endpoint ada. |
 | 14 | **Mobile board** `46-mobile-board` | US-AD60 | — |

@@ -118,7 +118,7 @@ test.describe('board toolbar and the create-task modal', () => {
       .filter({ hasText: /filter/i })
       .click()
     await expect(page.getByRole('button', { name: /^backlog$/i })).toBeVisible()
-    await expect(page.getByRole('button', { name: /buat task|new task/i })).toBeVisible()
+    await expect(page.getByTestId('board-new-task')).toBeVisible()
   })
 
   test('switching to the table view keeps the toolbar and the search box', async ({ page }) => {
@@ -126,12 +126,12 @@ test.describe('board toolbar and the create-task modal', () => {
     await page.getByRole('link', { name: /^(Table|Tabel)$/ }).click()
     await expect(page).toHaveURL(new RegExp(`/boards/${ULID.source}/table$`))
     await expect(page.getByPlaceholder(/cari task|search tasks/i)).toBeVisible()
-    await expect(page.getByRole('button', { name: /buat task|new task/i })).toBeVisible()
+    await expect(page.getByTestId('board-new-task')).toBeVisible()
   })
 
   test('the CTA opens the design modal, and creating a task writes title and body', async ({ page }) => {
     await page.goto(`/app/${orgID}/boards/${boardID}`)
-    await page.getByRole('button', { name: /buat task|new task/i }).click()
+    await page.getByTestId('board-new-task').click()
 
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
@@ -178,7 +178,7 @@ test.describe('board toolbar and the create-task modal', () => {
 
   test('the modal shows the design footer and states the initial status', async ({ page }) => {
     await page.goto(`/app/${orgID}/boards/${boardID}`)
-    await page.getByRole('button', { name: /buat task|new task/i }).click()
+    await page.getByTestId('board-new-task').click()
     const dialog = page.getByRole('dialog')
 
     // The design's footer, which the old form did not have at all: the cancel
@@ -205,7 +205,7 @@ test.describe('board toolbar and the create-task modal', () => {
 
   test('the create-task card matches the design geometry', async ({ page }) => {
     await page.goto(`/app/${orgID}/boards/${boardID}`)
-    await page.getByRole('button', { name: /buat task|new task/i }).click()
+    await page.getByTestId('board-new-task').click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
 

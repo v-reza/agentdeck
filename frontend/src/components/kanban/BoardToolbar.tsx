@@ -88,6 +88,7 @@ export function BoardToolbar({ boardName, taskCount }: { boardName?: string; tas
           onChange={(event) => dispatch(setSearch(event.target.value))}
           placeholder={t['boards.search']}
           aria-label={t['boards.search']}
+          data-testid="board-search"
           className="h-8 w-[190px] rounded-[6px] border border-[var(--color-border-subtle)] bg-[var(--color-surface-page)] pr-2.5 pl-7 text-[12px] text-[var(--color-primary)] outline-none placeholder:text-[var(--color-quaternary)] focus:border-[var(--color-accent)]"
         />
       </div>
@@ -97,6 +98,7 @@ export function BoardToolbar({ boardName, taskCount }: { boardName?: string; tas
       <button
         type="button"
         onClick={() => dispatch(openCreateTask(boardID ?? ''))}
+        data-testid="board-new-task"
         className="flex h-8 items-center gap-1.5 rounded-[6px] bg-[var(--color-accent)] px-2.5 text-[12px] font-semibold text-[var(--color-on-accent)]"
       >
         <Plus size={14} strokeWidth={2} aria-hidden="true" />

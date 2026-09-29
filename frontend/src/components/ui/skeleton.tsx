@@ -19,8 +19,23 @@ import { cn } from '@/lib/cn'
  * boxes is worse than announcing nothing. The live region belongs to the
  * caller, which knows whether the thing is a table, a panel or a list.
  */
-export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden className={cn('h-3 rounded-[4px] bg-[var(--color-surface-sunken)]', className)} />
+export function Skeleton({ className, pulse = false }: { className?: string; pulse?: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        'h-3 rounded-[4px] bg-[var(--color-surface-sunken)]',
+        // `pulse` is opt-in, and the default stays static. US-AD63 AC1 asks for a
+        // pulse on the BOARD's loading state, while the mock for the generic
+        // skeleton (`43-state-loading.html`) does not pulse. Both are true at once
+        // because they are different surfaces: the board placeholder is what the
+        // operator stares at while work loads, and motion is what says "still
+        // coming". Everything else keeps the static block.
+        pulse && 'animate-pulse motion-reduce:animate-none',
+        className,
+      )}
+    />
+  )
 }
 
 /**

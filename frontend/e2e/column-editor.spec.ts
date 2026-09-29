@@ -104,6 +104,22 @@ async function openEditor(page: Page, orgID: string, boardID: string) {
   await page.goto(`/app/${orgID}/boards/${boardID}/settings`)
   await page.getByRole('button', { name: /edit kolom/i }).click()
   await expect(page.getByRole('heading', { name: /editor kolom board/i })).toBeVisible()
+
+  // Then wait for the board itself. The heading above is rendered by the
+  // editor's PLACEHOLDER too — the branch it shows while `board` is still
+  // loading, which draws the same header over five skeleton rows and no inputs.
+  // Waiting only for the heading let the test type into a panel that had not
+  // loaded yet, and `locator.fill` sat there until the 60s test timeout. It was
+  // intermittent because it depended on whether the board query resolved before
+  // the next line ran.
+  //
+  // The first input is the first real column (`backlog`), so it is absent in the
+  // placeholder and present once the layout is on screen.
+  // Generous timeout on purpose: this workspace's board read is a real query
+  // against a database carrying thousands of boards, and 5s is not always enough
+  // for it to come back. The point of the wait is to be on the loaded editor, not
+  // to bound how fast the server is.
+  await expect(page.getByLabel('Nama kolom backlog')).toBeVisible({ timeout: 30_000 })
 }
 
 test.describe('column editor (US-AD10)', () => {

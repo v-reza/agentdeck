@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (150 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (155 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 109 |
+| `<svg>` | 111 | 115 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -17,10 +17,10 @@ sementara implementasi mendeklarasikan komponennya sekali lalu merendernya
 di dalam `.map()`. Jadi rasio mentahnya selalu terlihat lebih buruk daripada
 kenyataan, dan satu-satunya cara membacanya adalah per jenis icon di layar
 yang punya file impl — lihat §3.
-| blok skeleton (abu berukuran) | 323 | 33 |
+| blok skeleton (abu berukuran) | 323 | 35 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 35 |
+| file memakai `lucide-react` | 0 | 37 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -76,7 +76,7 @@ Dua hal berbeda yang pernah dihitung jadi satu:
 | 15-profile | 15 | 1 | 2 |
 | 47-providers | 15 | 1 | 2 |
 | 30-ledger-explorer | 14 | 0 | 3 |
-| 24-dependency-view | 12 | 0 | 4 |
+| 24-dependency-view | 12 | 1 | 4 |
 | 37-workspace-settings | 10 | 1 | 1 |
 | 14-command-palette | 9 | 0 | 3 |
 | 16-security | 8 | 0 | 2 |
@@ -161,13 +161,13 @@ Nol.
 | 15-profile | `/settings/profile` | `Profile.tsx` | 0/7 | 0 | 1 |
 | 16-security | `/settings/security` | — | 0/0 | 0 | 0 |
 | 17-close-account | `/settings/close` | — | 0/0 | 0 | 0 |
-| 18-kanban | `/boards/:id` | `BoardToolbar.tsx`, `KanbanBoard.tsx` | 5/4 | 0 | 1 |
+| 18-kanban | `/boards/:id` | `BoardToolbar.tsx`, `KanbanBoard.tsx` | 5/4 | 0 | 0 |
 | 19-table-view | `/boards/:id?view=table` | `BoardToolbar.tsx`, `TableView.tsx` | 0/4 | 0 | 1 |
 | 20-task-drawer | `(drawer)` | `RunSteps.tsx`, `TabApprovals.tsx`, `TabArtifacts.tsx`, `StepTimeline.tsx`, `TaskDetailDrawer.tsx` | 12/13 | 0 | 5 |
 | 21-task-create | `(modal)` | `TaskCreateForm.tsx` | 7/3 | 0 | 0 |
 | 22-column-editor | `(panel)` | `ColumnEditor.tsx`, `BoardSettings.tsx` | 0/6 | 0 | 1 |
 | 23-board-settings | `/boards/:id/settings` | `BoardSettings.tsx` | 0/0 | 0 | 0 |
-| 24-dependency-view | `/boards/:id/graph` | — | 1/0 | 0 | 0 |
+| 24-dependency-view | `/boards/:id/graph` | `DependencyGraph.tsx`, `DependencyGraphView.tsx` | 1/4 | 0 | 1 |
 | 25-agent-registry | `/agents` | `AgentRegistry.tsx`, `AgentSpecCards.tsx` | 1/1 | 0 | 1 |
 | 26-agent-form | `/agents/new` | `ProviderKeyFields.tsx`, `CreateAgentFields.tsx`, `CreateAgentForm.tsx` | 2/1 | 0 | 0 |
 | 26b-agent-skills | `(panel)` | — | —/0 | 0 | 0 |
@@ -195,7 +195,7 @@ Nol.
 
 ## 10. File tanpa layar (shell & komponen bersama)
 
-87 file tidak dipetakan ke satu layar. Ini wajar untuk
+90 file tidak dipetakan ke satu layar. Ini wajar untuk
 layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 
 - `App.tsx`
@@ -211,6 +211,7 @@ layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 - `components/docs/DocsLayout.tsx`
 - `components/docs/DocsNav.tsx`
 - `components/docs/Endpoint.tsx`
+- `components/kanban/BoardStates.tsx`
 - `components/kanban/Column.tsx`
 - `components/kanban/TaskCard.tsx`
 - `components/landing/ClosingCta.tsx`
@@ -231,6 +232,8 @@ layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 - `components/ui/button.tsx`
 - `components/ui/card.tsx`
 - `components/ui/combobox.tsx`
+- `components/ui/error-boundary.test.tsx`
+- `components/ui/error-boundary.tsx`
 - `components/ui/input.tsx`
 - `components/ui/modal.tsx`
 - `components/ui/toast.tsx`

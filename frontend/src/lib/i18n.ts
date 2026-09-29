@@ -80,6 +80,8 @@ export interface Dictionary {
   'empty.tasks': string
   'state.loading': string
   'state.error': string
+  'error.boundary.title': string
+  'error.boundary.retry': string
   'cost.today': string
   'cost.runningNow': string
   // Auth screens (01-login, 02-register, 03-reset-request, 04-reset-confirm).
@@ -359,6 +361,9 @@ export interface Dictionary {
   'boards.create.failed': string
   'boards.empty': string
   'boards.emptyHint': string
+  'boards.emptyTasks': string
+  'boards.emptyTasksHint': string
+  'boards.createFirstTask': string
   'boards.createFirst': string
   'boards.noProjects': string
   'boards.noProjectsHint': string
@@ -758,6 +763,8 @@ const en: Dictionary = {
   'empty.tasks': 'No tasks yet',
   'state.loading': 'Loading…',
   'state.error': 'Something went wrong',
+  'error.boundary.title': 'Something went wrong',
+  'error.boundary.retry': 'Try again',
   'cost.today': 'Today',
   'cost.runningNow': 'Running now',
   'auth.tagline': 'Fleet Orchestration',
@@ -1030,6 +1037,9 @@ const en: Dictionary = {
   'boards.create.failed': 'The board was not created',
   'boards.empty': 'No boards yet',
   'boards.emptyHint': 'Create the first board in this workspace to start moving work.',
+  'boards.emptyTasks': 'No tasks yet',
+  'boards.emptyTasksHint': 'Create the first task on this board to get moving.',
+  'boards.createFirstTask': 'Create your first task',
   'boards.createFirst': 'Create your first board',
   'boards.noProjects': 'No projects yet',
   'boards.noProjectsHint': 'A board lives inside a project. Create one on the Projects page first.',
@@ -1437,6 +1447,8 @@ const id: Dictionary = {
   'empty.tasks': 'Belum ada task',
   'state.loading': 'Memuat…',
   'state.error': 'Ada yang gagal',
+  'error.boundary.title': 'Terjadi kesalahan',
+  'error.boundary.retry': 'Coba lagi',
   'cost.today': 'Hari ini',
   'cost.runningNow': 'Sedang jalan',
   'auth.tagline': 'Fleet Orchestration',
@@ -1708,6 +1720,9 @@ const id: Dictionary = {
   'boards.create.failed': 'Board tidak dibuat',
   'boards.empty': 'Belum ada board',
   'boards.emptyHint': 'Buat board pertama di ruang kerja ini untuk mulai memindahkan pekerjaan.',
+  'boards.emptyTasks': 'Belum ada task',
+  'boards.emptyTasksHint': 'Buat task pertama di board ini untuk mulai bergerak.',
+  'boards.createFirstTask': 'Buat task pertama',
   'boards.createFirst': 'Buat board pertama Anda',
   'boards.noProjects': 'Belum ada project',
   'boards.noProjectsHint': 'Board berada di dalam project. Buat project dulu di halaman Projects.',

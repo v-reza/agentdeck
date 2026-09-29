@@ -5,6 +5,7 @@ import { WorkspaceSidebar } from './WorkspaceSidebar'
 import { CostRail } from './CostRail'
 import { TaskDrawerHost } from '@/routes/dashboard/boards/TaskDrawerHost'
 import { TaskCreateHost } from '@/routes/dashboard/boards/TaskCreateForm'
+import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { useBoardHealth } from '@/hooks/use-board-health'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { closeTask } from '@/store/slices/uiSlice'
@@ -47,7 +48,19 @@ export function AppShell({ children, withCostRail = true }: AppShellProps) {
       <IconRail daemonConnected={connected} />
       <WorkspaceSidebar />
 
-      <div className="flex min-w-0 flex-1 flex-col">{activeOrgID ? children : <NoWorkspace />}</div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        {activeOrgID ? (
+          // US-AD65: the boundary wraps the CONTENT, not the shell. A screen that
+          // throws loses its own pane and keeps the rail, the sidebar and the cost
+          // rail — the operator stays oriented and can navigate away, instead of
+          // the whole app unmounting to a white screen. `resetKey` is the path, so
+          // leaving the broken screen clears the error rather than pinning the
+          // fallback in place for the rest of the session.
+          <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>
+        ) : (
+          <NoWorkspace />
+        )}
+      </div>
 
       <TaskDrawerHost />
       <TaskCreateHost />

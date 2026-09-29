@@ -1882,3 +1882,79 @@ rc=0 · `gofmt -l` kosong · `go test ./internal/board` ok · `go test ./cmd/api
 (30.2s) · endpoint di-probe lawan API nyata (3 edge, 401 tanpa auth, 404 board
 ngawur) · gate rc=0 · tsc rc=0 · vitest 80/80 · prettier bersih · `verify_suite.py`
 0 FAIL · CHECKLIST **75 → 76 PASS**.
+
+
+## Fase 11 — State screens (US-AD63, US-AD64, US-AD65)
+
+Tiga story, satu fase, karena ketiganya satu keputusan yang dilihat dari tiga sisi:
+apa yang layar tampilkan saat data belum ada, saat kosong, dan saat gagal.
+
+**Yang dibuat**
+
+- `components/ui/error-boundary.tsx` — boundary kelas. Satu-satunya kelas di app,
+  karena React cuma menyerahkan render error lewat `getDerivedStateFromError`.
+- `components/kanban/BoardStates.tsx` — `BoardSkeleton` (5 lajur x 3 kartu, ukuran
+  kolom asli), `BoardError` (retry = refetch nyata), `BoardEmpty` (dua pesan berbeda).
+- `components/ui/skeleton.tsx` — prop `pulse` opt-in + `motion-reduce`.
+- `boards/KanbanBoard.tsx` — cabang `isError` / `isLoading` / kosong / kosong-karena-filter.
+- `components/layout/AppShell.tsx` — boundary membungkus KONTEN, bukan shell.
+
+**Keputusan yang gw ambil dan kenapa**
+
+- **Boundary di dalam shell, bukan menggantinya.** Layar yang error kehilangan
+  pane-nya sendiri, rail + sidebar + cost rail tetap ada. Operator tetap punya
+  navigasi untuk keluar. `resetKey={pathname}` supaya pindah layar membersihkan
+  error, bukan menempel sampai sesi selesai.
+- **Fallback baca copy lewat `translate`, bukan `useT`.** `useT` membuka kamus
+  dengan `use()`, jadi render pertama suspend — dan fallback yang suspend adalah
+  fallback yang bisa gagal karena alasan yang sama dengan layarnya. Ini bukan
+  teori: unit test-nya mati total (nyangkut di Suspense) sampai dibetulkan. Kalau
+  kamusnya yang rusak, layar error justru menggantung.
+- **`pulse` opt-in, bukan default.** AC1 US-AD63 minta pulse; komentar di
+  `skeleton.tsx` justru berargumentasi TIDAK pulse. Dua-duanya benar karena
+  permukaannya beda: skeleton board itu yang ditatap operator sambil kerja datang,
+  dan gerak itulah yang bilang "masih datang". Layar lain tidak berubah.
+- **Kata AC1 dipakai persis, lewat key baru.** `state.error`/`action.retry` sudah
+  ada tapi berbunyi "Ada yang gagal"/"Ulangi", bukan "Terjadi kesalahan"/"Coba
+  lagi". Memakai yang mendekati = mengirim kata yang tidak diminta story; mengubah
+  yang lama = mengubah layar lain. Jadi key baru: `error.boundary.*`.
+- **`isLoading`, bukan `isFetching`.** RTK Query menyalakan `isLoading` cuma saat
+  request PERTAMA; refetch latar tidak. Itu tepat aturan AC2.
+
+**Dua temuan yang lebih besar dari fase ini**
+
+1. **Regresi yang gw bikin sendiri dan full e2e yang menangkapnya.** Empty state
+   menambah tombol "Buat task pertama", sehingga locator teks
+   `/buat task|new task/i` di `board-toolbar.spec.ts` jadi ambigu dengan tombol
+   topbar → 3 failed. Diperbaiki dengan `data-testid="board-new-task"`. Ini
+   kegunaan sebenarnya full suite: bukan verifikasi kerjaan barusan, tapi
+   deteksi regresi silang.
+2. **`openEditor` di `column-editor.spec.ts` menunggu sinyal yang salah.** Ia
+   menunggu heading "Editor Kolom Board" — heading itu JUSTRU juga dirender
+   cabang placeholder saat `board` belum ada. Jadi tes lanjut mengetik ke panel
+   yang belum termuat, dan `locator.fill` menggantung sampai timeout 60s.
+   Itulah flake lintas-shard yang sudah tiga fase tercatat "bukan regresi" tanpa
+   akarnya pernah ketemu. Sekarang wait-nya menunggu input kolom pertama
+   (absen di placeholder), timeout 30s. **Akar flake lama ketemu, bukan cuma
+   ditambal dengan timeout.**
+
+**Yang TIDAK diklaim**
+
+- AC3 US-AD65 (boundary mereset state aplikasi) dikerjakan sebagai reset on
+  navigation. Boundary tidak melaporkan ke mana pun: tidak ada endpoint
+  client-error di API, dan mengarang satu = perubahan kontrak backend.
+- Error di luar render (event handler, promise) **tidak** tertangkap boundary
+  kelas. Itu batas React, bukan bug di sini.
+
+**Bukti:** e2e `board-states.spec.ts` 3/3 · unit `error-boundary.test.tsx` 4/4 ·
+mutasi **9 CAUGHT / 0 SURVIVED** (6 e2e + 3 unit) · full e2e 4 shard rc=0:
+shard1 46 · shard2 37 + 2 skipped · shard3 50 (ulang, hangat) · shard4 34 =
+**167 passed / 2 skipped / 0 failed** · gate rc=0 · tsc rc=0 · vitest 84/84 ·
+prettier bersih · `verify_suite.py` 0 FAIL · CHECKLIST 88 → **91 PASS**.
+
+**Catatan mutasi:** mutan `skeleton-pakai-isfetching` awalnya SURVIVED. Bukan
+mutan tak terjangkau — tesnya yang lemah: refetch selesai dalam milidetik, jadi
+asert cuma melihat keadaan SESUDAH, di mana skeleton sudah hilang pada kedua
+implementasi. Refetch-nya ditahan 2,5s supaya jendela in-flight bisa diamati, dan
+mutan itu jadi CAUGHT. Mutan "cabang error dihapus" juga awalnya SKIP karena
+anchor-nya meleset setelah edit — bukan lulus.

@@ -35,7 +35,7 @@
 | `US-AD59` | Must | M1 | Task archived | `18-kanban`, `20-task-drawer` | ✅ PASS |
 | `US-AD60` | Must | M1 | View toggle: tampilan mobile | `46-mobile-board` | ⬜ |
 | `US-AD62` | Should | M1 | Filter tasks berdasarkan tanggal | `18-kanban` | ✅ PASS |
-| `US-AD64` | Must | M1 | Empty state board | `44-state-empty` | ⬜ |
+| `US-AD64` | Must | M1 | Empty state board | `44-state-empty` | ✅ PASS |
 | `US-AD66` | Must | M1 | Max runtime per task (N9) | *backend-only* | ✅ PASS |
 | `US-AD67` | Must | M1 | Menentukan model dan provider per agent | `26-agent-form`, `28-agent-detail` | 🔨 dikerjakan |
 | `US-AD73` | Must | M1 | Menonaktifkan (archive) agent | `25-agent-registry`, `28-agent-detail` | 🔨 dikerjakan |
@@ -81,8 +81,8 @@
 | `US-AD41` | Must | M3 | Halaman detail run | `32-run-detail` | ✅ PASS |
 | `US-AD42` | Must | M3 | Menambahkan komentar ke task | `20-task-drawer` | ✅ PASS |
 | `US-AD61` | Must | M3 | Notifikasi in-app | `13-notifications` | ✅ PASS |
-| `US-AD63` | Must | M3 | Skeleton loading state | `43-state-loading` | ⬜ |
-| `US-AD65` | Must | M3 | Error boundary UI | `45-state-error` | ⬜ |
+| `US-AD63` | Must | M3 | Skeleton loading state | `43-state-loading` | ✅ PASS |
+| `US-AD65` | Must | M3 | Error boundary UI | `45-state-error` | ✅ PASS |
 | `US-AD71` | Should | M3 | Comment dengan mention | `20-task-drawer` | ✅ PASS |
 | `US-AD85` | Must | M3 | Rate limit per endpoint | *backend-only* | ⬜ |
 | `US-AD43` | Must | M4 | Failue taxonomy: klasifikasi otomatis | *backend-only* | ✅ PASS |
@@ -96,16 +96,16 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ✅ PASS |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ✅ PASS |
 
-**Total M0–M4: 89 story** (76 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (79 PASS, 1 ditunda)
 
 ## Progres per milestone
 
 | Milestone | Story | PASS | Sisa |
 |---|---|---|---|
 | M0 | 10 | 9 | 1 |
-| M1 | 32 | 27 | 5 |
+| M1 | 32 | 28 | 4 |
 | M2 | 21 | 18 | 3 |
-| M3 | 16 | 13 | 3 |
+| M3 | 16 | 15 | 1 |
 | M4 | 10 | 9 | 1 |
 
 ### Catatan status — `US-AD73` (🔨 dikerjakan)

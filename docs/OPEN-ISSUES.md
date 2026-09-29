@@ -552,3 +552,35 @@ mungkin kontrak, jadi keputusan produk. Ini sekamar dengan temuan Fase 2 soal
 
 > Catatan lama di F13 yang bilang "22 dari 52 layar belum ada" itu menghitung
 > **semua** milestone. Dalam cakupan CHECKLIST (M0–M4) jumlahnya 14.
+
+
+## US-AD63/64/65: state layar — yang tidak bisa diklaim
+
+- **US-AD65 AC3** (boundary mereset state aplikasi setelah error) dikerjakan
+  sebagai reset saat pindah layar (`resetKey={pathname}`). Boundary **tidak
+  melaporkan ke mana pun**: tidak ada endpoint client-error di API, dan
+  mengarang satu berarti mengubah kontrak backend. Kalau nanti ada
+  `POST /client-errors`, itu tempatnya.
+- **Boundary kelas tidak menangkap error di luar render** (event handler,
+  promise, `setTimeout`). Batas React, bukan bug implementasi. Layar yang gagal
+  di jalur itu tetap perlu penanganannya sendiri.
+- **US-AD63 AC1 minta pulse, mock `43-state-loading.html` tidak.** Diselesaikan
+  dengan `pulse` opt-in: skeleton board pulse, permukaan lain tidak. Kalau
+  nanti ada keputusan bahwa SEMUA skeleton harus pulse, ubah default-nya, bukan
+  pemanggilnya.
+
+## Flake `column-editor.spec.ts` — akarnya, akhirnya
+
+Tiga fase terakhir, kegagalan `column-editor.spec.ts` dicatat sebagai "flake
+lintas-shard, bukan regresi" tanpa akar yang jelas. Akarnya ketemu di Fase 11:
+
+`openEditor` menunggu heading "Editor Kolom Board". Heading itu **juga dirender
+cabang placeholder** — cabang yang dipakai `ColumnEditor` selama `board` belum
+termuat (header sama, lima baris skeleton, nol input). Jadi tes lanjut mengetik
+ke panel yang belum siap, dan `locator.fill` menunggu input yang tidak ada
+sampai timeout 60s. Intermiten karena tergantung apakah query board selesai
+sebelum baris berikutnya jalan — dan makin sering begitu DB membesar.
+
+Diperbaiki: wait-nya sekarang menunggu `Nama kolom backlog`, input yang **absen**
+di placeholder, timeout 30s. Bukti: `column-editor.spec.ts` 7/7 solo, dan shard3
+50/50 saat diulang.
