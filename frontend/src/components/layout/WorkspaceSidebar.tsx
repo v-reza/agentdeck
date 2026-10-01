@@ -1,4 +1,4 @@
-import { Cable, KeyRound, Lock, ShieldCheck, UserRound, Users, Webhook } from 'lucide-react'
+import { Cable, KeyRound, Lock, ReceiptText, ShieldCheck, UserRound, Users, Webhook } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { useProjects } from '@/hooks/use-projects'
@@ -159,6 +159,16 @@ function SettingsNav({ orgID }: { orgID: string }) {
           icon={<ShieldCheck size={15} />}
           label={t['security.title']}
         />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <div className="mb-1 font-mono text-[10px] uppercase tracking-wider text-[var(--color-tertiary)]">
+          {t['sidebar.auditGroup']}
+        </div>
+        {/* The rail's Cost entry lands on the overview, which shows ONE board's
+            ledger beside its budget. The workspace-wide ledger had no route into
+            it at all. */}
+        <SettingsLink to={`/app/${orgID}/cost/ledger`} icon={<ReceiptText size={15} />} label={t['ledger.title']} />
       </div>
 
       <div className="flex flex-col gap-1">

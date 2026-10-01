@@ -2180,3 +2180,84 @@ yang gw pegang.
 **Bukti:** e2e mobile-board **4/4** · mutasi **6 CAUGHT / 0 SURVIVED** ·
 gate rc=0 (dua kali, termasuk tanpa export PATH) · tsc rc=0 · vitest 90/90 ·
 prettier bersih · `verify_suite.py` 0 FAIL · CHECKLIST 93 → **94 PASS**.
+
+
+## Fase 15 — Ledger explorer (US-AD27)
+
+AC1–AC3 backend, AC4–AC5 layar. Recon menemukan layar `/cost` yang ada cuma
+memuat ledger **satu board** (pilih project → board → 5 baris), jadi AC4 (tabel
+per baris ledger dengan kolom agent/model/token/cache/biaya/versi harga) tidak
+punya sumber data sama sekali di level workspace.
+
+**Backend — endpoint baru, aditif, tanpa migrasi.**
+`GET /api/v1/orgs/{id}/ledger` (auth.Viewer, `orgContextMiddleware` seperti
+`cost-summary`). Yang ada cuma `GET /boards/{id}/ledger` dengan `limit=100`
+hardcoded dan nol filter. Endpoint baru menerima `agent_id`, `model`, `from`,
+`to`, `offset`, `limit`.
+
+Kolom **Agent** tidak ada di `ledger_entries` — dia ada di `runs.agent_id`, jadi
+di-JOIN. Nama agent ada di `agents.name`, jadi di-JOIN lagi: baris ledger cuma
+punya id, dan layar tidak boleh mencetak ULID. `LEFT JOIN`, bukan `JOIN`: entri
+yang baris run-nya sudah hilang tetap belanja, dan membuangnya membuat ledger
+diam-diam tidak cocok dengan totalnya.
+
+**Total dari window function, bukan dari halaman.** `COUNT(*) OVER ()` dan
+`SUM(cost_micros) OVER ()` dihitung sebelum `LIMIT`, jadi empat kartu ringkasan
+menggambarkan **filter**, bukan baris yang kebetulan terlihat. Alternatifnya
+(hitung di query kedua) berarti scan ulang baris yang sama untuk angka yang
+sudah di tangan.
+
+**Frontend.** `LedgerExplorer.tsx` (lima baris/kolom: waktu, agent, model, token
+masuk/keluar, cache baca/tulis, biaya, versi harga), filter rentang tanggal +
+agent + model, empat kartu, dan tombol halaman. Route `/cost/ledger`, entri nav
+"Ledger biaya" di grup "Audit & Biaya", 24 key i18n ×2.
+
+**Dua bug nyata yang ketemu lewat tes, bukan lewat review:**
+
+1. **Kolom Agent mencetak ULID.** Saya seed `agents.name='agent-backend'` lalu
+   berharap nama itu muncul; yang di-JOIN pertama cuma `runs.agent_id`. Tanpa
+   tes, ini lolos — ULID adalah string yang valid dan tidak kosong, jadi tidak
+   ada yang gagal. Sekarang `agents.name` di-JOIN dan kolomnya menampilkan nama.
+2. **Total filter vs jumlah halaman tidak bisa dibedakan oleh tes saya.** Mutan
+   "total dari halaman" SURVIVED karena tesnya cuma punya 2 baris sementara
+   `PAGE_LIMIT` 25 — dua angka itu kebetulan sama. Ditutup dengan tes 30 baris
+   dan paging nyata (25 di halaman, 30 di filter), plus `limit` jadi parameter
+   query yang bisa diminta klien.
+
+**Koreksi asersi, bukan koreksi kode.** Saya kira biaya 58100 µUSD tampil
+`$0.0581` seperti mockup. `formatMicroUSD` memang punya dua tingkat presisi yang
+didokumentasikan dan diuji (`formatters.test.ts`, US-AD32 AC1): di bawah satu sen
+→ micro penuh (`$0.00284`), satu sen ke atas → dua desimal (`$0.06`). Mockup-nya
+data mock, bukan kontrak formatter. Asersinya saya betulkan, kodenya tidak saya
+ubah.
+
+**Batasan yang disebut, bukan didiemin:** opsi dropdown agent diambil dari baris
+yang sedang tampil, bukan dari katalog. Agent itu per-PROJECT
+(`GET /projects/{id}/agents`) sementara ledger per-WORKSPACE, jadi tidak ada satu
+panggilan yang bisa mendaftar semua agent yang mungkin ada di ledger; satu
+dropdown = satu request per project. Konsekuensinya: agent yang entri-nya cuma
+ada di halaman lama tidak bisa dipilih dari layar ini.
+
+Gate rc=0 · tsc rc=0 · vitest 90/90 · prettier bersih · `go test ./cmd/api/`
+ok 25.3s · `go test ./internal/board/` ok · `verify_suite.py` 0 FAIL ·
+full e2e 4 shard 0 failed. CHECKLIST 94 → **95 PASS**.
+
+**Full e2e: shard1 48 · shard2 47 · shard3 46 + 1 flaky · shard4 42 = 183 passed,
+0 failed.** Dua kali gagal dulu, dan keduanya bukan regresi — dibuktikan, bukan
+diasumsikan:
+
+- shard1 gagal 4 tes di layar agents/agent-detail; semuanya **lulus saat
+  dijalankan berulang**, dan satu tes yang bertahan sendirian **lulus dalam
+  isolasi**. Kegagalannya berpindah tes tiap run.
+- shard3 gagal `dependency-graph` AC1 dua kali (termasuk retry #1): `graph-edge`
+  = 0 padahal 3 edge ada di API. Garis digambar dari koordinat DOM di
+  `useLayoutEffect` + `ResizeObserver`, jadi kalau layout belum stabil (5 kolom ×
+  272px, 5 kartu, saat dev server sedang melayani 4 shard) `points` masih kosong
+  dan `drawable` = 0. Diulang sendirian: 3/3 hijau; diulang sebagai shard: hijau
+  dengan tes itu ditandai **flaky**.
+
+`run-full.sh` diperbarui: pemanasan transform graph eksplisit + `--retries=1`,
+mengikuti `retries: process.env.CI ? 1 : 0` yang sudah ada di
+`playwright.config.ts`. Retry bukan cara menyembunyikan regresi — regresi gagal
+dua kali, flake tidak, dan Playwright melaporkan keduanya berbeda ("flaky" vs
+"failed"). Suite yang tidak bisa dipercaya hijau bukan gate.

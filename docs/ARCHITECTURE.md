@@ -1669,7 +1669,7 @@ Transisi `outcome` di `runs` (hanya diisi saat `status='ended'`): `succeeded`, `
 
 ---
 
-### 6.2 Tabel Endpoint Lengkap (130 Endpoint)
+### 6.2 Tabel Endpoint Lengkap (131 Endpoint)
 
 > **Kolom `Status`** mencerminkan **kode**, bukan niat: ✅ = route terdaftar di
 > `cmd/api`, ⬜ = belum. Tanda ini diperiksa `tools/verify_suite.py` dua arah —
@@ -1875,7 +1875,7 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | `POST` | `/api/v1/approvals/{id}/reject` | Session/Key | Member | Ya | ✅ | Tolak proposal `{reason}` → task jadi `blocked` |
 | `POST` | `/api/v1/tasks/{id}/approvals` | Internal/Key | Worker | Ya | ✅ | Worker meminta approval gate baru |
 
-#### 6.2.15 Cost Ledger & Budget (8 Endpoint)
+#### 6.2.15 Cost Ledger & Budget (9 Endpoint)
 | METHOD | Path | Auth | Role Min | Idempotent | Status | Ringkasan Request/Response |
 |---|---|---|---|:---:|---|
 | `GET` | `/api/v1/boards/{id}/budget` | Session/Key | Viewer | Ya | ✅ | Pemakaian vs cap harian (N16, N18): `{board_id, day, budget_daily_micros, spent_micros, run_count, tokens_{in,out}, threshold_crossed}`. Membaca agregat `daily_board_costs` — **baris yang sama yang dibaca gate biaya dispatcher**, jadi layar dan guardrail tidak bisa beda angka. `threshold_crossed` dikirim server, tidak dihitung ulang klien dari 0.8 hardcoded |
@@ -1883,6 +1883,7 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | `GET` | `/api/v1/boards/{id}/ledger` | Session/Key | Viewer | Ya | ✅ | Laporan rincian pemakaian token & mikro-USD. Mengembalikan `spend_today_micros` + `budget_micros` + baris terbaru — angka yang dibandingkan gate biaya (US-AD32) dan yang ditampilkan layar datang dari respons yang sama |
 | `GET` | `/api/v1/runs/{id}/ledger` | Session/Key | Viewer | Ya | ✅ | Ledger entry terperinci per LLM call di suatu run. `price_version` wajib (>0): biaya tanpa versi tidak bisa diturunkan ulang setelah tabel harga berubah |
 | `GET` | `/api/v1/orgs/{id}/cost-summary` | Session/Key | Admin | Ya | ✅ | `{total_micros, window_days, by_model[], by_board[]}` 30 hari menggelinding. Satu statement dengan `GROUPING SETS` (total/model/board), jadi totalnya **jumlah dari bagian-bagiannya**, bukan angka yang dihitung terpisah. Org tanpa pemakaian → laporan kosong bertotal nol (`[]`, bukan `null`), bukan 404 (US-AD32 AC3). Biaya board yang sudah dihapus tetap terhitung dengan `board_id`/`name` kosong |
+| `GET` | `/api/v1/orgs/{id}/ledger` | Session/Key | Viewer | Ya | ✅ | `{entries[], total_rows, total_micros, total_tokens_in, total_tokens_out}`. Satu halaman ledger level workspace, terbaru dulu, filter `agent_id`/`model`/`from`/`to` + `offset`/`limit`. Kolom agent di-JOIN dari `runs.agent_id` dan namanya dari `agents.name` — `ledger_entries` tidak punya keduanya; `LEFT JOIN` supaya entri yang baris run-nya hilang tetap terhitung. Total dihitung `COUNT(*) OVER ()` / `SUM(...) OVER ()` sebelum `LIMIT`, jadi kartu ringkasan menggambarkan **filter**, bukan halaman (US-AD27 AC4) |
 | `GET` | `/api/v1/model-prices` | Session/Key | Viewer | Ya | ✅ | Harga manual per model milik ruang kerja (tingkat 1 §6A.C) |
 | `PUT` | `/api/v1/model-prices/{model}` | Session/Key | Admin | Ya | ✅ | Set/ubah harga manual satu model (micro-USD per 1M token) |
 | `DELETE` | `/api/v1/model-prices/{model}` | Session/Key | Admin | Ya | ✅ | Hapus harga manual; model kembali ke katalog/pattern |
@@ -1944,14 +1945,14 @@ untuk provider tanpa kredensial berarti lencana tanpa bukti. Kegagalan dari upst
 | 6.2.12 | Steps | 0 | 3 | 3 |
 | 6.2.13 | Events & Realtime SSE | 0 | 4 | 4 |
 | 6.2.14 | Approvals | 0 | 5 | 5 |
-| 6.2.15 | Cost Ledger & Budget | 3 | 5 | 8 |
+| 6.2.15 | Cost Ledger & Budget | 3 | 6 | 9 |
 | 6.2.16 | Artifacts | 0 | 5 | 5 |
 | 6.2.17 | Comments | 0 | 4 | 4 |
 | 6.2.18 | Webhooks & Deliveries | 0 | 7 | 7 |
 | 6.2.19 | Audit, Search & System | 0 | 6 | 6 |
-| | **Total** | **66** | **61** | **127** |
+| | **Total** | **66** | **62** | **128** |
 
-*Total endpoint terdefinisi: 130 endpoint.*
+*Total endpoint terdefinisi: 131 endpoint.*
 
 ## 7. Realtime (SSE)
 
@@ -2661,7 +2662,7 @@ Sistem pengujian AgentDeck dibangun untuk menjamin kebenaran state machine, keta
                      ┌───────────────────────┐
                      │   Load Tests (k6)     │  Target konkurensi dan volume (N4: 50 agen running, N5: 100.000 run/bulan, N6: 1.000.000 event/bulan)
                      ├───────────────────────┤
-                     │  API Contract Tests   │  130 Endpoint coverage
+                     │  API Contract Tests   │  131 Endpoint coverage
                      ├───────────────────────┤
                      │ Integration (Pg test) │  Testcontainers Postgres 16
                      ├───────────────────────┤

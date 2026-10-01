@@ -412,6 +412,21 @@ func (s *Service) BoardLedger(ctx context.Context, boardID, orgID string, limit 
 	return s.repo.ListBoardLedger(ctx, boardID, orgID, limit)
 }
 
+// OrgLedger is the workspace-wide ledger page for US-AD27 AC4.
+//
+// The limit is clamped here rather than at the route: an unbounded ledger read is
+// a full table scan dressed up as an API call, and the clamp belongs with the
+// other bound (`BoardLedger`) so the two cannot drift apart.
+func (s *Service) OrgLedger(ctx context.Context, orgID string, f LedgerFilter) (LedgerPage, error) {
+	if f.Limit <= 0 || f.Limit > 500 {
+		f.Limit = 100
+	}
+	if f.Offset < 0 {
+		f.Offset = 0
+	}
+	return s.repo.ListOrgLedger(ctx, orgID, f)
+}
+
 // BoardSpendToday is the number the US-AD32 cost gate reads. It is computed
 // from `ledger_entries` rather than from `runs`, so a run still in flight
 // contributes what it has actually spent.

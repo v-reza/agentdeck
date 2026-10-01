@@ -73,7 +73,7 @@ Maka urutannya:
 | 12 | **Skill library** `26b-agent-skills` | US-AD107 | Backend ada. |
 | 13 | **Security** `16-security` | US-AD90 | Ganti password + sesi aktif; endpoint ada. |
 | 14 | **Mobile board** `46-mobile-board` | US-AD60 | ✅ SELESAI — accordion + shell mobile (rail/sidebar/cost-rail lepas <768px, bottom nav). |
-| 15 | **Ledger explorer** `30-ledger-explorer` | US-AD27 | — |
+| 15 | **Ledger explorer** `30-ledger-explorer` | US-AD27 | ✅ SELESAI — endpoint `GET /orgs/{id}/ledger` baru + tabel AC4 + empty state AC5 + paging. |
 | 16 | **Rate limit** | US-AD85 | **Backend-only, benar-benar kosong** — nol rate limiter di repo. |
 | 17 | **Deteksi string keras di CI** | US-AD50 | **Backend-only, benar-benar kosong** — nol workflow CI. |
 

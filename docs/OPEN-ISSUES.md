@@ -645,3 +645,28 @@ di placeholder, timeout 30s. Bukti: `column-editor.spec.ts` 7/7 solo, dan shard3
 - **`useMediaQuery` membaca `matchMedia`, bukan resize.** Resize fire tiap piksel
   saat window desktop di-drag; `change` cuma saat hasil query berubah. Kalau ada
   yang menggantinya dengan resize listener, board akan re-render terus-menerus.
+
+
+## US-AD27: ledger explorer — yang tidak bisa diklaim
+
+- **AC1–AC3 tidak diklaim di sini.** Fase ini mengerjakan AC4 (tabel) dan AC5
+  (empty state). AC1 (tulis record per step), AC2 (micro-USD integer, tanpa
+  float), dan AC3 (tolak token negatif) adalah jalur backend yang sudah ada
+  sejak F9: `CreateLedgerEntry` + constraint `ledger_entries_cost_chk`
+  (`cost_micros >= 0`) dan `ledger_entries_tokens_chk` (semua token `>= 0`) di
+  `internal/migrate/0008.up.sql`. Constraint-nya yang menegakkan AC2/AC3, bukan
+  kode aplikasi.
+- **Dropdown agent mengambil opsi dari baris yang tampil, bukan katalog.** Agent
+  itu per-project, ledger per-workspace. Konsekuensi nyata: agent yang entri-nya
+  cuma ada di halaman lama tidak bisa dipilih dari layar ini.
+- **Tidak ada ekspor CSV**, padahal mockup `30-ledger-explorer` menampilkan
+  tombol "Ekspor CSV". Tidak dibangun: tidak ada endpoint ekspor, dan membuat
+  CSV di klien dari satu halaman 25 baris akan mengekspor halaman, bukan ledger —
+  menyesatkan.
+- **Mockup menampilkan angka `$0.0581` per baris; produk menampilkan `$0.06`.**
+  Bukan bug: `formatMicroUSD` sengaja dua tingkat (sub-sen → micro penuh, satu
+  sen ke atas → dua desimal), didokumentasikan dan diuji di
+  `frontend/src/lib/formatters.test.ts` (US-AD32 AC1). Mockup-nya data mock.
+- **`GET /orgs/{id}/ledger` adalah endpoint baru** (Viewer). Sebelum fase ini
+  ledger hanya bisa dibaca per-board (`GET /boards/{id}/ledger`, limit 100
+  hardcoded, nol filter), jadi tidak ada jalur untuk membaca ledger workspace.

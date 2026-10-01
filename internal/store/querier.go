@@ -451,6 +451,18 @@ type Querier interface {
 	// bukan ke seluruh anggota. Seorang viewer tidak bisa berbuat apa-apa dengan
 	// kabar itu, dan mengirimnya ke semua orang membuat badge jadi kebisingan.
 	ListOrgAdminsAndOwners(ctx context.Context, orgID string) ([]string, error)
+	// US-AD27 AC4. One workspace-wide page of the cost ledger, newest first.
+	//
+	// `agent_id` is not on `ledger_entries`; it is on `runs`, and the join is why
+	// this screen can show the Agent column at all. LEFT JOIN, not JOIN: an entry
+	// whose run row is gone (retention, a manual insert) is still spend, and dropping
+	// it would make the ledger silently disagree with the totals.
+	//
+	// `total_rows` and `total_cost_micros` are window aggregates over the WHOLE
+	// filtered set, computed before LIMIT. The four summary cards therefore describe
+	// the filter, not the page — the alternative (counting in a second query) is a
+	// second scan of the same rows for a number already in hand.
+	ListOrgLedger(ctx context.Context, arg ListOrgLedgerParams) ([]ListOrgLedgerRow, error)
 	// The org roster a user belongs to, with their role in each. Scoping is
 	// by membership, not by the caller's guess of an org id, so this cannot
 	// leak a tenant the user is not part of (tenant isolation, ARCHITECTURE 17).

@@ -1396,6 +1396,39 @@ WHERE t.board_id = $1 AND l.org_id = $2
 ORDER BY l.created_at DESC, l.id DESC
 LIMIT $3;
 
+-- name: ListOrgLedger :many
+-- US-AD27 AC4. One workspace-wide page of the cost ledger, newest first.
+--
+-- `agent_id` is not on `ledger_entries`; it is on `runs`, and the join is why
+-- this screen can show the Agent column at all. LEFT JOIN, not JOIN: an entry
+-- whose run row is gone (retention, a manual insert) is still spend, and dropping
+-- it would make the ledger silently disagree with the totals.
+--
+-- `total_rows` and `total_cost_micros` are window aggregates over the WHOLE
+-- filtered set, computed before LIMIT. The four summary cards therefore describe
+-- the filter, not the page — the alternative (counting in a second query) is a
+-- second scan of the same rows for a number already in hand.
+SELECT l.id, l.org_id, l.run_id, l.task_id, l.provider, l.model, l.kind,
+       l.tokens_in, l.tokens_out, l.cache_read_tokens, l.cache_write_tokens,
+       l.reasoning_tokens, l.cost_micros, l.price_version, l.price_source,
+       l.pricing_model, l.created_at,
+       COALESCE(r.agent_id, '')::text AS agent_id,
+       COALESCE(a.name, '')::text     AS agent_name,
+       COUNT(*) OVER ()::bigint      AS total_rows,
+       COALESCE(SUM(l.cost_micros) OVER (), 0)::bigint AS total_cost_micros,
+       COALESCE(SUM(l.tokens_in)  OVER (), 0)::bigint AS total_tokens_in,
+       COALESCE(SUM(l.tokens_out) OVER (), 0)::bigint AS total_tokens_out
+FROM ledger_entries l
+LEFT JOIN runs r ON r.id = l.run_id
+LEFT JOIN agents a ON a.id = r.agent_id
+WHERE l.org_id = $1
+  AND (sqlc.narg('agent_id')::text IS NULL OR r.agent_id = sqlc.narg('agent_id'))
+  AND (sqlc.narg('model')::text IS NULL OR l.model = sqlc.narg('model'))
+  AND (sqlc.narg('from_ts')::timestamptz IS NULL OR l.created_at >= sqlc.narg('from_ts'))
+  AND (sqlc.narg('to_ts')::timestamptz IS NULL OR l.created_at <= sqlc.narg('to_ts'))
+ORDER BY l.created_at DESC, l.id DESC
+LIMIT sqlc.arg('page_limit') OFFSET sqlc.arg('page_offset');
+
 -- name: BoardSpendToday :one
 -- US-AD32 cost gate reads this: spend for one board since local midnight.
 SELECT COALESCE(SUM(l.cost_micros), 0)::BIGINT AS spend_micros

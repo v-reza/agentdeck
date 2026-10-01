@@ -1,5 +1,5 @@
 import { baseApi } from './base'
-import type { LedgerEntry, BoardLedger, BoardBudget, CostSummary } from '@/lib/domain'
+import type { LedgerEntry, LedgerPage, BoardLedger, BoardBudget, CostSummary } from '@/lib/domain'
 
 /**
  * Finops server state (ARCHITECTURE 18.2: `store/api/finops.ts`, tags Ledger,
@@ -47,6 +47,32 @@ export const finopsApi = baseApi.injectEndpoints({
       providesTags: (_r, _e, runID) => [{ type: 'Ledger', id: `RUN-${runID}` }],
     }),
 
+    /**
+     * US-AD27 AC4 — the workspace ledger.
+     *
+     * The filter is part of the cache key because the server filters: two different
+     * ranges are two different answers, and keying only on the org would make the
+     * second range read the first one's cache. Every field is optional, so the
+     * argument is an object rather than a bare org id.
+     */
+    orgLedger: build.query<
+      LedgerPage,
+      { orgID: string; agentID?: string; model?: string; from?: string; to?: string; offset?: number; limit?: number }
+    >({
+      query: ({ orgID, agentID, model, from, to, offset, limit }) => {
+        const params = new URLSearchParams()
+        if (agentID) params.set('agent_id', agentID)
+        if (model) params.set('model', model)
+        if (from) params.set('from', from)
+        if (to) params.set('to', to)
+        if (offset) params.set('offset', String(offset))
+        if (limit) params.set('limit', String(limit))
+        const suffix = params.toString()
+        return `orgs/${orgID}/ledger${suffix ? `?${suffix}` : ''}`
+      },
+      providesTags: (_r, _e, { orgID }) => [{ type: 'Ledger', id: `ORG-${orgID}` }],
+    }),
+
     orgCostSummary: build.query<CostSummary, string>({
       query: (orgID) => `orgs/${orgID}/cost-summary`,
       providesTags: [{ type: 'CostSummary', id: 'SUMMARY' }],
@@ -59,5 +85,6 @@ export const {
   useUpdateBoardBudgetMutation,
   useBoardLedgerQuery,
   useRunLedgerQuery,
+  useOrgLedgerQuery,
   useOrgCostSummaryQuery,
 } = finopsApi

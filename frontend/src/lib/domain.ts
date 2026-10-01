@@ -317,6 +317,10 @@ export interface Approval {
  */
 export interface LedgerEntry {
   id: number
+  /** The agent that ran this entry's run, joined from `runs` (US-AD27 AC4). */
+  agent_id: string
+  /** That agent's display name, joined from `agents`; the screen shows this. */
+  agent_name: string
   org_id: string
   run_id: string
   task_id: string
@@ -346,6 +350,23 @@ export interface LedgerEntry {
  * and the figure the US-AD32 cost gate reads cannot disagree. A client that
  * wants just the rows reads `.entries`.
  */
+/**
+ * One page of the workspace ledger, plus the totals of the WHOLE filtered set.
+ *
+ * `total_rows`/`total_micros` are not `entries.length`/sum-of-entries: the page is
+ * capped at 100 rows while the cards describe the filter. Reading the cards off
+ * the visible rows would understate spend on any workspace with more than a page
+ * of history.
+ */
+export interface LedgerPage {
+  entries: LedgerEntry[]
+  total_rows: number
+  total_micros: number
+  /** Token totals across the whole filtered set, not the visible page. */
+  total_tokens_in: number
+  total_tokens_out: number
+}
+
 export interface BoardLedger {
   spend_today_micros: number
   budget_micros: number

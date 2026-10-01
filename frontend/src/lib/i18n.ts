@@ -199,6 +199,35 @@ export interface Dictionary {
   'sidebar.nav': string
   'sidebar.accountGroup': string
   'sidebar.integrationsGroup': string
+  'sidebar.auditGroup': string
+  'ledger.title': string
+  'ledger.from': string
+  'ledger.to': string
+  'ledger.agent': string
+  'ledger.model': string
+  'ledger.allAgents': string
+  'ledger.allModels': string
+  'ledger.refresh': string
+  'ledger.totalEntries': string
+  'ledger.tokensIn': string
+  'ledger.tokensOut': string
+  'ledger.totalCost': string
+  'ledger.table': string
+  'ledger.loading': string
+  'ledger.showing': string
+  'ledger.estimateNote': string
+  'ledger.colTime': string
+  'ledger.colAgent': string
+  'ledger.colModel': string
+  'ledger.colTokensIn': string
+  'ledger.colTokensOut': string
+  'ledger.colCache': string
+  'ledger.colCost': string
+  'ledger.colPriceVersion': string
+  'ledger.emptyFiltered': string
+  'ledger.emptyFilteredHint': string
+  'ledger.emptyAll': string
+  'ledger.emptyAllHint': string
   // API keys and webhooks tabs. Both screens are placeholders until their
   // endpoints land, but the sidebar names them, so the copy must exist.
   'apiKeys.title': string
@@ -924,6 +953,35 @@ const en: Dictionary = {
   'sidebar.nav': 'Navigation',
   'sidebar.accountGroup': 'Account & team',
   'sidebar.integrationsGroup': 'Integrations & credentials',
+  'sidebar.auditGroup': 'Audit & cost',
+  'ledger.title': 'Cost ledger',
+  'ledger.from': 'From',
+  'ledger.to': 'To',
+  'ledger.agent': 'Agent',
+  'ledger.model': 'Model',
+  'ledger.allAgents': 'All agents',
+  'ledger.allModels': 'All models',
+  'ledger.refresh': 'Refresh',
+  'ledger.totalEntries': 'Entries',
+  'ledger.tokensIn': 'Tokens in',
+  'ledger.tokensOut': 'Tokens out',
+  'ledger.totalCost': 'Total cost',
+  'ledger.table': 'Ledger entries',
+  'ledger.loading': 'Loading…',
+  'ledger.showing': 'Showing {shown} of {total}',
+  'ledger.estimateNote': 'Amounts are estimates from the internal price table.',
+  'ledger.colTime': 'Time',
+  'ledger.colAgent': 'Agent',
+  'ledger.colModel': 'Model',
+  'ledger.colTokensIn': 'In',
+  'ledger.colTokensOut': 'Out',
+  'ledger.colCache': 'Cache r/w',
+  'ledger.colCost': 'Cost',
+  'ledger.colPriceVersion': 'Price ver.',
+  'ledger.emptyFiltered': 'No entries in this range',
+  'ledger.emptyFilteredHint': 'Widen the dates, or clear the agent and model filters.',
+  'ledger.emptyAll': 'No ledger entries yet',
+  'ledger.emptyAllHint': 'Entries appear here once a run has made a priced model call.',
   'apiKeys.title': 'API keys',
   'dashboard.title': 'Dashboard',
   'dashboard.projects': 'Projects',
@@ -1660,6 +1718,35 @@ const id: Dictionary = {
   'sidebar.nav': 'Navigasi Utama',
   'sidebar.accountGroup': 'Pengaturan Akun & Tim',
   'sidebar.integrationsGroup': 'Integrasi & Kredensial',
+  'sidebar.auditGroup': 'Audit & Biaya',
+  'ledger.title': 'Ledger biaya',
+  'ledger.from': 'Dari',
+  'ledger.to': 'Sampai',
+  'ledger.agent': 'Agent',
+  'ledger.model': 'Model',
+  'ledger.allAgents': 'Semua agent',
+  'ledger.allModels': 'Semua model',
+  'ledger.refresh': 'Muat ulang',
+  'ledger.totalEntries': 'Entri',
+  'ledger.tokensIn': 'Token masuk',
+  'ledger.tokensOut': 'Token keluar',
+  'ledger.totalCost': 'Total biaya',
+  'ledger.table': 'Baris ledger',
+  'ledger.loading': 'Memuat…',
+  'ledger.showing': 'Menampilkan {shown} dari {total}',
+  'ledger.estimateNote': 'Angka adalah estimasi dari tabel harga internal.',
+  'ledger.colTime': 'Waktu',
+  'ledger.colAgent': 'Agent',
+  'ledger.colModel': 'Model',
+  'ledger.colTokensIn': 'Masuk',
+  'ledger.colTokensOut': 'Keluar',
+  'ledger.colCache': 'Cache baca/tulis',
+  'ledger.colCost': 'Biaya',
+  'ledger.colPriceVersion': 'Versi harga',
+  'ledger.emptyFiltered': 'Tidak ada entri di rentang ini',
+  'ledger.emptyFilteredHint': 'Lebarkan rentang tanggalnya, atau kosongkan filter agent dan model.',
+  'ledger.emptyAll': 'Belum ada entri ledger',
+  'ledger.emptyAllHint': 'Entri muncul setelah ada run yang memanggil model berbayar.',
   'apiKeys.title': 'API Keys',
   'dashboard.title': 'Dashboard',
   'dashboard.projects': 'Proyek',

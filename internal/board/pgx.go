@@ -43,6 +43,16 @@ func nullString(s string) *string {
 	return &s
 }
 
+// nullTime maps the zero time to SQL NULL, which is what makes an absent filter
+// mean "no bound" rather than "since year 1". `pgtype.Timestamptz{}` is exactly
+// that NULL, and Valid=false is how the driver is told to send it.
+func nullTime(t time.Time) pgtype.Timestamptz {
+	if t.IsZero() {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: t, Valid: true}
+}
+
 func str(p *string) string {
 	if p == nil {
 		return ""
@@ -1571,6 +1581,46 @@ func (r *pgxRepository) ListBoardLedger(ctx context.Context, boardID, orgID stri
 	out := make([]LedgerEntry, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, ledgerRow(row))
+	}
+	return out, nil
+}
+
+// ListOrgLedger is the workspace-wide ledger page (US-AD27 AC4). The totals ride
+// along on every row from a window aggregate, so a page with no rows carries no
+// totals — which is correct: an empty page means an empty filter, and 0 is the
+// true total.
+func (r *pgxRepository) ListOrgLedger(ctx context.Context, orgID string, f LedgerFilter) (LedgerPage, error) {
+	rows, err := r.q.ListOrgLedger(ctx, store.ListOrgLedgerParams{
+		OrgID:      orgID,
+		AgentID:    nullString(f.AgentID),
+		Model:      nullString(f.Model),
+		FromTs:     nullTime(f.From),
+		ToTs:       nullTime(f.To),
+		PageOffset: int32(f.Offset),
+		PageLimit:  int32(f.Limit),
+	})
+	if err != nil {
+		return LedgerPage{}, err
+	}
+	out := LedgerPage{Entries: make([]LedgerEntry, 0, len(rows))}
+	for _, row := range rows {
+		e := ledgerRow(store.LedgerEntry{
+			ID: row.ID, OrgID: row.OrgID, RunID: row.RunID, TaskID: row.TaskID,
+			Provider: row.Provider, Model: row.Model, Kind: row.Kind,
+			TokensIn: row.TokensIn, TokensOut: row.TokensOut,
+			CacheReadTokens: row.CacheReadTokens, CacheWriteTokens: row.CacheWriteTokens,
+			ReasoningTokens: row.ReasoningTokens, CostMicros: row.CostMicros,
+			PriceVersion: row.PriceVersion, PriceSource: row.PriceSource,
+			PricingModel: row.PricingModel, CreatedAt: row.CreatedAt,
+		})
+		e.AgentID = row.AgentID
+		e.AgentName = row.AgentName
+		out.Entries = append(out.Entries, e)
+		// Identical on every row by construction; last one wins and that is fine.
+		out.TotalRows = row.TotalRows
+		out.TotalMicros = row.TotalCostMicros
+		out.TotalTokensIn = row.TotalTokensIn
+		out.TotalTokensOut = row.TotalTokensOut
 	}
 	return out, nil
 }

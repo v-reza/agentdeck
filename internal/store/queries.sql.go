@@ -4472,6 +4472,128 @@ func (q *Queries) ListOrgAdminsAndOwners(ctx context.Context, orgID string) ([]s
 	return items, nil
 }
 
+const listOrgLedger = `-- name: ListOrgLedger :many
+SELECT l.id, l.org_id, l.run_id, l.task_id, l.provider, l.model, l.kind,
+       l.tokens_in, l.tokens_out, l.cache_read_tokens, l.cache_write_tokens,
+       l.reasoning_tokens, l.cost_micros, l.price_version, l.price_source,
+       l.pricing_model, l.created_at,
+       COALESCE(r.agent_id, '')::text AS agent_id,
+       COALESCE(a.name, '')::text     AS agent_name,
+       COUNT(*) OVER ()::bigint      AS total_rows,
+       COALESCE(SUM(l.cost_micros) OVER (), 0)::bigint AS total_cost_micros,
+       COALESCE(SUM(l.tokens_in)  OVER (), 0)::bigint AS total_tokens_in,
+       COALESCE(SUM(l.tokens_out) OVER (), 0)::bigint AS total_tokens_out
+FROM ledger_entries l
+LEFT JOIN runs r ON r.id = l.run_id
+LEFT JOIN agents a ON a.id = r.agent_id
+WHERE l.org_id = $1
+  AND ($2::text IS NULL OR r.agent_id = $2)
+  AND ($3::text IS NULL OR l.model = $3)
+  AND ($4::timestamptz IS NULL OR l.created_at >= $4)
+  AND ($5::timestamptz IS NULL OR l.created_at <= $5)
+ORDER BY l.created_at DESC, l.id DESC
+LIMIT $7 OFFSET $6
+`
+
+type ListOrgLedgerParams struct {
+	OrgID      string
+	AgentID    *string
+	Model      *string
+	FromTs     pgtype.Timestamptz
+	ToTs       pgtype.Timestamptz
+	PageOffset int32
+	PageLimit  int32
+}
+
+type ListOrgLedgerRow struct {
+	ID               int64
+	OrgID            string
+	RunID            string
+	TaskID           string
+	Provider         string
+	Model            string
+	Kind             string
+	TokensIn         int64
+	TokensOut        int64
+	CacheReadTokens  int64
+	CacheWriteTokens int64
+	ReasoningTokens  int64
+	CostMicros       int64
+	PriceVersion     int32
+	PriceSource      string
+	PricingModel     string
+	CreatedAt        pgtype.Timestamptz
+	AgentID          string
+	AgentName        string
+	TotalRows        int64
+	TotalCostMicros  int64
+	TotalTokensIn    int64
+	TotalTokensOut   int64
+}
+
+// US-AD27 AC4. One workspace-wide page of the cost ledger, newest first.
+//
+// `agent_id` is not on `ledger_entries`; it is on `runs`, and the join is why
+// this screen can show the Agent column at all. LEFT JOIN, not JOIN: an entry
+// whose run row is gone (retention, a manual insert) is still spend, and dropping
+// it would make the ledger silently disagree with the totals.
+//
+// `total_rows` and `total_cost_micros` are window aggregates over the WHOLE
+// filtered set, computed before LIMIT. The four summary cards therefore describe
+// the filter, not the page — the alternative (counting in a second query) is a
+// second scan of the same rows for a number already in hand.
+func (q *Queries) ListOrgLedger(ctx context.Context, arg ListOrgLedgerParams) ([]ListOrgLedgerRow, error) {
+	rows, err := q.db.Query(ctx, listOrgLedger,
+		arg.OrgID,
+		arg.AgentID,
+		arg.Model,
+		arg.FromTs,
+		arg.ToTs,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOrgLedgerRow
+	for rows.Next() {
+		var i ListOrgLedgerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrgID,
+			&i.RunID,
+			&i.TaskID,
+			&i.Provider,
+			&i.Model,
+			&i.Kind,
+			&i.TokensIn,
+			&i.TokensOut,
+			&i.CacheReadTokens,
+			&i.CacheWriteTokens,
+			&i.ReasoningTokens,
+			&i.CostMicros,
+			&i.PriceVersion,
+			&i.PriceSource,
+			&i.PricingModel,
+			&i.CreatedAt,
+			&i.AgentID,
+			&i.AgentName,
+			&i.TotalRows,
+			&i.TotalCostMicros,
+			&i.TotalTokensIn,
+			&i.TotalTokensOut,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOrgsForUser = `-- name: ListOrgsForUser :many
 SELECT m.org_id, o.slug, o.name, k.kind, m.role
 FROM memberships m

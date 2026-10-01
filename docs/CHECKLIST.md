@@ -55,7 +55,7 @@
 | `US-AD18` | Must | M2 | Dependency DAG antar task | *backend-only* | ✅ PASS |
 | `US-AD19` | Should | M2 | Visualisasi dependency di board | `18-kanban`, `24-dependency-view` | ✅ PASS |
 | `US-AD25` | Must | M2 | Menulis step (trace) dalam run | *backend-only* | ✅ PASS |
-| `US-AD27` | Must | M2 | Cost ledger: mencatat pemakaian token per step | `30-ledger-explorer` | ⬜ |
+| `US-AD27` | Must | M2 | Cost ledger: mencatat pemakaian token per step | `30-ledger-explorer` | ✅ PASS |
 | `US-AD28` | Must | M2 | Agregasi biaya harian per board | `29-cost-overview` | ✅ PASS |
 | `US-AD29` | Must | M2 | Budget guardrail: hard stop per run ($2) | `29-cost-overview` | ✅ PASS |
 | `US-AD30` | Must | M2 | Budget harian board ($20) | `29-cost-overview` | ✅ PASS |
@@ -96,7 +96,7 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ✅ PASS |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ✅ PASS |
 
-**Total M0–M4: 89 story** (82 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (83 PASS, 1 ditunda)
 
 ## Progres per milestone
 
@@ -104,7 +104,7 @@
 |---|---|---|---|
 | M0 | 10 | 9 | 1 |
 | M1 | 32 | 30 | 2 |
-| M2 | 21 | 19 | 2 |
+| M2 | 21 | 20 | 1 |
 | M3 | 16 | 15 | 1 |
 | M4 | 10 | 9 | 1 |
 

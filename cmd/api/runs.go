@@ -102,6 +102,12 @@ func registerRunRoutes(mux *http.ServeMux, api authAPI, svc *board.Service, bAPI
 	// orgHeaderContextMiddleware karena {id}-nya board.
 	mux.Handle("GET /api/v1/orgs/{id}/cost-summary",
 		api.orgContextMiddleware(api.requireRole(http.HandlerFunc(boardAPI.getCostSummary), auth.Admin)))
+
+	// US-AD27 AC4 — the cost ledger, workspace-wide. Admin, like cost-summary
+	// right above: this is every priced call the workspace has made, across all
+	// boards, so it is the same disclosure that already requires Admin.
+	mux.Handle("GET /api/v1/orgs/{id}/ledger",
+		api.orgContextMiddleware(api.requireRole(http.HandlerFunc(boardAPI.listOrgLedger), auth.Admin)))
 }
 
 // writeJSONResponse is the encoder every run route uses. It exists because
@@ -223,7 +229,11 @@ func toStepResponse(s board.Step) stepResponse {
 }
 
 type ledgerEntryResponse struct {
-	ID               int64  `json:"id"`
+	ID int64 `json:"id"`
+	// AgentID is the agent that ran this entry's run. Not on ledger_entries —
+	// joined from runs (US-AD27 AC4's Agent column).
+	AgentID          string `json:"agent_id"`
+	AgentName        string `json:"agent_name"`
 	RunID            string `json:"run_id"`
 	TaskID           string `json:"task_id"`
 	Provider         string `json:"provider"`
@@ -244,6 +254,8 @@ type ledgerEntryResponse struct {
 func toLedgerResponse(e board.LedgerEntry) ledgerEntryResponse {
 	return ledgerEntryResponse{
 		ID:               e.ID,
+		AgentID:          e.AgentID,
+		AgentName:        e.AgentName,
 		RunID:            e.RunID,
 		TaskID:           e.TaskID,
 		Provider:         e.Provider,
@@ -633,6 +645,85 @@ type costByBoardResponse struct {
 	TokensIn   int64  `json:"tokens_in"`
 	TokensOut  int64  `json:"tokens_out"`
 	Runs       int    `json:"runs"`
+}
+
+// GET /api/v1/orgs/{id}/ledger — the workspace cost ledger, newest first.
+//
+// Filters are optional and compose: agent, model, and a date range. An empty
+// filter is a legitimate request (the screen opens with no filter and shows the
+// latest page), so no parameter is required.
+//
+// Dates arrive as `YYYY-MM-DD` because that is what a date input produces, and
+// the range is HALF-OPEN on the upper bound (`< to + 1 day`): a user picking
+// "1 Sep to 1 Sep" means that day, not the instant midnight. Sending the raw date
+// as an inclusive `<=` would silently drop everything after 00:00:00 on the end
+// day, which looks like missing data rather than a filter.
+func (a boardAPI) listOrgLedger(w http.ResponseWriter, r *http.Request) {
+	orgID := r.PathValue("id")
+	query := r.URL.Query()
+
+	filter := board.LedgerFilter{
+		AgentID: query.Get("agent_id"),
+		Model:   query.Get("model"),
+	}
+	from, err := parseDay(query.Get("from"))
+	if err != nil {
+		http.Error(w, "from must be YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+	to, err := parseDay(query.Get("to"))
+	if err != nil {
+		http.Error(w, "to must be YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+	filter.From = from
+	if !to.IsZero() {
+		filter.To = to.AddDate(0, 0, 1).Add(-time.Nanosecond)
+	}
+	if offset, err := strconv.Atoi(query.Get("offset")); err == nil {
+		filter.Offset = offset
+	}
+	if limit, err := strconv.Atoi(query.Get("limit")); err == nil {
+		filter.Limit = limit
+	}
+
+	page, err := a.svc.OrgLedger(r.Context(), orgID, filter)
+	if err != nil {
+		writeBoardError(w, err)
+		return
+	}
+	out := orgLedgerResponse{
+		Entries:        make([]ledgerEntryResponse, 0, len(page.Entries)),
+		TotalRows:      page.TotalRows,
+		TotalMicros:    page.TotalMicros,
+		TotalTokensIn:  page.TotalTokensIn,
+		TotalTokensOut: page.TotalTokensOut,
+	}
+	for _, e := range page.Entries {
+		out.Entries = append(out.Entries, toLedgerResponse(e))
+	}
+	writeJSONResponse(w, http.StatusOK, out)
+}
+
+// parseDay reads a `YYYY-MM-DD` date. Absent is not an error — it means the bound
+// is not set. Malformed IS an error: silently ignoring it would answer a filtered
+// question with unfiltered data, which reads as a bug in the ledger.
+func parseDay(value string) (time.Time, error) {
+	if value == "" {
+		return time.Time{}, nil
+	}
+	return time.Parse("2006-01-02", value)
+}
+
+type orgLedgerResponse struct {
+	Entries []ledgerEntryResponse `json:"entries"`
+	// Totals of the whole filtered set, not of `entries` — the page is capped at
+	// 100 rows and the summary cards must still be true.
+	TotalRows   int64 `json:"total_rows"`
+	TotalMicros int64 `json:"total_micros"`
+	// Token totals over the same filtered set, for the same reason.
+	TotalTokensIn  int64 `json:"total_tokens_in"`
+	TotalTokensOut int64 `json:"total_tokens_out"`
 }
 
 // GET /api/v1/orgs/{id}/cost-summary — 30-day totals by model and board.

@@ -513,6 +513,41 @@ type LedgerEntry struct {
 	PriceSource      string
 	PricingModel     string
 	CreatedAt        time.Time
+	// AgentID is the agent that ran the entry's run (US-AD27 AC4's Agent column).
+	// It lives on `runs`, not on `ledger_entries`; empty when the run row is gone,
+	// which is why it is a string and not a pointer the UI has to null-check.
+	AgentID string
+	// AgentName is that agent's display name, joined from `agents`. The ledger
+	// row carries an id, not a name, and an operator reads names — the column
+	// exists so the screen never has to print a ULID.
+	AgentName string
+}
+
+// LedgerFilter is the workspace-wide ledger query (US-AD27 AC4). Every field is
+// optional: a zero Filter is "everything, newest first, first page".
+type LedgerFilter struct {
+	AgentID string
+	Model   string
+	From    time.Time
+	To      time.Time
+	Offset  int
+	Limit   int
+}
+
+// LedgerPage is one page plus the totals of the WHOLE filtered set, so the summary
+// cards can describe the filter rather than the visible rows. Both totals come
+// from window aggregates in the same query — see `ListOrgLedger` in queries.sql.
+type LedgerPage struct {
+	Entries     []LedgerEntry
+	TotalRows   int64
+	TotalMicros int64
+	// Token totals across the WHOLE filtered set, from the same window
+	// aggregates as TotalMicros. Summing the visible page instead would make the
+	// four cards describe the page on a busy workspace and the filter on a quiet
+	// one — the worst kind of wrong, because it looks right in every test with
+	// fewer rows than a page.
+	TotalTokensIn  int64
+	TotalTokensOut int64
 }
 
 // LedgerUsage is the usage a worker reports for one call. The executor resolves
@@ -733,6 +768,7 @@ type Repository interface {
 	CreateLedgerEntry(ctx context.Context, e LedgerEntry) (LedgerEntry, error)
 	ListRunLedger(ctx context.Context, runID, orgID string) ([]LedgerEntry, error)
 	ListBoardLedger(ctx context.Context, boardID, orgID string, limit int) ([]LedgerEntry, error)
+	ListOrgLedger(ctx context.Context, orgID string, filter LedgerFilter) (LedgerPage, error)
 	BoardSpendToday(ctx context.Context, boardID, orgID string) (int64, error)
 	// OrgCostSummary is the 30-day report (US-AD32 reporting).
 	OrgCostSummary(ctx context.Context, orgID string) (CostSummary, error)

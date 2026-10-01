@@ -66,6 +66,9 @@ const Notifications = lazy(() =>
 const CostOverview = lazy(() =>
   import('@/routes/dashboard/finops/CostOverview').then((m) => ({ default: m.CostOverview })),
 )
+const LedgerExplorer = lazy(() =>
+  import('@/routes/dashboard/finops/LedgerExplorer').then((m) => ({ default: m.LedgerExplorer })),
+)
 const Members = lazy(() => import('@/routes/dashboard/settings/Members').then((m) => ({ default: m.Members })))
 const Profile = lazy(() => import('@/routes/dashboard/settings/Profile').then((m) => ({ default: m.Profile })))
 const WorkspaceSettings = lazy(() =>
@@ -104,6 +107,7 @@ function dashboardRoutes() {
       <Route path="approvals/:approvalID" element={<ApprovalDetail />} />
       <Route path="runs/:runID" element={<RunDetail />} />
       <Route path="cost" element={<CostOverview />} />
+      <Route path="cost/ledger" element={<LedgerExplorer />} />
       <Route path="settings" element={<Navigate to="workspace" replace />} />
       <Route path="settings/workspace" element={<WorkspaceSettings />} />
       {/* US-AD89: reachable from the rail's account menu, viewer-and-above. */}
