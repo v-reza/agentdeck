@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -22,6 +23,7 @@ import (
 	"agentdeck/internal/modelprice"
 	"agentdeck/internal/notify"
 	"agentdeck/internal/providerreg"
+	"agentdeck/internal/ratelimit"
 	"agentdeck/internal/skill"
 	"agentdeck/internal/sse"
 	"agentdeck/internal/webhook"
@@ -232,6 +234,22 @@ func sessionMeta(r *http.Request) auth.SessionMeta {
 
 // sessionToken reads the opaque token from the cookie or the
 // Authorization: Bearer <token> header (ARCHITECTURE 11.1).
+// envInt reads a positive integer setting, falling back to `def` when the
+// variable is unset, unparseable, or not positive. A typo must not silently
+// disable a guard: an unreadable value means "use the contract's number", never
+// "no limit".
+func envInt(name string, def int) int {
+	raw := os.Getenv(name)
+	if raw == "" {
+		return def
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return def
+	}
+	return n
+}
+
 func sessionToken(r *http.Request) string {
 	if header := r.Header.Get("Authorization"); strings.HasPrefix(header, "Bearer ") {
 		return strings.TrimPrefix(header, "Bearer ")
@@ -537,7 +555,26 @@ func main() {
 		logger.Info("dispatcher disabled; set AGENTDECK_DISPATCH=1 to execute runs")
 	}
 
-	server := &http.Server{Addr: cfg.Addr, Handler: metricsReg.Middleware(mux)}
+	// US-AD85: the limiter is the OUTERMOST layer, so a refused request costs one
+	// map lookup and never reaches a handler, a database call, or the metrics
+	// middleware's own bookkeeping.
+	//
+	// Its position also decides what a 429 means. Inside `metricsReg` the rejection
+	// would be counted as a served request; outside, a throttled caller cannot make
+	// the dashboard look busy.
+	// The budgets are configurable because a single-address deployment (an
+	// office, a CI rig, this repo's own e2e suite) shares one IP across many
+	// users, and the alternative to a knob is an operator switching the limiter
+	// off entirely. Defaults are the contract's numbers (ARCHITECTURE §6.1,
+	// US-AD85 AC1) — the knob exists so nobody has to disable the guard to work.
+	limiter := ratelimit.New(nil, ratelimit.Budget{
+		Burst:     envInt("AGENTDECK_RATELIMIT_PUBLIC_BURST", ratelimit.PublicBudget.Burst),
+		PerMinute: envInt("AGENTDECK_RATELIMIT_PUBLIC_PER_MIN", ratelimit.PublicBudget.PerMinute),
+	}, ratelimit.Budget{
+		Burst:     envInt("AGENTDECK_RATELIMIT_AUTH_BURST", ratelimit.AuthBudget.Burst),
+		PerMinute: envInt("AGENTDECK_RATELIMIT_AUTH_PER_MIN", ratelimit.AuthBudget.PerMinute),
+	})
+	server := &http.Server{Addr: cfg.Addr, Handler: limiter.Middleware(metricsReg.Middleware(mux))}
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Shutdown)

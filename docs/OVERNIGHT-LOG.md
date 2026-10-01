@@ -2261,3 +2261,57 @@ mengikuti `retries: process.env.CI ? 1 : 0` yang sudah ada di
 `playwright.config.ts`. Retry bukan cara menyembunyikan regresi — regresi gagal
 dua kali, flake tidak, dan Playwright melaporkan keduanya berbeda ("flaky" vs
 "failed"). Suite yang tidak bisa dipercaya hijau bukan gate.
+
+
+## Fase 16 — Rate limit (US-AD85)
+
+Backend-only, dan benar-benar kosong sebelumnya: nol limiter di repo. Satu-satunya
+429 yang ada adalah jalur akun terkunci (`main.go:130`), yang bukan rate limit.
+
+**Konflik kontrak — disebut, bukan didiamkan.** PRD US-AD85 AC1 bilang 10 req/menit
+per IP untuk endpoint publik. ARCHITECTURE §6.1 bilang 60 req/menit untuk
+unauthenticated login/register dan `Retry-After: 60`. DECISIONS tidak menyebut angka
+sama sekali (nol hasil grep). Dipakai **angka PRD** — PRD yang lebih baru dan lebih
+spesifik soal endpoint ini — dan §6.1 diperbarui supaya tidak lagi bertentangan.
+`Retry-After: 60` yang tetap juga salah: nilainya bergantung budget, dan di wire
+terbukti keluar 20 saat budget 3/menit.
+
+**Yang dibangun:** `internal/ratelimit` — token bucket in-memory, stdlib saja
+(`sync`, `time`, `crypto/sha256`), tanpa dependency baru. Middleware terluar di
+`main.go`, jadi request yang ditolak tidak menyentuh handler, DB, atau bookkeeping
+metrics.
+
+**Empat AC dibuktikan di wire**, lawan container probe dengan budget 3/menit
+(bukan cuma unit test):
+- AC1: req 1–3 → 401, req 4 → 429.
+- AC2: 429 membawa `Retry-After: 20` (= 60/3, interval refill yang tepat).
+- AC3: IP yang sama, token berbeda / tanpa token → tetap 429. Kuota publik dibaca
+  dari IP **saja**; tokennya tidak pernah dibaca untuk path itu.
+- AC4: identitas habis di #101, identitas lain dari IP yang sama lolos, identitas
+  pertama dari IP yang sama tetap 429.
+
+**Bug nyata yang ditemukan tes:** tidak ada di limiter, tapi di rig. Seluruh stack
+ini satu alamat — browser → web container → proxy `/api` → api container — jadi
+semua klien datang dari satu IP, dan suite e2e sendiri mendaftarkan ~56 akun per
+run. Kuota publik 10/menit akan membuat suite gagal karena limiter yang baru
+dibangun, dan itu tidak membuktikan apa pun tentang limiter-nya. Budget karena itu
+jadi **parameter**, default tetap angka kontrak, dan rig e2e menaikkannya di
+`compose.yaml` dengan alasan tertulis. Yang ini jujur: rig tidak menguji angka
+kontrak di wire — angka itu diuji di unit test, dan probe container di atas.
+
+**Mutasi 11 CAUGHT / 0 SURVIVED / 0 BUILD-FAIL.** Dua iterasi:
+- Mutan "hapus baris Retry-After" dan "kembalikan token mentah" **tidak compile**
+  (`seconds`/import jadi tak terpakai). Mutan yang gagal build bukan CAUGHT yang sah
+  — keduanya ditulis ulang jadi versi yang compile (ganti nama header; `_ =` pada
+  hash) dan keduanya lalu CAUGHT.
+- Mutan "Retry-After dibulatkan bawah" **SURVIVED**, dan itu menunjuk celah tes
+  yang nyata: budget kontrak 10/menit berarti tunggu **tepat 6.000s**, dan di titik
+  itu `Ceil` dan truncate menghasilkan angka yang sama — mutannya ekuivalen. Ditutup
+  dengan budget 7/menit (tunggu 8.571s → header wajib `9`, bukan `8`) plus tes
+  refill eksak (5.9s ditolak, 6.0s lolos, token kedua tidak jatuh dari interval yang
+  sama). Dua-duanya menyasar perilaku, bukan angka.
+
+**Batas yang disebut, bukan disembunyikan:** limiter ini per proses, jadi scale
+horizontal mengalikan anggaran. `X-Forwarded-For` tidak dipercaya (IP dari
+`RemoteAddr`) — konsisten dengan `sessionMeta` yang sudah ada, dan berarti di
+belakang proxy tepercaya semua klien terlihat satu IP. Keduanya ditulis di §6.1.

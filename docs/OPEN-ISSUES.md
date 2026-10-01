@@ -670,3 +670,37 @@ di placeholder, timeout 30s. Bukti: `column-editor.spec.ts` 7/7 solo, dan shard3
 - **`GET /orgs/{id}/ledger` adalah endpoint baru** (Viewer). Sebelum fase ini
   ledger hanya bisa dibaca per-board (`GET /boards/{id}/ledger`, limit 100
   hardcoded, nol filter), jadi tidak ada jalur untuk membaca ledger workspace.
+
+
+## US-AD85: rate limit — angka mana yang berlaku, dan batasnya
+
+**Konflik angka (diselesaikan ke PRD).** PRD US-AD85 AC1 = 10 req/menit per IP
+(endpoint publik), 100 req/menit per sesi (endpoint auth). ARCHITECTURE §6.1 versi
+lama = 60 req/menit untuk login/register dan `Retry-After: 60`. DECISIONS tidak
+menyebut angka rate limit sama sekali. Yang dipakai angka PRD; §6.1 sudah
+diperbarui supaya tidak bertentangan lagi. Kalau ada yang memutuskan sebaliknya,
+yang berubah hanya konstanta di `internal/ratelimit` + empat knob di `compose.yaml`.
+
+**`Retry-After` bukan konstanta 60.** Nilainya dihitung dari budget: detik sampai
+satu token tersedia, dibulatkan **ke atas**. Di wire, budget 3/menit → `20`. Client
+yang menunggu persis selama itu tidak ditolak lagi; kalau dibulatkan ke bawah, dia
+ditolak lagi — itu sebabnya pembulatan ke atas diuji eksplisit (budget 7/menit →
+`9`, bukan `8`).
+
+**Yang tidak diklaim:**
+- AC1 versi "per endpoint" yang lebih halus (mis. limit berbeda per endpoint
+  terautentikasi) tidak dibangun — yang ada dua kelas budget, publik dan auth.
+- Limiter **per proses**. Deployment multi-replica mengalikan anggarannya
+  (N replika = N × budget). Ini konsekuensi dari "in-memory" yang diminta
+  ARCHITECTURE §6.1/§16; kalau nanti perlu akurat lintas replika, butuh Redis atau
+  sejenisnya — dependency baru, keputusan operator.
+- `X-Forwarded-For` **tidak** dipercaya: IP diambil dari `RemoteAddr`. Di belakang
+  proxy/LB tepercaya, semua klien terlihat sebagai satu IP, dan budget publik
+  menjadi budget bersama. Seam-nya sudah ada di `ratelimit.ClientIP`; yang
+  dibutuhkan allowlist proxy, bukan perubahan satu baris.
+- Bucket tidak punya metrik Prometheus. `internal/metrics` belum menghitung 429.
+
+**Trap yang perlu diketahui siapa pun yang menyentuh ini:** middleware limiter
+dipasang **di luar** `metricsReg`, jadi request yang di-429 tidak masuk hitungan
+request metrics. Kalau suatu saat limiter dipindah ke dalam, dashboard akan mulai
+menghitung lalu lintas yang ditolak sebagai request yang dilayani.

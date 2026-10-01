@@ -84,7 +84,7 @@
 | `US-AD63` | Must | M3 | Skeleton loading state | `43-state-loading` | ✅ PASS |
 | `US-AD65` | Must | M3 | Error boundary UI | `45-state-error` | ✅ PASS |
 | `US-AD71` | Should | M3 | Comment dengan mention | `20-task-drawer` | ✅ PASS |
-| `US-AD85` | Must | M3 | Rate limit per endpoint | *backend-only* | ⬜ |
+| `US-AD85` | Must | M3 | Rate limit per endpoint | *backend-only* | ✅ PASS |
 | `US-AD43` | Must | M4 | Failue taxonomy: klasifikasi otomatis | *backend-only* | ✅ PASS |
 | `US-AD44` | Must | M4 | Retry otomatis berdasarkan failure_kind | *backend-only* | ✅ PASS |
 | `US-AD45` | Must | M4 | Max attempts dan dead letter | *backend-only* | ✅ PASS |
@@ -96,7 +96,7 @@
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ✅ PASS |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ✅ PASS |
 
-**Total M0–M4: 89 story** (83 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (84 PASS, 1 ditunda)
 
 ## Progres per milestone
 
@@ -105,7 +105,7 @@
 | M0 | 10 | 9 | 1 |
 | M1 | 32 | 30 | 2 |
 | M2 | 21 | 20 | 1 |
-| M3 | 16 | 15 | 1 |
+| M3 | 16 | 16 | 0 |
 | M4 | 10 | 9 | 1 |
 
 ### Catatan status — `US-AD73` (🔨 dikerjakan)

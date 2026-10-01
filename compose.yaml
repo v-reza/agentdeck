@@ -72,6 +72,22 @@ services:
       # never uses webhooks should not open outbound connections nobody asked
       # for. Set to 1 to run it.
       AGENTDECK_WEBHOOKS: ${AGENTDECK_WEBHOOKS:-0}
+      # US-AD85 rate limits. Defaults are the contract's numbers: 10 req/min per
+      # IP on register/login, 100 req/min per identity elsewhere.
+      #
+      # Raised here because this whole stack sits behind ONE address: the browser
+      # talks to the web container, which proxies /api to this container, so every
+      # client arrives from the same IP. The e2e suite alone registers ~56
+      # accounts per run. Leaving the contract default would make the suite fail
+      # on its own rate limit and prove nothing about the limiter.
+      #
+      # What that means honestly: this rig does not exercise the public budget at
+      # its contract value. The limiter's own tests cover the numbers
+      # (internal/ratelimit), and the unit boundary is asserted there, not here.
+      AGENTDECK_RATELIMIT_PUBLIC_BURST: ${AGENTDECK_RATELIMIT_PUBLIC_BURST:-2000}
+      AGENTDECK_RATELIMIT_PUBLIC_PER_MIN: ${AGENTDECK_RATELIMIT_PUBLIC_PER_MIN:-2000}
+      AGENTDECK_RATELIMIT_AUTH_BURST: ${AGENTDECK_RATELIMIT_AUTH_BURST:-5000}
+      AGENTDECK_RATELIMIT_AUTH_PER_MIN: ${AGENTDECK_RATELIMIT_AUTH_PER_MIN:-5000}
       # Object storage for artifacts (6.2.16, 12.3). Unset means the five
       # artifact endpoints answer 503 instead of 404: the route exists, the
       # configuration does not. That is deliberate — a deployment that never
