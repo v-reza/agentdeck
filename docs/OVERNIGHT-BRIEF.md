@@ -13,22 +13,23 @@ Kalau brief ini dan ingatan gw berbeda, brief ini yang benar.
 
 ## 1. Misi malam ini
 
-**Frontend.** Backend sudah tamat: 129/129 endpoint §6.2 terpasang, terverifikasi
-lawan API nyata, ter-push. Yang tersisa **semua** di UI.
+**Frontend.** Backend sudah tamat: 131/131 endpoint §6.2 terpasang, terverifikasi
+lawan API nyata, ter-push (`verify_suite.py`: `STATUS ENDPOINT: 131 ✅ dan 0 ⬜`).
 
-Masalah sebenarnya bukan "belum ada layar", tapi **layar yang ditulis lalu tidak
-disambungkan**. Tiga contoh nyata, diverifikasi ke kode:
+Fase 0–17 (tabel §2) sudah selesai. Blok lama di sini bilang tiga hal "ditulis lalu
+tidak disambungkan" — **ketiganya sudah tidak berlaku**, diverifikasi ulang
+2026-10-02:
 
-| Yang ada | Kenyataannya |
+| Yang dulu diklaim | Kenyataannya sekarang |
 |---|---|
-| `store/api/stream.ts` 158 baris + test | Implementasi SSE lengkap (EventSource, patch cache RTK, `Last-Event-ID`). **Nol komponen yang memakainya.** |
-| `hooks/use-sse-cache.ts` | Hook siap pakai. **Nol pemanggil** — didefinisikan, tidak pernah dipasang. |
-| `TaskDetailDrawer.tsx:44-46` | Komentarnya bilang Logs/Artifacts/Approvals tab "need endpoints that do not exist (`runs`, `artifacts`, `approvals`)". **Ketiganya sudah ada sekarang.** |
+| `store/api/stream.ts` — "nol komponen yang memakainya" | Terdaftar di `store/index.ts`, ada `stream-wiring.test.ts`, dan `use-sse-cache.ts` dipakai `BoardToolbar.tsx`, `ApprovalDetail.tsx`, `TaskDetailDrawer.tsx`. |
+| `hooks/use-sse-cache.ts` — "nol pemanggil" | Tiga pemanggil (di atas). |
+| `TaskDetailDrawer.tsx:44-46` — tab butuh endpoint yang tidak ada | Ketiga endpoint ada; tab Logs/Artifacts/Approvals terpasang. |
 
-Jadi misi malam ini: **sambungkan yang sudah ditulis, baru bangun yang benar-benar
-belum ada.**
+Sisa kerja nyata ada di **§2b**: 8 layar yang backend-nya sudah jalan tapi UI-nya
+belum ada, plus 3 utang yang butuh keputusan produk.
 
-## 2. Urutan fase (termurah dulu — yang termurah itu yang paling kelihatan)
+## 2. Urutan fase 0–17 (SELESAI — dipertahankan sebagai jejak)
 
 > **Sumber progres yang SAH, sudah diverifikasi lawan kode (2026-09-27):**
 > - `docs/CHECKLIST.md` → **68 PASS / 4 dikerjakan / 16 belum / 1 ditunda**
@@ -83,6 +84,29 @@ Yang sudah selesai tidak dihitung ulang. Tabel di atas **selesai semua (0–17)*
 
 Kalau fase 0–5 kelar, itu hasil yang bagus. Jangan mulai fase baru sebelum yang
 lama ter-push.
+
+## 2b. Urutan fase 18+ (SISA NYATA — diverifikasi ke kode 2026-10-02)
+
+Backend tiap baris di bawah **sudah jalan**; yang kurang cuma UI. Urut dari
+termurah. Satu fase = satu commit + push + satu entri `OVERNIGHT-LOG.md`.
+
+| # | Layar | Story | Mockup | Backend (terverifikasi) |
+|---|---|---|---|---|
+| 18 | Audit log | US-AD95 | `41-audit-log` | `GET /api/v1/audit-log` ada; nol route `/audit` di `router.tsx` |
+| 19 | Tutup akun sendiri | US-AD98 | `17-close-account` | `DELETE /api/v1/auth/me` ada; nol `closeAccount` di `frontend/src` |
+| 20 | Ekspor CSV | US-AD56 | `31-cost-export` | ledger + cost-summary ada; nol `exportCsv`/`text/csv` di `frontend/src` |
+| 21 | Command palette | US-AD55 | `14-command-palette` | murni klien. `uiSlice` sudah punya `commandPaletteOpen` + `toggleCommandPalette`; **komponennya belum ada** |
+| 22 | Multi-sort header tabel | US-AD54 AC2 | `19-table-view` | murni klien. `TableView.tsx` ada; header belum bisa diklik |
+
+**Belum masuk daftar karena backend-nya belum ada** — jangan dikerjakan di bawah
+goal ini, catat saja kalau kepepet: `US-AD57` bulk move, `US-AD78` invite link,
+`US-AD72` prepopulate board dari template. Ketiganya **nol route** di `cmd/api`
+(127 route total, nol yang cocok `bulk|move`, `invite`, `template`).
+
+**Berhenti dan tulis di log, jangan dikerjakan**, untuk tiga utang yang butuh
+keputusan produk (semuanya butuh migrasi atau keputusan, bukan kode):
+US-AD94 AC1 cache read/write per step, US-AD94 AC5 masking per peran,
+`decision_reason`.
 
 ## 3. Loop tiap fase
 
@@ -209,7 +233,8 @@ lain (`frontend/e2e/demo/measure-aksi.mjs`).
 
 ## 6. Kapan berhenti
 
-- Fase 1–8 kelar dan masih ada waktu → lanjut, tetap satu commit per fase.
+- Fase 18–22 kelar dan masih ada waktu → lanjut, tetap satu commit per fase.
+  Kalau 22 kelar, **stop**: sisa PRD butuh backend baru atau keputusan produk.
 - Ada blocker yang butuh keputusan produk → **stop**, tulis di log, jangan ngarang
   jawaban. Kontrak yang bertabrakan: sebut konfliknya, pakai keputusan terbaru.
 - Gate merah dan nggak kelar dalam 3 percobaan → stop, tulis apa adanya.
@@ -217,7 +242,8 @@ lain (`frontend/e2e/demo/measure-aksi.mjs`).
 
 ## 7. Yang TIDAK dijamin malam ini
 
-- Semua 22 layar yang belum ada. Realistis **3–6 fase** dengan disiplin kontrak.
+- Semua layar yang belum ada. Di luar §2b masih ada belasan mockup yang
+  **backend-nya juga belum ada** — itu bukan kerjaan malam ini.
 - Full e2e Playwright (butuh ~5 menit dan Docker hidup; bukan gate).
 - Design match penuh tiap layar — yang wajib: **inventory elemen** (ada / beda /
   **ilang**), dan yang ilang disebut, bukan didiemin (`docs/DESIGN-INVENTORY.md`).
