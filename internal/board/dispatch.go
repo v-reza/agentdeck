@@ -69,6 +69,21 @@ func (s *Service) ReclaimStale(ctx context.Context, orgID string, limit, maxAtte
 	return s.repo.ReclaimStaleRuns(ctx, orgID, limit, maxAttempts)
 }
 
+// ReclaimOrphanedClaims returns tasks stuck `running` with no run behind them to
+// the queue. ReclaimStale cannot see them: it closes stale `runs` rows, and these
+// tasks have no run row at all — the process died between claiming the task and
+// starting its run. Age is the discriminator, so a claim mid-handoff is left
+// alone; see the query for why 15 minutes.
+func (s *Service) ReclaimOrphanedClaims(ctx context.Context, orgID string, limit, maxAttempts int) ([]Task, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if maxAttempts <= 0 {
+		maxAttempts = 1
+	}
+	return s.repo.ReclaimOrphanedClaims(ctx, orgID, limit, maxAttempts)
+}
+
 // HeartbeatOwned refreshes the heartbeat of the runs this instance holds. The
 // instance name comes from the Service, set once at wiring time, so the tick loop
 // does not have to carry it through every call.
@@ -155,6 +170,22 @@ func (r *pgxRepository) HeartbeatOwnedRuns(ctx context.Context, orgID, lock stri
 
 // ReclaimStaleRuns returns the task rows that were moved, so the dispatcher can
 // log or event them. A reclaim that moved nothing is not an error.
+// ReclaimOrphanedClaims is the complement of ReclaimStaleRuns: that one finds
+// tasks whose run went quiet, this one finds tasks whose run never existed.
+func (r *pgxRepository) ReclaimOrphanedClaims(ctx context.Context, orgID string, limit, maxAttempts int) ([]Task, error) {
+	rows, err := r.q.ReclaimOrphanedClaims(ctx, store.ReclaimOrphanedClaimsParams{
+		OrgID: orgID, LimitCount: int32(limit), MaxAttempts: int32(maxAttempts),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Task, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, Task{ID: row.ID, BoardID: row.BoardID, Status: TaskStatus(row.Status)})
+	}
+	return out, nil
+}
+
 func (r *pgxRepository) ReclaimStaleRuns(ctx context.Context, orgID string, limit, maxAttempts int) ([]Task, error) {
 	rows, err := r.q.ReclaimStaleRuns(ctx, store.ReclaimStaleRunsParams{
 		OrgID: orgID, Limit: int32(limit), MaxAttempts: int32(maxAttempts),

@@ -69,6 +69,10 @@ type Store interface {
 	ApplyOutcome(ctx context.Context, task board.Task, run board.Run) error
 	HeartbeatOwned(ctx context.Context, orgID string) error
 	ReclaimStale(ctx context.Context, orgID string, limit, maxAttempts int) ([]board.Task, error)
+	// ReclaimOrphanedClaims covers the other half of a crash: a task claimed but
+	// whose run row was never inserted is invisible to ReclaimStale, which needs
+	// a stale run to close.
+	ReclaimOrphanedClaims(ctx context.Context, orgID string, limit, maxAttempts int) ([]board.Task, error)
 	ReleaseClaim(ctx context.Context, taskID, orgID, runID, failureKind, detail string) error
 	WakeDependents(ctx context.Context, taskID string) error
 	// ExpireDueApprovals is the N23 sweep (8.3). It belongs to the tick because

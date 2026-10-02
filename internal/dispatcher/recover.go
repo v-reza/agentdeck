@@ -54,6 +54,11 @@ func (d *Dispatcher) abortClaim(ctx context.Context, task board.Task, runID stri
 
 // reclaim closes runs that stopped heartbeating (4b) and wakes the dependents of
 // anything that finished successfully while we were away.
+//
+// It also sweeps orphaned claims. A task whose run row was never inserted is
+// invisible to the stale-run path — there is no run to close — so without this
+// second sweep it stays `running` forever. Both sweeps are per board because
+// both are org-scoped, and the board list is already in hand.
 func (d *Dispatcher) reclaim(ctx context.Context, boards []board.Board) error {
 	for _, b := range boards {
 		moved, err := d.store.ReclaimStale(ctx, b.OrgID, ReclaimBatch, 0)
@@ -62,6 +67,14 @@ func (d *Dispatcher) reclaim(ctx context.Context, boards []board.Board) error {
 		}
 		if len(moved) > 0 {
 			d.log.Info("dispatcher: reclaimed stale runs", "board", b.ID, "count", len(moved))
+		}
+		orphans, err := d.store.ReclaimOrphanedClaims(ctx, b.OrgID, ReclaimBatch, 0)
+		if err != nil {
+			return err
+		}
+		if len(orphans) > 0 {
+			d.log.Info("dispatcher: reclaimed claims with no run behind them",
+				"board", b.ID, "count", len(orphans))
 		}
 	}
 	return nil

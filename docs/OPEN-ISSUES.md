@@ -768,3 +768,62 @@ Lima lagi **tidak punya backend** — layar saja tidak cukup:
 - `decision_reason`: `DecideApproval` menimpa alasan pemohon (`queries.sql:1664`).
   Butuh migrasi.
 - Job Go di CI melewati suite Postgres.
+
+
+## Dispatcher tidak memungut task Ready — dua sebab, satu di antaranya bug
+
+Dilaporkan user: task ditaruh di kolom Ready, tidak pernah dipungut. Hasil
+penelusuran, berurutan:
+
+1. **Dispatcher mati.** `AGENTDECK_DISPAT` tidak di-set, jadi tick loop tidak
+   hidup. Ini sengaja: tick memanggil provider LLM dan membelanjakan kredensial
+   workspace, jadi default-nya OFF. Log startup menulis
+   `dispatcher disabled; set AGENTDECK_DISPAT=1`.
+2. **Log-nya menyuruh menyalakan nama yang salah.** `main.go` menulis
+   `AGENTDECK_DISPATCH=1` (dengan `CH`) padahal binary-nya membaca
+   `AGENTDECK_DISPAT`. Operator yang mengikuti log-nya menyetel variabel yang
+   tidak dibaca siapa pun, lalu log yang sama mengulang instruksi itu. Nama
+   `AGENTDECK_DISPATCH` juga masih tertulis di `ARCHITECTURE.md` dua tempat,
+   bertabrakan dengan `.hermes.md`, `OPEN-ISSUES.md`, dan `compose.yaml` yang
+   sudah memakai `AGENTDECK_DISPAT`. **Drift ini sudah dua kali terjadi** dengan
+   nama yang sama, jadi sekarang dijaga: `tools/verify_suite.py` gagal kalau ada
+   nama `AGENTDECK_*` yang ditulis sebagai setting di `compose.yaml` atau
+   didokumentasikan di ARCHITECTURE tapi tidak dibaca satu file Go pun.
+3. **BUG: task yang kembali ke `ready`/`blocked` mempertahankan binding run.**
+   `ClaimReadyTasks` mensyaratkan `current_run_id IS NULL` (4b), dan kolom itu
+   ditulis saat klaim lalu dibersihkan `EndRun`/`ReleaseClaim`/`ReclaimStaleRuns`.
+   Empat penulis melewatkan pembersihannya, jadi task yang pindah ke `ready`
+   membawa id run yang sudah berakhir dan **tidak akan pernah bisa diklaim lagi**:
+   bukan `running` (reclaim tidak melihatnya), bukan `blocked` (papan
+   menampilkannya sebagai antrean), dan API tidak punya cara mengosongkan kolom
+   itu. Satu-satunya jalan keluar adalah mengedit database.
+
+   Penulis yang cacat: `UpdateTaskStatus` (PATCH status, `backlog -> ready`, dan
+   jalur approve `awaiting_approval -> ready`), `RetryTask` (retry otomatis
+   `transient` di dalam `EndRun` — kasus paling umum), `BlockTask` (setiap
+   kegagalan `policy`, approval ditolak, approval kedaluwarsa),
+   `ClaimReadyTaskDepsBlocked`, dan `WakeDependents`.
+
+   Diperbaiki di SQL (bukan di Go) karena `UpdateTaskStatus` adalah penulis
+   tunggal untuk semua transisi non-tick. Invariant-nya ditegakkan
+   **constraint DB** `tasks_run_binding_chk` (migrasi 0023): `status = 'running'
+   OR current_run_id IS NULL`. Constraint itulah yang menangkap dua penulis
+   terakhir — keduanya tidak ketahuan dari pembacaan kode. Migrasinya juga
+   mereparasi baris lama.
+
+4. **BUG KEDUA: klaim yatim.** Proses mati di antara `ClaimReadyTasks` (menulis
+   status + binding) dan `StartRun` (menyisipkan baris `runs`) meninggalkan task
+   `running` **tanpa baris run sama sekali**. `ReclaimStaleRuns` menutup run yang
+   basi, jadi ia tidak bisa melihat baris ini — tidak ada run untuk ditutup.
+   Task-nya juga bukan `ready`, jadi tidak ada klaim yang akan memungutnya.
+   Ditemukan 2 task nyata di org **Northwind Robotics** yang `running` sejak
+   2026-09-23. Ditambahkan `ReclaimOrphanedClaims` yang disapu tiap tick dengan
+   grace period 15 menit (angka yang sama dengan reclaim) supaya klaim yang
+   sedang di tengah handoff tidak dicuri.
+
+Bukti setelah perbaikan: task user (yang tadinya `ready` dengan binding basi
+selama berhari-hari) dipungut dispatcher dan berakhir `failed` dengan
+`consecutive_failures = 1` — jejak `ReleaseClaim`, artinya klaim berhasil dan
+persiapan run-nya yang gagal (provider board itu `localhost`, tidak terjangkau
+dari container). Dua task Northwind dibersihkan. Pelanggaran invariant di seluruh
+DB: **0**.

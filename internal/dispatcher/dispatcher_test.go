@@ -24,6 +24,7 @@ type fakeStore struct {
 	released        []string
 	woken           []string
 	expiredOrgs     []string
+	orphanSweeps    []string
 	expiredByOrg    map[string][]board.Approval
 	startRunErr     error
 	cancelRequested bool
@@ -118,6 +119,13 @@ func (f *fakeStore) ApplyOutcome(_ context.Context, task board.Task, run board.R
 
 func (f *fakeStore) HeartbeatOwned(context.Context, string) error { return nil }
 func (f *fakeStore) ReclaimStale(context.Context, string, int, int) ([]board.Task, error) {
+	return nil, nil
+}
+
+// ReclaimOrphanedClaims records the orgs it swept, the same way the approval
+// sweep does, so a tick that stops calling it is visible rather than silent.
+func (f *fakeStore) ReclaimOrphanedClaims(_ context.Context, orgID string, _, _ int) ([]board.Task, error) {
+	f.orphanSweeps = append(f.orphanSweeps, orgID)
 	return nil, nil
 }
 func (f *fakeStore) WakeDependents(_ context.Context, taskID string) error {
@@ -423,5 +431,14 @@ func TestTickExpiresApprovalsOncePerOrg(t *testing.T) {
 	}
 	if seen["o2"] != 1 {
 		t.Fatalf("o2 disapu %d kali, want 1", seen["o2"])
+	}
+
+	// The orphan sweep rides the per-board loop, so it runs once per BOARD —
+	// unlike the approval sweep above, which is deduplicated per org. It is the
+	// only thing that rescues a task whose run row was never inserted, and a tick
+	// that stops calling it leaves those tasks `running` forever, silently.
+	if len(store.orphanSweeps) != len(store.boards) {
+		t.Fatalf("sweep klaim yatim dijalankan %d kali untuk %d board, want sekali per board",
+			len(store.orphanSweeps), len(store.boards))
 	}
 }

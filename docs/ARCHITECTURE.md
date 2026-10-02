@@ -536,6 +536,12 @@ CREATE TABLE tasks (
     CONSTRAINT tasks_tokens_chk              CHECK (tokens_in >= 0 AND tokens_out >= 0),
     CONSTRAINT tasks_priority_chk            CHECK (priority BETWEEN -10 AND 10),
     CONSTRAINT tasks_consecutive_fail_chk    CHECK (consecutive_failures BETWEEN 0 AND 10),
+    -- Migrasi 0023. ClaimReadyTasks mensyaratkan `current_run_id IS NULL` (4b), jadi
+    -- task yang tidak `running` tidak boleh memegang binding run. Empat penulis
+    -- melanggar ini dan membuat task tidak bisa diklaim selamanya; constraint ini
+    -- menolak penulis berikutnya yang lupa, alih-alih membiarkannya diam-diam
+    -- menggantungkan task.
+    CONSTRAINT tasks_run_binding_chk         CHECK (status = 'running' OR current_run_id IS NULL),
     CONSTRAINT tasks_board_fk                FOREIGN KEY (board_id)      REFERENCES boards(id) ON DELETE CASCADE,
     CONSTRAINT tasks_agent_fk                FOREIGN KEY (assignee_agent_id) REFERENCES agents(id) ON DELETE SET NULL,
     CONSTRAINT tasks_idempotency_uniq        UNIQUE (idempotency_key)    -- opsional; di-set NULL secara eksplisit untuk yang tidak pakai
@@ -1199,6 +1205,30 @@ WHERE t.id = u.task_id AND t.status = 'running';
 ```
 
 **Catatan**: CTE pertama memilih run basi. CTE kedua meng-update runs. CTE ketiga mengembalikan task ke ready. Run yang sudah di-reclaim otomatis bisa dicoba lagi oleh dispatcher (consecutive_failures naik; jika sudah ≥ max_attempts, task jadi 'failed' bukan 'ready' — §10). `FOR UPDATE SKIP LOCKED` di CTE pertama mencegah dua dispatcher mereclaim run yang sama.
+
+**4b-bis. Klaim yatim — task `running` yang run-nya tidak pernah ada.**
+
+Query di atas menutup run yang basi, jadi ia tidak bisa melihat task yang **tidak punya baris run sama sekali**: proses mati di antara `ClaimReadyTasks` (menulis status + `current_run_id`) dan `StartRun` (menyisipkan baris `runs`). Tidak ada run untuk ditutup, dan task-nya bukan `ready`, jadi tidak ada klaim yang akan memungutnya — task itu `running` selamanya.
+
+Disapu tiap tick lewat `ReclaimOrphanedClaims`, dengan **grace period 15 menit** (angka yang sama dengan reclaim) supaya klaim yang sedang di tengah handoff tidak dicuri:
+
+```sql
+UPDATE tasks t
+SET status = CASE WHEN t.consecutive_failures + 1 >= $3 THEN 'failed' ELSE 'ready' END,
+    current_run_id = NULL,
+    consecutive_failures = t.consecutive_failures + 1
+WHERE t.id IN (
+    SELECT c.id FROM tasks c
+    WHERE c.org_id = $1 AND c.status = 'running'
+      AND c.started_at < now() - interval '15 minutes'
+      AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.id = c.current_run_id)
+    ORDER BY c.started_at ASC
+    LIMIT $2
+    FOR UPDATE SKIP LOCKED
+);
+```
+
+Ditemukan 2 task nyata `running` sejak 2026-09-23 di org Northwind Robotics, yang belum pernah punya dispatcher hidup.
 
 **Kompleksitas**: `O(S)` dengan S = jumlah run basi. Index `runs_stale_claim_idx` menyaring ribuan run menjadi puluhan yang basi.
 
@@ -2817,7 +2847,7 @@ melaporkan biaya per step; `internal/dispatcher` menjalankan tick 2 s (N19) deng
 batch 20 (N20): heartbeat → reclaim → gate dependency → gate budget → klaim →
 worker → finalisasi. Bukti lawan API nyata: `tools/probe-m5.py` (lihat §18.3.1).
 
-Dispatcher **mati secara default** (`AGENTDECK_DISPATCH=1` untuk menyalakan).
+Dispatcher **mati secara default** (`AGENTDECK_DISPAT=1` untuk menyalakan).
 Alasannya bukan kehati-hatian: tick yang hidup berarti deployment yang baru
 di-upgrade mulai membayar completion begitu seseorang menugaskan agent ke sebuah
 task, dan board self-hosted yang tidak ada yang mengawasi justru tempat itu tidak
@@ -2842,7 +2872,7 @@ tidak bisa dibuktikan test unit:
 4. task `ready` tanpa agent diparkir sebagai `blocked`/`needs_input`, bukan
    dibiarkan `running` selamanya.
 
-Jalankan dengan `AGENTDECK_DISPATCH=1` dan provider palsunya hidup; skripnya
+Jalankan dengan `AGENTDECK_DISPAT=1` dan provider palsunya hidup; skripnya
 mencetak satu baris per jalur dan keluar 1 kalau ada yang gagal.
 
 ### 18.2 Frontend (`frontend/` — React 19 + Vite + Redux Toolkit)

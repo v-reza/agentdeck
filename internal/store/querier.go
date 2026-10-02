@@ -26,6 +26,12 @@ type Querier interface {
 	// Setting `blocked` and its `block_kind` in one statement, because a blocked
 	// task with no kind cannot be routed: the state machine (5.4) sends each kind
 	// back to `ready` by a different action.
+	//
+	// `current_run_id = NULL` for the same reason as RetryTask: `blocked` is not
+	// `running`, so the binding must not survive (tasks_run_binding_chk). This is the
+	// writer that fires most often of the four — every `policy` failure lands here
+	// through applyOutcome, and a rejected or expired approval lands here through
+	// DecideApproval and ExpireDueApprovals.
 	BlockTask(ctx context.Context, arg BlockTaskParams) (Task, error)
 	// 4c versi tabel agregat: cap, terpakai hari ini, dan status ambang N18.
 	// COALESCE untuk board yang belum punya baris hari ini — cap tetap terbaca,
@@ -565,6 +571,24 @@ type Querier interface {
 	// (dengan NULL), dan tanpa COALESCE pemanggilnya gagal scan — laporan "belum ada
 	// pengeluaran" jadi error, padahal US-AD32 AC3 minta nol.
 	OrgCostSummary(ctx context.Context, orgID string) ([]OrgCostSummaryRow, error)
+	// Tasks left `running` with no run behind them — the crash window between
+	// ClaimReadyTasks (which writes status and current_run_id) and StartRun (which
+	// inserts the `runs` row). No row exists for ReclaimStaleRuns to close, so those
+	// tasks are invisible to every recovery path: not `ready`, so the claim predicate
+	// skips them; not stale by heartbeat, because there is no run to heartbeat. They
+	// stay on the board as running work that nothing is running.
+	//
+	// Found on a real board: two tasks `running` since 2026-09-23 in an org that had
+	// never had a dispatcher. The claim path had run; the process died before
+	// StartRun.
+	//
+	// Age is the discriminator, not a flag. A task claimed milliseconds ago is
+	// mid-handoff and its run row is about to appear, so this only touches claims
+	// older than the grace period — the same 15 minutes reclaim uses, which makes the
+	// two paths agree on what "abandoned" means. The run id is cleared and the task
+	// goes back to `ready`, mirroring ReclaimStaleRuns: same counter, same ceiling,
+	// same outcome for a task that has exhausted its attempts.
+	ReclaimOrphanedClaims(ctx context.Context, arg ReclaimOrphanedClaimsParams) ([]ReclaimOrphanedClaimsRow, error)
 	// 4b: run 'running' tanpa heartbeat 15 menit (N8) di-reclaim dalam satu
 	// transaksi: run ditutup dengan outcome 'reclaimed', task dikembalikan ke
 	// 'ready' dengan consecutive_failures naik (§10.3). Task yang sudah melewati
@@ -606,6 +630,13 @@ type Querier interface {
 	// yang masih penuh akan langsung menyentuh plafon max_attempts lagi di kegagalan
 	// berikutnya, dan retry manual yang tidak mereset counter itu retry yang tidak
 	// melakukan apa yang dikatakannya.
+	//
+	// `current_run_id = NULL` is part of the retry, not bookkeeping. ClaimReadyTasks
+	// requires the column to be NULL (ARCHITECTURE 4b), so a retry that leaves the
+	// finished run's id in place returns the task to `ready` as a card nothing can
+	// ever claim. This is the writer that produced the common case: a `transient`
+	// failure retried by applyOutcome inside EndRun — a policy failure goes to
+	// `failed` and only reaches here through the manual endpoint.
 	//
 	// Guard `status <> 'running'` di WHERE, bukan di handler: task yang sedang jalan
 	// punya run aktif, dan memindahkannya ke `ready` membuatnya bisa diklaim lagi
@@ -722,6 +753,23 @@ type Querier interface {
 	// The status transition guard is in the WHERE clause, not in Go: two writers
 	// racing on the same task produce one winner and one zero-row result, which the
 	// service maps to ErrConflict. That is what makes move/claim safe under load.
+	// Moving a task off `running` releases its run binding.
+	//
+	// The claim predicate is `current_run_id IS NULL` (ARCHITECTURE 4b), and the
+	// column is written only by claiming and cleared by EndRun/ReleaseClaim/reclaim.
+	// A transition that lands the task in a claimable status while the column still
+	// holds a finished run's id makes the task permanently unclaimable: not
+	// `running`, so reclaim ignores it; not `blocked`, so the board shows it as
+	// queued work; and every future claim matches zero rows. The user sees a card in
+	// Ready that nothing ever picks up.
+	//
+	// This statement is the writer for every non-tick transition — PATCH status,
+	// `backlog -> ready`, `running -> backlog`, and the approval path's
+	// `awaiting_approval -> ready` (ARCHITECTURE 4a, "kembali ke ready untuk
+	// klaim"). Doing it here covers all of them; doing it in each caller is the
+	// version that missed one. `tasks_run_binding_chk` (migration 0023) enforces the
+	// same invariant in the database, so a future writer that forgets is refused
+	// instead of silently stranding the task.
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) (Task, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	// One statement, so a taken email (23505 on users_email_key) rolls the whole
@@ -744,6 +792,13 @@ type Querier interface {
 	// 'manual' di ledger. Nama model disimpan apa adanya, sama seperti yang
 	// dicocokkan `pricing.Resolve`.
 	UpsertModelPrice(ctx context.Context, arg UpsertModelPriceParams) (AgentModelPrice, error)
+	// `current_run_id = NULL` on both of these: a task entering `ready` or `blocked`
+	// is not `running`, so it must not hold a run binding (tasks_run_binding_chk).
+	// Neither statement can currently carry one — ClaimReadyTaskDepsBlocked filters
+	// on `current_run_id IS NULL`, and WakeDependents only moves `blocked` rows,
+	// which the constraint keeps clean — so these two writes change nothing today.
+	// They are here so the invariant holds by construction at every writer rather
+	// than by an argument about which writers happen to be safe.
 	// 4e.1: setelah sebuah task masuk 'done', anak yang diblokir karena dependency
 	// dibangunkan. Hanya yang block_kind='dependency' — blokir karena policy atau
 	// kebutuhan input manusia bukan urusan query ini.

@@ -677,6 +677,9 @@ type Repository interface {
 	// --- dispatcher tick, ARCHITECTURE 5.1 ---
 	BlockDependentTasks(ctx context.Context, orgID, boardID string) (int64, error)
 	ReclaimStaleRuns(ctx context.Context, orgID string, limit, maxAttempts int) ([]Task, error)
+	// ReclaimOrphanedClaims is ReclaimStaleRuns' complement: tasks whose run
+	// never existed, because the process died between claim and StartRun.
+	ReclaimOrphanedClaims(ctx context.Context, orgID string, limit, maxAttempts int) ([]Task, error)
 	HeartbeatOwnedRuns(ctx context.Context, orgID, lock string) error
 	WakeDependents(ctx context.Context, taskID string) error
 	BoardBudgetToday(ctx context.Context, orgID, boardID string) (BoardBudget, error)

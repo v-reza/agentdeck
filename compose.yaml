@@ -66,6 +66,14 @@ services:
       # key here used to be AGENTDECK_DISPATCH, which meant an operator who set
       # it in this file enabled nothing at all: the container got a variable
       # nobody read, and the log line told them to set a different name.
+      #
+      # LOCAL rig: this stack's owner asked for Ready tasks to be picked up, so
+      # the override lives in `.env` (gitignored) — NOT in the default here. The
+      # default below stays OFF for every other deployment: that default is the
+      # whole reason the flag exists, and it is what stops an upgraded
+      # self-hosted board from spending money nobody asked it to spend.
+      # `.hermes.md` requires this flag to stay unset for agent sessions, so the
+      # contract keeps the OFF default and a human opts in per machine.
       AGENTDECK_DISPAT: ${AGENTDECK_DISPAT:-0}
       # Webhook worker: sends HTTP OUT to URLs an admin registered (13.1). Off
       # by default for the same reason as the dispatcher — a deployment that

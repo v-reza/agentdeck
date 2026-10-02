@@ -212,7 +212,7 @@ func (q *Queries) AssignTask(ctx context.Context, arg AssignTaskParams) (Task, e
 
 const blockTask = `-- name: BlockTask :one
 UPDATE tasks
-SET status = 'blocked', block_kind = $3
+SET status = 'blocked', block_kind = $3, current_run_id = NULL
 WHERE id = $1 AND org_id = $2
 RETURNING id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
           idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
@@ -229,6 +229,12 @@ type BlockTaskParams struct {
 // Setting `blocked` and its `block_kind` in one statement, because a blocked
 // task with no kind cannot be routed: the state machine (5.4) sends each kind
 // back to `ready` by a different action.
+//
+// `current_run_id = NULL` for the same reason as RetryTask: `blocked` is not
+// `running`, so the binding must not survive (tasks_run_binding_chk). This is the
+// writer that fires most often of the four — every `policy` failure lands here
+// through applyOutcome, and a rejected or expired approval lands here through
+// DecideApproval and ExpireDueApprovals.
 func (q *Queries) BlockTask(ctx context.Context, arg BlockTaskParams) (Task, error) {
 	row := q.db.QueryRow(ctx, blockTask, arg.ID, arg.OrgID, arg.BlockKind)
 	var i Task
@@ -358,7 +364,7 @@ func (q *Queries) BumpDailyRunCount(ctx context.Context, boardID string) error {
 }
 
 const claimReadyTaskDepsBlocked = `-- name: ClaimReadyTaskDepsBlocked :execrows
-UPDATE tasks t SET status = 'blocked', block_kind = 'dependency'
+UPDATE tasks t SET status = 'blocked', block_kind = 'dependency', current_run_id = NULL
 WHERE t.org_id = $1 AND t.board_id = $2 AND t.status = 'ready' AND t.current_run_id IS NULL
   AND EXISTS (
     SELECT 1 FROM task_links tl JOIN tasks p ON p.id = tl.parent_id
@@ -5614,6 +5620,72 @@ func (q *Queries) OrgCostSummary(ctx context.Context, orgID string) ([]OrgCostSu
 	return items, nil
 }
 
+const reclaimOrphanedClaims = `-- name: ReclaimOrphanedClaims :many
+UPDATE tasks t
+SET status = CASE WHEN t.consecutive_failures + 1 >= $1::int THEN 'failed' ELSE 'ready' END,
+    current_run_id = NULL,
+    consecutive_failures = t.consecutive_failures + 1
+WHERE t.id IN (
+    SELECT c.id FROM tasks c
+    WHERE c.org_id = $2 AND c.status = 'running'
+      AND c.started_at < now() - interval '15 minutes'
+      AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.id = c.current_run_id)
+    ORDER BY c.started_at ASC
+    LIMIT $3
+    FOR UPDATE SKIP LOCKED
+)
+RETURNING t.id, t.board_id, t.status
+`
+
+type ReclaimOrphanedClaimsParams struct {
+	MaxAttempts int32
+	OrgID       string
+	LimitCount  int32
+}
+
+type ReclaimOrphanedClaimsRow struct {
+	ID      string
+	BoardID string
+	Status  string
+}
+
+// Tasks left `running` with no run behind them — the crash window between
+// ClaimReadyTasks (which writes status and current_run_id) and StartRun (which
+// inserts the `runs` row). No row exists for ReclaimStaleRuns to close, so those
+// tasks are invisible to every recovery path: not `ready`, so the claim predicate
+// skips them; not stale by heartbeat, because there is no run to heartbeat. They
+// stay on the board as running work that nothing is running.
+//
+// Found on a real board: two tasks `running` since 2026-09-23 in an org that had
+// never had a dispatcher. The claim path had run; the process died before
+// StartRun.
+//
+// Age is the discriminator, not a flag. A task claimed milliseconds ago is
+// mid-handoff and its run row is about to appear, so this only touches claims
+// older than the grace period — the same 15 minutes reclaim uses, which makes the
+// two paths agree on what "abandoned" means. The run id is cleared and the task
+// goes back to `ready`, mirroring ReclaimStaleRuns: same counter, same ceiling,
+// same outcome for a task that has exhausted its attempts.
+func (q *Queries) ReclaimOrphanedClaims(ctx context.Context, arg ReclaimOrphanedClaimsParams) ([]ReclaimOrphanedClaimsRow, error) {
+	rows, err := q.db.Query(ctx, reclaimOrphanedClaims, arg.MaxAttempts, arg.OrgID, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReclaimOrphanedClaimsRow
+	for rows.Next() {
+		var i ReclaimOrphanedClaimsRow
+		if err := rows.Scan(&i.ID, &i.BoardID, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const reclaimStaleRuns = `-- name: ReclaimStaleRuns :many
 WITH stale AS (
     SELECT r.id, r.task_id
@@ -5835,7 +5907,7 @@ func (q *Queries) ResetWebhookDelivery(ctx context.Context, id int64) error {
 
 const retryTask = `-- name: RetryTask :one
 UPDATE tasks
-SET status = 'ready', consecutive_failures = 0
+SET status = 'ready', consecutive_failures = 0, current_run_id = NULL
 WHERE id = $1 AND org_id = $2 AND status <> 'running'
 RETURNING id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
           idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
@@ -5853,6 +5925,13 @@ type RetryTaskParams struct {
 // yang masih penuh akan langsung menyentuh plafon max_attempts lagi di kegagalan
 // berikutnya, dan retry manual yang tidak mereset counter itu retry yang tidak
 // melakukan apa yang dikatakannya.
+//
+// `current_run_id = NULL` is part of the retry, not bookkeeping. ClaimReadyTasks
+// requires the column to be NULL (ARCHITECTURE 4b), so a retry that leaves the
+// finished run's id in place returns the task to `ready` as a card nothing can
+// ever claim. This is the writer that produced the common case: a `transient`
+// failure retried by applyOutcome inside EndRun — a policy failure goes to
+// `failed` and only reaches here through the manual endpoint.
 //
 // Guard `status <> 'running'` di WHERE, bukan di handler: task yang sedang jalan
 // punya run aktif, dan memindahkannya ke `ready` membuatnya bisa diklaim lagi
@@ -6783,7 +6862,8 @@ func (q *Queries) UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsPara
 
 const updateTaskStatus = `-- name: UpdateTaskStatus :one
 UPDATE tasks
-SET status = $4
+SET status = $4,
+    current_run_id = CASE WHEN $4 = 'running' THEN current_run_id ELSE NULL END
 WHERE id = $1 AND org_id = $2 AND status = $3
 RETURNING id, org_id, board_id, title, body, status, priority, assignee_agent_id, created_by,
           idempotency_key, block_kind, consecutive_failures, workspace_kind, workspace_path,
@@ -6801,6 +6881,23 @@ type UpdateTaskStatusParams struct {
 // The status transition guard is in the WHERE clause, not in Go: two writers
 // racing on the same task produce one winner and one zero-row result, which the
 // service maps to ErrConflict. That is what makes move/claim safe under load.
+// Moving a task off `running` releases its run binding.
+//
+// The claim predicate is `current_run_id IS NULL` (ARCHITECTURE 4b), and the
+// column is written only by claiming and cleared by EndRun/ReleaseClaim/reclaim.
+// A transition that lands the task in a claimable status while the column still
+// holds a finished run's id makes the task permanently unclaimable: not
+// `running`, so reclaim ignores it; not `blocked`, so the board shows it as
+// queued work; and every future claim matches zero rows. The user sees a card in
+// Ready that nothing ever picks up.
+//
+// This statement is the writer for every non-tick transition — PATCH status,
+// `backlog -> ready`, `running -> backlog`, and the approval path's
+// `awaiting_approval -> ready` (ARCHITECTURE 4a, "kembali ke ready untuk
+// klaim"). Doing it here covers all of them; doing it in each caller is the
+// version that missed one. `tasks_run_binding_chk` (migration 0023) enforces the
+// same invariant in the database, so a future writer that forgets is refused
+// instead of silently stranding the task.
 func (q *Queries) UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) (Task, error) {
 	row := q.db.QueryRow(ctx, updateTaskStatus,
 		arg.ID,
@@ -7062,11 +7159,18 @@ func (q *Queries) UpsertModelPrice(ctx context.Context, arg UpsertModelPricePara
 }
 
 const wakeDependents = `-- name: WakeDependents :exec
-UPDATE tasks t SET status = 'ready', block_kind = NULL
+UPDATE tasks t SET status = 'ready', block_kind = NULL, current_run_id = NULL
 WHERE t.id IN (SELECT tl.child_id FROM task_links tl WHERE tl.parent_id = $1)
   AND t.status = 'blocked' AND t.block_kind = 'dependency'
 `
 
+// `current_run_id = NULL` on both of these: a task entering `ready` or `blocked`
+// is not `running`, so it must not hold a run binding (tasks_run_binding_chk).
+// Neither statement can currently carry one — ClaimReadyTaskDepsBlocked filters
+// on `current_run_id IS NULL`, and WakeDependents only moves `blocked` rows,
+// which the constraint keeps clean — so these two writes change nothing today.
+// They are here so the invariant holds by construction at every writer rather
+// than by an argument about which writers happen to be safe.
 // 4e.1: setelah sebuah task masuk 'done', anak yang diblokir karena dependency
 // dibangunkan. Hanya yang block_kind='dependency' — blokir karena policy atau
 // kebutuhan input manusia bukan urusan query ini.

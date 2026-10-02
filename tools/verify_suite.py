@@ -17,6 +17,7 @@ Exit 0 kalau bersih, 1 kalau ada temuan FAIL.
 
 import io
 import os
+import pathlib
 import re
 import sys
 import subprocess
@@ -886,6 +887,50 @@ def check_arch():
         say("FAIL", f"angka: klaim jumlah tabel basi -> {'; '.join(stale)}")
     else:
         say("ok", f"angka: klaim jumlah tabel konsisten dengan DDL ({n_tables})")
+
+    # --- 9. nama env yang dikontrak operator harus benar-benar dibaca kode ---
+    #
+    # Kelas bug ini sudah terjadi dua kali dengan nama yang sama: compose.yaml dan
+    # main.go pernah memakai AGENTDECK_DISPATCH sementara kode membaca
+    # AGENTDECK_DISPAT, jadi operator yang mengikuti dokumen menyalakan variabel
+    # yang tidak dibaca siapa pun — dan pesan log-nya menyuruh hal yang sama.
+    # Yang diperiksa hanya compose.yaml (kontrak operator milik proyek ini) dan
+    # prosa ARCHITECTURE. Blok kode di-fence DIBUANG dulu: contoh receiver webhook
+    # di ARCHITECTURE memakai os.environ['AGENTDECK_WEBHOOK_SECRET'] di sisi
+    # penerima, itu milik aplikasi pembaca, bukan variabel yang kita baca.
+    read_env = set()
+    for path in pathlib.Path(ROOT).rglob("*.go"):
+        if "node_modules" in path.parts:
+            continue
+        read_env |= set(re.findall(r'"(AGENTDECK_[A-Z0-9_]+)"',
+                                   path.read_text(encoding="utf-8", errors="ignore")))
+
+    def strip_fenced(text):
+        out, inside = [], False
+        for line in text.splitlines():
+            if line.lstrip().startswith("```"):
+                inside = not inside
+                out.append("")
+                continue
+            out.append("" if inside else line)
+        return "\n".join(out)
+
+    ghost = []
+    for name, text in (("compose.yaml", read("compose.yaml")),
+                       ("ARCHITECTURE.md", strip_fenced(arch))):
+        if text is None:
+            continue
+        # Comment lines are history, not instructions. compose.yaml keeps a note
+        # that the key "used to be AGENTDECK_DISPATCH"; that sentence is worth
+        # keeping, and nobody sets a variable from inside a comment.
+        lines = [ln for ln in text.splitlines() if not ln.lstrip().startswith("#")]
+        for env in sorted(set(re.findall(r"\b(AGENTDECK_[A-Z0-9_]+)\b", "\n".join(lines)))):
+            if env not in read_env:
+                ghost.append(f"{name}:{env}")
+    if ghost:
+        say("FAIL", f"ENV: nama env dikontrak tapi tidak dibaca kode -> {', '.join(ghost)}")
+    else:
+        say("ok", f"ENV: {len(read_env)} nama env yang dikontrak semuanya dibaca kode")
 
     # --- 8. referensi silang §x.y menunjuk section yang ada ---
     have = set(re.findall(r"(?m)^#{2,4} (\d+\.\d+)", arch))

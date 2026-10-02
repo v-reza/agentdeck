@@ -545,6 +545,10 @@ func main() {
 	// operator who followed the contract set the documented variable and got a
 	// dispatcher that never started, while the log below told them to set the
 	// very variable they had just set.
+	// The log line below and ARCHITECTURE 2820/2845 said AGENTDECK_DISPATCH too,
+	// so the operator was told twice to set a name nothing reads. tools/
+	// verify_suite.py now fails on any AGENTDECK_* named in compose.yaml or in
+	// ARCHITECTURE prose that no Go file reads, which is the class of bug.
 	if os.Getenv("AGENTDECK_DISPAT") == "1" {
 		runner := dispatcher.ExecutorRunner{}
 		d := dispatcher.New(boardService, runner, dispatcher.DefaultTick, dispatcher.DefaultBatch, logger)
@@ -552,7 +556,7 @@ func main() {
 		logger.Info("dispatcher enabled", "host", host, "tick", dispatcher.DefaultTick.String(),
 			"batch", dispatcher.DefaultBatch)
 	} else {
-		logger.Info("dispatcher disabled; set AGENTDECK_DISPATCH=1 to execute runs")
+		logger.Info("dispatcher disabled; set AGENTDECK_DISPAT=1 to execute runs")
 	}
 
 	// US-AD85: the limiter is the OUTERMOST layer, so a refused request costs one

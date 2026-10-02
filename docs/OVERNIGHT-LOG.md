@@ -2376,3 +2376,49 @@ Mutasi menemukan satu cabang **redundan** yang nyata: `cn`/`clsx`/`classNames`
 terdaftar di `isModuleSpecifier` **dan** di `insideClassHelper`; yang pertama cuma
 melihat argumen pertama, yang kedua seluruh call. Menghapusnya tidak mengubah
 output maupun fixture apa pun. Cabang itu dihapus, bukan mutannya diakali.
+
+
+## Fase 18 — dispatcher tidak memungut task Ready (di luar tabel §2)
+
+Dipicu laporan user, bukan daftar fase. Dua sebab, satu di antaranya bug nyata.
+
+**Sebab 1 — dispatcher mati.** `AGENTDECK_DISPAT` tidak di-set; default OFF
+karena tick membelanjakan kredensial provider. Diset ON untuk rig lokal lewat
+`.env` (gitignored), **bukan** lewat default `compose.yaml` — default repo harus
+tetap OFF sesuai `.hermes.md`, dan `compose.yaml` tetap `:-0`.
+
+**Sebab 2 — log menyuruh nama yang salah.** `main.go` menulis
+`AGENTDECK_DISPATCH=1`; binary membaca `AGENTDECK_DISPAT`. Dua tempat di
+ARCHITECTURE juga masih `AGENTDECK_DISPATCH`. Diperbaiki, plus guard baru di
+`verify_suite.py`: nama `AGENTDECK_*` yang ditulis sebagai setting di
+`compose.yaml` atau didokumentasikan di ARCHITECTURE tapi tidak dibaca satu file
+Go pun → FAIL. Diuji: hijau saat bersih, merah saat bug dikembalikan.
+
+**Bug A — binding run tidak dilepas.** `ClaimReadyTasks` butuh
+`current_run_id IS NULL`; empat penulis memindahkan task ke `ready`/`blocked`
+tanpa mengosongkan kolom itu, jadi task membawa id run yang sudah berakhir dan
+**tidak bisa diklaim selamanya**. Penulis: `UpdateTaskStatus` (PATCH,
+`backlog -> ready`, approve `awaiting_approval -> ready`), `RetryTask` (retry
+`transient` otomatis di `EndRun`), `BlockTask` (setiap `policy`), plus
+`ClaimReadyTaskDepsBlocked` dan `WakeDependents`. Diperbaiki di SQL, ditegakkan
+`tasks_run_binding_chk` (migrasi 0023). Constraint itu yang menangkap dua penulis
+terakhir — tidak ketahuan dari membaca kode.
+
+**Bug B — klaim yatim.** Proses mati antara `ClaimReadyTasks` dan `StartRun`
+meninggalkan task `running` tanpa baris run; `ReclaimStaleRuns` tidak bisa
+melihatnya (tidak ada run untuk ditutup). 2 task nyata di Northwind Robotics
+`running` sejak 2026-09-23. Ditambah `ReclaimOrphanedClaims`, disapu tiap tick,
+grace period 15 menit.
+
+**Gate**: `gate-p19b.log` rc=0. `verify_suite.py` SEMUA GATE BERSIH.
+`go test ./internal/{board,migrate,store,dispatcher}` + `./cmd/api` hijau.
+Full e2e **185 passed / 0 failed**, semua shard rc=0.
+
+**Bukti end-to-end**: task user dipungut dispatcher → `failed` +
+`consecutive_failures=1` (jejak `ReleaseClaim`: klaim berhasil, provider board itu
+tidak terjangkau). 2 task Northwind dibersihkan. Pelanggaran invariant di seluruh
+DB: **0**.
+
+**Tidak dites**: `internal/ratelimit` (tidak tersentuh fase ini). Migrasi 0023
+dites lewat `TestPostgresRepairMigrationGrantsPrivilegesOnLegacySchema` (jalur
+repair mengulang migrasi).
