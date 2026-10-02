@@ -729,3 +729,42 @@ menghitung lalu lintas yang ditolak sebagai request yang dilayani.
   CI **tidak** menjalankan tes yang butuh DB. Menambah service Postgres berarti
   ikut menanggung ~490 detik dan flake DB; itu keputusan terpisah yang belum
   diambil, bukan sesuatu yang "tinggal dinyalakan".
+
+
+## Cakupan: apa yang SELESAI vs apa yang belum dibangun
+
+Ditulis supaya "semua fase selesai" tidak dibaca sebagai "produknya lengkap".
+Diverifikasi ke kode 2026-10-02, bukan dari ingatan.
+
+**Fase `OVERNIGHT-BRIEF.md` §2: 0–17 selesai semua** (18 baris, semuanya
+bertanda ✅). Itu artinya daftar kerja malam itu habis, bukan bahwa PRD habis.
+
+**Layar mockup yang belum punya implementasi** (`tools/design_audit.py`, §9
+`DESIGN-INVENTORY.md`). Empat di antaranya **backend-nya sudah ada**, jadi yang
+kurang cuma UI-nya:
+
+| mockup | backend | catatan |
+|---|---|---|
+| `41-audit-log` | ✅ `GET /api/v1/audit-log` (Admin) | Sidebar punya grup "Audit & cost" tapi **cuma satu** tautan (ledger). Audit log tidak punya route. |
+| `17-close-account` | ✅ `DELETE /api/v1/auth/me` (Viewer) | `closeAccount` hidup di `cmd/api/main.go:457`. UI-nya tidak ada; nol referensi `closeAccount` di `frontend/src`. |
+| `31-cost-export` | ✅ (ledger + cost-summary) | Modal ekspor belum ada. |
+| `34-step-payload` | ✅ (`/runs/{id}`, steps) | Panel payload belum ada. |
+
+Lima lagi **tidak punya backend** — layar saja tidak cukup:
+
+| mockup | kenapa |
+|---|---|
+| `06`/`06b`/`06c` docs quickstart/api/telemetry | Konten dokumentasi, bukan layar produk. `/docs/*` sudah ada route-nya. |
+| `12-onboarding` | Tidak ada endpoint onboarding; alurnya belum diputuskan. |
+| `14-command-palette` | Overlay murni klien — bisa dibangun tanpa backend, tapi belum masuk fase mana pun. |
+| `33-run-timeline` | `/runs/:id` sudah punya timeline; mockup terpisah belum dipetakan. |
+| `44-state-empty`, `45-state-error` | `BoardStates.tsx` + `error-boundary.tsx` ada dan terpasang (dipakai `KanbanBoard.tsx` dan `AppShell.tsx`), tapi audit memetakannya sebagai tanpa file impl. **Pemetaannya yang salah, bukan layarnya.** |
+
+**Utang yang sudah terukur dan tidak bisa diklaim selesai:**
+
+- US-AD50 AC1: 803 string keras masih ada (baseline CI, `--strict` keluar 1).
+- US-AD94 AC1 (cache read/write per step) dan AC5 (masking per peran): kolomnya
+  tidak ada di skema.
+- `decision_reason`: `DecideApproval` menimpa alasan pemohon (`queries.sql:1664`).
+  Butuh migrasi.
+- Job Go di CI melewati suite Postgres.
