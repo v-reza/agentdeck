@@ -722,10 +722,10 @@ menghitung lalu lintas yang ditolak sebagai request yang dilayani.
   `frontend/scripts/check-i18n.cjs`. Alasannya `package.json` repo ini
   `"type": "module"`, jadi `.js` akan di-parse sebagai ESM. Nama tetap sama supaya
   mudah dicari.
-- **CI-nya belum pernah jalan.** Workflow ditulis dan dijalankan lokal; GitHub
-  Actions pertama kali mengeksekusinya saat push. Belum ada bukti run hijau dari
-  server.
-- **Go job belum ada.** Workflow sengaja hanya menjalankan frontend (tsc,
-  prettier, vitest, check-i18n). Suite Go (`go test ./...`) terukur ~490 detik
-  dan butuh Postgres; menambahkannya tanpa memverifikasi berarti mengirim CI yang
-  merah. Menyusul setelah ada bukti run pertama.
+- **Bukti run server: hijau.** Run pertama `37006753740` di `9c43dfb` — job
+  `Go (unit)` 1m13s dan `Web (i18n, types, unit)` 23s, keduanya sukses.
+- **`go test ./...` di CI hanya sebagian.** Job Go menjalankan paket unit murni;
+  suite Postgres di-skip karena `AGENTDECK_TEST_DATABASE_URL` tidak di-set, jadi
+  CI **tidak** menjalankan tes yang butuh DB. Menambah service Postgres berarti
+  ikut menanggung ~490 detik dan flake DB; itu keputusan terpisah yang belum
+  diambil, bukan sesuatu yang "tinggal dinyalakan".

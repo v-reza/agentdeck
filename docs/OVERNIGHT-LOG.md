@@ -2366,6 +2366,12 @@ Verifikasi: self-test **38 fixture** (termasuk fixture 4 karakter, tanpa itu mut
 ambang `<= 4` ekuivalen dan tidak bisa dibunuh), **mutasi 15 CAUGHT / 0 SURVIVED /
 0 anchor-meleset**. Gate `gate-p17b.log` rc=0, `verify_suite.py` SEMUA GATE BERSIH.
 
+**Bukti run server (setelah push `9c43dfb`):** run `37006753740` hijau — job
+`Go (unit)` 1m13s, `Web (i18n, types, unit)` 23s. Satu koreksi jujur menyusul:
+job Go **melewati** suite Postgres karena `AGENTDECK_TEST_DATABASE_URL` tidak
+di-set, jadi CI tidak menjalankan tes yang butuh DB. Itu dicatat di
+OPEN-ISSUES, bukan diklaim sebagai cakupan penuh.
+
 Mutasi menemukan satu cabang **redundan** yang nyata: `cn`/`clsx`/`classNames`
 terdaftar di `isModuleSpecifier` **dan** di `insideClassHelper`; yang pertama cuma
 melihat argumen pertama, yang kedua seluruh call. Menghapusnya tidak mengubah
