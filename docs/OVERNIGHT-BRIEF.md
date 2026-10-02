@@ -70,8 +70,8 @@ Maka urutannya:
 | 9 | ✅ **SELESAI** (`10b095c`) — **Dashboard** `42-dashboard` | US-AD76 | — |
 | 10 | ✅ **SELESAI** (`00fd787`) — **Dependency view** `24-dependency-view` | US-AD19 | Endpoint per-task = N+1; ditambah `GET /boards/{id}/dependencies`. |
 | 11 | ✅ **SELESAI** — **State screens** `43`/`44`/`45` | US-AD63, US-AD64, US-AD65 | Skeleton, empty, error boundary. Kecil-kecil. |
-| 12 | **Skill library** `26b-agent-skills` | US-AD107 | Backend ada. |
-| 13 | **Security** `16-security` | US-AD90 | Ganti password + sesi aktif; endpoint ada. |
+| 12 | **Skill library** `26b-agent-skills` | US-AD107 | ✅ SELESAI — `SkillLibrary.tsx` + markdown renderer sendiri (tanpa `marked`/`dompurify`), commit `d696c3e`. |
+| 13 | **Security** `16-security` | US-AD90 | ✅ SELESAI — ganti password + sesi aktif; `status: 'PARSING_ERROR'` ditangani lewat `originalStatus`. |
 | 14 | **Mobile board** `46-mobile-board` | US-AD60 | ✅ SELESAI — accordion + shell mobile (rail/sidebar/cost-rail lepas <768px, bottom nav). |
 | 15 | **Ledger explorer** `30-ledger-explorer` | US-AD27 | ✅ SELESAI — endpoint `GET /orgs/{id}/ledger` baru + tabel AC4 + empty state AC5 + paging. |
 | 16 | **Rate limit** | US-AD85 | ✅ SELESAI — `internal/ratelimit`, AC1–AC4 terbukti di wire, mutasi 11/0/0. |
