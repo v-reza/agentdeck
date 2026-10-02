@@ -235,6 +235,21 @@ export interface Dictionary {
   'closeAccount.errorGeneric': string
   'closeAccount.unavailable': string
   'closeAccount.unavailableHint': string
+  'costExport.title': string
+  'costExport.description': string
+  'costExport.download': string
+  'costExport.cancel': string
+  'costExport.range': string
+  'costExport.range.today': string
+  'costExport.range.7d': string
+  'costExport.range.30d': string
+  'costExport.range.custom': string
+  'costExport.from': string
+  'costExport.to': string
+  'costExport.selected': string
+  'costExport.rows': string
+  'costExport.columns': string
+  'costExport.cap': string
   'audit.actionPlaceholder': string
   'audit.refresh': string
   'audit.export': string
@@ -1044,6 +1059,21 @@ const en: Dictionary = {
   'closeAccount.errorGeneric': 'Could not close the account.',
   'closeAccount.unavailable': 'Account unavailable',
   'closeAccount.unavailableHint': 'Sign in again to close your account.',
+  'costExport.title': 'Export CSV',
+  'costExport.description': 'Export the cost ledger for a date range. The file carries the columns US-AD56 AC1 lists.',
+  'costExport.download': 'Download CSV',
+  'costExport.cancel': 'Cancel',
+  'costExport.range': 'Date range',
+  'costExport.range.today': 'Today',
+  'costExport.range.7d': 'Last 7 days',
+  'costExport.range.30d': 'Last 30 days',
+  'costExport.range.custom': 'Custom',
+  'costExport.from': 'Start date',
+  'costExport.to': 'End date',
+  'costExport.selected': 'Selected range:',
+  'costExport.rows': 'Rows in range',
+  'costExport.columns': 'Columns',
+  'costExport.cap': 'The range holds more than {max} rows; the file stops at {max}.',
   'audit.actionPlaceholder': 'e.g. workspace.rename',
   'audit.refresh': 'Refresh',
   'audit.export': 'Export CSV',
@@ -1864,6 +1894,21 @@ const id: Dictionary = {
   'closeAccount.errorGeneric': 'Akun tidak bisa ditutup.',
   'closeAccount.unavailable': 'Akun tidak tersedia',
   'closeAccount.unavailableHint': 'Masuk lagi untuk menutup akun Anda.',
+  'costExport.title': 'Ekspor CSV',
+  'costExport.description': 'Ekspor ledger biaya untuk rentang tanggal. File memuat kolom yang disebut US-AD56 AC1.',
+  'costExport.download': 'Unduh CSV',
+  'costExport.cancel': 'Batal',
+  'costExport.range': 'Rentang tanggal',
+  'costExport.range.today': 'Hari ini',
+  'costExport.range.7d': '7 hari terakhir',
+  'costExport.range.30d': '30 hari',
+  'costExport.range.custom': 'Kustom',
+  'costExport.from': 'Tanggal mulai',
+  'costExport.to': 'Tanggal akhir',
+  'costExport.selected': 'Rentang terpilih:',
+  'costExport.rows': 'Baris dalam rentang',
+  'costExport.columns': 'Kolom',
+  'costExport.cap': 'Rentang berisi lebih dari {max} baris; file berhenti di {max}.',
   'audit.actionPlaceholder': 'mis. workspace.rename',
   'audit.refresh': 'Muat ulang',
   'audit.export': 'Ekspor CSV',

@@ -37,7 +37,7 @@ cmd/api`). Yang masih benar dari paragraf lama itu hanya soal runtime workspace.
   |---|---|---|
   | `US-AD95` penampil audit log | `41-audit-log` | **SELESAI 2026-10-03** — route `/app/:orgID/audit` + `AuditLog.tsx` + e2e 4 lulus. |
   | `US-AD98` menutup akun sendiri | `17-close-account` | **SELESAI 2026-10-03** — route `/app/:orgID/settings/close` + `CloseAccount.tsx` + e2e 4 lulus. AC3 diperbaiki: 409 (dulu 403). |
-  | `US-AD56` ekspor laporan biaya CSV | `31-cost-export` | Ledger + cost-summary ada. Nol `exportCsv`/`text/csv` di `frontend/src`. **Belum ada.** |
+  | `US-AD56` ekspor laporan biaya CSV | `31-cost-export` | **SELESAI 2026-10-03** — dialog `CostExportDialog.tsx` dari tombol toolbar ledger + e2e 3 lulus. Ekspor di klien; plafon 500 baris dinyatakan di layar. |
   | `US-AD55` command palette | `14-command-palette` | `uiSlice` sudah punya `commandPaletteOpen` + `toggleCommandPalette`, tapi **komponennya tidak ada** — hanya state yang tidak pernah dipakai. |
   | `US-AD57` bulk move | `19-table-view` | Nol `bulkMove`. **Belum ada.** |
   | `US-AD78` invite link | `38-members` | Nol `inviteLink`. **Belum ada.** |
@@ -797,7 +797,7 @@ daftar kerja malam itu habis, bukan bahwa PRD habis.
 |---|---|---|---|
 | 1 | ~~Layar audit log (`US-AD95`)~~ | **SELESAI 2026-10-03** (fase 18 §2b) | — |
 | 2 | ~~Tutup akun sendiri (`US-AD98`)~~ | **SELESAI 2026-10-03** (fase 19 §2b) | — |
-| 3 | Ekspor CSV (`US-AD56`) | backend ✅, UI nol | kerja UI |
+| 3 | ~~Ekspor CSV (`US-AD56`)~~ | **SELESAI 2026-10-03** (fase 20 §2b) | — |
 | 4 | Command palette (`US-AD55`) | state Redux ✅, komponen nol | kerja UI |
 | 5 | Bulk move (`US-AD57`) | tidak ada | kerja UI |
 | 6 | Invite link (`US-AD78`) | tidak ada | UI + keputusan produk |

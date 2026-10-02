@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { Download, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
 import { EmptyState, Panel, StatTile } from '@/components/ui/card'
@@ -8,6 +8,7 @@ import { useOrgLedgerQuery } from '@/store/api/finops'
 import { formatMicroUSD, formatTokens } from '@/lib/formatters'
 import { useAppSelector } from '@/store/hooks'
 import { useT } from '@/hooks/use-t'
+import { CostExportDialog } from './CostExportDialog'
 
 /**
  * Screen 30-ledger-explorer — the cost ledger, workspace-wide (US-AD27 AC4, AC5).
@@ -24,10 +25,9 @@ import { useT } from '@/hooks/use-t'
  *
  * WHAT IS NOT BUILT, AND WHY:
  *
- * - CSV export. The design has the button; there is no export endpoint and
- *   building it client-side would mean fetching every page in a loop to write a
- *   file the server could stream. A download that silently truncates at the page
- *   boundary is worse than no button.
+ * - CSV export lives in its own dialog (`CostExportDialog`, US-AD56) and is
+ *   reached from the button in the toolbar. It is NOT a second implementation of
+ *   this table: it walks the API's own pages and states its row cap on screen.
  * - "Sync: Ingested (0 drift)" and "Precision: 1 µUSD" badges. The first is a
  *   reconciliation figure no endpoint produces; the second is a claim about the
  *   schema (`cost_micros` is BIGINT micro-USD) that belongs in the docs, not
@@ -53,6 +53,7 @@ export function LedgerExplorer() {
   const [offset, setOffset] = useState(0)
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [exportOpen, setExportOpen] = useState(false)
 
   const { data, isLoading, isFetching, refetch } = useOrgLedgerQuery(
     { orgID: orgID ?? '', agentID, model, from, to, offset, limit: PAGE_LIMIT },
@@ -143,6 +144,10 @@ export function LedgerExplorer() {
           <Button variant="secondary" size="sm" onClick={() => void refetch()} disabled={isFetching}>
             <RefreshCw size={13} aria-hidden="true" />
             {t['ledger.refresh']}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setExportOpen(true)} data-testid="ledger-export">
+            <Download size={13} aria-hidden="true" />
+            {t['costExport.title']}
           </Button>
         </div>
       </div>
@@ -293,6 +298,7 @@ export function LedgerExplorer() {
           )}
         </Panel>
       </div>
+      {orgID ? <CostExportDialog open={exportOpen} onClose={() => setExportOpen(false)} orgID={orgID} /> : null}
     </>
   )
 }

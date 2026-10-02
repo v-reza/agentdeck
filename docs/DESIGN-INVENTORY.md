@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (165 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (166 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 133 |
+| `<svg>` | 111 | 135 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -20,7 +20,7 @@ yang punya file impl — lihat §3.
 | blok skeleton (abu berukuran) | 323 | 40 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 44 |
+| file memakai `lucide-react` | 0 | 45 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -175,8 +175,8 @@ Nol.
 | 27-agent-provider-key | `(panel)` | `AgentProviderKeyPanel.tsx`, `ProviderKeyFields.tsx` | 1/0 | 0 | 0 |
 | 28-agent-detail | `/agents/:id` | `AgentAssignment.tsx`, `AgentDetail.tsx`, `AgentDetailForm.tsx`, `AgentDetailOptions.ts`, `AgentDetailParts.tsx`, `AgentPricingCard.tsx` | 4/6 | 0 | 2 |
 | 29-cost-overview | `/cost` | `CostOverview.tsx` | 0/0 | 0 | 1 |
-| 30-ledger-explorer | `/cost/ledger` | `LedgerExplorer.tsx` | 0/1 | 0 | 1 |
-| 31-cost-export | `(modal)` | — | 0/0 | 0 | 0 |
+| 30-ledger-explorer | `/cost/ledger` | `LedgerExplorer.tsx` | 0/2 | 0 | 1 |
+| 31-cost-export | `(modal)` | `CostExportDialog.tsx` | 0/1 | 0 | 0 |
 | 32-run-detail | `/runs/:id` | `RunDetail.tsx` | 18/5 | 0 | 3 |
 | 33-run-timeline | `/runs/:id/timeline` | — | 4/0 | 0 | 0 |
 | 34-step-payload | `(panel)` | — | 0/0 | 0 | 0 |

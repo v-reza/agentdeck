@@ -14,6 +14,21 @@ import type { LedgerEntry, LedgerPage, BoardLedger, BoardBudget, CostSummary } f
  * empty state — never a stand-in number.
  */
 
+/**
+ * The arguments `orgLedger` accepts. Exported because the CSV export
+ * (`CostExportDialog`) builds the same query for its row count, and a second
+ * hand-written shape would drift from this one.
+ */
+export interface LedgerQueryArgs {
+  orgID: string
+  agentID?: string
+  model?: string
+  from?: string
+  to?: string
+  offset?: number
+  limit?: number
+}
+
 export const finopsApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     boardBudget: build.query<BoardBudget, string>({

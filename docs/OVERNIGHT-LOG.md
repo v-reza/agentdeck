@@ -2566,3 +2566,59 @@ header `check-i18n.cjs` dengan batas dan jalur upgrade-nya.
 
 **Tidak dikerjakan** (sesuai perintah): US-AD94 AC1/AC5 dan `decision_reason`
 butuh keputusan produk; US-AD57/AD78/AD72 backend-nya belum ada.
+
+
+## Fase 20 — Ekspor laporan biaya CSV (US-AD56)
+
+**Kontrak**: brief §2b baris 3; PRD US-AD56 AC1–AC2; mockup `31-cost-export`
+(modal, mode `default`/`preview`).
+
+**Hasil**: dialog ekspor di `/app/:orgID/cost/ledger`, tombol di toolbar
+(`ledger-export`). Rentang tanggal (Hari ini / 7 hari / 30 hari / kustom),
+jumlah baris rentang, daftar kolom, dan unduhan CSV.
+
+**File**: `frontend/src/routes/dashboard/finops/CostExportDialog.tsx` (baru),
+`frontend/e2e/cost-export.spec.ts` (baru),
+`frontend/src/routes/dashboard/finops/LedgerExplorer.tsx`,
+`frontend/src/store/api/finops.ts` (`LedgerQueryArgs` diekspor),
+`frontend/src/lib/i18n.ts`.
+
+**Keputusan**:
+- **Kolom mengikuti AC1, bukan mockup.** AC1: Task ID, Run ID, Agent, Model,
+  Tokens In, Tokens Out, Cost. Baris "Format Kolom" di mockup **tidak menyertakan
+  Run ID**; AC yang menang. Urutannya dikunci di tes karena CSV dengan kolom
+  lengkap tapi urutan beda adalah file yang beda bagi tiap konsumen yang
+  mengindeks per posisi.
+- **`cost_micros` integer, bukan float.** 2840 → `"2840"`. Membulatkan ke
+  `0.00` akan menghapus satu-satunya presisi yang dimiliki ledger.
+- **Klien, bukan server.** Tidak ada endpoint ekspor dan nol `text/csv` di repo.
+  File dirakit dari halaman API itu sendiri, dan **plafonnya dinyatakan di layar
+  sebelum unduh** (`MAX_ROWS = 500`, sama dengan clamp server di
+  `internal/board/runtime.go`). Komentar lama `LedgerExplorer` yang bilang
+  "CSV tidak dibangun karena takut terpotong diam-diam" diperbarui: sekarang
+  dibangun, dan batasnya terlihat.
+- **Penghitung baris dari `total_rows`, bukan dari halaman.** Server menghitung
+  total dengan window function sebelum `LIMIT`, jadi angkanya menggambarkan
+  rentang, bukan halaman explorer. Query penghitung memakai `limit: 1`.
+- **Walk halaman pakai `fetch`, bukan hook RTK.** Ekspor berjalan sekali lalu
+  hasilnya jadi file; menaruh tiap halaman di cache hanya menambah sampah.
+
+**Verifikasi**: e2e `cost-export.spec.ts` **3 lulus** — AC1 (header persis, urutan
+persis, task_id/run_id/agent dari JOIN, cost integer), AC2 (preset 7 hari
+mengecualikan baris 40 hari; rentang kustom 60 hari memasukkannya), dan rentang
+kosong (unduhan disabled, bukan file kosong).
+- **Mutasi 2 titik, keduanya CAUGHT**: daftar kolom (membuang `run_id` dari file)
+  dan rentang tanggal (tidak mengirim `from`/`to`). File di-restore
+  byte-identik; baseline lulus setelah restore.
+- **Full e2e**: shard 51/48/55/42, semua `rc=0` → **196 lulus, 0 gagal** (198
+  tes, 2 skipped, 0 flaky). Nol file `src`/`e2e` lebih baru dari `summary.txt`.
+- Gate `tools\\gate-overnight.cmd` → `rc=0`.
+
+**Inventory design (`31-cost-export`, 0 `<svg>` di design)**: kolom tabel dan
+toolbar sudah ada di explorer; dialog menambahkan rentang (preset + kustom),
+penghitung baris, dan daftar kolom. Dua elemen mockup **tidak** dibawa: baris
+"Format Kolom" yang membuang Run ID (bertentangan dengan AC1) dan estimasi
+"1.428 baris" sebagai angka contoh (angkanya sekarang datang dari API).
+
+**Tidak dikerjakan** (sesuai perintah): US-AD94 AC1/AC5 dan `decision_reason`
+butuh keputusan produk; US-AD57/AD78/AD72 backend-nya belum ada.
