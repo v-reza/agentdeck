@@ -1,4 +1,15 @@
-import { Cable, KeyRound, Lock, ReceiptText, ScrollText, ShieldCheck, UserRound, Users, Webhook } from 'lucide-react'
+import {
+  Cable,
+  KeyRound,
+  Lock,
+  ReceiptText,
+  ScrollText,
+  ShieldCheck,
+  Trash2,
+  UserRound,
+  Users,
+  Webhook,
+} from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { useProjects } from '@/hooks/use-projects'
@@ -159,6 +170,9 @@ function SettingsNav({ orgID }: { orgID: string }) {
           icon={<ShieldCheck size={15} />}
           label={t['security.title']}
         />
+        {/* 17-close-account is its own screen in the design; without this link
+            the only way to reach it would be typing the URL. */}
+        <SettingsLink to={`/app/${orgID}/settings/close`} icon={<Trash2 size={15} />} label={t['closeAccount.title']} />
       </div>
 
       <div className="flex flex-col gap-1">

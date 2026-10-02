@@ -76,6 +76,9 @@ const WorkspaceSettings = lazy(() =>
 )
 const ApiKeys = lazy(() => import('@/routes/dashboard/settings/ApiKeys').then((m) => ({ default: m.ApiKeys })))
 const Security = lazy(() => import('@/routes/dashboard/settings/Security').then((m) => ({ default: m.Security })))
+const CloseAccount = lazy(() =>
+  import('@/routes/dashboard/settings/CloseAccount').then((m) => ({ default: m.CloseAccount })),
+)
 // US-AD95: the audit log reader. Admin-gated on the page, not only on the endpoint.
 const AuditLog = lazy(() => import('@/routes/dashboard/settings/AuditLog').then((m) => ({ default: m.AuditLog })))
 const Webhooks = lazy(() => import('@/routes/dashboard/settings/Webhooks').then((m) => ({ default: m.Webhooks })))
@@ -120,6 +123,7 @@ function dashboardRoutes() {
       <Route path="settings/members" element={<Members />} />
       <Route path="settings/api-keys" element={<ApiKeys />} />
       <Route path="settings/security" element={<Security />} />
+      <Route path="settings/close" element={<CloseAccount />} />
       <Route path="settings/webhooks" element={<Webhooks />} />
       <Route path="skills" element={<SkillLibrary />} />
       {/* US-AD109: the credential registry. Settings-scoped, not a rail slot —

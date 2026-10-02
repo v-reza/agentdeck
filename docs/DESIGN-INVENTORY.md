@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (164 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (165 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 130 |
+| `<svg>` | 111 | 133 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -17,10 +17,10 @@ sementara implementasi mendeklarasikan komponennya sekali lalu merendernya
 di dalam `.map()`. Jadi rasio mentahnya selalu terlihat lebih buruk daripada
 kenyataan, dan satu-satunya cara membacanya adalah per jenis icon di layar
 yang punya file impl — lihat §3.
-| blok skeleton (abu berukuran) | 323 | 39 |
+| blok skeleton (abu berukuran) | 323 | 40 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 43 |
+| file memakai `lucide-react` | 0 | 44 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -155,13 +155,13 @@ Nol.
 | 09b-github | `/github` | `GitHubPage.tsx` | 3/0 | 0 | 0 |
 | 09c-community | `/community` | `CommunityPage.tsx` | 2/0 | 0 | 0 |
 | 10-board-list | `/boards` | `BoardList.tsx`, `CreateBoardForm.tsx`, `ProjectDetail.tsx` | 9/2 | 0 | 2 |
-| 11-project-list | `/projects` | `CostRail.tsx`, `WorkspaceSidebar.tsx`, `WorkspaceTopbar.tsx`, `CreateProjectForm.tsx`, `ProjectDirectory.tsx`, `ProjectList.tsx`, `ProjectSummary.tsx` | 6/15 | 0 | 2 |
+| 11-project-list | `/projects` | `CostRail.tsx`, `WorkspaceSidebar.tsx`, `WorkspaceTopbar.tsx`, `CreateProjectForm.tsx`, `ProjectDirectory.tsx`, `ProjectList.tsx`, `ProjectSummary.tsx` | 6/16 | 0 | 2 |
 | 12-onboarding | `/onboarding` | — | 0/0 | 0 | 0 |
 | 13-notifications | `/notifications` | `Notifications.tsx` | 0/1 | 0 | 1 |
 | 14-command-palette | `(overlay)` | — | 0/0 | 0 | 0 |
 | 15-profile | `/settings/profile` | `Profile.tsx` | 0/7 | 0 | 1 |
 | 16-security | `/settings/security` | `Security.tsx` | 0/3 | 0 | 1 |
-| 17-close-account | `/settings/close` | — | 0/0 | 0 | 0 |
+| 17-close-account | `/settings/close` | `CloseAccount.tsx` | 0/2 | 0 | 1 |
 | 18-kanban | `/boards/:id` | `BoardToolbar.tsx`, `KanbanBoard.tsx` | 5/4 | 0 | 0 |
 | 19-table-view | `/boards/:id?view=table` | `BoardToolbar.tsx`, `TableView.tsx` | 0/4 | 0 | 1 |
 | 20-task-drawer | `(drawer)` | `RunSteps.tsx`, `TabApprovals.tsx`, `TabArtifacts.tsx`, `StepTimeline.tsx`, `TaskDetailDrawer.tsx` | 12/13 | 0 | 5 |

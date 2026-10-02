@@ -362,13 +362,15 @@ func TestCloseAccountEndsEverySession(t *testing.T) {
 // TestLastOwnerCannotCloseASharedWorkspace — US-AD98 AC3.
 //
 // alice owns orgA and it has four members. Closing her account would leave a
-// shared workspace with nobody able to administer it, so it is refused.
+// shared workspace with nobody able to administer it, so it is refused — and
+// the refusal is 409, because AC3 names that status for this path. The
+// membership paths that share ErrLastOwner (demote, remove) stay 403.
 func TestLastOwnerCannotCloseASharedWorkspace(t *testing.T) {
 	test := newRBACTestAPI(t)
 
 	resp := test.do(test.t, http.MethodDelete, "/api/v1/auth/me",
 		`{"confirm_email":"alice@x.test"}`, test.tokens["alice@x.test"], test.orgA)
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("last owner closing a shared workspace: want 403, got %d %s", resp.StatusCode, resp.body)
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("last owner closing a shared workspace: want 409, got %d %s", resp.StatusCode, resp.body)
 	}
 }

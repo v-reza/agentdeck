@@ -106,6 +106,35 @@ export const sessionApi = baseApi.injectEndpoints({
     }),
 
     /**
+     * DELETE /auth/me (US-AD98 AC1–AC4).
+     *
+     * The body carries `confirm_email` because AC1 makes the typed email the
+     * confirmation, and the server compares it — a mismatch is a 400 and nothing
+     * changes. AC4 is structural on the server: the route has no `{id}`, so no
+     * caller can name another account.
+     *
+     * `invalidatesTags: ['Session']` is what makes the closure VISIBLE: the shell
+     * is gated on `useMeQuery`, and without the invalidation that query keeps its
+     * cached success, so the dashboard stays on screen for an account that no
+     * longer exists. The refetch is what turns it into a 401 and sends the
+     * operator to /login. `logout` carries the same tag for the same reason.
+     *
+     * The 409 (AC3: last owner of a workspace that still has other members) is
+     * NOT swallowed; the screen renders it, because it is the one refusal the
+     * operator can act on.
+     */
+    closeAccount: build.mutation<void, { confirm_email: string }>({
+      query: (body) => ({ url: 'auth/me', method: 'DELETE', body }),
+      invalidatesTags: ['Session'],
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        await queryFulfilled.then(
+          () => dispatch(clearSession()),
+          () => undefined,
+        )
+      },
+    }),
+
+    /**
      * POST /auth/password/reset-request (US-AD88 AC1/AC5).
      *
      * The server always answers 202 — for a registered address, an unknown one,
@@ -257,6 +286,7 @@ export const {
   useRegisterMutation,
   useLoginMutation,
   useLogoutMutation,
+  useCloseAccountMutation,
   useRequestPasswordResetMutation,
   useResetPasswordMutation,
   useUpdateMeMutation,

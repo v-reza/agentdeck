@@ -2491,3 +2491,78 @@ kalau ada atribut baru berbentuk sama, dan itu memang sinyalnya.
 
 **Tidak dikerjakan** (sesuai perintah): US-AD94 AC1/AC5 dan `decision_reason`
 butuh keputusan produk; US-AD57/AD78/AD72 backend-nya belum ada.
+
+## Fase 19 — Tutup akun sendiri (US-AD98)
+
+**Kontrak**: brief §2b baris 2; PRD US-AD98 AC1–AC5; mockup `17-close-account`;
+`ARCHITECTURE.md` §6.2.1 (`DELETE /api/v1/auth/me`).
+
+**Hasil**: layar `/app/:orgID/settings/close` hidup, dengan tautan di sidebar
+grup akun. Alur: konfirmasi ketik ulang email (AC1) → 202 → sesi hilang → balik
+ke `/login` dan kredensial lama ditolak (AC2).
+
+**File**: `frontend/src/routes/dashboard/settings/CloseAccount.tsx` (baru),
+`frontend/e2e/close-account.spec.ts` (baru), `frontend/src/store/api/session.ts`,
+`frontend/src/app/router.tsx`, `frontend/src/components/layout/WorkspaceSidebar.tsx`,
+`frontend/src/lib/i18n.ts`, `cmd/api/sessions.go`, `cmd/api/sessions_test.go`,
+`docs/ARCHITECTURE.md` §6.2.1, `frontend/scripts/check-i18n.cjs`,
+`frontend/scripts/i18n-baseline.json`, `docs/DESIGN-INVENTORY.md`.
+
+**Keputusan**:
+- **AC3 diperbaiki: 409, bukan 403.** PRD AC3 minta `409`; handler membalas `403`
+  karena `ErrLastOwner` dipakai bersama jalur keanggotaan (demote/remove) yang
+  memang 403. Pemetaannya dipersempit **di handler tutup akun**, bukan diubah di
+  `writeAuthError`. Tes `TestLastOwnerCannotCloseASharedWorkspace` diubah 403 →
+  409; jalur keanggotaan tidak disentuh. Dokumentasi §6.2.1 ikut dibetulkan —
+  barisnya sebelumnya menulis 403.
+- **Field "alasan penutupan" tidak dibawa.** Mockup menggambarnya; `DELETE
+  /auth/me` hanya menerima `confirm_email`. Field tanpa tujuan adalah field yang
+  bohong.
+- **Copy "permanen & tidak bisa dibatalkan" tidak dibawa.** AC5 bilang penutupan
+  lunak 30 hari, jadi layar menyebut yang benar.
+- **AC4 diuji sebagai bentuk, bukan sebagai permintaan terlarang.** Route-nya
+  tidak punya `{id}`, jadi "menutup akun orang lain" tidak bisa diekspresikan;
+  tes menegaskan `DELETE /auth/me/<ulid>` = 404 dan akun pemanggil utuh.
+
+**Inventory design (`17-close-account`, 0 `<svg>` di design)**:
+| elemen | status |
+|---|---|
+| ringkasan entitas (email, nama, workspace) | ada (`close-account-summary`) |
+| panel dampak (sesi, login, arsip) | ada |
+| konfirmasi email + tombol aktif saat cocok | ada, dua gerbang (email + checkbox) |
+| dropdown alasan penutupan | tidak dibawa — tidak ada jalurnya di API |
+| aksen "tidak dapat dibatalkan" | tidak dibawa — bertentangan dengan AC5 |
+| 2 `<svg>` di impl = 2 icon Lucide (AlertTriangle, Trash2); design 0 | selisih wajar, ikon struktural |
+
+**Verifikasi**:
+- e2e baru `e2e/close-account.spec.ts`: **4 lulus** — AC1 (dua gerbang: email
+  cocok PERSIS + checkbox; near-miss tetap terkunci), AC1/AC2 (mismatch 400 dan
+  akun selamat; lalu 202, sesi hilang, login lama ditolak), AC3 (409 + pesan
+  inline + akun selamat), AC4 (tidak ada route yang menyebut akun lain).
+- **Mutasi 3 titik, semua CAUGHT**: gerbang submit, cabang 409, invalidasi tag
+  `Session`. File di-restore byte-identik dan baseline lulus setelah restore.
+- `go test ./cmd/api/ ./internal/auth/ -count=1` → **ok** (30.8s + 1.9s).
+- **Full e2e**: shard 51/48/52/42, semua `rc=0` → **193 lulus, 0 gagal** (195
+  tes, 2 skipped, 0 flaky). Nol file `src`/`e2e` lebih baru dari `summary.txt`,
+  jadi run-nya sah.
+- Gate `tools\\gate-overnight.cmd` → `rc=0`; `verify_suite.py` SEMUA GATE BERSIH.
+
+**Dua jebakan yang ketemu dan dicatat**:
+1. **`originalStatus`, bukan `status`.** API ini menulis error dengan
+   `http.Error` (`text/plain`), RTK Query parse sebagai JSON, parse gagal →
+   `status: 'PARSING_ERROR'` dan kode asli ada di `originalStatus`. Versi pertama
+   layar ini memakai `status === 409` — kompilasi mulus, tidak pernah cocok, dan
+   e2e-nya yang menangkap dengan menampilkan pesan generik. Trap yang sama sudah
+   pernah dicatat di `Security.tsx`.
+2. **Invalidasi tag itu yang bikin penutupan kelihatan.** Tanpa
+   `invalidatesTags: ['Session']`, `useMeQuery` memegang cache sukses dan
+   dashboard tetap tampil untuk akun yang sudah tidak ada. Komentar versi pertama
+   gw bilang kebalikannya; e2e AC2 yang membuktikan.
+
+**Baseline i18n naik 804 → 806**, tepat dua entri: `WorkspaceSidebar.tsx`
+21 → 22 (kelas template-literal) dan `CloseAccount.tsx` 0 → 1 (bentuk kedua,
+string di dalam ekspresi `{...}`). Kedua bentuk sekarang didokumentasikan di
+header `check-i18n.cjs` dengan batas dan jalur upgrade-nya.
+
+**Tidak dikerjakan** (sesuai perintah): US-AD94 AC1/AC5 dan `decision_reason`
+butuh keputusan produk; US-AD57/AD78/AD72 backend-nya belum ada.

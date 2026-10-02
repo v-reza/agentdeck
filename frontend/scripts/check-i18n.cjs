@@ -39,19 +39,31 @@
  * hand: tag state, brace depth, and an element stack. That is a heuristic, and it
  * is bounded by the self-test below rather than by hope.
  *
- * KNOWN FALSE-POSITIVE CLASS — a template literal in a JSX attribute swallows the
- * rest of the element. In
+ * KNOWN FALSE-POSITIVE CLASS — a string that is NOT rendered prose is reported,
+ * and it takes the rest of the file with it. Two shapes, same cause: the scanner
+ * tracks JSX context by hand, so it cannot tell a value from copy.
  *
- *     <Link to={`/app/${id}/audit`} icon={<Icon />} label={t['audit.title']} />
+ *   1. A template literal in a JSX attribute swallows the rest of the element:
  *
- * the `` `...` `` is lexed as one string, and the scanner's tag state is left
- * believing it is still inside that attribute, so the JSX that follows is reported
- * as hardcoded text. 20 of the 21 findings in `WorkspaceSidebar.tsx` are this one
- * shape; none of them is rendered prose. It is not fixed here because the fix is
- * a brace/template tracker, and the baseline already absorbs the class — the
- * count only moves when a NEW attribute in that shape is added, which is the
- * signal the check is for. Do not "fix" a finding by rewording a comment; check
- * whether the reported range starts inside a `` ` `` first.
+ *        <Link to={`/app/${id}/audit`} icon={<Icon />} label={t['audit.title']} />
+ *
+ *      the `` `...` `` is lexed as one string and the tag state is left believing
+ *      it is still inside that attribute, so the JSX that follows reads as
+ *      hardcoded text.
+ *   2. A string inside a JSX expression container is reported as if it were
+ *      child text:
+ *
+ *        {rows.map((r) => `${r.name}`).join(', ')}
+ *
+ *      `', '` is a separator, not copy, and it is inside `{...}`.
+ *
+ * Neither is fixed here: the fix for both is brace/template tracking in the
+ * scanner, and the baseline absorbs the class. The consequence to know before
+ * "fixing" a finding: the count is PER FILE, so adding any new line to a file
+ * that already carries the class bumps it, and rewording a comment can trip it.
+ * Check whether the reported range starts inside a `` ` `` or inside `{...}`
+ * before believing a finding. The upgrade path is a real brace tracker; until
+ * then `--list` and the offset are what tell you which shape you are looking at.
  *
  * Usage:
  *   node scripts/check-i18n.cjs               scan src/, exit 1 on any finding

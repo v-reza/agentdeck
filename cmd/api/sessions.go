@@ -134,6 +134,14 @@ func (a authAPI) closeAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.store.CloseAccount(r.Context(), orgCtx.userID, input.ConfirmEmail); err != nil {
+		// US-AD98 AC3 asks for 409 specifically ("penutupan ditolak 409 bila
+		// pengguna adalah owner terakhir"). `ErrLastOwner` is shared with the
+		// membership paths (demote, remove), where 403 is right, so the mapping
+		// is narrowed to this handler rather than changed in writeAuthError.
+		if errors.Is(err, auth.ErrLastOwner) {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
 		writeAuthError(w, err)
 		return
 	}

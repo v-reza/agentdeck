@@ -214,6 +214,27 @@ export interface Dictionary {
   'audit.roleBadge': string
   'audit.activeFilters': string
   'audit.reset': string
+  'closeAccount.title': string
+  'closeAccount.intro': string
+  'closeAccount.summary': string
+  'closeAccount.email': string
+  'closeAccount.name': string
+  'closeAccount.workspaces': string
+  'closeAccount.noSoloWorkspace': string
+  'closeAccount.impact': string
+  'closeAccount.impactSessions': string
+  'closeAccount.impactLogin': string
+  'closeAccount.impactSoft': string
+  'closeAccount.confirmTitle': string
+  'closeAccount.confirmLabel': string
+  'closeAccount.ackLabel': string
+  'closeAccount.submit': string
+  'closeAccount.gateReady': string
+  'closeAccount.gateBlocked': string
+  'closeAccount.errorLastOwner': string
+  'closeAccount.errorGeneric': string
+  'closeAccount.unavailable': string
+  'closeAccount.unavailableHint': string
   'audit.actionPlaceholder': string
   'audit.refresh': string
   'audit.export': string
@@ -1001,6 +1022,28 @@ const en: Dictionary = {
   'audit.roleBadge': 'Owner or admin',
   'audit.activeFilters': 'Filtered',
   'audit.reset': 'Reset',
+  'closeAccount.title': 'Close account',
+  'closeAccount.intro': 'Permanently close your account and everything that belongs only to it.',
+  'closeAccount.summary': 'What will be closed',
+  'closeAccount.email': 'Registered email',
+  'closeAccount.name': 'Display name',
+  'closeAccount.workspaces': 'Solo-owned workspaces',
+  'closeAccount.noSoloWorkspace': 'none',
+  'closeAccount.impact': 'Impact',
+  'closeAccount.impactSessions': 'Every active session is revoked immediately.',
+  'closeAccount.impactLogin': 'You will not be able to sign in again with these credentials.',
+  'closeAccount.impactSoft': 'The closure is reversible for 30 days, then the data is erased.',
+  'closeAccount.confirmTitle': 'Confirm closure',
+  'closeAccount.confirmLabel': 'Type your account email to confirm',
+  'closeAccount.ackLabel': 'I understand my account will be closed and my sessions revoked.',
+  'closeAccount.submit': 'Close my account',
+  'closeAccount.gateReady': 'Email matches',
+  'closeAccount.gateBlocked': 'Type your account email',
+  'closeAccount.errorLastOwner':
+    'You are the last owner of a workspace that still has other members. Hand over ownership first.',
+  'closeAccount.errorGeneric': 'Could not close the account.',
+  'closeAccount.unavailable': 'Account unavailable',
+  'closeAccount.unavailableHint': 'Sign in again to close your account.',
   'audit.actionPlaceholder': 'e.g. workspace.rename',
   'audit.refresh': 'Refresh',
   'audit.export': 'Export CSV',
@@ -1799,6 +1842,28 @@ const id: Dictionary = {
   'audit.roleBadge': 'Owner atau admin',
   'audit.activeFilters': 'Terfilter',
   'audit.reset': 'Reset',
+  'closeAccount.title': 'Tutup akun',
+  'closeAccount.intro': 'Tutup akun Anda secara permanen beserta data yang hanya milik Anda.',
+  'closeAccount.summary': 'Yang akan ditutup',
+  'closeAccount.email': 'Email terdaftar',
+  'closeAccount.name': 'Nama tampilan',
+  'closeAccount.workspaces': 'Workspace milik sendiri',
+  'closeAccount.noSoloWorkspace': 'tidak ada',
+  'closeAccount.impact': 'Dampak',
+  'closeAccount.impactSessions': 'Semua sesi aktif langsung dicabut.',
+  'closeAccount.impactLogin': 'Anda tidak bisa masuk lagi dengan kredensial ini.',
+  'closeAccount.impactSoft': 'Penutupan bisa dipulihkan 30 hari, setelah itu data dihapus.',
+  'closeAccount.confirmTitle': 'Konfirmasi penutupan',
+  'closeAccount.confirmLabel': 'Ketik ulang email akun Anda',
+  'closeAccount.ackLabel': 'Saya paham akun saya ditutup dan sesi saya dicabut.',
+  'closeAccount.submit': 'Tutup akun saya',
+  'closeAccount.gateReady': 'Email cocok',
+  'closeAccount.gateBlocked': 'Ketik ulang email akun',
+  'closeAccount.errorLastOwner':
+    'Anda owner terakhir di workspace yang masih berisi anggota lain. Alihkan kepemilikan dulu.',
+  'closeAccount.errorGeneric': 'Akun tidak bisa ditutup.',
+  'closeAccount.unavailable': 'Akun tidak tersedia',
+  'closeAccount.unavailableHint': 'Masuk lagi untuk menutup akun Anda.',
   'audit.actionPlaceholder': 'mis. workspace.rename',
   'audit.refresh': 'Muat ulang',
   'audit.export': 'Ekspor CSV',

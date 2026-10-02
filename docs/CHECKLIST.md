@@ -113,10 +113,10 @@
 | `US-AD57` | Could | M6 | Bulk action: pindahkan task | `19-table-view` | ⬜ |
 | `US-AD72` | Could | M6 | Prepopulate board dari template | `10-board-list` | ⬜ |
 | `US-AD78` | Could | M6 | Invite link | `38-members` | ⬜ |
-| `US-AD98` | Should | M6 | Menutup akun sendiri | `17-close-account` | ⬜ |
+| `US-AD98` | Should | M6 | Menutup akun sendiri | `17-close-account` | ✅ PASS |
 | `US-AD99` | Should | M6 | Halaman dokumentasi | `08-changelog`, `09-features` | ✅ PASS |
 
-**Total M0–M6: 109 story** (95 PASS, 1 ditunda)
+**Total M0–M6: 109 story** (96 PASS, 1 ditunda)
 
 ## Progres per milestone
 
@@ -128,7 +128,7 @@
 | M3 | 16 | 16 | 0 |
 | M4 | 10 | 10 | 0 |
 | M5 | 7 | 6 | 1 |
-| M6 | 13 | 4 | 9 |
+| M6 | 13 | 5 | 8 |
 
 ### Catatan status — `US-AD73` (🔨 dikerjakan)
 
