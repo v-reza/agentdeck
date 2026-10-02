@@ -704,3 +704,28 @@ ditolak lagi — itu sebabnya pembulatan ke atas diuji eksplisit (budget 7/menit
 dipasang **di luar** `metricsReg`, jadi request yang di-429 tidak masuk hitungan
 request metrics. Kalau suatu saat limiter dipindah ke dalam, dashboard akan mulai
 menghitung lalu lintas yang ditolak sebagai request yang dilayani.
+
+
+## US-AD50: deteksi string keras — yang tidak diklaim
+
+- **AC1 diklaim sebagian, dan itu disengaja.** Aturan literal AC ("string > 3
+  karakter di luar `<Trans>` atau `t()`") diterapkan pada **teks yang dirender**:
+  JSX children dan atribut prosa. Menerapkannya ke seluruh file `.tsx`
+  menghasilkan 1.925 temuan, mayoritas nilai non-UI (`'task.created'`,
+  `'Escape'`, `'flex gap-2'`). Batas ini ditulis di header
+  `frontend/scripts/check-i18n.cjs`.
+- **`--strict` masih keluar 1.** Repo punya 803 string keras di 113 file. CI
+  memakai baseline per-file, jadi yang dijaga adalah **regresi** (file naik, atau
+  file baru dengan string keras), bukan kelengkapan. Selama baseline > 0, AC1
+  belum tuntas — ini utang yang terukur, bukan klaim selesai.
+- **Nama file menyimpang dari AC.** AC menulis `check-i18n.js`; yang ada
+  `frontend/scripts/check-i18n.cjs`. Alasannya `package.json` repo ini
+  `"type": "module"`, jadi `.js` akan di-parse sebagai ESM. Nama tetap sama supaya
+  mudah dicari.
+- **CI-nya belum pernah jalan.** Workflow ditulis dan dijalankan lokal; GitHub
+  Actions pertama kali mengeksekusinya saat push. Belum ada bukti run hijau dari
+  server.
+- **Go job belum ada.** Workflow sengaja hanya menjalankan frontend (tsc,
+  prettier, vitest, check-i18n). Suite Go (`go test ./...`) terukur ~490 detik
+  dan butuh Postgres; menambahkannya tanpa memverifikasi berarti mengirim CI yang
+  merah. Menyusul setelah ada bukti run pertama.

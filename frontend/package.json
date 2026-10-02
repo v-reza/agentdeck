@@ -11,7 +11,9 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "check:i18n": "node scripts/check-i18n.cjs",
+    "check:i18n:strict": "node scripts/check-i18n.cjs --strict"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

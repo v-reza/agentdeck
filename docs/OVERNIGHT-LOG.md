@@ -2315,3 +2315,58 @@ kontrak di wire — angka itu diuji di unit test, dan probe container di atas.
 horizontal mengalikan anggaran. `X-Forwarded-For` tidak dipercaya (IP dari
 `RemoteAddr`) — konsisten dengan `sessionMeta` yang sudah ada, dan berarti di
 belakang proxy tepercaya semua klien terlihat satu IP. Keduanya ditulis di §6.1.
+
+
+## Fase 17 — Deteksi string keras di CI (US-AD50)
+
+Repo ini tidak punya CI sama sekali — nol `.github/`. Aturannya cuma hidup di PRD.
+Sekarang ada `.github/workflows/ci.yml` (Go + frontend) dan checker-nya.
+
+**Kenapa bukan regex, dan kenapa bukan `createSourceFile`.** AC1 minta "string
+literal > 3 karakter di luar `<Trans>` atau `t()`". Mekanisme i18n repo ini
+`t['key']` (bukan `t()`), jadi pola teks apa pun akan salah. Yang dipakai lexer
+TypeScript sungguhan.
+
+TypeScript di repo ini **7.0.2** (port native). Parser JS-nya dihapus:
+`typescript` cuma mengekspor `version`, `createSourceFile` tidak ada,
+`unstable/ast` menyisakan `createScanner`. Jadi checker ini berjalan di atas lexer
++ pelacak konteks JSX, dan konsekuensinya didokumentasikan di header file.
+
+Empat perilaku lexer yang harus ditemukan lewat percobaan (semuanya bikin output
+salah tanpa error):
+1. Di JSX, `{` di-lex sebagai `FirstPunctuation` (token yang sama dengan `(`),
+   **bukan** `OpenBraceToken`. Brace diklasifikasi dari teks tokennya.
+2. Token EOF bernama `EndOfFile`; `EndOfFileToken` **undefined** → loop tak
+   berujung → OOM.
+3. Nama atribut keyword (`type`, `aria`, …) datang sebagai `TypeKeyword`, bukan
+   `Identifier`, jadi `<input type="date">` tidak dikenali sebagai tag.
+4. Template literal perlu `reScanTemplateToken`; tanpa itu scanner mengacak sisa
+   file. Template dilewati utuh (dinamis, bukan teks literal).
+
+**Batas lingkupnya, dan alasannya.** Aturan awalnya menghasilkan **1.925**
+temuan, sebagian besar bukan teks UI: `'task.created'` (kind event webhook),
+`'Escape'` (nama key DOM), `'flex gap-2'` (kelas CSS). Lexer tidak bisa
+membedakan prosa dari nilai wire, dan check yang berisik akan dimatikan orang.
+Aturannya dipersempit ke **teks yang benar-benar dirender** — JSX children dan
+atribut prosa. Hasilnya 803 temuan nyata.
+
+**Baseline, dan kenapa itu jujur.** Repo belum i18n-complete: 803 string keras di
+113 file. `--strict` keluar 1 sekarang juga. Tapi CI yang merah sejak commit
+pertama tidak menjaga apa pun. Jadi `scripts/i18n-baseline.json` membekukan angka
+**per file**; CI gagal kalau ada file yang naik, atau file baru yang muncul dengan
+string keras. Angka yang **turun** lolos. Progresnya = jalankan `--strict` dan
+lihat angkanya jatuh. Ini gate regresi, bukan gate kelengkapan — dan itu ditulis
+di header file, bukan cuma di sini.
+
+**Temuan produk:** `src/components/Shell.tsx:6` merender `AgentDeck` sebagai teks
+JSX keras. Nama brand, jadi kemungkinan besar disengaja — tapi checker tidak bisa
+tahu itu, dan baseline membekukannya sebagai 1 temuan.
+
+Verifikasi: self-test **38 fixture** (termasuk fixture 4 karakter, tanpa itu mutan
+ambang `<= 4` ekuivalen dan tidak bisa dibunuh), **mutasi 15 CAUGHT / 0 SURVIVED /
+0 anchor-meleset**. Gate `gate-p17b.log` rc=0, `verify_suite.py` SEMUA GATE BERSIH.
+
+Mutasi menemukan satu cabang **redundan** yang nyata: `cn`/`clsx`/`classNames`
+terdaftar di `isModuleSpecifier` **dan** di `insideClassHelper`; yang pertama cuma
+melihat argumen pertama, yang kedua seluruh call. Menghapusnya tidak mengubah
+output maupun fixture apa pun. Cabang itu dihapus, bukan mutannya diakali.

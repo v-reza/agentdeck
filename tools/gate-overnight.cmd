@@ -28,6 +28,10 @@ go build ./... || exit /b 1
 cd frontend || exit /b 1
 node node_modules/typescript/bin/tsc -b || exit /b 1
 node node_modules/prettier/bin/prettier.cjs --check src/ || exit /b 1
+REM US-AD50: string keras yang BARU ditolak. Baseline membekukan 803 temuan lama;
+REM yang ini menjaga supaya angkanya tidak naik. --strict sengaja tidak dipakai
+REM di gate sampai baseline habis (lihat frontend/scripts/check-i18n.cjs).
+node scripts/check-i18n.cjs || exit /b 1
 node node_modules/vitest/vitest.mjs run || exit /b 1
 
 exit /b 0

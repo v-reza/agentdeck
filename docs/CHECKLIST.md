@@ -92,11 +92,11 @@
 | `US-AD47` | Must | M4 | Download artifact | *backend-only* | ✅ PASS |
 | `US-AD48` | Must | M4 | Menampilkan daftar artifact per task | `20-task-drawer` | ✅ PASS |
 | `US-AD49` | Must | M4 | UI dwibahasa EN/ID | *backend-only* | ✅ PASS |
-| `US-AD50` | Must | M4 | Deteksi string keras (hardcoded) di CI | *backend-only* | ⬜ |
+| `US-AD50` | Must | M4 | Deteksi string keras (hardcoded) di CI | *backend-only* | ✅ PASS |
 | `US-AD74` | Must | M4 | Error handling: provider LLM down | *backend-only* | ✅ PASS |
 | `US-AD87` | Must | M4 | Agent gagal karena kredensial invalid | `27-agent-provider-key` | ✅ PASS |
 
-**Total M0–M4: 89 story** (84 PASS, 1 ditunda)
+**Total M0–M4: 89 story** (85 PASS, 1 ditunda)
 
 ## Progres per milestone
 
@@ -106,7 +106,7 @@
 | M1 | 32 | 30 | 2 |
 | M2 | 21 | 20 | 1 |
 | M3 | 16 | 16 | 0 |
-| M4 | 10 | 9 | 1 |
+| M4 | 10 | 10 | 0 |
 
 ### Catatan status — `US-AD73` (🔨 dikerjakan)
 

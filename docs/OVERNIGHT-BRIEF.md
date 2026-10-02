@@ -75,7 +75,7 @@ Maka urutannya:
 | 14 | **Mobile board** `46-mobile-board` | US-AD60 | ✅ SELESAI — accordion + shell mobile (rail/sidebar/cost-rail lepas <768px, bottom nav). |
 | 15 | **Ledger explorer** `30-ledger-explorer` | US-AD27 | ✅ SELESAI — endpoint `GET /orgs/{id}/ledger` baru + tabel AC4 + empty state AC5 + paging. |
 | 16 | **Rate limit** | US-AD85 | ✅ SELESAI — `internal/ratelimit`, AC1–AC4 terbukti di wire, mutasi 11/0/0. |
-| 17 | **Deteksi string keras di CI** | US-AD50 | **Backend-only, benar-benar kosong** — nol workflow CI. |
+| 17 | **Deteksi string keras di CI** | US-AD50 | ✅ SELESAI — `.github/workflows/ci.yml` + `frontend/scripts/check-i18n.cjs` (lexer TS, baseline per-file). |
 
 | 1b | **Upload artifact** dari UI | US-AD48 | Endpoint `upload-url` + `register` ada; klien `useRegisterArtifactMutation` sengaja belum dibuat karena butuh `run_id`, yaitu UI pemilihan run. Fase 5 (run detail) yang paling murah memasangnya. |
 
