@@ -87,16 +87,35 @@ lama ter-push.
 
 ## 2b. Urutan fase 18+ (SISA NYATA — diverifikasi ke kode 2026-10-02)
 
-Backend tiap baris di bawah **sudah jalan**; yang kurang cuma UI. Urut dari
-termurah. Satu fase = satu commit + push + satu entri `OVERNIGHT-LOG.md`.
+**§2b SELESAI 2026-10-03** — kelima baris di bawah sudah dikerjakan, satu fase =
+satu commit + push + satu entri `OVERNIGHT-LOG.md`. Ringkasannya:
+
+| # | Layar | Commit |
+|---|---|---|
+| 18 | Audit log (US-AD95) | `1221492` |
+| 19 | Tutup akun sendiri (US-AD98) | `a76f752` |
+| 20 | Ekspor CSV (US-AD56) | `9eb687d` |
+| 21 | Command palette (US-AD55) | `09bc467` |
+| 22 | Multi-sort header tabel (US-AD54) | `6541bd2` |
+
+Dua fase membawa perbaikan di luar UI, dan keduanya adalah **pelanggaran
+kontrak yang ditemukan saat mengerjakan**, bukan tambahan sukarela:
+
+- **Fase 19**: US-AD98 AC3 minta `409` untuk "owner terakhir"; handler membalas
+  `403`. Diperbaiki di `cmd/api/sessions.go`, tes mengunci `409`.
+- **Fase 22**: US-AD54 **AC1** belum terpenuhi — 7 kolom wajib, tabelnya punya 5
+  dengan `Tokens` menggantikan tiga kolom. Diperbaiki sekalian, plus bug baris
+  55px (kolom terhimpit, teks wrap) yang diukur di DOM.
+
+Daftar asli tiap fase dipertahankan di bawah sebagai jejak.
 
 | # | Layar | Story | Mockup | Backend (terverifikasi) |
 |---|---|---|---|---|
-| 18 | Audit log | US-AD95 | `41-audit-log` | `GET /api/v1/audit-log` ada; nol route `/audit` di `router.tsx` |
-| 19 | Tutup akun sendiri | US-AD98 | `17-close-account` | `DELETE /api/v1/auth/me` ada; nol `closeAccount` di `frontend/src` |
-| 20 | Ekspor CSV | US-AD56 | `31-cost-export` | ledger + cost-summary ada; nol `exportCsv`/`text/csv` di `frontend/src` |
-| 21 | Command palette | US-AD55 | `14-command-palette` | murni klien. `uiSlice` sudah punya `commandPaletteOpen` + `toggleCommandPalette`; **komponennya belum ada** |
-| 22 | Multi-sort header tabel | US-AD54 AC2 | `19-table-view` | murni klien. `TableView.tsx` ada; header belum bisa diklik |
+| 18 ✅ | Audit log | US-AD95 | `41-audit-log` | `GET /api/v1/audit-log` ada; nol route `/audit` di `router.tsx` |
+| 19 ✅ | Tutup akun sendiri | US-AD98 | `17-close-account` | `DELETE /api/v1/auth/me` ada; nol `closeAccount` di `frontend/src` |
+| 20 ✅ | Ekspor CSV | US-AD56 | `31-cost-export` | ledger + cost-summary ada; nol `exportCsv`/`text/csv` di `frontend/src` |
+| 21 ✅ | Command palette | US-AD55 | `14-command-palette` | murni klien. `uiSlice` sudah punya `commandPaletteOpen` + `toggleCommandPalette`; **komponennya belum ada** |
+| 22 ✅ | Multi-sort header tabel | US-AD54 AC2 | `19-table-view` | murni klien. `TableView.tsx` ada; header belum bisa diklik |
 
 **Belum masuk daftar karena backend-nya belum ada** — jangan dikerjakan di bawah
 goal ini, catat saja kalau kepepet: `US-AD57` bulk move, `US-AD78` invite link,

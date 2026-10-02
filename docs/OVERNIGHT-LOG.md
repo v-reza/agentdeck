@@ -2758,3 +2758,47 @@ server).
 yang ternyata tidak mendarat — keduanya ketahuan karena tesnya masih merah, bukan
 karena gw percaya patchnya masuk. Pola yang aman: `patch` untuk edit satu titik,
 `execute_code` + cetak jumlah kemunculan untuk edit massal.
+
+## §2b SELESAI — penutup (fase 18–22)
+
+Kelima fase §2b selesai, satu commit per fase, semuanya ter-push ke `origin/main`:
+
+| # | Layar | Story | Commit | e2e baru | Mutasi |
+|---|---|---|---|---|---|
+| 18 | Audit log | US-AD95 | `1221492` | 4 lulus | 2/2 CAUGHT |
+| 19 | Tutup akun sendiri | US-AD98 | `a76f752` | 4 lulus | 3/3 CAUGHT |
+| 20 | Ekspor CSV | US-AD56 | `9eb687d` | 3 lulus | 2/2 CAUGHT |
+| 21 | Command palette | US-AD55 | `09bc467` | 3 lulus | 2/2 CAUGHT |
+| 22 | Multi-sort tabel | US-AD54 | `6541bd2` | 3 lulus | 4/4 CAUGHT |
+
+Full e2e terakhir (fase 22, HEAD `6541bd2`): **202 lulus / 0 gagal**, 0 flaky,
+tanpa file berubah selama run. `docs/CHECKLIST.md` **99 PASS / 109 story**;
+`verify_suite.py` SEMUA GATE BERSIH.
+
+**Tiga pelanggaran kontrak ditemukan saat mengerjakan**, semuanya diperbaiki
+karena "selesai" berarti sesuai kontrak — bukan karena hijau:
+
+1. **US-AD98 AC3**: kontrak minta `409`; handler membalas `403` (`ErrLastOwner`
+   dipakai bersama jalur membership). Dipersempit di handler; tes + ARCHITECTURE
+   §6.2.1 dibetulkan.
+2. **US-AD54 AC1**: 7 kolom wajib; tabel punya 5, dengan `Tokens` menggantikan
+   ID/Agent/Created. Ditulis ulang; `Tokens` pindah ke drawer.
+3. **Baris tabel 55px, bukan 32px** (DECISIONS 8): tujuh kolom lebar-tetap
+   melebihi content pane, kolom Title terhimpit, tiap sel wrap 4 baris. Diukur
+   di DOM, bukan ditebak dari screenshot; diperbaiki dengan `overflow-x-auto` +
+   `min-w-[960px]`.
+
+**Utang yang butuh keputusan produk — TIDAK dikerjakan, sesuai perintah brief**:
+US-AD94 AC1 (cache read/write per step), US-AD94 AC5 (masking payload per peran),
+`decision_reason`. Juga tetap di luar: **US-AD57** bulk move, **US-AD78** invite
+link, **US-AD72** board dari template — ketiganya nol route di `cmd/api`.
+
+**Sisa yang disebut tapi tidak digarap di dalam fase**, supaya tidak didiemin:
+- Command palette: baris "Buka Skema Telemetri & SSE" — route `/docs` di dalam
+  app tidak ada (yang ada cuma landing publik).
+- Table view: checkbox bulk selection di kolom pertama (design menggambarnya) —
+  itu US-AD57, backend belum ada.
+
+**Catatan operasional untuk run berikutnya**: `run-full.sh` sekarang punya lock
+`.running` (run kedua menolak, exit 2) dan komentar tegas bahwa **tidak boleh ada
+yang menyentuh docker selama run** — dua run dibuang di fase 21 karena itu.
