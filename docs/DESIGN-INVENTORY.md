@@ -9,7 +9,7 @@ scriptnya kalau ada yang berubah.
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 137 |
+| `<svg>` | 111 | 143 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -20,7 +20,7 @@ yang punya file impl — lihat §3.
 | blok skeleton (abu berukuran) | 323 | 40 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 46 |
+| file memakai `lucide-react` | 0 | 47 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -127,7 +127,7 @@ Dideklarasikan: 7. Nol dipakai: 0.
 | penanda | design | impl |
 |---|---|---|
 | `line-through` | 6 | 3 |
-| `opacity-*` | 37 | 18 |
+| `opacity-*` | 37 | 19 |
 
 ## 8. Jargon yang bocor ke UI yang dirender
 
@@ -163,7 +163,7 @@ Nol.
 | 16-security | `/settings/security` | `Security.tsx` | 0/3 | 0 | 1 |
 | 17-close-account | `/settings/close` | `CloseAccount.tsx` | 0/2 | 0 | 1 |
 | 18-kanban | `/boards/:id` | `BoardToolbar.tsx`, `KanbanBoard.tsx` | 5/4 | 0 | 0 |
-| 19-table-view | `/boards/:id?view=table` | `BoardToolbar.tsx`, `TableView.tsx` | 0/4 | 0 | 1 |
+| 19-table-view | `/boards/:id?view=table` | `BoardToolbar.tsx`, `TableView.tsx` | 0/10 | 0 | 1 |
 | 20-task-drawer | `(drawer)` | `RunSteps.tsx`, `TabApprovals.tsx`, `TabArtifacts.tsx`, `StepTimeline.tsx`, `TaskDetailDrawer.tsx` | 12/13 | 0 | 5 |
 | 21-task-create | `(modal)` | `TaskCreateForm.tsx` | 7/3 | 0 | 0 |
 | 22-column-editor | `(panel)` | `ColumnEditor.tsx`, `BoardSettings.tsx` | 0/6 | 0 | 1 |

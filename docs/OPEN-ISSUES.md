@@ -42,7 +42,7 @@ cmd/api`). Yang masih benar dari paragraf lama itu hanya soal runtime workspace.
   | `US-AD57` bulk move | `19-table-view` | Nol `bulkMove`. **Belum ada.** |
   | `US-AD78` invite link | `38-members` | Nol `inviteLink`. **Belum ada.** |
   | `US-AD72` prepopulate board dari template | `10-board-list` | `CreateBoardForm.tsx` menyentuh "template", tapi tidak ada prepopulate. **Belum ada.** |
-  | `US-AD54` multi-sort klik header | `19-table-view` | `BoardList`/`ProjectDirectory` punya sort, `TableView.tsx` header belum bisa diklik. Lihat juga blok Design. |
+  | `US-AD54` multi-sort klik header | `19-table-view` | **SELESAI 2026-10-03** — 7 kolom AC1 + multi-sort AC2; e2e 3 lulus, mutasi 4/4 CAUGHT. Sisa yang TIDAK dikerjakan: checkbox bulk select (US-AD57, backend belum ada). |
 
   Dua baris yang **dulu salah dan sudah dibetulkan di sini**:
   - `34-step-payload` — **sudah dibangun.** `RunSteps.tsx` merender `<Payload
@@ -80,7 +80,7 @@ cmd/api`). Yang masih benar dari paragraf lama itu hanya soal runtime workspace.
 
 - **Icon**: impl memakai ~3 `<svg>` di tempat design memakai 319. Sisa kelas visual
   terbesar; angkanya keluar dari `tools/design_audit.py`, bukan hitungan tangan.
-- **`US-AD54 AC2`** — multi-sort dengan klik header kolom. Milik M5, belum dikerjakan;
+- ~~**`US-AD54 AC2`** — multi-sort dengan klik header kolom.~~ **SELESAI 2026-10-03** (fase 22 §2b).
   `TableView.tsx` header belum bisa diklik dan belum punya ikon sort.
 - **Halaman agent registry belum nemu "titik enaknya".** Pertanyaan "informasi apa
   yang harus ada di layar ini" belum dijawab, dan itu **butuh sesi design non-coding**,
@@ -802,7 +802,7 @@ daftar kerja malam itu habis, bukan bahwa PRD habis.
 | 5 | Bulk move (`US-AD57`) | tidak ada | kerja UI |
 | 6 | Invite link (`US-AD78`) | tidak ada | UI + keputusan produk |
 | 7 | Prepopulate board dari template (`US-AD72`) | tidak ada | UI + keputusan produk |
-| 8 | Multi-sort header `TableView` (`US-AD54`) | header belum bisa diklik | kerja UI |
+| 8 | ~~Multi-sort header `TableView` (`US-AD54`)~~ | **SELESAI 2026-10-03** (fase 22 §2b) | — |
 | 9 | Workspace container/worktree per run (`US-AD12`) | konstanta ada, semua run `scratch` | kerja backend besar |
 | 10 | Ikon: ~3 `<svg>` di impl vs 319 di design | sisa gap visual terbesar | kerja design |
 | 11 | `/docs/*` belum punya route | konten dokumentasi, bukan layar | keputusan produk |

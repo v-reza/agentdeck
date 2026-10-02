@@ -2696,3 +2696,65 @@ tertutup), dan Escape/shortcut-toggle.
 - Harness `run-full.sh` diperbaiki supaya tidak terulang: **lock `.running`**
   (run kedua menolak jalan, exit 2) dan komentar bahwa **tidak boleh ada yang
   menyentuh docker selama run**.
+
+## Fase 22 — Multi-sort header tabel (US-AD54 AC2)
+
+**Kontrak**: brief §2b baris 5; `docs/00-PRD.md` US-AD54 (`Should`, M5) AC1–AC2;
+`design/stitch-output/v2/19-table-view.html`; `docs/DECISIONS.md` 8 (32px row);
+`docs/ARCHITECTURE.md` §6.2.16 (`listTasks`, filter di server).
+
+**AC1 ternyata belum terpenuhi juga** — brief menyebut fase ini "murni klien,
+header belum bisa diklik", padahal AC1 meminta **7 kolom** (ID, Title, Status,
+Priority, Agent, Cost, Created) dan tabelnya cuma punya **5**, dengan `Tokens`
+sebagai pengganti tiga kolom yang tidak ada. Dua-duanya dikerjakan di fase ini;
+kalau cuma AC2 yang digarap, layarnya tetap tidak memenuhi ceritanya.
+
+**Yang dibangun** (`TableView.tsx`, ditulis ulang):
+- 7 kolom sesuai AC1, `Agent` menampilkan nama + inisial 2 huruf, `Created` pakai
+  `formatDateTime`. Kolom `Tokens` dipindah keluar — angkanya tetap ada di drawer.
+- **AC2 multi-sort**: tiap header `<button>`, klik pertama menambah ke rantai
+  (asc), klik berikutnya membalik arah kolom itu. Rantai, bukan pengganti —
+  itu yang ditunjukkan indikator "Active Multi-Sort" di design, dengan chip
+  bernomor 1 dan 2 plus tombol Reset.
+- `aria-sort` di setiap `th` (none/ascending/descending), dan `data-sort-order`
+  supaya urutan rantai bisa diuji tanpa mengunci teks terjemahan.
+- Sort **client-side**: `listTasks` tidak punya parameter sort di kontrak
+  (§6.2.16), dan rantai sort itu view state yang tidak boleh hidup lebih lama
+  dari board-nya — jadi ia tinggal di komponen, bukan di `uiSlice`.
+- Sort kolom `Agent` lewat nama hasil join `GET /projects/{id}/agents`, bukan
+  lewat ULID: mengurutkan ULID akan mengurutkan kolom berbeda dari yang dibaca
+  operator. Task tanpa agent jadi string kosong supaya mengelompok di satu ujung.
+
+**Bug nyata yang ketemu dan diperbaiki di fase ini**: baris tabel **55px**, bukan
+32px. Bukan soal `h-8` — tujuh kolom lebar-tetap (780px) melebihi content pane
+(~716px di viewport 1280 setelah 44 rail + 224 sidebar + 264 cost rail), jadi
+kolom Title terhimpit dan tiap sel wrap jadi 4 baris. Diperbaiki dengan pola
+design sendiri: `overflow-x-auto` + `min-w-[960px]`, plus `truncate` di kolom
+teks. Ditemukan dengan **mengukur DOM**, bukan dengan melihat screenshot.
+
+**Verifikasi**: e2e `table-sort.spec.ts` **3 lulus** — AC1 (7 header dalam urutan
+AC1, 7 `<td>` per baris, tinggi baris ≤34px, lebar tabel ≥900px, kontainer
+`overflow-x: auto`), AC2 (klik = asc, klik lagi = desc dengan `aria-sort`,
+kolom kedua menyusun rantai dan chip-nya bernomor, Reset mengembalikan urutan
+server).
+- **Mutasi 4 titik, semuanya CAUGHT** — dan satu mutan **SURVIVED di run
+  pertama** (`M3`): melepas `overflow-x-auto` tidak menggagalkan apa pun, karena
+  yang menahan squeeze ternyata `min-w-[960px]`, bukan wrapper-nya. Assertion
+  `overflow-x` ditambahkan, dan mutan keempat (`M4`, melepas `min-w`) ditambah
+  supaya dua-duanya terkunci. File di-restore byte-identik; baseline lulus.
+- Gate `tools\gate-overnight.cmd` → `rc=0`.
+- **Full e2e**: shard 51/51/55/45, semua `rc=0` → **202 lulus, 0 gagal** (204
+  tes, 2 skipped, 0 flaky). Nol file `src`/`e2e` lebih baru dari `summary.txt`.
+
+**Yang TIDAK dikerjakan di fase ini dan disebut, bukan didiemin**:
+- **Checkbox bulk selection** di kolom pertama (design menggambarnya) —
+  itu `US-AD57` bulk move, backend-nya belum ada (nol route `bulk|move`), dan
+  brief §2b melarangnya.
+- Baris info "US-AD57: Ringkasan bulk move siap pakai" di design — jargon spec,
+  dilarang masuk UI.
+
+**Jebakan yang dibayar**: `getByRole('main')` tidak ada di shell dashboard
+(probe: count 0), dan **dua kali** gw menaruh assertion di sel `execute_code`
+yang ternyata tidak mendarat — keduanya ketahuan karena tesnya masih merah, bukan
+karena gw percaya patchnya masuk. Pola yang aman: `patch` untuk edit satu titik,
+`execute_code` + cetak jumlah kemunculan untuk edit massal.

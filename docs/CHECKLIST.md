@@ -100,7 +100,7 @@
 | `US-AD51` | Must | M5 | Audit log: mencatat mutasi administratif | *backend-only* | ✅ PASS |
 | `US-AD52` | Should | M5 | Webhook: daftar webhook per board | `40-webhooks` | ✅ PASS |
 | `US-AD53` | Should | M5 | Webhook delivery dan retry | `40-webhooks` | ✅ PASS |
-| `US-AD54` | Should | M5 | Tampilan data table (list view) | `19-table-view` | ⬜ |
+| `US-AD54` | Should | M5 | Tampilan data table (list view) | `19-table-view` | ✅ PASS |
 | `US-AD95` | Must | M5 | Penampil audit log | `41-audit-log` | ✅ PASS |
 | `US-AD100` | Should | M6 | Halaman harga | `05-landing`, `07-pricing` | ✅ PASS |
 | `US-AD101` | Should | M6 | Halaman repositori & rilis | `09b-github` | ✅ PASS |
@@ -116,7 +116,7 @@
 | `US-AD98` | Should | M6 | Menutup akun sendiri | `17-close-account` | ✅ PASS |
 | `US-AD99` | Should | M6 | Halaman dokumentasi | `08-changelog`, `09-features` | ✅ PASS |
 
-**Total M0–M6: 109 story** (98 PASS, 1 ditunda)
+**Total M0–M6: 109 story** (99 PASS, 1 ditunda)
 
 ## Progres per milestone
 
@@ -127,7 +127,7 @@
 | M2 | 21 | 20 | 1 |
 | M3 | 16 | 16 | 0 |
 | M4 | 10 | 10 | 0 |
-| M5 | 7 | 6 | 1 |
+| M5 | 7 | 7 | 0 |
 | M6 | 13 | 7 | 6 |
 
 ### Catatan status — `US-AD73` (🔨 dikerjakan)

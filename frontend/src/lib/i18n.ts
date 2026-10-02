@@ -100,6 +100,22 @@ export interface Dictionary {
   'field.title': string
   'field.description': string
   'field.priority': string
+  'table.colID': string
+  'table.colTitle': string
+  'table.colStatus': string
+  'table.colPriority': string
+  'table.colAgent': string
+  'table.colCost': string
+  'table.colCreated': string
+  'table.activeSort': string
+  'table.resetSort': string
+  'table.empty': string
+  'table.emptyHint': string
+  'table.noAgent': string
+  'table.priorityP0': string
+  'table.priorityP1': string
+  'table.priorityP2': string
+  'table.priorityP3': string
   'field.email': string
   'field.password': string
   'field.newPassword': string
@@ -961,6 +977,22 @@ const en: Dictionary = {
   'field.title': 'Title',
   'field.description': 'Description',
   'field.priority': 'Priority',
+  'table.colID': 'ID',
+  'table.colTitle': 'Title',
+  'table.colStatus': 'Status',
+  'table.colPriority': 'Priority',
+  'table.colAgent': 'Agent',
+  'table.colCost': 'Cost',
+  'table.colCreated': 'Created',
+  'table.activeSort': 'Active sort:',
+  'table.resetSort': 'Reset',
+  'table.empty': 'No tasks match',
+  'table.emptyHint': 'Clear a filter or add a task to this board.',
+  'table.noAgent': '— No agent —',
+  'table.priorityP0': 'P0 — Blocker',
+  'table.priorityP1': 'P1 — High',
+  'table.priorityP2': 'P2 — Medium',
+  'table.priorityP3': 'P3 — Low',
   'field.email': 'Email',
   'field.password': 'Password',
   'field.newPassword': 'New password',
@@ -1823,6 +1855,22 @@ const id: Dictionary = {
   'field.title': 'Judul',
   'field.description': 'Deskripsi',
   'field.priority': 'Prioritas',
+  'table.colID': 'ID',
+  'table.colTitle': 'Judul',
+  'table.colStatus': 'Status',
+  'table.colPriority': 'Prioritas',
+  'table.colAgent': 'Agent',
+  'table.colCost': 'Biaya',
+  'table.colCreated': 'Dibuat',
+  'table.activeSort': 'Sort aktif:',
+  'table.resetSort': 'Reset',
+  'table.empty': 'Tidak ada task yang cocok',
+  'table.emptyHint': 'Bersihkan filter atau tambahkan task ke board ini.',
+  'table.noAgent': '— Tanpa agent —',
+  'table.priorityP0': 'P0 — Blocker',
+  'table.priorityP1': 'P1 — High',
+  'table.priorityP2': 'P2 — Medium',
+  'table.priorityP3': 'P3 — Low',
   'field.email': 'Email',
   'field.password': 'Password',
   'field.newPassword': 'Password baru',
