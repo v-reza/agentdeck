@@ -77,11 +77,9 @@ Maka urutannya:
 | 16 | **Rate limit** | US-AD85 | ✅ SELESAI — `internal/ratelimit`, AC1–AC4 terbukti di wire, mutasi 11/0/0. |
 | 17 | **Deteksi string keras di CI** | US-AD50 | ✅ SELESAI — `.github/workflows/ci.yml` + `frontend/scripts/check-i18n.cjs` (lexer TS, baseline per-file). |
 
-| 1b | **Upload artifact** dari UI | US-AD48 | Endpoint `upload-url` + `register` ada; klien `useRegisterArtifactMutation` sengaja belum dibuat karena butuh `run_id`, yaitu UI pemilihan run. Fase 5 (run detail) yang paling murah memasangnya. |
+| 1b | ✅ **SELESAI** (`8068758`) — **Upload artifact** dari UI | US-AD48 | File picker → `upload-url` → PUT → register; `run_id` diambil dari `useListTaskRunsQuery`. |
 
-Yang sudah selesai tidak dihitung ulang: **fase 0 (`d4078f1`) dan fase 1**. Fase 1
-dipecah — **list + unduh** dikerjakan, **upload** ditunda ke 1b dengan alasan
-yang dicatat di log (`run_id` wajib, jadi butuh UI pemilihan run lebih dulu).
+Yang sudah selesai tidak dihitung ulang. Tabel di atas **selesai semua (0–17)**.
 
 Kalau fase 0–5 kelar, itu hasil yang bagus. Jangan mulai fase baru sebelum yang
 lama ter-push.
