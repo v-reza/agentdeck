@@ -8,6 +8,7 @@ import { MobileTabBar } from './MobileTabBar'
 import { useIsMobile } from '@/hooks/use-media-query'
 import { TaskDrawerHost } from '@/routes/dashboard/boards/TaskDrawerHost'
 import { TaskCreateHost } from '@/routes/dashboard/boards/TaskCreateForm'
+import { CommandPalette } from './CommandPalette'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { useBoardHealth } from '@/hooks/use-board-health'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
@@ -74,6 +75,9 @@ export function AppShell({ children, withCostRail = true }: AppShellProps) {
 
       <TaskDrawerHost />
       <TaskCreateHost />
+      {/* US-AD55. Mounted once, in the shell, so the Cmd+K listener exists on every
+          dashboard screen without each route remembering to add it. */}
+      <CommandPalette />
 
       {withCostRail && !isMobile ? <CostRail /> : null}
 

@@ -250,6 +250,34 @@ export interface Dictionary {
   'costExport.rows': string
   'costExport.columns': string
   'costExport.cap': string
+  'palette.title': string
+  'palette.hint': string
+  'palette.placeholder': string
+  'palette.empty': string
+  'palette.createTask': string
+  'palette.createTaskBoard': string
+  'palette.createTaskNoBoard': string
+  'palette.approvals': string
+  'palette.approvalsHint': string
+  'palette.tableView': string
+  'palette.tableViewHint': string
+  'palette.tableViewNoBoard': string
+  'palette.project': string
+  'palette.groupActions': string
+  'palette.groupNavigate': string
+  'palette.groupTasks': string
+  'palette.keysNavigate': string
+  'palette.keysSelect': string
+  'palette.shortcut': string
+  'palette.agents': string
+  'palette.agentsHint': string
+  'palette.ledger': string
+  'palette.ledgerHint': string
+  'palette.graph': string
+  'palette.graphHint': string
+  'palette.graphNoBoard': string
+  'palette.currentBoard': string
+  'palette.currentBoardHint': string
   'audit.actionPlaceholder': string
   'audit.refresh': string
   'audit.export': string
@@ -1074,6 +1102,34 @@ const en: Dictionary = {
   'costExport.rows': 'Rows in range',
   'costExport.columns': 'Columns',
   'costExport.cap': 'The range holds more than {max} rows; the file stops at {max}.',
+  'palette.title': 'Command palette',
+  'palette.hint': 'Search tasks, navigate, or run an action',
+  'palette.placeholder': 'Search tasks, actions, commands...',
+  'palette.empty': 'Nothing matches that.',
+  'palette.createTask': 'Create task',
+  'palette.createTaskBoard': 'Opens on the board you are viewing',
+  'palette.createTaskNoBoard': 'Open a board first',
+  'palette.approvals': 'Open the approval queue',
+  'palette.approvalsHint': 'Agent actions waiting for a human',
+  'palette.tableView': 'Switch to table view',
+  'palette.tableViewHint': 'Tabular data for this board',
+  'palette.tableViewNoBoard': 'Open a board first',
+  'palette.project': 'Project',
+  'palette.groupActions': 'Actions',
+  'palette.groupNavigate': 'Navigate',
+  'palette.groupTasks': 'Tasks',
+  'palette.keysNavigate': 'Up/Down to move',
+  'palette.keysSelect': 'Enter to select',
+  'palette.shortcut': 'to open',
+  'palette.agents': 'Agent registry',
+  'palette.agentsHint': 'Models, providers and credentials',
+  'palette.ledger': 'Cost ledger explorer',
+  'palette.ledgerHint': 'Token telemetry and micro-USD accounting',
+  'palette.graph': 'Dependency graph',
+  'palette.graphHint': 'Prerequisites between tasks',
+  'palette.graphNoBoard': 'Open a board first',
+  'palette.currentBoard': 'This board',
+  'palette.currentBoardHint': 'Jump to the board you are viewing',
   'audit.actionPlaceholder': 'e.g. workspace.rename',
   'audit.refresh': 'Refresh',
   'audit.export': 'Export CSV',
@@ -1909,6 +1965,34 @@ const id: Dictionary = {
   'costExport.rows': 'Baris dalam rentang',
   'costExport.columns': 'Kolom',
   'costExport.cap': 'Rentang berisi lebih dari {max} baris; file berhenti di {max}.',
+  'palette.title': 'Command palette',
+  'palette.hint': 'Cari task, navigasi, atau jalankan aksi',
+  'palette.placeholder': 'Cari task, aksi, perintah...',
+  'palette.empty': 'Tidak ada yang cocok.',
+  'palette.createTask': 'Buat task',
+  'palette.createTaskBoard': 'Terbuka di board yang sedang dilihat',
+  'palette.createTaskNoBoard': 'Buka board dulu',
+  'palette.approvals': 'Buka antrean approval',
+  'palette.approvalsHint': 'Aksi agen yang menunggu manusia',
+  'palette.tableView': 'Beralih ke table view',
+  'palette.tableViewHint': 'Data tabular untuk board ini',
+  'palette.tableViewNoBoard': 'Buka board dulu',
+  'palette.project': 'Proyek',
+  'palette.groupActions': 'Aksi',
+  'palette.groupNavigate': 'Navigasi',
+  'palette.groupTasks': 'Task',
+  'palette.keysNavigate': '↑↓ untuk pindah',
+  'palette.keysSelect': 'Enter untuk memilih',
+  'palette.shortcut': 'untuk membuka',
+  'palette.agents': 'Agent registry',
+  'palette.agentsHint': 'Model, provider, dan kredensial',
+  'palette.ledger': 'Cost ledger explorer',
+  'palette.ledgerHint': 'Telemetri token dan hitungan mikro-USD',
+  'palette.graph': 'Graf dependensi',
+  'palette.graphHint': 'Prasyarat antar task',
+  'palette.graphNoBoard': 'Buka board dulu',
+  'palette.currentBoard': 'Board ini',
+  'palette.currentBoardHint': 'Lompat ke board yang sedang dilihat',
   'audit.actionPlaceholder': 'mis. workspace.rename',
   'audit.refresh': 'Muat ulang',
   'audit.export': 'Ekspor CSV',

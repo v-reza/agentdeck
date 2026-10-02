@@ -2622,3 +2622,77 @@ penghitung baris, dan daftar kolom. Dua elemen mockup **tidak** dibawa: baris
 
 **Tidak dikerjakan** (sesuai perintah): US-AD94 AC1/AC5 dan `decision_reason`
 butuh keputusan produk; US-AD57/AD78/AD72 backend-nya belum ada.
+
+## Fase 21 — Command palette (US-AD55)
+
+**Kontrak**: brief §2b baris 4; `docs/00-PRD.md` US-AD55 (`Should`, M6) AC1–AC2;
+`design/stitch-output/v2/14-command-palette.html`; `docs/ARCHITECTURE.md` §18.2
+(`components/layout/`), §18.4 (state Redux), §6.2.19 (`GET /search/tasks`).
+
+**Yang dibangun**: `components/layout/CommandPalette.tsx` (372 baris) +
+dipasang sekali di `AppShell` (bukan per halaman, supaya listener `Cmd+K`
+cuma satu). `uiSlice` sudah punya `commandPaletteOpen`/`toggleCommandPalette`
+sejak fase awal; yang belum ada cuma komponen dan listener-nya.
+
+**AC1 — tiga jenis entri, dan sumber tiap baris**:
+
+| Jenis | Sumber | Catatan |
+|---|---|---|
+| Aksi cepat | state lokal + `uiSlice` | Buat Task, Approval, Table View, Agent registry, Cost ledger, Graf dependensi |
+| Navigasi | `GET /projects` | project → `/projects/{id}` |
+| Pencarian task | `GET /search/tasks?q=` | baris masuk grup "Task" |
+
+**Keputusan yang gw ambil (dan alasannya di komentar kode)**:
+
+1. **Tidak ada `GET /boards`.** Board dibaca per proyek (`GET /projects/{id}/boards`)
+   dan RTK Query tidak punya `useQueries`, jadi hook tidak bisa mem-fan-out ke
+   jumlah proyek yang tidak diketahui. Palet karena itu menampilkan **proyek**,
+   bukan board. Board muncul di tiga baris board-scoped yang membaca `boardID`
+   dari `location.pathname` (pola yang sama dengan `BoardToolbar`).
+2. **Pencarian di-skip saat query kosong.** `SearchTasks` membalas
+   `ErrInvalidInput` → 400 kalau `q` kosong, jadi `skip: !query.trim()` adalah
+   kontrak, bukan optimisasi.
+3. **Task dipilih = `navigate` + `dispatch(openTask)`.** Tidak ada route
+   `/tasks/:id`; drawer-nya state (`uiSlice.openTaskID`). Dua langkah, bukan satu
+   link — dan komentar di kode menyebut itu.
+4. **Shortcut `Cmd+K` DAN `Ctrl+K`.** Design menulis `⌘K`; app jalan di macOS dan
+   Windows, dan `⌘` itu ejaan mac untuk chord yang sama.
+
+**Inventory design (`14-command-palette`, 0 `<svg>`; ikon = Material Symbols)**:
+Design punya 7 baris (3 aksi + 4 navigasi). Implementasi awal gw cuma 3 aksi →
+**4 elemen struktural hilang**, dua di antaranya route-nya sudah ada dan langsung
+ditambahkan (Agent registry → `agents`, Cost ledger → `cost/ledger`, Graf
+dependensi → `boards/:id/graph`). Yang **tidak** dibawa dan disebut di sini:
+**"Buka Skema Telemetri & SSE"** — halaman `/docs` belum ada (dikonfirmasi di
+`router.tsx`: nol route `/docs` di dalam app; yang ada cuma landing publik
+`/docs`). Design juga tidak punya baris "Buka board saat ini"; itu tambahan gw
+supaya baris board-scoped punya tujuan yang jelas, dan disebut di sini sebagai
+tambahan, bukan diklaim sebagai match.
+
+**Verifikasi**: e2e `command-palette.spec.ts` **3 lulus** — AC1 (tiga `data-kind`
+berbeda muncul dari query yang tepat, plus empty state), AC2 (highlight mulai di
+baris 0, `ArrowDown`→1, `ArrowUp`→0, `Enter` navigasi ke proyek dan palet
+tertutup), dan Escape/shortcut-toggle.
+- **Mutasi 2 titik, keduanya CAUGHT** (dua kali, karena kode berubah setelah run
+  pertama): gerak kursor panah dan baris hasil pencarian task. File di-restore
+  byte-identik; baseline lulus setelah restore.
+- **Full e2e**: shard 50/48/58/42, semua `rc=0` → **198 lulus, 0 gagal** (201
+  tes, 2 skipped, 1 flaky lulus di retry). Nol file `src`/`e2e` lebih baru dari
+  `summary.txt`.
+- Gate `tools\gate-overnight.cmd` → `rc=0`.
+
+**Dua jebakan yang dibayar di fase ini** (ditulis supaya tidak dibayar ulang):
+- **`getByRole('main')` tidak ada di shell dashboard** — probe membuktikan
+  `count = 0`; `main` cuma di halaman settings/auth. Anchor yang benar untuk
+  "halaman siap" adalah `waitForLoadState('networkidle')`.
+- **DUA run full e2e dibuang, bukan satu.** (a) `agents.spec.ts` 8 tes gagal
+  karena gw me-restart `agentdeck-web` di tengah run — Vite me-transform ulang
+  modul di bawah worker, dan kegagalannya mendarat di file yang tidak gw sentuh.
+  (b) Run berikutnya **tumpang-tindih** dengan sisa run sebelumnya karena gw
+  men-start `run-full.sh` dua kali; `summary.txt` mencampur dua run dan
+  totalnya bukan milik keduanya (terlihat dari `shard2 rc=1` disusul
+  `shard2 rc=0`). Dua-duanya artefak, bukan regresi — dibuktikan dengan run
+  bersih terakhir yang 0 gagal, tanpa file berubah setelah gate.
+- Harness `run-full.sh` diperbaiki supaya tidak terulang: **lock `.running`**
+  (run kedua menolak jalan, exit 2) dan komentar bahwa **tidak boleh ada yang
+  menyentuh docker selama run**.

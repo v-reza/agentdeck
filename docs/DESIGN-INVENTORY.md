@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (166 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (167 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 135 |
+| `<svg>` | 111 | 137 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -20,7 +20,7 @@ yang punya file impl — lihat §3.
 | blok skeleton (abu berukuran) | 323 | 40 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 45 |
+| file memakai `lucide-react` | 0 | 46 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -158,7 +158,7 @@ Nol.
 | 11-project-list | `/projects` | `CostRail.tsx`, `WorkspaceSidebar.tsx`, `WorkspaceTopbar.tsx`, `CreateProjectForm.tsx`, `ProjectDirectory.tsx`, `ProjectList.tsx`, `ProjectSummary.tsx` | 6/16 | 0 | 2 |
 | 12-onboarding | `/onboarding` | — | 0/0 | 0 | 0 |
 | 13-notifications | `/notifications` | `Notifications.tsx` | 0/1 | 0 | 1 |
-| 14-command-palette | `(overlay)` | — | 0/0 | 0 | 0 |
+| 14-command-palette | `(overlay)` | `CommandPalette.tsx` | 0/2 | 0 | 0 |
 | 15-profile | `/settings/profile` | `Profile.tsx` | 0/7 | 0 | 1 |
 | 16-security | `/settings/security` | `Security.tsx` | 0/3 | 0 | 1 |
 | 17-close-account | `/settings/close` | `CloseAccount.tsx` | 0/2 | 0 | 1 |
