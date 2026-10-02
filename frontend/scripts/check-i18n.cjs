@@ -39,6 +39,20 @@
  * hand: tag state, brace depth, and an element stack. That is a heuristic, and it
  * is bounded by the self-test below rather than by hope.
  *
+ * KNOWN FALSE-POSITIVE CLASS — a template literal in a JSX attribute swallows the
+ * rest of the element. In
+ *
+ *     <Link to={`/app/${id}/audit`} icon={<Icon />} label={t['audit.title']} />
+ *
+ * the `` `...` `` is lexed as one string, and the scanner's tag state is left
+ * believing it is still inside that attribute, so the JSX that follows is reported
+ * as hardcoded text. 20 of the 21 findings in `WorkspaceSidebar.tsx` are this one
+ * shape; none of them is rendered prose. It is not fixed here because the fix is
+ * a brace/template tracker, and the baseline already absorbs the class — the
+ * count only moves when a NEW attribute in that shape is added, which is the
+ * signal the check is for. Do not "fix" a finding by rewording a comment; check
+ * whether the reported range starts inside a `` ` `` first.
+ *
  * Usage:
  *   node scripts/check-i18n.cjs               scan src/, exit 1 on any finding
  *   node scripts/check-i18n.cjs --self-test   run the fixtures, exit 1 on failure

@@ -21,7 +21,7 @@ COVERAGE = ROOT / "docs" / "COVERAGE.md"
 SIDECAR = ROOT / "tools" / "checklist_status.json"
 OUT = ROOT / "docs" / "CHECKLIST.md"
 
-MILESTONES = ["M0", "M1", "M2", "M3", "M4"]
+MILESTONES = ["M0", "M1", "M2", "M3", "M4", "M5", "M6"]
 STATUSES = {"pass": "✅ PASS", "wip": "🔨 dikerjakan", "todo": "⬜", "defer": "⏸️ ditunda", "fail": "❌ gagal"}
 
 
@@ -65,7 +65,7 @@ def render(rows, status):
     total = sum(len(by[m]) for m in MILESTONES)
     passed = sum(1 for m in MILESTONES for r in by[m] if status.get(r[0]) == "pass")
     deferred = sum(1 for m in MILESTONES for r in by[m] if status.get(r[0]) == "defer")
-    out += ["", f"**Total M0–M4: {total} story** ({passed} PASS, {deferred} ditunda)", ""]
+    out += ["", f"**Total M0–M6: {total} story** ({passed} PASS, {deferred} ditunda)", ""]
     out += ["## Progres per milestone", "", "| Milestone | Story | PASS | Sisa |", "|---|---|---|---|"]
     for ms in MILESTONES:
         n = len(by[ms])

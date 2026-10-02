@@ -200,6 +200,41 @@ export interface Dictionary {
   'sidebar.accountGroup': string
   'sidebar.integrationsGroup': string
   'sidebar.auditGroup': string
+  // Audit log (US-AD95, screen 41-audit-log). Kept next to the ledger because
+  // both live under the sidebar's "Audit & cost" group.
+  'audit.title': string
+  'audit.from': string
+  'audit.to': string
+  'audit.actor': string
+  'audit.action': string
+  'audit.actorUser': string
+  'audit.actorAgent': string
+  'audit.actorUnknown': string
+  'audit.actorPlaceholder': string
+  'audit.roleBadge': string
+  'audit.activeFilters': string
+  'audit.reset': string
+  'audit.actionPlaceholder': string
+  'audit.refresh': string
+  'audit.export': string
+  'audit.colTime': string
+  'audit.colActor': string
+  'audit.colAction': string
+  'audit.colTarget': string
+  'audit.colDiff': string
+  'audit.csvTime': string
+  'audit.csvActor': string
+  'audit.csvAction': string
+  'audit.csvTarget': string
+  'audit.csvBefore': string
+  'audit.csvAfter': string
+  'audit.emptyFiltered': string
+  'audit.emptyAll': string
+  'audit.emptyHint': string
+  'audit.forbiddenTitle': string
+  'audit.forbiddenHint': string
+  'audit.loadMore': string
+  'audit.loaded': string
   'ledger.title': string
   'ledger.from': string
   'ledger.to': string
@@ -954,6 +989,39 @@ const en: Dictionary = {
   'sidebar.accountGroup': 'Account & team',
   'sidebar.integrationsGroup': 'Integrations & credentials',
   'sidebar.auditGroup': 'Audit & cost',
+  'audit.title': 'Audit log',
+  'audit.from': 'From',
+  'audit.to': 'To',
+  'audit.actor': 'Actor',
+  'audit.action': 'Action',
+  'audit.actorUser': 'user',
+  'audit.actorAgent': 'agent',
+  'audit.actorUnknown': 'system',
+  'audit.actorPlaceholder': 'user or agent id',
+  'audit.roleBadge': 'Owner or admin',
+  'audit.activeFilters': 'Filtered',
+  'audit.reset': 'Reset',
+  'audit.actionPlaceholder': 'e.g. workspace.rename',
+  'audit.refresh': 'Refresh',
+  'audit.export': 'Export CSV',
+  'audit.colTime': 'Time',
+  'audit.colActor': 'Actor',
+  'audit.colAction': 'Action',
+  'audit.colTarget': 'Target',
+  'audit.colDiff': 'Change (before → after)',
+  'audit.csvTime': 'Time',
+  'audit.csvActor': 'Actor',
+  'audit.csvAction': 'Action',
+  'audit.csvTarget': 'Target',
+  'audit.csvBefore': 'Before',
+  'audit.csvAfter': 'After',
+  'audit.emptyFiltered': 'No activity in this range',
+  'audit.emptyAll': 'No activity recorded yet',
+  'audit.emptyHint': 'Administrative changes appear here as they happen.',
+  'audit.forbiddenTitle': 'Only owners and admins can read the audit log',
+  'audit.forbiddenHint': 'Ask a workspace owner if you need access.',
+  'audit.loadMore': 'Load more',
+  'audit.loaded': 'Loaded',
   'ledger.title': 'Cost ledger',
   'ledger.from': 'From',
   'ledger.to': 'To',
@@ -1719,6 +1787,39 @@ const id: Dictionary = {
   'sidebar.accountGroup': 'Pengaturan Akun & Tim',
   'sidebar.integrationsGroup': 'Integrasi & Kredensial',
   'sidebar.auditGroup': 'Audit & Biaya',
+  'audit.title': 'Audit log',
+  'audit.from': 'Dari',
+  'audit.to': 'Sampai',
+  'audit.actor': 'Aktor',
+  'audit.action': 'Aksi',
+  'audit.actorUser': 'pengguna',
+  'audit.actorAgent': 'agent',
+  'audit.actorUnknown': 'sistem',
+  'audit.actorPlaceholder': 'id pengguna atau agen',
+  'audit.roleBadge': 'Owner atau admin',
+  'audit.activeFilters': 'Terfilter',
+  'audit.reset': 'Reset',
+  'audit.actionPlaceholder': 'mis. workspace.rename',
+  'audit.refresh': 'Muat ulang',
+  'audit.export': 'Ekspor CSV',
+  'audit.colTime': 'Waktu',
+  'audit.colActor': 'Aktor',
+  'audit.colAction': 'Aksi',
+  'audit.colTarget': 'Target',
+  'audit.colDiff': 'Perubahan (sebelum → sesudah)',
+  'audit.csvTime': 'Waktu',
+  'audit.csvActor': 'Aktor',
+  'audit.csvAction': 'Aksi',
+  'audit.csvTarget': 'Target',
+  'audit.csvBefore': 'Sebelum',
+  'audit.csvAfter': 'Sesudah',
+  'audit.emptyFiltered': 'Tidak ada aktivitas pada rentang ini',
+  'audit.emptyAll': 'Belum ada aktivitas tercatat',
+  'audit.emptyHint': 'Perubahan administratif muncul di sini begitu terjadi.',
+  'audit.forbiddenTitle': 'Hanya owner dan admin yang bisa membaca audit log',
+  'audit.forbiddenHint': 'Minta akses ke owner ruang kerja.',
+  'audit.loadMore': 'Muat lagi',
+  'audit.loaded': 'Termuat',
   'ledger.title': 'Ledger biaya',
   'ledger.from': 'Dari',
   'ledger.to': 'Sampai',

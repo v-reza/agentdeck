@@ -1,4 +1,4 @@
-import { Cable, KeyRound, Lock, ReceiptText, ShieldCheck, UserRound, Users, Webhook } from 'lucide-react'
+import { Cable, KeyRound, Lock, ReceiptText, ScrollText, ShieldCheck, UserRound, Users, Webhook } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 import { useProjects } from '@/hooks/use-projects'
@@ -169,6 +169,8 @@ function SettingsNav({ orgID }: { orgID: string }) {
             ledger beside its budget. The workspace-wide ledger had no route into
             it at all. */}
         <SettingsLink to={`/app/${orgID}/cost/ledger`} icon={<ReceiptText size={15} />} label={t['ledger.title']} />
+        {/* The group is named for audit AND cost; only the cost half was in it. */}
+        <SettingsLink to={`/app/${orgID}/audit`} icon={<ScrollText size={15} />} label={t['audit.title']} />
       </div>
 
       <div className="flex flex-col gap-1">

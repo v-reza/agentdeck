@@ -35,7 +35,7 @@ cmd/api`). Yang masih benar dari paragraf lama itu hanya soal runtime workspace.
   2026-10-02; daftar ini dulu salah di dua baris):
   | story | mockup | status verifikasi |
   |---|---|---|
-  | `US-AD95` penampil audit log | `41-audit-log` | `GET /api/v1/audit-log` ada. Nol route `/audit` di `router.tsx`; sidebar cuma punya `auditGroup`. **Belum ada.** |
+  | `US-AD95` penampil audit log | `41-audit-log` | **SELESAI 2026-10-03** — route `/app/:orgID/audit` + `AuditLog.tsx` + e2e 4 lulus. |
   | `US-AD98` menutup akun sendiri | `17-close-account` | `DELETE /api/v1/auth/me` ada. Nol referensi `closeAccount` di `frontend/src`. **Belum ada.** |
   | `US-AD56` ekspor laporan biaya CSV | `31-cost-export` | Ledger + cost-summary ada. Nol `exportCsv`/`text/csv` di `frontend/src`. **Belum ada.** |
   | `US-AD55` command palette | `14-command-palette` | `uiSlice` sudah punya `commandPaletteOpen` + `toggleCommandPalette`, tapi **komponennya tidak ada** — hanya state yang tidak pernah dipakai. |
@@ -795,7 +795,7 @@ daftar kerja malam itu habis, bukan bahwa PRD habis.
 
 | # | pekerjaan | kenapa belum | butuh |
 |---|---|---|---|
-| 1 | Layar audit log (`US-AD95`) | backend ✅, UI nol | kerja UI |
+| 1 | ~~Layar audit log (`US-AD95`)~~ | **SELESAI 2026-10-03** (fase 18 §2b) | — |
 | 2 | Tutup akun sendiri (`US-AD98`) | backend ✅, UI nol | kerja UI |
 | 3 | Ekspor CSV (`US-AD56`) | backend ✅, UI nol | kerja UI |
 | 4 | Command palette (`US-AD55`) | state Redux ✅, komponen nol | kerja UI |

@@ -76,6 +76,8 @@ const WorkspaceSettings = lazy(() =>
 )
 const ApiKeys = lazy(() => import('@/routes/dashboard/settings/ApiKeys').then((m) => ({ default: m.ApiKeys })))
 const Security = lazy(() => import('@/routes/dashboard/settings/Security').then((m) => ({ default: m.Security })))
+// US-AD95: the audit log reader. Admin-gated on the page, not only on the endpoint.
+const AuditLog = lazy(() => import('@/routes/dashboard/settings/AuditLog').then((m) => ({ default: m.AuditLog })))
 const Webhooks = lazy(() => import('@/routes/dashboard/settings/Webhooks').then((m) => ({ default: m.Webhooks })))
 const SkillLibrary = lazy(() =>
   import('@/routes/dashboard/skills/SkillLibrary').then((m) => ({ default: m.SkillLibrary })),
@@ -108,6 +110,9 @@ function dashboardRoutes() {
       <Route path="runs/:runID" element={<RunDetail />} />
       <Route path="cost" element={<CostOverview />} />
       <Route path="cost/ledger" element={<LedgerExplorer />} />
+      {/* US-AD95. Sits beside the ledger because both answer "what happened in
+          this workspace" — one about money, one about administrative changes. */}
+      <Route path="audit" element={<AuditLog />} />
       <Route path="settings" element={<Navigate to="workspace" replace />} />
       <Route path="settings/workspace" element={<WorkspaceSettings />} />
       {/* US-AD89: reachable from the rail's account menu, viewer-and-above. */}

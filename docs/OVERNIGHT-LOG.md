@@ -2378,7 +2378,7 @@ melihat argumen pertama, yang kedua seluruh call. Menghapusnya tidak mengubah
 output maupun fixture apa pun. Cabang itu dihapus, bukan mutannya diakali.
 
 
-## Fase 18 — dispatcher tidak memungut task Ready (di luar tabel §2)
+## Fase D — dispatcher tidak memungut task Ready (di luar tabel §2; §2b memakai 18–22)
 
 Dipicu laporan user, bukan daftar fase. Dua sebab, satu di antaranya bug nyata.
 
@@ -2422,3 +2422,72 @@ DB: **0**.
 **Tidak dites**: `internal/ratelimit` (tidak tersentuh fase ini). Migrasi 0023
 dites lewat `TestPostgresRepairMigrationGrantsPrivilegesOnLegacySchema` (jalur
 repair mengulang migrasi).
+
+## Fase 18 — Audit log (US-AD95)
+
+**Kontrak**: brief §2b baris 1; PRD US-AD95 AC1–AC4; mockup `41-audit-log`;
+`ARCHITECTURE.md` §6.2.19 (`GET /api/v1/audit-log`, `cursor` + `limit`, urut
+`created_at DESC`).
+
+**Hasil**: layar `/app/:orgID/audit` hidup. Sidebar punya tautan di grup yang
+namanya memang sudah menyebut audit.
+
+**File**: `frontend/src/store/api/audit.ts` (baru), `frontend/src/routes/dashboard/settings/AuditLog.tsx`
+(baru), `frontend/src/app/router.tsx`, `frontend/src/components/layout/WorkspaceSidebar.tsx`,
+`frontend/src/lib/i18n.ts` (en+id), `frontend/e2e/audit-log.spec.ts` (baru),
+`frontend/scripts/check-i18n.cjs`, `frontend/scripts/i18n-baseline.json`,
+`docs/DESIGN-INVENTORY.md` (regenerate).
+
+**Keputusan**:
+- **CSV diekspor di klien**, dari `before_json`/`after_json` baris yang
+  benar-benar dikembalikan API. Tidak ada endpoint ekspor dan nol `text/csv` di
+  repo. Batasnya ditulis di komentar: ekspor mencakup halaman yang sudah dimuat,
+  bukan seluruh tabel.
+- **Filter aktor & aksi adalah input teks, bukan dropdown.** Versi pertama gw
+  pakai `Combobox` yang opsinya dibangun dari baris yang sedang tampil — itu
+  tidak bisa dipakai MENCARI baris, cuma memilih ulang yang sudah kelihatan.
+  API-nya menerima string persis (`org.rename`), jadi layar meminta string.
+- **Nama aktor tidak ada di API.** `audit_log` cuma menyimpan id. Kolom aktor
+  merender ekor id (judul penuh di `title` + `data-actor`), dan
+  `actor_agent_id` ditandai sebagai agen. Nama manusia butuh endpoint yang tidak
+  ada — tidak gw karang dari daftar anggota, karena salah begitu aktornya agen
+  atau mantan anggota.
+
+**Inventory design (`41-audit-log`, 2 `<svg>` di design)**:
+| elemen | status |
+|---|---|
+| kolom waktu / aktor / aksi / target / diff | ada (testid per kolom) |
+| tombol Ekspor CSV | ada |
+| input rentang tanggal | ada |
+| **badge peran di header** | **HILANG → ditambahkan** (`audit-role-badge`) |
+| **baris "filter aktif" + Reset** | **HILANG → ditambahkan** (`audit-active-filters`) |
+| panel info jargon AC4 | tidak dibawa (jargon spec, dilarang masuk UI) |
+| tab waktu lokal vs UTC | tidak ada di API; waktu dirender lokal |
+
+Dua baris yang hilang itu bukan hiasan: badge menyatakan siapa yang boleh
+membaca, dan baris filter memberi jalan keluar saat tabel kosong karena filter.
+
+**Verifikasi**:
+- `tsc -b` bersih; `prettier --check src/` bersih; `check:i18n` 804 temuan
+  ter-baseline, tanpa regresi (`--self-test` 38 fixture lulus).
+- e2e baru `e2e/audit-log.spec.ts`: **4 lulus** — AC1 (5 kolom + before/after +
+  dua jenis aktor), AC2 (filter aktor/aksi/tanggal), AC3 (empty state),
+  AC4 (member ditolak 403 di endpoint DAN di halaman, sementara owner tetap
+  bisa).
+- **Mutasi 2 titik**: gate peran halaman → CAUGHT; render before/after → CAUGHT.
+  File di-restore byte-identik dan baseline lulus setelah restore.
+- **Full e2e**: shard 48/47/51/42, semua `rc=0` → **188 lulus, 0 gagal**
+  (2 skipped, 1 flaky yang lulus di retry). Nol file `src`/`e2e` lebih baru dari
+  `summary.txt`, jadi run-nya sah.
+- Gate `tools\gate-overnight.cmd` → `rc=0`.
+
+**Catatan yang harus kebaca**: `check-i18n` punya kelas false-positive yang
+sekarang tertulis di header script-nya — template literal di atribut JSX
+menelan sisa elemen, jadi JSX setelahnya dilaporkan sebagai teks keras. 20 dari
+21 temuan di `WorkspaceSidebar.tsx` berbentuk itu dan tidak satu pun prose yang
+dirender. Baseline naik 20 → 21 karena satu instance baru dari kelas yang sama.
+Kelas ini BELUM diperbaiki (butuh pelacak brace/template); angkanya cuma bergerak
+kalau ada atribut baru berbentuk sama, dan itu memang sinyalnya.
+
+**Tidak dikerjakan** (sesuai perintah): US-AD94 AC1/AC5 dan `decision_reason`
+butuh keputusan produk; US-AD57/AD78/AD72 backend-nya belum ada.

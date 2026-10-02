@@ -2,14 +2,14 @@
 
 **Dihasilkan `tools/design_audit.py`.** Jangan diedit tangan: angkanya
 dihitung dari parse `design/stitch-output/v2/*.html` dan
-`frontend/src/**` (162 file), bukan dari ingatan. Jalankan ulang
+`frontend/src/**` (164 file), bukan dari ingatan. Jalankan ulang
 scriptnya kalau ada yang berubah.
 
 ## 1. Ringkasan
 
 | | design | impl |
 |---|---|---|
-| `<svg>` | 111 | 127 |
+| `<svg>` | 111 | 130 |
 
 Dua angka icon di baris pertama itu **bukan** jumlah elemen unik. Mockup
 menggambar ulang icon yang sama di tiap kartu (satu jam per kartu approval),
@@ -17,10 +17,10 @@ sementara implementasi mendeklarasikan komponennya sekali lalu merendernya
 di dalam `.map()`. Jadi rasio mentahnya selalu terlihat lebih buruk daripada
 kenyataan, dan satu-satunya cara membacanya adalah per jenis icon di layar
 yang punya file impl — lihat §3.
-| blok skeleton (abu berukuran) | 323 | 38 |
+| blok skeleton (abu berukuran) | 323 | 39 |
 | `<select>` bawaan HTML | 13 | 0 |
 | file memakai ligature Material Symbols | 22 | 0 |
-| file memakai `lucide-react` | 0 | 42 |
+| file memakai `lucide-react` | 0 | 43 |
 
 ## 2. Icon — dua set, bukan satu
 
@@ -155,7 +155,7 @@ Nol.
 | 09b-github | `/github` | `GitHubPage.tsx` | 3/0 | 0 | 0 |
 | 09c-community | `/community` | `CommunityPage.tsx` | 2/0 | 0 | 0 |
 | 10-board-list | `/boards` | `BoardList.tsx`, `CreateBoardForm.tsx`, `ProjectDetail.tsx` | 9/2 | 0 | 2 |
-| 11-project-list | `/projects` | `CostRail.tsx`, `WorkspaceSidebar.tsx`, `WorkspaceTopbar.tsx`, `CreateProjectForm.tsx`, `ProjectDirectory.tsx`, `ProjectList.tsx`, `ProjectSummary.tsx` | 6/14 | 0 | 2 |
+| 11-project-list | `/projects` | `CostRail.tsx`, `WorkspaceSidebar.tsx`, `WorkspaceTopbar.tsx`, `CreateProjectForm.tsx`, `ProjectDirectory.tsx`, `ProjectList.tsx`, `ProjectSummary.tsx` | 6/15 | 0 | 2 |
 | 12-onboarding | `/onboarding` | — | 0/0 | 0 | 0 |
 | 13-notifications | `/notifications` | `Notifications.tsx` | 0/1 | 0 | 1 |
 | 14-command-palette | `(overlay)` | — | 0/0 | 0 | 0 |
@@ -186,7 +186,7 @@ Nol.
 | 38-members | `/settings/members` | `role-badge.tsx`, `Members.tsx`, `members-actions.tsx` | 0/1 | 0 | 1 |
 | 39-api-keys | `/settings/api-keys` | `ApiKeys.tsx` | 7/6 | 0 | 1 |
 | 40-webhooks | `/settings/webhooks` | `Webhooks.tsx` | 1/3 | 0 | 2 |
-| 41-audit-log | `/settings/audit` | — | 2/0 | 0 | 0 |
+| 41-audit-log | `/settings/audit` | `AuditLog.tsx` | 2/2 | 0 | 1 |
 | 42-dashboard | `/dashboard` | `Dashboard.tsx` | 0/7 | 0 | 1 |
 | 43-state-loading | `(varian)` | `skeleton.tsx` | 0/0 | 0 | 2 |
 | 44-state-empty | `(varian)` | — | 2/0 | 0 | 0 |
@@ -196,7 +196,7 @@ Nol.
 
 ## 10. File tanpa layar (shell & komponen bersama)
 
-92 file tidak dipetakan ke satu layar. Ini wajar untuk
+93 file tidak dipetakan ke satu layar. Ini wajar untuk
 layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 
 - `App.tsx`
@@ -269,6 +269,7 @@ layout, komponen UI, dan store — tapi ikut dihitung di total impl.
 - `store/api/agents.ts`
 - `store/api/api-keys.ts`
 - `store/api/artifacts.ts`
+- `store/api/audit.ts`
 - `store/api/base.ts`
 - `store/api/boards.ts`
 - `store/api/dashboard.ts`
