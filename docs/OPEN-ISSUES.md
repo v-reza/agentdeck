@@ -10,16 +10,65 @@ coret.
 
 ## Endpoint & modul yang belum ada
 
-- **51 endpoint ⬜**, dihitung dari tabel detail `ARCHITECTURE.md` §6.2.1–§6.2.19
-  (bukan §6.2.20 — ringkasan itu basi). Dijaga dua arah oleh `verify_suite.py`.
-  Yang paling utuh belum disentuh: API keys (5), SSE (4), approvals (5),
-  artifacts (5), comments (4), webhooks (7), audit/notif/search/system (6).
-- **Runtime**: workspace container/worktree per run (US-AD12 — sekarang semua run
-  jalan di `scratch`), `internal/sse`, `internal/storage`, `internal/webhook`.
-- `POST /boards/{id}/budget` (M5).
+**Diverifikasi ulang ke kode 2026-10-02 — bagian ini dulu salah besar.** Versi
+sebelumnya bilang "51 endpoint ⬜" dan "`internal/sse`, `internal/storage`,
+`internal/webhook` belum ada". Ketiga paket itu **ada**, dan tabel §6.2 sekarang
+**131 ✅ / 0 ⬜** (`verify_suite.py`: `STATUS ENDPOINT: 131 ✅ dan 0 ⬜ cocok dengan
+cmd/api`). Yang masih benar dari paragraf lama itu hanya soal runtime workspace.
+
+- **Endpoint: 0 ⬜.** Semua 131 endpoint di tabel detail §6.2.1–§6.2.19 bertanda ✅.
+  Dijaga dua arah oleh `verify_suite.py` (route di `cmd/api` yang tidak tercatat →
+  FAIL; klaim jumlah yang tidak cocok dengan baris tabel → FAIL). Ringkasan
+  §6.2.20 masih menunjukkan angka lama (66 ✅ / 62 ⬜) — **jangan dipakai**, itu
+  memang sudah ditandai basi.
+- **Runtime**: `internal/sse`, `internal/storage`, `internal/webhook` **ada dan
+  terpasang**. Yang masih benar: workspace container/worktree per run belum
+  dipakai — `WorkspaceContainer`/`WorkspaceWorktree` cuma didefinisikan sebagai
+  konstanta di `internal/board/types.go`, semua run jalan di `scratch`.
+- `POST /boards/{id}/budget` **sudah ada** — yang terpasang `GET` dan
+  `PATCH /api/v1/boards/{id}/budget`.
+
 
 ## Belum dibangun / belum ada
 
+- **UI yang backend-nya sudah ada, tapi layarnya belum dibangun** (diverifikasi
+  2026-10-02; daftar ini dulu salah di dua baris):
+  | story | mockup | status verifikasi |
+  |---|---|---|
+  | `US-AD95` penampil audit log | `41-audit-log` | `GET /api/v1/audit-log` ada. Nol route `/audit` di `router.tsx`; sidebar cuma punya `auditGroup`. **Belum ada.** |
+  | `US-AD98` menutup akun sendiri | `17-close-account` | `DELETE /api/v1/auth/me` ada. Nol referensi `closeAccount` di `frontend/src`. **Belum ada.** |
+  | `US-AD56` ekspor laporan biaya CSV | `31-cost-export` | Ledger + cost-summary ada. Nol `exportCsv`/`text/csv` di `frontend/src`. **Belum ada.** |
+  | `US-AD55` command palette | `14-command-palette` | `uiSlice` sudah punya `commandPaletteOpen` + `toggleCommandPalette`, tapi **komponennya tidak ada** — hanya state yang tidak pernah dipakai. |
+  | `US-AD57` bulk move | `19-table-view` | Nol `bulkMove`. **Belum ada.** |
+  | `US-AD78` invite link | `38-members` | Nol `inviteLink`. **Belum ada.** |
+  | `US-AD72` prepopulate board dari template | `10-board-list` | `CreateBoardForm.tsx` menyentuh "template", tapi tidak ada prepopulate. **Belum ada.** |
+  | `US-AD54` multi-sort klik header | `19-table-view` | `BoardList`/`ProjectDirectory` punya sort, `TableView.tsx` header belum bisa diklik. Lihat juga blok Design. |
+
+  Dua baris yang **dulu salah dan sudah dibetulkan di sini**:
+  - `34-step-payload` — **sudah dibangun.** `RunSteps.tsx` merender `<Payload
+    payload={step.payload_json} />`, dan `RunDetail.tsx` memakai `RunSteps`.
+  - `33-run-timeline` — **sudah ada** di `/runs/:id`; mockup terpisahnya belum
+    dipetakan, tapi layarnya bukan pekerjaan yang hilang.
+  - `06`/`06b`/`06c` dokumentasi — `/docs/*` **belum punya route di
+    `router.tsx`** (nol hasil). Ini konten dokumentasi, bukan layar produk, tapi
+    jangan diklaim "sudah ada route-nya".
+  - `44-state-empty`/`45-state-error` — `BoardStates.tsx` + `error-boundary.tsx`
+    ada dan terpasang; **pemetaan audit-nya yang salah**, bukan layarnya.
+- **Stream SSE: kliennya SUDAH ADA** (dulu dicatat sebagai belum). `store/api/stream.ts`
+  terdaftar di `store/index.ts`, ada `stream-wiring.test.ts`, dan
+  `use-sse-cache.ts` dipakai `BoardToolbar.tsx`, `ApprovalDetail.tsx`, dan
+  `TaskDetailDrawer.tsx`.
+- **Webhook UI: SUDAH ADA** (dulu dicatat sebagai belum). Ada
+  `routes/dashboard/settings/Webhooks.tsx` + route + tautan sidebar.
+- **`US-AD108`, `US-AD67`, `US-AD73`** berstatus `wip` di
+  `tools/checklist_status.json`, tapi ketiganya punya tes yang mengutip AC-nya:
+  `agents_update_test.go` + `agents_tasks_test.go` (US-AD108, US-AD73),
+  `agents_model_gate_test.go` (US-AD67). Status `wip`-nya perlu ditinjau ulang,
+  bukan otomatis berarti belum jadi.
+- **20 story M5/M6 tidak ada di `CHECKLIST.md`** (109 story di `COVERAGE.md`,
+  89 baris di checklist). Termasuk `US-AD06` API Keys dan `US-AD52`/`US-AD53`
+  webhooks yang **layarnya sudah dibangun**. Checklist-nya ketinggalan, bukan
+  produknya.
 
 ## Bahasa & konsistensi
 
@@ -135,12 +184,11 @@ coret.
   menyentuh `BoardSpendToday` yang sudah ✅, dan memilih zona waktu itu keputusan
   produk (UTC vs zona pengguna), bukan keputusan implementasi.
 
-- **Frontend belum memakai stream SSE.** Empat endpoint §6.2.13 jalan dan
-  terbukti lawan API nyata (`tools/probe-f11.py` 21/21, termasuk rantai penuh
-  INSERT → trigger NOTIFY → LISTEN → frame), tapi UI masih memakai pola
-  revalidate/polling yang sama seperti sebelumnya. Backend-nya siap; yang belum
-  ada adalah kliennya. **Belum dikerjakan** — menyambung UI adalah perubahan di
-  `frontend/`, bukan penambahan endpoint.
+- ~~**Frontend belum memakai stream SSE.**~~ **SALAH — sudah dipakai.**
+  Diverifikasi 2026-10-02: `store/api/stream.ts` terdaftar di `store/index.ts`,
+  ada `stream-wiring.test.ts`, dan `hooks/use-sse-cache.ts` dipakai
+  `BoardToolbar.tsx`, `ApprovalDetail.tsx`, dan `TaskDetailDrawer.tsx`. Endpoint
+  §6.2.13 juga sudah ✅ semua.
 
 - **`events` tidak punya retensi.** §3.12 tidak menyebut TTL, dan N6 menyebut
   target 1.000.000 event/bulan. Dengan trigger NOTIFY sekarang, setiap INSERT
@@ -157,11 +205,10 @@ coret.
   **Belum diperbaiki**: memperbaikinya berarti memilih salah satu angka, dan
   itu keputusan produk.
 
-- **Frontend belum memakai webhook.** Tujuh endpoint §6.2.18 jalan dan
-  terbukti lawan API nyata (`tools/probe-f12.py` 30/30, termasuk pengiriman
-  keluar dengan HMAC terverifikasi), tapi belum ada layar untuk mendaftarkan
-  atau membaca riwayat pengiriman. **Belum dikerjakan** — itu perubahan di
-  `frontend/`, bukan penambahan endpoint.
+- ~~**Frontend belum memakai webhook.**~~ **SALAH — layarnya sudah ada.**
+  Diverifikasi 2026-10-02: `routes/dashboard/settings/Webhooks.tsx`, route-nya di
+  `router.tsx`, tautannya di `WorkspaceSidebar.tsx`, dan kliennya di
+  `store/api/`. Endpoint §6.2.18 juga sudah ✅ semua.
 
 - **Tidak ada role "Worker" di kode.** §6.2.14 dan §6.2.16 meminta
   `Internal/Key` dengan role Worker, tapi `auth.Role` hanya Owner/Admin/Member/
@@ -182,7 +229,10 @@ coret.
 - **`steps.payload_json` itu JSONB**: Postgres menormalkan urutan kunci + spasi.
   Klaimnya "setia pada isi, bukan byte" — jangan ada yang menulis ulang jadi "verbatim".
 - **Dispatcher AgentDeck mati** kecuali `AGENTDECK_DISPAT` di-set. Tick yang hidup
-  membelanjakan kredensial operator.
+  membelanjakan kredensial operator. Di rig lokal ini **sedang ON** lewat `.env`
+  (gitignored); default repo tetap OFF. Catatan: nama variabelnya `AGENTDECK_DISPAT`
+  **tanpa** `CH` — nama `AGENTDECK_DISPATCH` tidak dibaca binary mana pun, dan
+  `verify_suite.py` sekarang gagal kalau drift itu muncul lagi.
 
 ## Arsip
 
@@ -734,41 +784,49 @@ menghitung lalu lintas yang ditolak sebagai request yang dilayani.
 ## Cakupan: apa yang SELESAI vs apa yang belum dibangun
 
 Ditulis supaya "semua fase selesai" tidak dibaca sebagai "produknya lengkap".
-Diverifikasi ke kode 2026-10-02, bukan dari ingatan.
+**Diverifikasi ulang ke kode 2026-10-02.** Versi pertama blok ini salah di empat
+baris; koreksinya ada di bawah tabel.
 
-**Fase `OVERNIGHT-BRIEF.md` §2: 0–17 selesai semua** (18 baris, semuanya
-bertanda ✅). Itu artinya daftar kerja malam itu habis, bukan bahwa PRD habis.
+**Fase `OVERNIGHT-BRIEF.md` §2: 0–18 selesai semua.** Fase 0–17 ada di tabel §2
+(18 baris, semuanya ✅); Fase 18 di luar tabel, untuk bug dispatcher. Itu artinya
+daftar kerja malam itu habis, bukan bahwa PRD habis.
 
-**Layar mockup yang belum punya implementasi** (`tools/design_audit.py`, §9
-`DESIGN-INVENTORY.md`). Empat di antaranya **backend-nya sudah ada**, jadi yang
-kurang cuma UI-nya:
+**Sisa kerja nyata, urut dari yang paling siap dikerjakan:**
 
-| mockup | backend | catatan |
-|---|---|---|
-| `41-audit-log` | ✅ `GET /api/v1/audit-log` (Admin) | Sidebar punya grup "Audit & cost" tapi **cuma satu** tautan (ledger). Audit log tidak punya route. |
-| `17-close-account` | ✅ `DELETE /api/v1/auth/me` (Viewer) | `closeAccount` hidup di `cmd/api/main.go:457`. UI-nya tidak ada; nol referensi `closeAccount` di `frontend/src`. |
-| `31-cost-export` | ✅ (ledger + cost-summary) | Modal ekspor belum ada. |
-| `34-step-payload` | ✅ (`/runs/{id}`, steps) | Panel payload belum ada. |
+| # | pekerjaan | kenapa belum | butuh |
+|---|---|---|---|
+| 1 | Layar audit log (`US-AD95`) | backend ✅, UI nol | kerja UI |
+| 2 | Tutup akun sendiri (`US-AD98`) | backend ✅, UI nol | kerja UI |
+| 3 | Ekspor CSV (`US-AD56`) | backend ✅, UI nol | kerja UI |
+| 4 | Command palette (`US-AD55`) | state Redux ✅, komponen nol | kerja UI |
+| 5 | Bulk move (`US-AD57`) | tidak ada | kerja UI |
+| 6 | Invite link (`US-AD78`) | tidak ada | UI + keputusan produk |
+| 7 | Prepopulate board dari template (`US-AD72`) | tidak ada | UI + keputusan produk |
+| 8 | Multi-sort header `TableView` (`US-AD54`) | header belum bisa diklik | kerja UI |
+| 9 | Workspace container/worktree per run (`US-AD12`) | konstanta ada, semua run `scratch` | kerja backend besar |
+| 10 | Ikon: ~3 `<svg>` di impl vs 319 di design | sisa gap visual terbesar | kerja design |
+| 11 | `/docs/*` belum punya route | konten dokumentasi, bukan layar | keputusan produk |
+| 12 | Onboarding (`US-AD92`) | ditunda user | keputusan produk |
+| 13 | 803 string keras (`US-AD50` AC1) | baseline CI, `--strict` keluar 1 | kerja i18n |
+| 14 | `steps` cache read/write (`US-AD94` AC1) | angkanya di `ledger_entries`, bukan `steps` | keputusan produk + migrasi |
+| 15 | Masking payload per peran (`US-AD94` AC5) | tidak ada permukaan masking | keputusan produk |
+| 16 | `decision_reason` | `DecideApproval` menimpa alasan pemohon (`queries.sql:1664`) | migrasi |
+| 17 | Job Go di CI melewati suite Postgres | butuh service container + kredensial | kerja CI |
+| 18 | Zona waktu "hari ini" untuk biaya board | `date_trunc(day, now())` vs UTC; laten selama DB UTC | keputusan produk |
+| 19 | Retensi `events` | tidak ada TTL; tumbuh linier selamanya | keputusan produk |
+| 20 | Role `Worker` | `auth.Role` cuma owner/admin/member/viewer | keputusan produk |
+| 21 | 3 konflik kontrak | arah operasional sudah dipilih, menunggu keputusan final | keputusan user |
 
-Lima lagi **tidak punya backend** — layar saja tidak cukup:
+**Yang dulu tercatat di sini sebagai belum, dan ternyata SALAH:**
 
-| mockup | kenapa |
-|---|---|
-| `06`/`06b`/`06c` docs quickstart/api/telemetry | Konten dokumentasi, bukan layar produk. `/docs/*` sudah ada route-nya. |
-| `12-onboarding` | Tidak ada endpoint onboarding; alurnya belum diputuskan. |
-| `14-command-palette` | Overlay murni klien — bisa dibangun tanpa backend, tapi belum masuk fase mana pun. |
-| `33-run-timeline` | `/runs/:id` sudah punya timeline; mockup terpisah belum dipetakan. |
-| `44-state-empty`, `45-state-error` | `BoardStates.tsx` + `error-boundary.tsx` ada dan terpasang (dipakai `KanbanBoard.tsx` dan `AppShell.tsx`), tapi audit memetakannya sebagai tanpa file impl. **Pemetaannya yang salah, bukan layarnya.** |
-
-**Utang yang sudah terukur dan tidak bisa diklaim selesai:**
-
-- US-AD50 AC1: 803 string keras masih ada (baseline CI, `--strict` keluar 1).
-- US-AD94 AC1 (cache read/write per step) dan AC5 (masking per peran): kolomnya
-  tidak ada di skema.
-- `decision_reason`: `DecideApproval` menimpa alasan pemohon (`queries.sql:1664`).
-  Butuh migrasi.
-- Job Go di CI melewati suite Postgres.
-
+- `34-step-payload` — **sudah dibangun.** `RunSteps.tsx` merender
+  `<Payload payload={step.payload_json} />`; `RunDetail.tsx` memakainya.
+- `33-run-timeline` — **sudah ada** di `/runs/:id`.
+- `06`/`06b`/`06c` docs — `/docs/*` **belum punya route**; klaim lama "sudah ada
+  route-nya" tidak benar.
+- `44`/`45` state — `BoardStates.tsx` + `error-boundary.tsx` ada dan terpasang;
+  **pemetaan audit-nya yang salah**, bukan layarnya.
+- SSE dan webhook di frontend — **keduanya sudah dipakai** (lihat blok di atas).
 
 ## Dispatcher tidak memungut task Ready — dua sebab, satu di antaranya bug
 
